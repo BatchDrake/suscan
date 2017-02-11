@@ -115,6 +115,8 @@ ctk_entry_set_cursor(ctk_widget_t *widget, unsigned int p)
     entry->pos = p;
   else if (p >= entry->pos + widget->width)
     entry->pos = p - widget->width + 1;
+
+  return CTK_TRUE;
 }
 
 CTKPRIVATE CTKBOOL
