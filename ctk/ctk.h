@@ -42,6 +42,7 @@
 
 #define CTK_WIDGET_SHADOW_DX 2
 #define CTK_WIDGET_SHADOW_DY 1
+#define CTK_WIDGET_SHADOW_CHAR ACS_CKBOARD
 
 #define CTK_CTRL(key) (toupper(key) - '@')
 
@@ -86,18 +87,30 @@ enum ctk_dialog_kind {
 
 struct ctk_widget;
 
+typedef void    (*ctk_kbd_handler_t) (struct ctk_widget *, int);
+typedef void    (*ctk_dtor_handler_t) (struct ctk_widget *);
+typedef CTKBOOL (*ctk_resize_handler_t) (struct ctk_widget *, unsigned int, unsigned int);
+typedef CTKBOOL (*ctk_move_handler_t) (struct ctk_widget *, unsigned int, unsigned int);
+typedef void    (*ctk_winch_handler_t) (struct ctk_widget *, unsigned int, unsigned int);
+typedef void    (*ctk_submit_handler_t) (struct ctk_widget *, struct ctk_item *);
+typedef CTKBOOL (*ctk_attach_handler_t) (struct ctk_widget *, struct ctk_widget *);
+typedef void    (*ctk_detach_handler_t) (struct ctk_widget *, struct ctk_widget *);
+typedef void    (*ctk_focus_handler_t) (struct ctk_widget *);
+typedef void    (*ctk_blur_handler_t) (struct ctk_widget *);
+typedef void    (*ctk_redraw_handler_t) (struct ctk_widget *);
+
 struct ctk_widget_handlers {
-  void (*kbd_handler) (struct ctk_widget *, int);
-  void (*dtor_handler) (struct ctk_widget *);
-  CTKBOOL (*resize_handler) (struct ctk_widget *, unsigned int, unsigned int);
-  CTKBOOL (*move_handler) (struct ctk_widget *, unsigned int, unsigned int);
-  void (*winch_handler) (struct ctk_widget *, unsigned int, unsigned int);
-  void (*submit_handler) (struct ctk_widget *, struct ctk_item *);
-  CTKBOOL (*attach_handler) (struct ctk_widget *, struct ctk_widget *);
-  void (*detach_handler) (struct ctk_widget *, struct ctk_widget *);
-  void (*focus_handler) (struct ctk_widget *);
-  void (*blur_handler) (struct ctk_widget *);
-  void (*redraw_handler) (struct ctk_widget *);
+  ctk_kbd_handler_t    kbd_handler;
+  ctk_dtor_handler_t   dtor_handler;
+  ctk_resize_handler_t resize_handler;
+  ctk_move_handler_t   move_handler;
+  ctk_winch_handler_t  winch_handler;
+  ctk_submit_handler_t submit_handler;
+  ctk_attach_handler_t attach_handler;
+  ctk_detach_handler_t detach_handler;
+  ctk_focus_handler_t  focus_handler;
+  ctk_blur_handler_t   blur_handler;
+  ctk_redraw_handler_t redraw_handler;
 };
 
 /* Base class for all ctk_widgets */
@@ -221,6 +234,7 @@ CTKBOOL ctk_widget_resize(
     unsigned int width,
     unsigned int height);
 CTKBOOL ctk_widget_move(ctk_widget_t *widget, unsigned int x, unsigned int y);
+CTKBOOL ctk_widget_center(ctk_widget_t *widget);
 CTKBOOL ctk_widget_set_shadow(ctk_widget_t *widget, CTKBOOL val);
 CTKBOOL ctk_widget_show(ctk_widget_t *widget);
 CTKBOOL ctk_widget_hide(ctk_widget_t *widget);
@@ -231,6 +245,7 @@ void ctk_widget_submit(ctk_widget_t *widget, struct ctk_item *item);
 void ctk_widget_notify_kbd(ctk_widget_t *widget, int c);
 void ctk_widget_set_popup(ctk_widget_t *widget, CTKBOOL val);
 void ctk_widget_set_private(ctk_widget_t *widget, void *ptr);
+void *ctk_widget_get_private(const ctk_widget_t *widget);
 void ctk_widget_set_attrs(ctk_widget_t *widget, int attrs);
 void ctk_widget_set_accel(ctk_widget_t *widget, int accel);
 int  ctk_widget_get_accel(const ctk_widget_t *widget);
@@ -266,6 +281,9 @@ CTKBOOL ctk_menu_add_multiple_items(
     unsigned int count);
 CTKBOOL ctk_menu_set_title(ctk_widget_t *widget, const char *title);
 const char *ctk_menu_get_title(ctk_widget_t *widget);
+unsigned int ctk_menu_get_item_count(const ctk_widget_t *widget);
+struct ctk_item *ctk_menu_get_first_item(const ctk_widget_t *widget);
+unsigned int ctk_menu_get_max_item_name_length(const ctk_widget_t *widget);
 
 /************************** CTK Menubar functions ****************************/
 ctk_widget_t *ctk_menubar_new(void);
@@ -273,6 +291,7 @@ CTKBOOL ctk_menubar_add_menu(ctk_widget_t *, const char *, ctk_widget_t *);
 
 /************************* CTK Window functions ******************************/
 ctk_widget_t *ctk_window_new(const char *title);
+void ctk_window_focus_next(ctk_widget_t *widget);
 
 /************************* CTK Button functions ******************************/
 ctk_widget_t *ctk_button_new(
@@ -280,7 +299,15 @@ ctk_widget_t *ctk_button_new(
     unsigned int x,
     unsigned int y,
     const char *caption);
+CTKBOOL ctk_button_set_caption(ctk_widget_t *widget, const char *caption);
 const char *ctk_button_get_caption(ctk_widget_t *widget);
+
+/************************ CTK Selbutton functions ****************************/
+ctk_widget_t *ctk_selbutton_new(
+    ctk_widget_t *root,
+    unsigned int x,
+    unsigned int y,
+    ctk_widget_t *menu);
 
 /************************** CTK Entry functions ******************************/
 const char *ctk_entry_get_text(const ctk_widget_t *widget);

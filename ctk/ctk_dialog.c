@@ -86,10 +86,7 @@ ctk_msgbox(enum ctk_dialog_kind kind, const char *title, const char *msg)
   if (!ctk_widget_resize(window, win_width, text_height + 6))
     goto done;
 
-  if (!ctk_widget_move(
-      window,
-      COLS / 2 - win_width / 2,
-      LINES / 2 - win_height / 2))
+  if (!ctk_widget_center(window))
     goto done;
 
   for (i = 0; i < strlen(msg); ++i) {
@@ -115,13 +112,11 @@ ctk_msgbox(enum ctk_dialog_kind kind, const char *title, const char *msg)
   ctk_widget_show(button);
   ctk_widget_show(window);
 
-  update_panels();
-  doupdate();
+  ctk_update();
 
   while ((c = getch()) != '\n') {
     ctk_widget_notify_kbd(window, c);
-    update_panels();
-    doupdate();
+    ctk_update();
   }
 
   ctk_widget_hide(window);

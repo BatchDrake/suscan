@@ -12,4 +12,8 @@
 
 #include "ctk.h"
 
+#define ARRAY_SZ(arr) ((sizeof(arr)) / sizeof(arr[0]))
+
+SUBOOL suscan_open_source_dialog(void);
+
 #endif /* _MAIN_INCLUDE_H */

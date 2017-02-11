@@ -360,6 +360,12 @@ ctk_widget_set_private(ctk_widget_t *widget, void *ptr)
   widget->private = ptr;
 }
 
+void *
+ctk_widget_get_private(const ctk_widget_t *widget)
+{
+  return widget->private;
+}
+
 void
 ctk_widget_get_handlers(
     ctk_widget_t *widget,
@@ -381,6 +387,22 @@ ctk_widget_set_attrs(ctk_widget_t *widget, int attrs)
 {
   widget->attrs = attrs;
   ctk_widget_redraw(widget);
+}
+
+CTKBOOL
+ctk_widget_center(ctk_widget_t *widget)
+{
+  unsigned int x, y;
+
+  if (widget->root == NULL) {
+    x = (COLS >> 1) - (widget->width >> 1);
+    y = (LINES >> 1) - (widget->height >> 1);
+  } else {
+    x = (widget->root->width >> 1) - (widget->width >> 1);
+    y = (widget->root->height >> 1) - (widget->height >> 1);
+  }
+
+  return ctk_widget_move(widget, x, y);
 }
 
 void
@@ -446,10 +468,11 @@ ctk_widget_assert_shadow(ctk_widget_t *widget)
 
     wbkgdset(
         widget->c_win_shadow,
-        ACS_CKBOARD
+        CTK_WIDGET_SHADOW_CHAR
         | (widget->root == NULL
             ? COLOR_PAIR(CTK_CP_BACKGROUND)
             : widget->root->attrs));
+    werase(widget->c_win_shadow);
   }
 
   if (widget->c_win_shadow == NULL)
@@ -524,7 +547,10 @@ ctk_widget_ctor_start(
     wid->c_window = derwin(root->c_window, height, width, y, x);
 
   if (wid->c_window == NULL) {
-    fprintf(stderr, "%s: failed to create window\n", __FUNCTION__);
+    fprintf(
+        stderr,
+        "%s: failed to create window (%d, %d, %d, %d)\n",
+        __FUNCTION__, x, y, width, height);
     goto fail;
   }
 

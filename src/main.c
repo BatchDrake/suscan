@@ -12,8 +12,6 @@
 #include "ctk.h"
 #include "suscan.h"
 
-#define ARRAY_SZ(arr) ((sizeof(arr)) / sizeof(arr[0]))
-
 #define SUSCAN_MANDATORY(expr)          \
   if (!(expr)) {                        \
     fprintf(                            \
@@ -51,7 +49,8 @@ suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
 {
   switch (CTK_ITEM_INDEX(item)) {
     case 0:
-      ctk_msgbox(CTK_DIALOG_ERROR, "SUScan", "Operation not implemented");
+      if (!suscan_open_source_dialog())
+        ctk_msgbox(CTK_DIALOG_ERROR, "SUScan", "Failed to open source dialog");
       break;
 
     case 1:
@@ -137,6 +136,7 @@ main(int argc, char *argv[], char *envp[])
     goto done;
   }
 
+  scrollok(stdscr,TRUE);
   if (!suscan_iface_init()) {
     fprintf(stderr, "%s: failed to initialize interface\n", argv[0]);
     goto done;

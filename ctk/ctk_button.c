@@ -36,6 +36,29 @@ ctk_button_get_caption(ctk_widget_t *widget)
   return button->caption;
 }
 
+CTKBOOL
+ctk_button_set_caption(ctk_widget_t *widget, const char *caption)
+{
+  ctk_button_t *button;
+  char *cap_dup;
+
+  CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_BUTTON);
+
+  button = CTK_WIDGET_AS_BUTTON(widget);
+
+  if ((cap_dup = strdup(caption)) == NULL)
+    return CTK_FALSE;
+
+  if (button->caption != NULL)
+    free(button->caption);
+
+  button->caption = cap_dup;
+
+  ctk_widget_redraw(widget);
+
+  return CTK_TRUE;
+}
+
 CTKPRIVATE void
 ctk_button_on_redraw(ctk_widget_t *widget)
 {

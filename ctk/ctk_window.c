@@ -53,14 +53,6 @@ ctk_window_redraw_children(ctk_widget_t *widget)
 }
 
 CTKPRIVATE void
-ctk_window_redraw_shadow(ctk_widget_t *widget)
-{
-  ctk_window_t *window;
-
-
-}
-
-CTKPRIVATE void
 ctk_window_on_redraw(ctk_widget_t *widget)
 {
   unsigned int pos;
@@ -97,11 +89,13 @@ ctk_window_set_focus(ctk_window_t *window, int next)
   return CTK_TRUE;
 }
 
-CTKPRIVATE void
+void
 ctk_window_focus_next(ctk_widget_t *widget)
 {
   ctk_window_t *window;
   int next_widget;
+
+  CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_WINDOW);
 
   window = CTK_WIDGET_AS_WINDOW(widget);
 

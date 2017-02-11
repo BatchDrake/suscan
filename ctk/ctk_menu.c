@@ -331,6 +331,54 @@ ctk_menu_on_destroy(ctk_widget_t *widget)
   ctk_menu_clear_c_item_list(menu);
 }
 
+unsigned int
+ctk_menu_get_item_count(const ctk_widget_t *widget)
+{
+  ctk_menu_t *menu;
+
+  CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_MENU);
+
+  menu = CTK_WIDGET_AS_MENU(widget);
+
+  return menu->item_count;
+}
+
+struct ctk_item *
+ctk_menu_get_first_item(const ctk_widget_t *widget)
+{
+  unsigned int i;
+  ctk_menu_t *menu;
+
+  CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_MENU);
+
+  menu = CTK_WIDGET_AS_MENU(widget);
+
+  for (i = 0; i < menu->item_count; ++i)
+    if (menu->item_list[i] != NULL)
+      return menu->item_list[i];
+
+  return NULL;
+}
+
+unsigned int
+ctk_menu_get_max_item_name_length(const ctk_widget_t *widget)
+{
+  unsigned int i;
+  ctk_menu_t *menu;
+  unsigned int len = 0;
+
+  CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_MENU);
+
+  menu = CTK_WIDGET_AS_MENU(widget);
+
+  for (i = 0; i < menu->item_count; ++i)
+    if (menu->item_list[i] != NULL)
+      if (strlen(menu->item_list[i]->name) > len)
+        len = strlen(menu->item_list[i]->name);
+
+  return len;
+}
+
 ctk_widget_t *
 ctk_menu_new(unsigned int x, unsigned int y)
 {
