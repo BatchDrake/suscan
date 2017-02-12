@@ -212,7 +212,7 @@ ctk_menubar_new(void)
     goto fail;
 
   widget->class = CTK_WIDGET_CLASS_MENUBAR;
-  widget->attrs = COLOR_PAIR(2);
+  ctk_widget_set_attrs(widget, COLOR_PAIR(CTK_CP_WIDGET));
 
   bar = CTK_WIDGET_AS_MENUBAR(widget);
   bar->active = -1;

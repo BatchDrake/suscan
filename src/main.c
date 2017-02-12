@@ -65,7 +65,7 @@ suscan_init_menus(void)
   struct ctk_widget_handlers hnd;
 
   SUSCAN_MANDATORY(main_interface.menubar = ctk_menubar_new());
-  SUSCAN_MANDATORY(main_interface.m_source = ctk_menu_new(0, 0));
+  SUSCAN_MANDATORY(main_interface.m_source = ctk_menu_new(NULL, 0, 0));
 
   /* Create source menu */
   SUSCAN_MANDATORY(

@@ -99,10 +99,12 @@ ctk_entry_buffer_set_length(ctk_widget_t *widget, unsigned int length)
   return CTK_TRUE;
 }
 
-CTKPRIVATE CTKBOOL
+CTKBOOL
 ctk_entry_set_cursor(ctk_widget_t *widget, unsigned int p)
 {
   ctk_entry_t *entry;
+
+  CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_ENTRY);
 
   entry = CTK_WIDGET_AS_ENTRY(widget);
 
@@ -274,7 +276,9 @@ ctk_entry_set_text(ctk_widget_t *widget, const char *text)
 
   memcpy(entry->buffer, text, strlen(text));
 
-  ctk_entry_move_cursor(widget, 0);
+  ctk_entry_move_cursor(widget, strlen(text));
+
+  ctk_widget_redraw(widget);
 
   return CTK_TRUE;
 }
@@ -307,7 +311,9 @@ ctk_entry_new(
   entry = CTK_WIDGET_AS_ENTRY(widget);
 
   /* A_UNDERLINE is nice too, but it doesn't work with graphic consoles */
-  entry->cur_attr = COLOR_PAIR(3) | A_BOLD;
+  entry->cur_attr = COLOR_PAIR(CTK_CP_MENU_SELECT) | A_BOLD;
+
+  ctk_widget_set_attrs(widget, COLOR_PAIR(CTK_CP_TEXTAREA));
 
   /* Install handlers */
   ctk_widget_get_handlers(widget, &handlers);

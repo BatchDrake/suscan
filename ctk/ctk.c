@@ -35,7 +35,20 @@ ctk_item_destroy(struct ctk_item *item)
   if (item->desc != NULL)
     free(item->desc);
 
+  if (item->__printable_name != NULL)
+    free(item->__printable_name);
+
   free(item);
+}
+
+CTKPRIVATE void
+ctk_item_remove_non_printable(struct ctk_item *item)
+{
+  unsigned int i;
+
+  for (i = 0; i < strlen(item->__printable_name); ++i)
+    if (!isprint(item->__printable_name[i]))
+      item->__printable_name[i] = '?';
 }
 
 struct ctk_item *
@@ -51,6 +64,11 @@ ctk_item_new(const char *name, const char *desc, void *private)
 
   if ((new->desc = strdup(desc)) == NULL)
     goto fail;
+
+  if ((new->__printable_name = strdup(name)) == NULL)
+    goto fail;
+
+  ctk_item_remove_non_printable(new);
 
   new->private = private;
 
@@ -200,12 +218,9 @@ void
 ctk_widget_redraw(ctk_widget_t *widget)
 {
   if (widget->visible || widget->root == NULL) {
-
     if (widget->shadow)
       ctk_widget_fill_shadow(widget);
 
-    wattrset(widget->c_window, widget->attrs);
-    wbkgd(widget->c_window, widget->attrs);
     werase(widget->c_window);
 
     if (widget->has_border)
@@ -340,6 +355,9 @@ ctk_widget_show(ctk_widget_t *widget)
           return CTK_FALSE;
       }
 
+      /* Get focus if it's a root window */
+      ctk_widget_focus(widget);
+
       if (show_panel(widget->c_panel) == ERR)
         return CTK_FALSE;
 
@@ -361,6 +379,12 @@ ctk_widget_hide(ctk_widget_t *widget)
 {
   if (widget->visible) {
     if (widget->root == NULL) {
+      /*
+       * One consequence of making a root widget invisible is that it loses
+       * the focus.
+       */
+      ctk_widget_blur(widget);
+
       /* Also hide panel shadow */
       if (widget->shadow)
         if (hide_panel(widget->c_pan_shadow) == ERR)
@@ -443,6 +467,8 @@ void
 ctk_widget_set_attrs(ctk_widget_t *widget, int attrs)
 {
   widget->attrs = attrs;
+  wbkgd(widget->c_window, widget->attrs);
+
   ctk_widget_redraw(widget);
 }
 
@@ -494,13 +520,13 @@ ctk_widget_ctor_end(ctk_widget_t *widget)
    * Object is completely constructed. Now we ask the root widget whether
    * it's ok to attach it.
    */
-  if (widget->root != NULL) {
+  if (widget->root != NULL)
     if (!ctk_widget_attach(widget->root, widget)) {
       fprintf(stderr, "%s: attach failed\n", __FUNCTION__);
       return CTK_FALSE;
     }
-  } else
-    ctk_widget_redraw(widget);
+
+  ctk_widget_redraw(widget);
 
   return CTK_TRUE;
 }
@@ -516,8 +542,8 @@ ctk_widget_set_shadow(ctk_widget_t *widget, CTKBOOL val)
 
   widget->shadow = val;
 
-  if (val && widget->visible) {
-    if (widget->root == NULL) {
+  if (widget->visible && widget->root == NULL) {
+    if (val) {
       /*
        * Since the NCurses API is crippled and doesn't let me insert a panel
        * in a given position of the panel stack, I have to show the shadow
@@ -526,8 +552,15 @@ ctk_widget_set_shadow(ctk_widget_t *widget, CTKBOOL val)
       show_panel(widget->c_pan_shadow);
       top_panel(widget->c_panel);
     } else {
-      ctk_widget_redraw(widget);
+      /* Hiding can be done safely */
+      hide_panel(widget->c_pan_shadow);
     }
+  } else if (widget->root != NULL) {
+    /*
+     * If we change the shadow of a non-root window, redraw operation must be
+     * forwarded to the root.
+     */
+    ctk_widget_redraw(widget->root);
   }
 
   return CTK_TRUE;
@@ -600,6 +633,7 @@ CTKBOOL
 ctk_init(void)
 {
   if (initscr() == NULL)
+#define CTK_CP_MENU_SELECT_BLUR     12
     return CTK_FALSE;
 
   if (start_color() == ERR)

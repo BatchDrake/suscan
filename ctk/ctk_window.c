@@ -72,7 +72,7 @@ ctk_window_on_redraw(ctk_widget_t *widget)
 }
 
 CTKPRIVATE CTKBOOL
-ctk_window_set_focus(ctk_window_t *window, int next)
+ctk_window_switch_focus(ctk_window_t *window, int next)
 {
   if (next < -1 || next >= window->widget_count)
     return CTK_FALSE;
@@ -116,7 +116,37 @@ ctk_window_focus_next(ctk_widget_t *widget)
   }
 
   /* Focus next widget */
-  ctk_window_set_focus(window, next_widget);
+  ctk_window_switch_focus(window, next_widget);
+}
+
+CTKPRIVATE int
+ctk_window_lookup_child(ctk_window_t *window, ctk_widget_t *child)
+{
+  int i;
+
+  for (i = 0; i < window->widget_count; ++i)
+    if (window->widget_list[i] == child)
+      return i;
+
+  return -1;
+}
+
+CTKBOOL
+ctk_window_set_focus(ctk_widget_t *widget, ctk_widget_t *target)
+{
+  ctk_window_t *window;
+  int child;
+
+  CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_WINDOW);
+
+  window = CTK_WIDGET_AS_WINDOW(widget);
+
+  if ((child = ctk_window_lookup_child(window, target)) == -1)
+    return CTK_FALSE;
+
+  ctk_window_switch_focus(window, child);
+
+  return CTK_TRUE;
 }
 
 CTKPRIVATE void
@@ -130,7 +160,7 @@ ctk_window_on_kbd(ctk_widget_t *widget, int c)
     /* Tabulator pressed: cycle around widgets */
     ctk_window_focus_next(widget);
   else if (c == CTK_KEY_ESCAPE)
-    ctk_window_set_focus(window, -1);
+    ctk_window_switch_focus(window, -1);
   else if (window->focus != -1)
     /* Forward key to focused widget */
     ctk_widget_notify_kbd(window->widget_list[window->focus], c);
@@ -149,18 +179,6 @@ ctk_window_on_destroy(ctk_widget_t *widget)
   /* We don't own widgets, we just loan them */
   if (window->widget_list != NULL)
     free(window->widget_list);
-}
-
-CTKPRIVATE int
-ctk_window_lookup_child(ctk_window_t *window, ctk_widget_t *child)
-{
-  int i;
-
-  for (i = 0; i < window->widget_count; ++i)
-    if (window->widget_list[i] == child)
-      return i;
-
-  return -1;
 }
 
 CTKPRIVATE CTKBOOL
@@ -228,7 +246,7 @@ ctk_window_new(const char *title)
     goto fail;
 
   widget->class = CTK_WIDGET_CLASS_WINDOW;
-  widget->attrs = COLOR_PAIR(2);
+  ctk_widget_set_attrs(widget, COLOR_PAIR(CTK_CP_WIDGET));
 
   ctk_widget_set_border(widget, CTK_TRUE);
 

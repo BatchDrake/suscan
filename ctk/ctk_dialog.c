@@ -21,9 +21,446 @@
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <libgen.h>
+#include <unistd.h>
+#include <dirent.h>
 
 #include "ctk.h"
 
+/************************** File chooser dialog ******************************/
+struct ctk_file_dialog {
+  ctk_widget_t *window;
+  ctk_widget_t *dir_menu;
+  ctk_widget_t *file_menu;
+  ctk_widget_t *ok_button;
+  ctk_widget_t *cancel_button;
+  ctk_widget_t *path_entry;
+
+  char *curr_directory;
+
+  CTKBOOL exit_flag;
+  CTKBOOL cancel;
+};
+
+#define ctk_file_dialog_INITIALIZER \
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL, CTK_FALSE, CTK_FALSE}
+
+/*
+ * Couldn't find a way to span the selection bar to the right end of the
+ * menu subwindow. This will have to do the job.
+ *
+ * NCurses is maybe one of the worst libraries I've ever dealt with.
+ */
+#define CTK_DIALOG_RIGHT_PADDING "                                       "
+
+CTKPRIVATE CTKBOOL ctk_file_dialog_set_path(
+    struct ctk_file_dialog *dialog,
+    const char *path);
+
+CTKPRIVATE CTKBOOL
+ctk_file_dialog_is_file_selected(const struct ctk_file_dialog *diag)
+{
+  return ctk_menu_get_current_item(diag->file_menu) != NULL;
+}
+
+CTKPRIVATE char *
+ctk_file_dialog_get_selected_file(const struct ctk_file_dialog *diag)
+{
+  const struct ctk_item *item = NULL;
+
+  if (diag->curr_directory == NULL)
+    return NULL;
+
+  if ((item = ctk_menu_get_current_item(diag->file_menu)) == NULL)
+    return NULL;
+
+  return strbuild(
+      "%s/%s",
+      strcmp(diag->curr_directory, "/") == 0 ? "" : diag->curr_directory,
+      item->name);
+}
+
+CTKPRIVATE void
+ctk_file_dialog_on_submit_ok(ctk_widget_t *widget, struct ctk_item *item)
+{
+  struct ctk_file_dialog *diag =
+      (struct ctk_file_dialog *) ctk_widget_get_private(widget);
+
+  if (ctk_file_dialog_is_file_selected(diag))
+    diag->exit_flag = CTK_TRUE;
+}
+
+CTKPRIVATE void
+ctk_file_dialog_on_submit_cancel(ctk_widget_t *widget, struct ctk_item *item)
+{
+  struct ctk_file_dialog *diag =
+      (struct ctk_file_dialog *) ctk_widget_get_private(widget);
+
+  diag->exit_flag = CTK_TRUE;
+  diag->cancel = CTK_TRUE;
+}
+
+CTKPRIVATE void
+ctk_file_dialog_on_submit_file(ctk_widget_t *widget, struct ctk_item *item)
+{
+  struct ctk_file_dialog *diag =
+      (struct ctk_file_dialog *) ctk_widget_get_private(widget);
+
+  diag->exit_flag = CTK_TRUE;
+}
+
+CTKPRIVATE void
+ctk_file_dialog_on_submit_dir(ctk_widget_t *widget, struct ctk_item *item)
+{
+  struct ctk_file_dialog *diag =
+      (struct ctk_file_dialog *) ctk_widget_get_private(widget);
+  char *path;
+  char *effective_path;
+  char *message;
+
+  /* We can safely ignore this */
+  if (strcmp(item->name, ".") == 0)
+    return;
+
+  if (strcmp(item->name, "..") == 0) {
+    if ((path = strdup(diag->curr_directory)) != NULL)
+      effective_path = dirname(path);
+  } else {
+    path = strbuild(
+        "%s/%s",
+        strcmp(diag->curr_directory, "/") == 0 ? "" : diag->curr_directory,
+        item->name);
+    effective_path = path;
+  }
+
+  if (path == NULL) {
+    ctk_msgbox(CTK_DIALOG_ERROR, "Out of memory", message);
+    return;
+  }
+
+  if (!ctk_file_dialog_set_path(diag, effective_path))
+    if ((message = strbuild(
+        "Cannot open directory `%s': %s",
+        effective_path,
+        strerror(errno))) != NULL) {
+      ctk_msgbox(CTK_DIALOG_ERROR, "Open directory", message);
+      free(message);
+    }
+
+  free(path);
+}
+
+CTKPRIVATE void
+ctk_file_dialog_on_submit_path(ctk_widget_t *widget, struct ctk_item *item)
+{
+  struct ctk_file_dialog *diag =
+      (struct ctk_file_dialog *) ctk_widget_get_private(widget);
+  char *message;
+  const char *path;
+
+  path = ctk_entry_get_text(diag->path_entry);
+
+  if (!ctk_file_dialog_set_path(diag, path))
+    if ((message = strbuild(
+        "Cannot open directory `%s': %s",
+        path,
+        strerror(errno))) != NULL) {
+      ctk_msgbox(CTK_DIALOG_ERROR, "Open directory", message);
+      free(message);
+    }
+}
+
+CTKPRIVATE void
+ctk_file_dialog_finalize(struct ctk_file_dialog *dialog)
+{
+  if (dialog->window != NULL)
+    ctk_widget_hide(dialog->window);
+
+  if (dialog->cancel_button != NULL)
+    ctk_widget_destroy(dialog->cancel_button);
+
+  if (dialog->ok_button != NULL)
+    ctk_widget_destroy(dialog->ok_button);
+
+  if (dialog->file_menu != NULL)
+    ctk_widget_destroy(dialog->file_menu);
+
+  if (dialog->dir_menu != NULL)
+    ctk_widget_destroy(dialog->dir_menu);
+
+  if (dialog->path_entry != NULL)
+    ctk_widget_destroy(dialog->path_entry);
+
+  if (dialog->window != NULL)
+    ctk_widget_destroy(dialog->window);
+
+  if (dialog->curr_directory != NULL)
+    free(dialog->curr_directory);
+}
+
+CTKPRIVATE int
+__ctk_file_dialog_cmp(const struct ctk_item *a, const struct ctk_item *b)
+{
+  if (strcmp(a->name, ".") == 0)
+    return -1;
+
+  if (strcmp(a->name, "..") == 0) {
+    if (strcmp(b->name, ".") == 0)
+      return 1;
+
+    return -1;
+  }
+
+  return strcmp(a->name, b->name);
+}
+
+CTKPRIVATE CTKBOOL
+ctk_file_dialog_set_path(struct ctk_file_dialog *dialog, const char *path)
+{
+  struct stat sbuf;
+  CTKBOOL ok = CTK_FALSE;
+  char *fullpath = NULL;
+  char *pathdup;
+  struct dirent *ent;
+  DIR *d = NULL;
+
+  if (stat(path, &sbuf) == -1)
+    goto done;
+
+  if (!S_ISDIR(sbuf.st_mode))
+    goto done;
+
+  if ((d = opendir(path)) == NULL)
+    goto done;
+
+  if ((pathdup = strdup(path)) == NULL)
+    goto done;
+
+  if (dialog->curr_directory != NULL)
+    free(dialog->curr_directory);
+  dialog->curr_directory = pathdup;
+
+  ctk_menu_clear(dialog->dir_menu);
+  ctk_menu_clear(dialog->file_menu);
+
+  if (!ctk_entry_set_text(dialog->path_entry, path))
+    goto done;
+
+  while ((ent = readdir(d)) != NULL) {
+    if ((fullpath = strbuild("%s/%s", path, ent->d_name)) == NULL)
+      goto done;
+
+    if (stat(fullpath, &sbuf) != -1) {
+      if (S_ISDIR(sbuf.st_mode)) {
+        if (!__ctk_menu_add_item(
+            CTK_WIDGET_AS_MENU(dialog->dir_menu),
+            ent->d_name,
+            CTK_DIALOG_RIGHT_PADDING,
+            dialog))
+          goto done;
+      } else {
+        if (!__ctk_menu_add_item(
+            CTK_WIDGET_AS_MENU(dialog->file_menu),
+            ent->d_name,
+            CTK_DIALOG_RIGHT_PADDING,
+            dialog))
+          goto done;
+      }
+    }
+
+    free(fullpath);
+    fullpath = NULL;
+  }
+
+  __ctk_menu_update(dialog->dir_menu);
+  __ctk_menu_update(dialog->file_menu);
+
+  ctk_menu_sort(dialog->dir_menu, __ctk_file_dialog_cmp);
+  ctk_menu_sort(dialog->file_menu, __ctk_file_dialog_cmp);
+
+  ctk_update();
+
+  ok = CTK_TRUE;
+
+done:
+  if (fullpath != NULL)
+    free(fullpath);
+
+  if (d != NULL)
+    closedir(d);
+
+  return ok;
+}
+
+CTKPRIVATE CTKBOOL
+ctk_file_dialog_init(struct ctk_file_dialog *dialog, const char *title)
+{
+  struct ctk_widget_handlers hnd;
+
+  /* Create dialog Window */
+  if ((dialog->window = ctk_window_new(title)) == NULL)
+    return CTK_FALSE;
+  ctk_widget_set_private(dialog->window, dialog);
+  ctk_widget_set_shadow(dialog->window, CTK_TRUE);
+
+  if (!ctk_widget_resize(
+      dialog->window,
+      CTK_DIALOG_FILE_CHOOSER_WIDTH,
+      CTK_DIALOG_FILE_CHOOSER_HEIGHT))
+    return CTK_FALSE;
+
+  ctk_widget_center(dialog->window);
+
+  /* Create path entry */
+  if ((dialog->path_entry = ctk_entry_new(
+      dialog->window,
+      CTK_DIALOG_FILE_PATH_X,
+      CTK_DIALOG_FILE_PATH_Y,
+      CTK_DIALOG_FILE_CHOOSER_WIDTH - 2 * CTK_DIALOG_FILE_PATH_X)) == NULL)
+    return CTK_FALSE;
+  ctk_widget_set_private(dialog->path_entry, dialog);
+
+  /* Create directory chooser */
+  if ((dialog->dir_menu = ctk_menu_new(
+      dialog->window,
+      CTK_DIALOG_FILE_DIR_X,
+      CTK_DIALOG_FILE_DIR_Y)) == NULL)
+    return CTK_FALSE;
+  ctk_widget_set_private(dialog->dir_menu, dialog);
+  ctk_menu_set_autoresize(dialog->dir_menu, CTK_FALSE);
+  ctk_widget_set_shadow(dialog->dir_menu, CTK_FALSE);
+
+  if (!ctk_widget_resize(
+      dialog->dir_menu,
+      CTK_DIALOG_FILE_DIR_WIDTH,
+      CTK_DIALOG_FILE_DIR_HEIGHT))
+    return CTK_FALSE;
+
+  if (!ctk_menu_add_item(dialog->dir_menu, ".", CTK_DIALOG_RIGHT_PADDING, NULL))
+    return CTK_FALSE;
+
+  if (!ctk_menu_add_item(dialog->dir_menu, "..", CTK_DIALOG_RIGHT_PADDING, NULL))
+    return CTK_FALSE;
+
+  /* Create file chooser */
+  if ((dialog->file_menu = ctk_menu_new(
+      dialog->window,
+      CTK_DIALOG_FILE_FILENAME_X,
+      CTK_DIALOG_FILE_FILENAME_Y)) == NULL)
+    return CTK_FALSE;
+  ctk_widget_set_private(dialog->file_menu, dialog);
+  ctk_menu_set_autoresize(dialog->file_menu, CTK_FALSE);
+  ctk_widget_set_shadow(dialog->file_menu, CTK_FALSE);
+
+  if (!ctk_widget_resize(
+      dialog->file_menu,
+      CTK_DIALOG_FILE_FILENAME_WIDTH,
+      CTK_DIALOG_FILE_FILENAME_HEIGHT))
+    return CTK_FALSE;
+
+  if (!ctk_menu_add_item(
+      dialog->file_menu,
+      "<no file>",
+      CTK_DIALOG_RIGHT_PADDING, NULL))
+    return CTK_FALSE;
+
+  if ((dialog->cancel_button = ctk_button_new(
+      dialog->window,
+    CTK_DIALOG_FILE_CANCEL_BUTTON_X,
+    CTK_DIALOG_FILE_CANCEL_BUTTON_Y,
+    "Cancel")) == NULL)
+    return CTK_FALSE;
+  ctk_widget_set_private(dialog->cancel_button, dialog);
+  ctk_widget_set_attrs(dialog->cancel_button, COLOR_PAIR(CTK_CP_TEXTAREA));
+
+  if ((dialog->ok_button = ctk_button_new(
+      dialog->window,
+      CTK_DIALOG_FILE_OK_BUTTON_X,
+      CTK_DIALOG_FILE_OK_BUTTON_Y,
+      "OK")) == NULL)
+    return CTK_FALSE;
+  ctk_widget_set_private(dialog->ok_button, dialog);
+  ctk_widget_set_attrs(dialog->ok_button, COLOR_PAIR(CTK_CP_TEXTAREA));
+
+  /* Set submit handlers */
+  ctk_widget_get_handlers(dialog->ok_button, &hnd);
+  hnd.submit_handler = ctk_file_dialog_on_submit_ok;
+  ctk_widget_set_handlers(dialog->ok_button, &hnd);
+
+  ctk_widget_get_handlers(dialog->cancel_button, &hnd);
+  hnd.submit_handler = ctk_file_dialog_on_submit_cancel;
+  ctk_widget_set_handlers(dialog->cancel_button, &hnd);
+
+  ctk_widget_get_handlers(dialog->file_menu, &hnd);
+  hnd.submit_handler = ctk_file_dialog_on_submit_file;
+  ctk_widget_set_handlers(dialog->file_menu, &hnd);
+
+  ctk_widget_get_handlers(dialog->dir_menu, &hnd);
+  hnd.submit_handler = ctk_file_dialog_on_submit_dir;
+  ctk_widget_set_handlers(dialog->dir_menu, &hnd);
+
+  ctk_widget_get_handlers(dialog->path_entry, &hnd);
+  hnd.submit_handler = ctk_file_dialog_on_submit_path;
+  ctk_widget_set_handlers(dialog->path_entry, &hnd);
+
+  /* Show all */
+  ctk_widget_show(dialog->ok_button);
+  ctk_widget_show(dialog->cancel_button);
+  ctk_widget_show(dialog->file_menu);
+  ctk_widget_show(dialog->dir_menu);
+  ctk_widget_show(dialog->path_entry);
+
+  ctk_widget_show(dialog->window);
+
+  ctk_window_set_focus(dialog->window, dialog->file_menu);
+
+  ctk_update();
+
+  return CTK_TRUE;
+}
+
+enum ctk_dialog_response
+ctk_file_dialog(const char *title, char **file)
+{
+  struct ctk_file_dialog dialog = ctk_file_dialog_INITIALIZER;
+  enum ctk_dialog_response resp = CTK_DIALOG_RESPONSE_ERROR;
+  char *cwd = NULL;
+  int c;
+
+  if ((cwd = malloc(PATH_MAX)) == NULL)
+      goto done;
+
+  if (getcwd(cwd, PATH_MAX) == NULL)
+    goto done;
+
+  if (!ctk_file_dialog_init(&dialog, title))
+    goto done;
+
+  if (!ctk_file_dialog_set_path(&dialog, cwd))
+    goto done;
+
+  free(cwd);
+  cwd = NULL;
+
+  while (!dialog.exit_flag && (c = getch()) != CTK_KEY_ESCAPE) {
+    ctk_widget_notify_kbd(dialog.window, c);
+    ctk_update();
+  }
+
+  resp = CTK_DIALOG_RESPONSE_OK;
+
+done:
+  ctk_file_dialog_finalize(&dialog);
+
+  if (cwd != NULL)
+    free(cwd);
+
+  return resp;
+}
+
+/*************************** Message box dialog ******************************/
 CTKPRIVATE void
 ctk_dialog_get_text_size(
     const char *text,
@@ -107,7 +544,7 @@ ctk_msgbox(enum ctk_dialog_kind kind, const char *title, const char *msg)
       row + 4, "OK")) == NULL)
     goto done;
 
-  ctk_widget_set_attrs(button, COLOR_PAIR(1));
+  ctk_widget_set_attrs(button, COLOR_PAIR(CTK_CP_TEXTAREA));
 
   ctk_widget_show(button);
   ctk_widget_show(window);

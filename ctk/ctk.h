@@ -60,6 +60,26 @@
 
 #define CTK_ITEM_INDEX(item) (item)->__index
 
+/* File dialog layout defines */
+#define CTK_DIALOG_FILE_CHOOSER_WIDTH   60
+#define CTK_DIALOG_FILE_CHOOSER_HEIGHT  22
+#define CTK_DIALOG_FILE_PATH_X          2
+#define CTK_DIALOG_FILE_PATH_Y          2
+#define CTK_DIALOG_FILE_DIR_X           2
+#define CTK_DIALOG_FILE_DIR_Y           4
+#define CTK_DIALOG_FILE_DIR_WIDTH       20
+#define CTK_DIALOG_FILE_DIR_HEIGHT      (CTK_DIALOG_FILE_CHOOSER_HEIGHT - CTK_DIALOG_FILE_DIR_Y - 2)
+#define CTK_DIALOG_FILE_FILENAME_X      (CTK_DIALOG_FILE_DIR_WIDTH + CTK_DIALOG_FILE_DIR_X)
+#define CTK_DIALOG_FILE_FILENAME_Y      4
+#define CTK_DIALOG_FILE_FILENAME_WIDTH  (CTK_DIALOG_FILE_CHOOSER_WIDTH - CTK_DIALOG_FILE_DIR_WIDTH - 4)
+#define CTK_DIALOG_FILE_FILENAME_HEIGHT (CTK_DIALOG_FILE_CHOOSER_HEIGHT - CTK_DIALOG_FILE_FILENAME_Y - 2)
+
+#define CTK_DIALOG_FILE_CANCEL_BUTTON_X (CTK_DIALOG_FILE_CHOOSER_WIDTH - 26)
+#define CTK_DIALOG_FILE_CANCEL_BUTTON_Y (CTK_DIALOG_FILE_CHOOSER_HEIGHT - 2)
+
+#define CTK_DIALOG_FILE_OK_BUTTON_X     (CTK_DIALOG_FILE_CHOOSER_WIDTH - 14)
+#define CTK_DIALOG_FILE_OK_BUTTON_Y     (CTK_DIALOG_FILE_CHOOSER_HEIGHT - 2)
+
 struct ctk_item {
   char *name;
   char *desc;
@@ -67,6 +87,7 @@ struct ctk_item {
 
   /* Private members */
   int __index;
+  char *__printable_name; /* Yes, NCurses is that dumb */
 };
 
 enum ctk_widget_class {
@@ -83,6 +104,14 @@ enum ctk_dialog_kind {
   CTK_DIALOG_INFO,
   CTK_DIALOG_WARNING,
   CTK_DIALOG_ERROR
+};
+
+enum ctk_dialog_response {
+  CTK_DIALOG_RESPONSE_ERROR  = -1,
+  CTK_DIALOG_RESPONSE_OK     = 0,
+  CTK_DIALOG_RESPONSE_CANCEL = 1,
+  CTK_DIALOG_RESPONSE_YES    = 2,
+  CTK_DIALOG_RESPONSE_NO     = 3,
 };
 
 struct ctk_widget;
@@ -153,7 +182,10 @@ typedef struct ctk_widget ctk_widget_t;
 
 struct ctk_menu {
   PTR_LIST(struct ctk_item, item); /* No gaps allowed! */
+  PTR_LIST(struct ctk_item, old_item); /* Old item list */
   char   *title;
+  CTKBOOL autoresize;
+  CTKBOOL has_focus;
 
   /* Curses objects */
   ITEM  **c_item_list;
@@ -269,7 +301,7 @@ int ctk_widget_lookup_index_by_accel(
     int accel);
 
 /************************* CTK Menu functions ********************************/
-ctk_widget_t *ctk_menu_new(unsigned int x, unsigned int y);
+ctk_widget_t *ctk_menu_new(ctk_widget_t *, unsigned int x, unsigned int y);
 CTKBOOL ctk_menu_add_item(
     ctk_widget_t *widget,
     const char *name,
@@ -279,19 +311,33 @@ CTKBOOL ctk_menu_add_multiple_items(
     ctk_widget_t *widget,
     const struct ctk_item *items,
     unsigned int count);
+CTKBOOL __ctk_menu_add_item(
+    ctk_menu_t *menu,
+    const char *name,
+    const char *desc,
+    void *private);
+CTKBOOL __ctk_menu_update(ctk_widget_t *widget);
 CTKBOOL ctk_menu_set_title(ctk_widget_t *widget, const char *title);
 const char *ctk_menu_get_title(ctk_widget_t *widget);
 unsigned int ctk_menu_get_item_count(const ctk_widget_t *widget);
+CTKBOOL ctk_menu_sort(
+    ctk_widget_t *widget,
+    int (*cmp)(const struct ctk_item *, const struct ctk_item *));
+
 struct ctk_item *ctk_menu_get_first_item(const ctk_widget_t *widget);
+struct ctk_item *ctk_menu_get_current_item(const ctk_widget_t *widget);
 unsigned int ctk_menu_get_max_item_name_length(const ctk_widget_t *widget);
+void ctk_menu_set_autoresize(const ctk_widget_t *widget, CTKBOOL val);
 
 /************************** CTK Menubar functions ****************************/
 ctk_widget_t *ctk_menubar_new(void);
 CTKBOOL ctk_menubar_add_menu(ctk_widget_t *, const char *, ctk_widget_t *);
+void ctk_menu_clear(ctk_widget_t *widget);
 
 /************************* CTK Window functions ******************************/
 ctk_widget_t *ctk_window_new(const char *title);
 void ctk_window_focus_next(ctk_widget_t *widget);
+CTKBOOL ctk_window_set_focus(ctk_widget_t *widget, ctk_widget_t *target);
 
 /************************* CTK Button functions ******************************/
 ctk_widget_t *ctk_button_new(
@@ -310,18 +356,20 @@ ctk_widget_t *ctk_selbutton_new(
     ctk_widget_t *menu);
 
 /************************** CTK Entry functions ******************************/
-const char *ctk_entry_get_text(const ctk_widget_t *widget);
-CTKBOOL ctk_entry_set_text(ctk_widget_t *widget, const char *text);
 ctk_widget_t *ctk_entry_new(
     ctk_widget_t *root,
     unsigned int x,
     unsigned int y,
     unsigned int width);
+const char *ctk_entry_get_text(const ctk_widget_t *widget);
+CTKBOOL ctk_entry_set_text(ctk_widget_t *widget, const char *text);
+CTKBOOL ctk_entry_set_cursor(ctk_widget_t *widget, unsigned int p);
 
 /************************* CTK Dialog functions ******************************/
 CTKBOOL ctk_msgbox(
     enum ctk_dialog_kind kind,
     const char *title,
     const char *msg);
+enum ctk_dialog_response ctk_file_dialog(const char *text, char **file);
 
 #endif /* _CTK_H */
