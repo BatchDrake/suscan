@@ -141,13 +141,68 @@ ctk_widget_blur(ctk_widget_t *widget)
     (widget->handlers.blur_handler) (widget);
 }
 
+CTKPRIVATE void
+ctk_widget_fill_shadow(ctk_widget_t *widget)
+{
+  unsigned int i, j;
+  unsigned int x, y;
+  chtype attr;
+
+  for (j = 0; j < widget->height; ++j)
+    for (i = 0; i < widget->width; ++i) {
+      x = i + widget->x + CTK_WIDGET_SHADOW_DX;
+      y = j + widget->y + CTK_WIDGET_SHADOW_DY;
+
+      attr = A_COLOR & (
+          widget->root == NULL
+          ? mvwinch(newscr, y, x)
+          : mvwinch(widget->root->c_window, y, x));
+      mvwaddch(widget->c_win_shadow, j, i, CTK_WIDGET_SHADOW_CHAR | attr);
+    }
+}
+
+CTKPRIVATE CTKBOOL
+ctk_widget_assert_shadow(ctk_widget_t *widget)
+{
+  if (widget->c_win_shadow == NULL) {
+    if (widget->root == NULL)
+      widget->c_win_shadow = newwin(
+          widget->height,
+          widget->width,
+          widget->y + CTK_WIDGET_SHADOW_DY,
+          widget->x + CTK_WIDGET_SHADOW_DX);
+    else
+      widget->c_win_shadow = derwin(
+          widget->root->c_window,
+          widget->height,
+          widget->width,
+          widget->y + CTK_WIDGET_SHADOW_DY,
+          widget->x + CTK_WIDGET_SHADOW_DX);
+
+    ctk_widget_fill_shadow(widget);
+  }
+
+  if (widget->c_win_shadow == NULL)
+    return CTK_FALSE;
+
+  if (widget->root == NULL && widget->c_pan_shadow == NULL) {
+    if ((widget->c_pan_shadow = new_panel(widget->c_win_shadow)) == NULL)
+      return CTK_FALSE;
+
+    if (!widget->visible)
+      hide_panel(widget->c_pan_shadow);
+  }
+
+  return CTK_TRUE;
+}
+
 void
 ctk_widget_redraw(ctk_widget_t *widget)
 {
   if (widget->visible || widget->root == NULL) {
 
     if (widget->shadow)
-      werase(widget->c_win_shadow);
+      ctk_widget_fill_shadow(widget);
 
     wattrset(widget->c_window, widget->attrs);
     wbkgd(widget->c_window, widget->attrs);
@@ -279,9 +334,11 @@ ctk_widget_show(ctk_widget_t *widget)
   if (!widget->visible) {
     if (widget->root == NULL) {
       /* Also show panel shadow */
-      if (widget->shadow)
+      if (widget->shadow) {
+        ctk_widget_fill_shadow(widget);
         if (show_panel(widget->c_pan_shadow) == ERR)
           return CTK_FALSE;
+      }
 
       if (show_panel(widget->c_panel) == ERR)
         return CTK_FALSE;
@@ -444,47 +501,6 @@ ctk_widget_ctor_end(ctk_widget_t *widget)
     }
   } else
     ctk_widget_redraw(widget);
-
-  return CTK_TRUE;
-}
-
-CTKPRIVATE CTKBOOL
-ctk_widget_assert_shadow(ctk_widget_t *widget)
-{
-  if (widget->c_win_shadow == NULL) {
-    if (widget->root == NULL)
-      widget->c_win_shadow = newwin(
-          widget->height,
-          widget->width,
-          widget->y + CTK_WIDGET_SHADOW_DY,
-          widget->x + CTK_WIDGET_SHADOW_DX);
-    else
-      widget->c_win_shadow = derwin(
-          widget->root->c_window,
-          widget->height,
-          widget->width,
-          widget->y + CTK_WIDGET_SHADOW_DY,
-          widget->x + CTK_WIDGET_SHADOW_DX);
-
-    wbkgdset(
-        widget->c_win_shadow,
-        CTK_WIDGET_SHADOW_CHAR
-        | (widget->root == NULL
-            ? COLOR_PAIR(CTK_CP_BACKGROUND)
-            : widget->root->attrs));
-    werase(widget->c_win_shadow);
-  }
-
-  if (widget->c_win_shadow == NULL)
-    return CTK_FALSE;
-
-  if (widget->root == NULL && widget->c_pan_shadow == NULL) {
-    if ((widget->c_pan_shadow = new_panel(widget->c_win_shadow)) == NULL)
-      return CTK_FALSE;
-
-    if (!widget->visible)
-      hide_panel(widget->c_pan_shadow);
-  }
 
   return CTK_TRUE;
 }
