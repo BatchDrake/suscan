@@ -24,12 +24,16 @@
 
 #include "ctk.h"
 
+/* This is actually a composite object */
 struct ctk_selbutton_data {
   CTKBOOL unrolled;
   ctk_widget_t *button;
   ctk_widget_t *menu;
   struct ctk_item *current;
   ctk_dtor_handler_t button_dtor;
+
+  void *private;
+  ctk_submit_handler_t submit_handler;
 };
 
 struct ctk_selbutton_data *
@@ -95,6 +99,15 @@ ctk_selbutton_on_destroy(ctk_widget_t *widget)
   (dtor) (widget);
 }
 
+void
+ctk_selbutton_set_on_submit(ctk_widget_t *widget, ctk_submit_handler_t cb)
+{
+  struct ctk_selbutton_data *data =
+      (struct ctk_selbutton_data *) ctk_widget_get_private(widget);
+
+  data->submit_handler = cb;
+}
+
 /* Menu submit handlers changes button caption according to current sel */
 CTKPRIVATE void
 ctk_selbutton_menu_on_submit(ctk_widget_t *widget, struct ctk_item *item)
@@ -105,6 +118,36 @@ ctk_selbutton_menu_on_submit(ctk_widget_t *widget, struct ctk_item *item)
   data->current = item;
   data->unrolled = CTK_FALSE;
   ctk_button_set_caption(data->button, item->name);
+
+  if (data->submit_handler != NULL)
+    (data->submit_handler) (widget, item);
+}
+
+struct ctk_item *
+ctk_selbutton_get_current_item(ctk_widget_t *widget)
+{
+  struct ctk_selbutton_data *data =
+      (struct ctk_selbutton_data *) ctk_widget_get_private(widget);
+
+  return ctk_menu_get_current_item(data->menu);
+}
+
+void
+ctk_selbutton_set_private(ctk_widget_t *widget, void *private)
+{
+  struct ctk_selbutton_data *data =
+      (struct ctk_selbutton_data *) ctk_widget_get_private(widget);
+
+  data->private = private;
+}
+
+void *
+ctk_selbutton_get_private(const ctk_widget_t *widget)
+{
+  struct ctk_selbutton_data *data =
+      (struct ctk_selbutton_data *) ctk_widget_get_private(widget);
+
+  return data->private;
 }
 
 ctk_widget_t *

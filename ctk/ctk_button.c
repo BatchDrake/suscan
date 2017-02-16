@@ -67,7 +67,7 @@ ctk_button_on_redraw(ctk_widget_t *widget)
   ctk_button_t *button;
   CTKBOOL is_accel;
   CTKBOOL has_focus;
-
+  CTKBOOL highlighted = CTK_FALSE;
   button = CTK_WIDGET_AS_BUTTON(widget);
 
   caption = button->caption;
@@ -80,8 +80,9 @@ ctk_button_on_redraw(ctk_widget_t *widget)
     wattron(widget->c_window, A_BOLD);
 
   for (j = 0; j < len; ++j) {
-    is_accel = tolower(caption[j]) == widget->accel;
+    is_accel = !highlighted && tolower(caption[j]) == widget->accel;
     if (is_accel) {
+      highlighted = CTK_TRUE;
       wattron(widget->c_window, A_UNDERLINE);
       if (has_focus)
         wattron(widget->c_window, COLOR_PAIR(4));

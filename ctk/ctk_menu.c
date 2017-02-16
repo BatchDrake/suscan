@@ -647,8 +647,8 @@ ctk_menu_new(ctk_widget_t *root, unsigned int x, unsigned int y)
   set_menu_win(new->c_menu, widget->c_window);
   set_menu_sub(new->c_menu, new->c_sub);
 
-  set_menu_fore(new->c_menu, widget->attrs);
-  set_menu_back(new->c_menu, widget->attrs ^ A_REVERSE);
+  set_menu_back(new->c_menu, widget->attrs);
+  set_menu_fore(new->c_menu, widget->attrs ^ A_REVERSE);
 
   if (!ctk_widget_ctor_end(widget))
     goto fail;

@@ -361,6 +361,10 @@ ctk_widget_t *ctk_selbutton_new(
     unsigned int x,
     unsigned int y,
     ctk_widget_t *menu);
+void ctk_selbutton_set_on_submit(ctk_widget_t *widget, ctk_submit_handler_t cb);
+struct ctk_item *ctk_selbutton_get_current_item(ctk_widget_t *widget);
+void ctk_selbutton_set_private(ctk_widget_t *widget, void *private);
+void *ctk_selbutton_get_private(const ctk_widget_t *widget);
 
 /************************** CTK Entry functions ******************************/
 ctk_widget_t *ctk_entry_new(

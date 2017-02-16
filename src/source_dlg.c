@@ -56,6 +56,19 @@ struct suscan_source_dialog {
 }
 
 SUPRIVATE void
+suscan_dialog_source_on_submit(ctk_widget_t *widget, struct ctk_item *item)
+{
+  struct suscan_source_dialog *dialog =
+        (struct suscan_source_dialog *) ctk_selbutton_get_private(widget);
+
+  if (item->private == SUSCAN_SOURCE_TYPE_IQ_FILE
+      || item->private == SUSCAN_SOURCE_TYPE_WAV_FILE)
+    ctk_widget_show(dialog->file_button);
+  else
+    ctk_widget_hide(dialog->file_button);
+}
+
+SUPRIVATE void
 suscan_dialog_on_submit(ctk_widget_t *widget, struct ctk_item *item)
 {
   struct suscan_source_dialog *dialog =
@@ -136,6 +149,7 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
       = ctk_selbutton_new(dialog->window, 15, 2, dialog->menu)) == NULL)
     return SU_TRUE;
   ctk_widget_set_attrs(dialog->selbutton, COLOR_PAIR(CTK_CP_TEXTAREA));
+  ctk_selbutton_set_private(dialog->selbutton, dialog);
 
   /* Create file selection button */
   mvwaddstr(dialog->window->c_window, 4, 2, "File:");
@@ -164,6 +178,10 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
   ctk_widget_get_handlers(dialog->file_button, &hnd);
   hnd.submit_handler = suscan_dialog_file_on_submit;
   ctk_widget_set_handlers(dialog->file_button, &hnd);
+
+  ctk_selbutton_set_on_submit(
+      dialog->selbutton,
+      suscan_dialog_source_on_submit);
 
   ctk_widget_show(dialog->file_button);
   ctk_widget_show(dialog->selbutton);

@@ -365,6 +365,7 @@ ctk_widget_show(ctk_widget_t *widget)
     } else {
       widget->visible = CTK_TRUE;
 
+      wbkgd(widget->c_window, widget->attrs);
       ctk_widget_redraw(widget);
     }
 
@@ -393,9 +394,13 @@ ctk_widget_hide(ctk_widget_t *widget)
       if (hide_panel(widget->c_panel) == ERR)
         return CTK_FALSE;
     } else {
-      if (widget->shadow)
+      if (widget->shadow) {
+        wbkgd(widget->c_win_shadow, widget->root->attrs);
         if (werase(widget->c_win_shadow) == ERR)
           return CTK_FALSE;
+      }
+
+      wbkgd(widget->c_window, widget->root->attrs);
       if (werase(widget->c_window) == ERR)
         return CTK_FALSE;
     }

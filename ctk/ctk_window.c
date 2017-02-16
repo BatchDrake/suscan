@@ -48,7 +48,7 @@ ctk_window_redraw_children(ctk_widget_t *widget)
   window = CTK_WIDGET_AS_WINDOW(widget);
 
   for (i = 0; i < window->widget_count; ++i)
-    if (window->widget_list[i] != NULL)
+    if (window->widget_list[i] != NULL && window->widget_list[i]->visible)
       ctk_widget_redraw(window->widget_list[i]);
 }
 
@@ -81,6 +81,10 @@ ctk_window_switch_focus(ctk_window_t *window, int next)
   if (window->focus != -1 && window->widget_list[window->focus] != NULL)
     ctk_widget_blur(window->widget_list[window->focus]);
 
+  /* Invisible widgets cannot be focused */
+  if (next != -1 && !window->widget_list[next]->visible)
+    next = -1;
+
   window->focus = next;
 
   if (window->focus != -1)
@@ -102,13 +106,15 @@ ctk_window_focus_next(ctk_widget_t *widget)
   next_widget = window->focus;
 
   while (++next_widget < window->widget_count
-      && window->widget_list[next_widget] == NULL);
+      && (window->widget_list[next_widget] == NULL
+          || !window->widget_list[next_widget]->visible));
 
   if (next_widget >= window->widget_count) {
     /* Nothing found, repeat from start */
     next_widget = -1;
     while (++next_widget < window->widget_count
-        && window->widget_list[next_widget] == NULL);
+        && (window->widget_list[next_widget] == NULL
+            || !window->widget_list[next_widget]->visible));
 
     /* Nothing found, no widgets */
     if (next_widget >= window->widget_count)
