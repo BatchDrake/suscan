@@ -21,11 +21,11 @@
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
-
+#include <libgen.h>
 #include <ctk.h>
 #include "suscan.h"
 
-SUPRIVATE SUBOOL exit_flag = SU_FALSE;
+#define SUSCAN_SOURCE_DIALOG_MAX_BASENAME 15
 
 SUPRIVATE struct ctk_item source_item_list[] = {
     {"BladeRF",    "Nuand's BladeRF", SUSCAN_SOURCE_TYPE_BLADE_RF},
@@ -35,123 +35,173 @@ SUPRIVATE struct ctk_item source_item_list[] = {
     {"ALSA input", "Read samples from soundcard", SUSCAN_SOURCE_TYPE_ALSA}
 };
 
+struct suscan_source_dialog {
+  ctk_widget_t *window;
+  ctk_widget_t *button;
+  ctk_widget_t *selbutton;
+  ctk_widget_t *menu;
+  ctk_widget_t *file_button;
+
+  SUBOOL        exit_flag;
+};
+
+#define suscan_source_dialog_INITIALIZER        \
+{                                               \
+  NULL, /* window */                            \
+  NULL, /* button */                            \
+  NULL, /* selbutton */                         \
+  NULL, /* menu */                              \
+  NULL, /* file_button */                       \
+  SU_FALSE, /* exit_flag */                     \
+}
+
 SUPRIVATE void
 suscan_dialog_on_submit(ctk_widget_t *widget, struct ctk_item *item)
 {
-  exit_flag = SU_TRUE;
+  struct suscan_source_dialog *dialog =
+      (struct suscan_source_dialog *) ctk_widget_get_private(widget);
+
+  dialog->exit_flag = SU_TRUE;
 }
 
 SUPRIVATE void
 suscan_dialog_file_on_submit(ctk_widget_t *widget, struct ctk_item *item)
 {
   char *result = NULL;
+  char *base;
+  struct suscan_source_dialog *dialog =
+        (struct suscan_source_dialog *) ctk_widget_get_private(widget);
 
-  if (ctk_file_dialog("Open file...", &result) == CTK_DIALOG_RESPONSE_ERROR)
+  enum ctk_dialog_response response;
+
+  if ((response = ctk_file_dialog("Open file...", &result))
+      == CTK_DIALOG_RESPONSE_ERROR)
     ctk_msgbox(CTK_DIALOG_ERROR, "SUScan", "Failed to open dialog");
+
+  if (response == CTK_DIALOG_RESPONSE_OK) {
+    base = basename(result);
+    if (strlen(base) > SUSCAN_SOURCE_DIALOG_MAX_BASENAME)
+      strncpy(base + SUSCAN_SOURCE_DIALOG_MAX_BASENAME - 3, "...", 4);
+    ctk_button_set_caption(dialog->file_button, base);
+    free(result);
+  }
+}
+
+SUPRIVATE void
+suscan_source_dialog_finalize(struct suscan_source_dialog *dialog)
+{
+  if (dialog->file_button != NULL)
+    ctk_widget_destroy(dialog->file_button);
+
+  if (dialog->button != NULL)
+    ctk_widget_destroy(dialog->button);
+
+  if (dialog->menu != NULL)
+    ctk_widget_destroy(dialog->menu);
+
+  if (dialog->selbutton != NULL)
+    ctk_widget_destroy(dialog->selbutton);
+
+  if (dialog->window != NULL)
+    ctk_widget_destroy(dialog->window);
+}
+
+SUPRIVATE SUBOOL
+suscan_source_dialog_init(struct suscan_source_dialog *dialog)
+{
+  struct ctk_widget_handlers hnd;
+  unsigned int button_width;
+
+  /* Create Dialog Window */
+  if ((dialog->window = ctk_window_new("Open source")) == NULL)
+    return SU_TRUE;
+
+  ctk_widget_resize(dialog->window, 33, 15);
+  ctk_widget_center(dialog->window);
+  ctk_widget_set_shadow(dialog->window, CTK_TRUE);
+
+  /* Create source menu list */
+  if ((dialog->menu = ctk_menu_new(NULL, 0, 0)) == NULL)
+    return SU_TRUE;
+
+  if (!ctk_menu_add_multiple_items(
+      dialog->menu,
+      source_item_list,
+      ARRAY_SZ(source_item_list)))
+    return SU_TRUE;
+
+  /* Create source selection button */
+  mvwaddstr(dialog->window->c_window, 2, 2, "Source type:");
+  if ((dialog->selbutton
+      = ctk_selbutton_new(dialog->window, 15, 2, dialog->menu)) == NULL)
+    return SU_TRUE;
+  ctk_widget_set_attrs(dialog->selbutton, COLOR_PAIR(CTK_CP_TEXTAREA));
+
+  /* Create file selection button */
+  mvwaddstr(dialog->window->c_window, 4, 2, "File:");
+  if ((dialog->file_button
+      = ctk_button_new(dialog->window, 15, 4, "Browse...")) == NULL)
+    return SU_TRUE;
+  ctk_widget_set_attrs(dialog->file_button, COLOR_PAIR(CTK_CP_TEXTAREA));
+  ctk_widget_set_private(dialog->file_button, dialog);
+  ctk_widget_resize(dialog->file_button, SUSCAN_SOURCE_DIALOG_MAX_BASENAME, 1);
+
+  /* Okay button */
+  button_width = 10;
+
+  if ((dialog->button = ctk_button_new(
+      dialog->window,
+      dialog->window->width / 2 - button_width / 2,
+      13, "OK")) == NULL)
+    return SU_TRUE;
+  ctk_widget_set_attrs(dialog->button, COLOR_PAIR(CTK_CP_TEXTAREA));
+  ctk_widget_set_private(dialog->button, dialog);
+
+  ctk_widget_get_handlers(dialog->button, &hnd);
+  hnd.submit_handler = suscan_dialog_on_submit;
+  ctk_widget_set_handlers(dialog->button, &hnd);
+
+  ctk_widget_get_handlers(dialog->file_button, &hnd);
+  hnd.submit_handler = suscan_dialog_file_on_submit;
+  ctk_widget_set_handlers(dialog->file_button, &hnd);
+
+  ctk_widget_show(dialog->file_button);
+  ctk_widget_show(dialog->selbutton);
+  ctk_widget_show(dialog->button);
+  ctk_widget_show(dialog->window);
+
+  ctk_window_focus_next(dialog->window);
+
+  ctk_update();
+
+  return SU_TRUE;
 }
 
 SUBOOL
 suscan_open_source_dialog(void)
 {
-  ctk_widget_t *window = NULL;
-  ctk_widget_t *button = NULL;
-  ctk_widget_t *selbutton = NULL;
-  ctk_widget_t *menu = NULL;
-  ctk_widget_t *file_button = NULL;
-
-  struct ctk_widget_handlers hnd;
-  unsigned int button_width;
+  struct suscan_source_dialog dialog = suscan_source_dialog_INITIALIZER;
   int c;
-
   SUBOOL ok = SU_FALSE;
 
-  exit_flag = SU_FALSE;
-
-  /* Create Dialog Window */
-  if ((window = ctk_window_new("Open source")) == NULL)
+  if (!suscan_source_dialog_init(&dialog))
     goto done;
 
-  ctk_widget_resize(window, 30, 15);
-  ctk_widget_center(window);
-  ctk_widget_set_shadow(window, CTK_TRUE);
-
-  /* Create source menu list */
-  if ((menu = ctk_menu_new(NULL, 0, 0)) == NULL)
-    goto done;
-
-  if (!ctk_menu_add_multiple_items(
-      menu,
-      source_item_list,
-      ARRAY_SZ(source_item_list)))
-    goto done;
-
-  /* Create source selection button */
-  mvwaddstr(window->c_window, 2, 2, "Source type:");
-  if ((selbutton = ctk_selbutton_new(window, 15, 2, menu)) == NULL)
-    goto done;
-  ctk_widget_set_attrs(selbutton, COLOR_PAIR(CTK_CP_TEXTAREA));
-
-  /* Create file selection button */
-  mvwaddstr(window->c_window, 4, 2, "File:");
-  if ((file_button = ctk_button_new(window, 15, 4, "Browse...")) == NULL)
-    goto done;
-  ctk_widget_set_attrs(file_button, COLOR_PAIR(CTK_CP_TEXTAREA));
-
-  /* Okay button */
-  button_width = 10;
-
-  if ((button = ctk_button_new(
-      window,
-      window->width / 2 - button_width / 2,
-      13, "OK")) == NULL)
-    goto done;
-  ctk_widget_set_attrs(button, COLOR_PAIR(CTK_CP_TEXTAREA));
-
-  ctk_widget_get_handlers(button, &hnd);
-  hnd.submit_handler = suscan_dialog_on_submit;
-  ctk_widget_set_handlers(button, &hnd);
-
-  ctk_widget_get_handlers(file_button, &hnd);
-  hnd.submit_handler = suscan_dialog_file_on_submit;
-  ctk_widget_set_handlers(file_button, &hnd);
-
-  ctk_widget_show(file_button);
-  ctk_widget_show(selbutton);
-  ctk_widget_show(button);
-  ctk_widget_show(window);
-
-  ctk_window_focus_next(window);
-
-  ctk_update();
-
-  while (!exit_flag) {
+  while (!dialog.exit_flag) {
     c = getch();
     if (c == 'q')
       break;
 
-    ctk_widget_notify_kbd(window, c);
+    ctk_widget_notify_kbd(dialog.window, c);
     ctk_update();
   }
 
-  ctk_widget_hide(window);
+  ctk_widget_hide(dialog.window);
 
   ok = SU_TRUE;
 
 done:
-  if (file_button != NULL)
-    ctk_widget_destroy(file_button);
-
-  if (button != NULL)
-    ctk_widget_destroy(button);
-
-  if (menu != NULL)
-    ctk_widget_destroy(menu);
-
-  if (selbutton != NULL)
-    ctk_widget_destroy(selbutton);
-
-  if (window != NULL)
-    ctk_widget_destroy(window);
+  suscan_source_dialog_finalize(&dialog);
 
   ctk_update();
 

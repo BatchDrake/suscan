@@ -169,6 +169,8 @@ ctk_file_dialog_on_submit_path(ctk_widget_t *widget, struct ctk_item *item)
         strerror(errno))) != NULL) {
       ctk_msgbox(CTK_DIALOG_ERROR, "Open directory", message);
       free(message);
+      if (diag->curr_directory != NULL)
+        ctk_entry_set_text(diag->path_entry, diag->curr_directory);
     }
 }
 
@@ -426,6 +428,7 @@ ctk_file_dialog(const char *title, char **file)
 {
   struct ctk_file_dialog dialog = ctk_file_dialog_INITIALIZER;
   enum ctk_dialog_response resp = CTK_DIALOG_RESPONSE_ERROR;
+  const struct ctk_item *file_item = NULL;
   char *cwd = NULL;
   int c;
 
@@ -447,6 +450,21 @@ ctk_file_dialog(const char *title, char **file)
   while (!dialog.exit_flag && (c = getch()) != CTK_KEY_ESCAPE) {
     ctk_widget_notify_kbd(dialog.window, c);
     ctk_update();
+  }
+
+  if (dialog.cancel) {
+    resp = CTK_DIALOG_RESPONSE_CANCEL;
+    goto done;
+  }
+
+  if ((file_item = ctk_menu_get_current_item(dialog.file_menu)) == NULL) {
+    resp = CTK_DIALOG_RESPONSE_CANCEL;
+    goto done;
+  }
+
+  if ((*file = ctk_file_dialog_get_selected_file(&dialog)) == NULL) {
+    resp = CTK_DIALOG_RESPONSE_ERROR;
+    goto done;
   }
 
   resp = CTK_DIALOG_RESPONSE_OK;
@@ -508,19 +526,20 @@ ctk_msgbox(enum ctk_dialog_kind kind, const char *title, const char *msg)
 
   ctk_dialog_get_text_size(msg, &text_width, &text_height);
 
-  if (text_width < 10)
-    text_width = 10;
-
   if (text_height < 1)
     text_height = 1;
 
-  win_width = window->width;
+  win_width = CTK_DIALOG_MSGBOX_MIN_WIDTH;
 
-  if (text_width + 4 > win_width)
-    win_width = text_width + 4;
-  win_height = text_height + 6;
+  if (text_width + CTK_DIALOG_MSGBOX_HORIZONTAL_PADDING > win_width)
+    win_width = text_width + CTK_DIALOG_MSGBOX_HORIZONTAL_PADDING;
 
-  if (!ctk_widget_resize(window, win_width, text_height + 6))
+  if (win_width > CTK_DIALOG_MSGBOX_MAX_WIDTH)
+    win_width = CTK_DIALOG_MSGBOX_MAX_WIDTH;
+
+  win_height = text_height + CTK_DIALOG_MSGBOX_VERTICAL_PADDING;
+
+  if (!ctk_widget_resize(window, win_width, win_height))
     goto done;
 
   if (!ctk_widget_center(window))
@@ -532,6 +551,12 @@ ctk_msgbox(enum ctk_dialog_kind kind, const char *title, const char *msg)
       col = 0;
     } else {
       mvwaddch(window->c_window, row + 2, col++ + 2, msg[i]);
+      if (col
+          == CTK_DIALOG_MSGBOX_MAX_WIDTH
+          - CTK_DIALOG_MSGBOX_HORIZONTAL_PADDING) {
+        ++row;
+        col = 0;
+      }
     }
   }
 

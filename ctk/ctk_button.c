@@ -65,6 +65,8 @@ ctk_button_on_redraw(ctk_widget_t *widget)
   unsigned int pos, j, len;
   const char *caption;
   ctk_button_t *button;
+  CTKBOOL is_accel;
+  CTKBOOL has_focus;
 
   button = CTK_WIDGET_AS_BUTTON(widget);
 
@@ -72,20 +74,30 @@ ctk_button_on_redraw(ctk_widget_t *widget)
   len = strlen(caption);
   pos = widget->width / 2 - len / 2;
 
-  mvwaddstr(widget->c_window, 0, pos, caption);
+  has_focus = button->has_focus;
 
-  if (widget->accel != 0)
-    for (j = 0; j < len; ++j)
-      if (tolower(caption[j]) == widget->accel) {
-        wattron(widget->c_window, A_UNDERLINE);
-        if (button->has_focus)
-          wattron(widget->c_window, A_BOLD | COLOR_PAIR(4));
-        mvwaddch(widget->c_window, 0, pos + j, caption[j]);
-        if (button->has_focus)
-          wattroff(widget->c_window, A_BOLD | COLOR_PAIR(4));
-        wattroff(widget->c_window, A_UNDERLINE);
-        break;
-      }
+  if (has_focus)
+    wattron(widget->c_window, A_BOLD);
+
+  for (j = 0; j < len; ++j) {
+    is_accel = tolower(caption[j]) == widget->accel;
+    if (is_accel) {
+      wattron(widget->c_window, A_UNDERLINE);
+      if (has_focus)
+        wattron(widget->c_window, COLOR_PAIR(4));
+    }
+
+    mvwaddch(widget->c_window, 0, pos + j, caption[j]);
+
+    if (is_accel) {
+      if (has_focus)
+        wattroff(widget->c_window, COLOR_PAIR(4));
+      wattroff(widget->c_window, A_UNDERLINE);
+    }
+  }
+
+  if (has_focus)
+    wattroff(widget->c_window, A_BOLD);
 }
 
 CTKPRIVATE void

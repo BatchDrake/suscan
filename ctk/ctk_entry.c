@@ -274,7 +274,7 @@ ctk_entry_set_text(ctk_widget_t *widget, const char *text)
   if (!ctk_entry_buffer_set_length(widget, strlen(text)))
     return CTK_FALSE;
 
-  memcpy(entry->buffer, text, strlen(text));
+  memcpy(entry->buffer, text, strlen(text) + 1);
 
   ctk_entry_move_cursor(widget, strlen(text));
 

@@ -34,8 +34,10 @@
 
 #define CTK_KEY_ESCAPE 033
 
+#define CTK_CLASS_INHERITABLE char __sub[0]
+#define CTK_OBJECT_GET_SUB(x) ((x)->__sub)
+
 #define CTK_WIDGET(x) ((ctk_widget_t *) (x))
-#define CTK_WIDGET_SUB(x) (CTK_WIDGET(x)->__sub)
 #define CTK_WIDGET_SUB_ALLOC_SIZE(x) (sizeof(ctk_widget_t) + sizeof(x))
 #define CTK_WIDGET_ASSERT_CLASS(x, t) \
   assert(CTK_WIDGET(x)->class == t)
@@ -59,6 +61,12 @@
 #define CTK_CP_BACKGROUND_TEXT      11
 
 #define CTK_ITEM_INDEX(item) (item)->__index
+
+/* Message box dialog defines */
+#define CTK_DIALOG_MSGBOX_MAX_WIDTH          (COLS - 8)
+#define CTK_DIALOG_MSGBOX_MIN_WIDTH          15
+#define CTK_DIALOG_MSGBOX_HORIZONTAL_PADDING 4
+#define CTK_DIALOG_MSGBOX_VERTICAL_PADDING   6
 
 /* File dialog layout defines */
 #define CTK_DIALOG_FILE_CHOOSER_WIDTH   60
@@ -170,15 +178,14 @@ struct ctk_widget {
   /* Event handlers */
   struct ctk_widget_handlers handlers;
 
-  /* First byte of the subclass */
-  char __sub[0];
+  CTK_CLASS_INHERITABLE;
 };
 
 typedef struct ctk_widget ctk_widget_t;
 
 
 /********************* CTK Menu definitions **********************************/
-#define CTK_WIDGET_AS_MENU(x) ((ctk_menu_t *) CTK_WIDGET_SUB(x))
+#define CTK_WIDGET_AS_MENU(x) ((ctk_menu_t *) CTK_OBJECT_GET_SUB(x))
 
 struct ctk_menu {
   PTR_LIST(struct ctk_item, item); /* No gaps allowed! */
@@ -196,7 +203,7 @@ struct ctk_menu {
 typedef struct ctk_menu ctk_menu_t;
 
 /********************** CTK Menu bar definitions *****************************/
-#define CTK_WIDGET_AS_MENUBAR(x) ((ctk_menubar_t *) CTK_WIDGET_SUB(x))
+#define CTK_WIDGET_AS_MENUBAR(x) ((ctk_menubar_t *) CTK_OBJECT_GET_SUB(x))
 
 struct ctk_menubar {
   PTR_LIST(ctk_widget_t, menu);
@@ -207,7 +214,7 @@ struct ctk_menubar {
 typedef struct ctk_menubar ctk_menubar_t;
 
 /*********************** CTK Window definitions ******************************/
-#define CTK_WIDGET_AS_WINDOW(x) ((ctk_window_t *) CTK_WIDGET_SUB(x))
+#define CTK_WIDGET_AS_WINDOW(x) ((ctk_window_t *) CTK_OBJECT_GET_SUB(x))
 
 struct ctk_window {
   PTR_LIST(ctk_widget_t, widget);
@@ -218,7 +225,7 @@ struct ctk_window {
 typedef struct ctk_window ctk_window_t;
 
 /*********************** CTK Button definitions ******************************/
-#define CTK_WIDGET_AS_BUTTON(x) ((ctk_button_t *) CTK_WIDGET_SUB(x))
+#define CTK_WIDGET_AS_BUTTON(x) ((ctk_button_t *) CTK_OBJECT_GET_SUB(x))
 
 struct ctk_button {
   char *caption;
@@ -228,7 +235,7 @@ struct ctk_button {
 typedef struct ctk_button ctk_button_t;
 
 /************************ CTK Entry definitions ******************************/
-#define CTK_WIDGET_AS_ENTRY(x) ((ctk_entry_t *) CTK_WIDGET_SUB(x))
+#define CTK_WIDGET_AS_ENTRY(x) ((ctk_entry_t *) CTK_OBJECT_GET_SUB(x))
 
 struct ctk_entry {
   char *buffer;

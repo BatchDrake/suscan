@@ -46,7 +46,6 @@ ctk_selbutton_data_new(ctk_widget_t *button, ctk_widget_t *menu)
   return new;
 }
 
-
 void
 ctk_selbutton_data_destroy(struct ctk_selbutton_data *data)
 {
