@@ -38,6 +38,7 @@ struct ctk_file_dialog {
   ctk_widget_t *cancel_button;
   ctk_widget_t *path_entry;
 
+  char *curr_path; /* Overrides everything else */
   char *curr_directory;
 
   CTKBOOL exit_flag;
@@ -45,7 +46,7 @@ struct ctk_file_dialog {
 };
 
 #define ctk_file_dialog_INITIALIZER \
-  {NULL, NULL, NULL, NULL, NULL, NULL, NULL, CTK_FALSE, CTK_FALSE}
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, CTK_FALSE, CTK_FALSE}
 
 /*
  * Couldn't find a way to span the selection bar to the right end of the
@@ -69,6 +70,9 @@ CTKPRIVATE char *
 ctk_file_dialog_get_selected_file(const struct ctk_file_dialog *dialog)
 {
   const struct ctk_item *item = NULL;
+
+  if (dialog->curr_path != NULL)
+    return strdup(dialog->curr_path);
 
   if (dialog->curr_directory == NULL)
     return NULL;
@@ -159,8 +163,23 @@ ctk_file_dialog_on_submit_path(ctk_widget_t *widget, struct ctk_item *item)
       (struct ctk_file_dialog *) ctk_widget_get_private(widget);
   char *message;
   const char *path;
+  struct stat sbuf;
 
   path = ctk_entry_get_text(dialog->path_entry);
+
+  /*
+   * If user has entered the full path of a regular file, use this as
+   * the result of the dialog.
+   */
+  if (stat(path, &sbuf) != -1 && S_ISREG(sbuf.st_mode)) {
+    if ((dialog->curr_path = strdup(path)) == NULL) {
+      ctk_msgbox(CTK_DIALOG_ERROR, "Open file", "Out of memory");
+      return;
+    }
+
+    dialog->exit_flag = CTK_TRUE;
+    return;
+  }
 
   if (!ctk_file_dialog_set_path(dialog, path))
     if ((message = strbuild(
@@ -200,6 +219,9 @@ ctk_file_dialog_finalize(struct ctk_file_dialog *dialog)
 
   if (dialog->curr_directory != NULL)
     free(dialog->curr_directory);
+
+  if (dialog->curr_path != NULL)
+    free(dialog->curr_path);
 }
 
 CTKPRIVATE int
@@ -457,7 +479,8 @@ ctk_file_dialog(const char *title, char **file)
     goto done;
   }
 
-  if ((file_item = ctk_menu_get_current_item(dialog.file_menu)) == NULL) {
+  if ((file_item = ctk_menu_get_current_item(dialog.file_menu)) == NULL
+      && dialog.curr_path == NULL) {
     resp = CTK_DIALOG_RESPONSE_CANCEL;
     goto done;
   }

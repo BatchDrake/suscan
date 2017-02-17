@@ -340,6 +340,7 @@ void ctk_menu_set_autoresize(const ctk_widget_t *widget, CTKBOOL val);
 ctk_widget_t *ctk_menubar_new(void);
 CTKBOOL ctk_menubar_add_menu(ctk_widget_t *, const char *, ctk_widget_t *);
 void ctk_menu_clear(ctk_widget_t *widget);
+int ctk_window_find_new_accel(const ctk_window_t *bar, const char *caption);
 
 /************************* CTK Window functions ******************************/
 ctk_widget_t *ctk_window_new(const char *title);

@@ -24,7 +24,7 @@
 
 #include "ctk.h"
 
-CTKPRIVATE int
+int
 ctk_window_find_new_accel(const ctk_window_t *bar, const char *caption)
 {
   unsigned int i;
@@ -216,7 +216,7 @@ ctk_window_on_attach(ctk_widget_t *widget, ctk_widget_t *child)
   if (PTR_LIST_APPEND_CHECK(window->widget, child) == -1)
     return CTK_FALSE;
 
-  ctk_window_focus_next(widget);
+  /* ctk_window_focus_next(widget); */
 
   return CTK_TRUE;
 }

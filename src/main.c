@@ -116,6 +116,8 @@ suscan_screen_init(void)
   if (!ctk_init())
     return SU_FALSE;
 
+  scrollok(stdscr,TRUE);
+
   wattron(stdscr, A_BOLD | COLOR_PAIR(CTK_CP_BACKGROUND_TEXT));
   mvwaddstr(stdscr, LINES - 1, COLS - strlen(app_name), app_name);
 
@@ -131,12 +133,16 @@ main(int argc, char *argv[], char *envp[])
   char text[50];
   int n = 0;
 
+  if (!suscan_init_sources()) {
+    fprintf(stderr, "%s: failed to initialize sources\n", argv[0]);
+    goto done;
+  }
+
   if (!suscan_screen_init()) {
     fprintf(stderr, "%s: failed to initialize screen\n", argv[0]);
     goto done;
   }
 
-  scrollok(stdscr,TRUE);
   if (!suscan_iface_init()) {
     fprintf(stderr, "%s: failed to initialize interface\n", argv[0]);
     goto done;

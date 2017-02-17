@@ -472,7 +472,9 @@ void
 ctk_widget_set_attrs(ctk_widget_t *widget, int attrs)
 {
   widget->attrs = attrs;
-  wbkgd(widget->c_window, widget->attrs);
+
+  if (widget->visible || widget->root == NULL)
+    wbkgd(widget->c_window, widget->attrs);
 
   ctk_widget_redraw(widget);
 }
