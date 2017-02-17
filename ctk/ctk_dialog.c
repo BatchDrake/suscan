@@ -60,61 +60,61 @@ CTKPRIVATE CTKBOOL ctk_file_dialog_set_path(
     const char *path);
 
 CTKPRIVATE CTKBOOL
-ctk_file_dialog_is_file_selected(const struct ctk_file_dialog *diag)
+ctk_file_dialog_is_file_selected(const struct ctk_file_dialog *dialog)
 {
-  return ctk_menu_get_current_item(diag->file_menu) != NULL;
+  return ctk_menu_get_current_item(dialog->file_menu) != NULL;
 }
 
 CTKPRIVATE char *
-ctk_file_dialog_get_selected_file(const struct ctk_file_dialog *diag)
+ctk_file_dialog_get_selected_file(const struct ctk_file_dialog *dialog)
 {
   const struct ctk_item *item = NULL;
 
-  if (diag->curr_directory == NULL)
+  if (dialog->curr_directory == NULL)
     return NULL;
 
-  if ((item = ctk_menu_get_current_item(diag->file_menu)) == NULL)
+  if ((item = ctk_menu_get_current_item(dialog->file_menu)) == NULL)
     return NULL;
 
   return strbuild(
       "%s/%s",
-      strcmp(diag->curr_directory, "/") == 0 ? "" : diag->curr_directory,
+      strcmp(dialog->curr_directory, "/") == 0 ? "" : dialog->curr_directory,
       item->name);
 }
 
 CTKPRIVATE void
 ctk_file_dialog_on_submit_ok(ctk_widget_t *widget, struct ctk_item *item)
 {
-  struct ctk_file_dialog *diag =
+  struct ctk_file_dialog *dialog =
       (struct ctk_file_dialog *) ctk_widget_get_private(widget);
 
-  if (ctk_file_dialog_is_file_selected(diag))
-    diag->exit_flag = CTK_TRUE;
+  if (ctk_file_dialog_is_file_selected(dialog))
+    dialog->exit_flag = CTK_TRUE;
 }
 
 CTKPRIVATE void
 ctk_file_dialog_on_submit_cancel(ctk_widget_t *widget, struct ctk_item *item)
 {
-  struct ctk_file_dialog *diag =
+  struct ctk_file_dialog *dialog =
       (struct ctk_file_dialog *) ctk_widget_get_private(widget);
 
-  diag->exit_flag = CTK_TRUE;
-  diag->cancel = CTK_TRUE;
+  dialog->exit_flag = CTK_TRUE;
+  dialog->cancel = CTK_TRUE;
 }
 
 CTKPRIVATE void
 ctk_file_dialog_on_submit_file(ctk_widget_t *widget, struct ctk_item *item)
 {
-  struct ctk_file_dialog *diag =
+  struct ctk_file_dialog *dialog =
       (struct ctk_file_dialog *) ctk_widget_get_private(widget);
 
-  diag->exit_flag = CTK_TRUE;
+  dialog->exit_flag = CTK_TRUE;
 }
 
 CTKPRIVATE void
 ctk_file_dialog_on_submit_dir(ctk_widget_t *widget, struct ctk_item *item)
 {
-  struct ctk_file_dialog *diag =
+  struct ctk_file_dialog *dialog =
       (struct ctk_file_dialog *) ctk_widget_get_private(widget);
   char *path;
   char *effective_path;
@@ -125,12 +125,12 @@ ctk_file_dialog_on_submit_dir(ctk_widget_t *widget, struct ctk_item *item)
     return;
 
   if (strcmp(item->name, "..") == 0) {
-    if ((path = strdup(diag->curr_directory)) != NULL)
+    if ((path = strdup(dialog->curr_directory)) != NULL)
       effective_path = dirname(path);
   } else {
     path = strbuild(
         "%s/%s",
-        strcmp(diag->curr_directory, "/") == 0 ? "" : diag->curr_directory,
+        strcmp(dialog->curr_directory, "/") == 0 ? "" : dialog->curr_directory,
         item->name);
     effective_path = path;
   }
@@ -140,7 +140,7 @@ ctk_file_dialog_on_submit_dir(ctk_widget_t *widget, struct ctk_item *item)
     return;
   }
 
-  if (!ctk_file_dialog_set_path(diag, effective_path))
+  if (!ctk_file_dialog_set_path(dialog, effective_path))
     if ((message = strbuild(
         "Cannot open directory `%s': %s",
         effective_path,
@@ -155,22 +155,22 @@ ctk_file_dialog_on_submit_dir(ctk_widget_t *widget, struct ctk_item *item)
 CTKPRIVATE void
 ctk_file_dialog_on_submit_path(ctk_widget_t *widget, struct ctk_item *item)
 {
-  struct ctk_file_dialog *diag =
+  struct ctk_file_dialog *dialog =
       (struct ctk_file_dialog *) ctk_widget_get_private(widget);
   char *message;
   const char *path;
 
-  path = ctk_entry_get_text(diag->path_entry);
+  path = ctk_entry_get_text(dialog->path_entry);
 
-  if (!ctk_file_dialog_set_path(diag, path))
+  if (!ctk_file_dialog_set_path(dialog, path))
     if ((message = strbuild(
         "Cannot open directory `%s': %s",
         path,
         strerror(errno))) != NULL) {
       ctk_msgbox(CTK_DIALOG_ERROR, "Open directory", message);
       free(message);
-      if (diag->curr_directory != NULL)
-        ctk_entry_set_text(diag->path_entry, diag->curr_directory);
+      if (dialog->curr_directory != NULL)
+        ctk_entry_set_text(dialog->path_entry, dialog->curr_directory);
     }
 }
 
