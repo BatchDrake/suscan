@@ -188,7 +188,7 @@ suscan_ui_loop(const char *a0)
       case SUSCAN_WORKER_MESSAGE_TYPE_KEYBOARD:
         c = ctk_getch_async();
 
-        if (!suscan_interface_notify_kbd(c)) {
+        if (c != ERR && !suscan_interface_notify_kbd(c)) {
           fprintf(stderr, "%s: failed to send key to interface\n", a0);
           return SU_FALSE;
         }
