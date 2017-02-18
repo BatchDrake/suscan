@@ -32,6 +32,11 @@ struct suscan_interface {
   /* Menu bar widgets */
   ctk_widget_t *menubar;
   ctk_widget_t *m_source;
+
+  ctk_widget_t *w_status;
+  ctk_widget_t *w_results;
+  ctk_widget_t *w_channel;
+  ctk_widget_t *m_results;
 };
 
 SUPRIVATE pthread_t kbd_thread;
@@ -70,6 +75,36 @@ suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
       exit_flag = SU_TRUE;
       break;
   }
+}
+
+SUBOOL
+suscan_init_windows(void)
+{
+  init_pair(12, COLOR_CYAN, COLOR_BLUE);
+
+  SUSCAN_MANDATORY(main_interface.w_status = ctk_window_new("Source status"));
+  ctk_widget_set_attrs(main_interface.w_status, COLOR_PAIR(12) | A_BOLD);
+
+  SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_status, 0, 1));
+  SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_status, 25, 10));
+
+  SUSCAN_MANDATORY(main_interface.w_results = ctk_window_new("Results"));
+  ctk_widget_set_attrs(main_interface.w_results, COLOR_PAIR(12) | A_BOLD);
+
+  SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_results, 0, 11));
+  SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_results, COLS, LINES - 12));
+
+  SUSCAN_MANDATORY(main_interface.w_channel = ctk_window_new("Channel"));
+  ctk_widget_set_attrs(main_interface.w_channel, COLOR_PAIR(12) | A_BOLD);
+
+  SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_channel, 25, 1));
+  SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_channel, COLS - 25, 10));
+
+  ctk_widget_show(main_interface.w_status);
+  ctk_widget_show(main_interface.w_channel);
+  ctk_widget_show(main_interface.w_results);
+
+  return SU_TRUE;
 }
 
 SUBOOL
@@ -147,6 +182,7 @@ suscan_iface_init(void)
 {
   SUSCAN_MANDATORY(suscan_mq_init(&main_interface.mq));
   SUSCAN_MANDATORY(suscan_init_menus());
+  SUSCAN_MANDATORY(suscan_init_windows());
 
   ctk_update();
 
@@ -165,7 +201,7 @@ suscan_screen_init(void)
   if (!ctk_init())
     return SU_FALSE;
 
-  scrollok(stdscr, TRUE);
+/*  scrollok(stdscr, TRUE); */
 
   wattron(stdscr, A_BOLD | COLOR_PAIR(CTK_CP_BACKGROUND_TEXT));
   mvwaddstr(stdscr, LINES - 1, COLS - strlen(app_name), app_name);

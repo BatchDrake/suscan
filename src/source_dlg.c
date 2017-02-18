@@ -527,7 +527,6 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
     return SU_FALSE;
 
   ctk_widget_resize(dialog->window, 33, 15);
-  ctk_widget_center(dialog->window);
   ctk_widget_set_shadow(dialog->window, CTK_TRUE);
 
   /* Create source menu list */
@@ -605,6 +604,10 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
   suscan_rearrange_widgets(dialog);
   suscan_widget_arrange_right(dialog, dialog->selbutton);
 
+  /* Center window */
+  ctk_widget_center(dialog->window);
+
+  /* Show all */
   ctk_widget_show(dialog->selbutton);
   ctk_widget_show(dialog->ok_button);
   ctk_widget_show(dialog->cancel_button);
