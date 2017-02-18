@@ -428,5 +428,7 @@ enum ctk_dialog_response ctk_file_dialog(const char *text, char **file);
 /************************** Generic CTK methods ******************************/
 CTKBOOL ctk_init(void);
 void ctk_update(void);
+int ctk_getch_async(void);
+int ctk_getch(void);
 
 #endif /* _CTK_H */

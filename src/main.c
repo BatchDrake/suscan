@@ -6,8 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include <errno.h>
 #include <getopt.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/select.h>
 
 #include "ctk.h"
 #include "suscan.h"
@@ -23,11 +27,14 @@
   }
 
 struct suscan_interface {
+  struct suscan_mq mq; /* Message queue */
+
   /* Menu bar widgets */
   ctk_widget_t *menubar;
   ctk_widget_t *m_source;
 };
 
+SUPRIVATE pthread_t kbd_thread;
 SUBOOL exit_flag = SU_FALSE;
 struct suscan_interface main_interface;
 
@@ -103,12 +110,48 @@ suscan_init_menus(void)
   return SU_TRUE;
 }
 
+/*
+ * Keyboard thread: stupid and cumbersome kludge used to tell the main thread
+ * that it's time to attempt to read a character from the keyboard. Again,
+ * this is ncurses fault: you cannot have console input in one thread and
+ * console output on other thread. This design flaw is difficult to explain,
+ * but it's probably related to the fact that the people that designed
+ * ncurses lived in an age where multi-threaded text UI applications were
+ * rare. Again, ncurses is making me waste time writing senseless hacks
+ * to overcome all these shortcomings.
+ */
+
+void *
+suscan_keyboard_thread(void *unused)
+{
+  fd_set stdin_set;
+
+  while (!exit_flag) {
+    FD_ZERO(&stdin_set);
+    FD_SET(0, &stdin_set);
+
+    if (select(1, &stdin_set, NULL, NULL, NULL) == -1)
+      break;
+
+    suscan_mq_write_urgent(
+        &main_interface.mq,
+        SUSCAN_WORKER_MESSAGE_TYPE_KEYBOARD,
+        NULL);
+  }
+
+  return NULL;
+}
+
 SUBOOL
 suscan_iface_init(void)
 {
+  SUSCAN_MANDATORY(suscan_mq_init(&main_interface.mq));
   SUSCAN_MANDATORY(suscan_init_menus());
 
   ctk_update();
+
+  SUSCAN_MANDATORY(
+      pthread_create(&kbd_thread, NULL, suscan_keyboard_thread, NULL) != -1);
 
   return SU_TRUE;
 }
@@ -122,7 +165,7 @@ suscan_screen_init(void)
   if (!ctk_init())
     return SU_FALSE;
 
-  scrollok(stdscr,TRUE);
+  scrollok(stdscr, TRUE);
 
   wattron(stdscr, A_BOLD | COLOR_PAIR(CTK_CP_BACKGROUND_TEXT));
   mvwaddstr(stdscr, LINES - 1, COLS - strlen(app_name), app_name);
@@ -130,10 +173,50 @@ suscan_screen_init(void)
   return SU_TRUE;
 }
 
+SUBOOL
+suscan_ui_loop(const char *a0)
+{
+  int c;
+  void *ptr;
+  uint32_t type;
+  struct suscan_worker_status_msg *status;
+
+  while (!exit_flag) {
+    ptr = suscan_mq_read(&main_interface.mq, &type);
+
+    switch (type) {
+      case SUSCAN_WORKER_MESSAGE_TYPE_KEYBOARD:
+        c = ctk_getch_async();
+
+        if (!suscan_interface_notify_kbd(c)) {
+          fprintf(stderr, "%s: failed to send key to interface\n", a0);
+          return SU_FALSE;
+        }
+        break;
+
+      case SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT:
+        status = (struct suscan_worker_status_msg *) ptr;
+
+        if (status->code != SUSCAN_WORKER_INIT_OK)
+          ctk_error(
+              "SUScan",
+              "%s",
+              status->err_msg == NULL
+              ? "Source couldn't be initialized"
+              : status->err_msg);
+        break;
+    }
+
+    suscan_worker_dispose_message(type, ptr);
+
+    ctk_update();
+  }
+}
+
 int
 main(int argc, char *argv[], char *envp[])
 {
-  int c;
+
   int exit_code = EXIT_FAILURE;
 
   char text[50];
@@ -154,23 +237,15 @@ main(int argc, char *argv[], char *envp[])
     goto done;
   }
 
-  while (!exit_flag) {
-    c = wgetch(stdscr);
+  if (suscan_ui_loop(argv[0]))
+    exit_code = EXIT_SUCCESS;
 
-    if (!suscan_interface_notify_kbd(c)) {
-      fprintf(stderr, "%s: failed to send command to interface\n", argv[0]);
-      goto done;
-    }
-
-    ctk_update();
-  }
-
-  exit_code = EXIT_SUCCESS;
+  pthread_cancel(kbd_thread);
+  pthread_join(kbd_thread, NULL);
 
   endwin();
 
 done:
-
   exit(exit_code);
 }
 

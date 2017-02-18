@@ -486,7 +486,7 @@ ctk_file_dialog(const char *title, char **file)
   free(cwd);
   cwd = NULL;
 
-  while (!dialog.exit_flag && (c = getch()) != CTK_KEY_ESCAPE) {
+  while (!dialog.exit_flag && (c = ctk_getch()) != CTK_KEY_ESCAPE) {
     ctk_widget_notify_kbd(dialog.window, c);
     ctk_update();
   }
@@ -616,7 +616,7 @@ ctk_msgbox(enum ctk_dialog_kind kind, const char *title, const char *msg)
 
   ctk_update();
 
-  while ((c = getch()) != '\n') {
+  while ((c = ctk_getch()) != '\n') {
     ctk_widget_notify_kbd(window, c);
     ctk_update();
   }
@@ -659,3 +659,4 @@ done:
 
   return result;
 }
+

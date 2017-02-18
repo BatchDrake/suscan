@@ -641,7 +641,7 @@ suscan_open_source_dialog(struct suscan_source_config **config)
     goto done;
 
   while (!dialog.exit_flag) {
-    c = getch();
+    c = ctk_getch();
 
     switch (c) {
       case CTK_KEY_ESCAPE:

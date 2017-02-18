@@ -120,7 +120,7 @@ suscan_mq_read(struct suscan_mq *mq, uint32_t *type)
 
   suscan_mq_enter(mq);
 
-  while ((msg = suscan_mq_pop(mq)))
+  while ((msg = suscan_mq_pop(mq)) == NULL)
     suscan_mq_wait(mq);
 
   suscan_mq_leave(mq);

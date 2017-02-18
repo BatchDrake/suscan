@@ -656,6 +656,26 @@ fail:
   return NULL;
 }
 
+int
+ctk_getch_async(void)
+{
+  return wgetch(stdscr);
+}
+
+int
+ctk_getch(void)
+{
+  fd_set stdin_set;
+
+  FD_ZERO(&stdin_set);
+  FD_SET(0, &stdin_set);
+
+  if (select(1, &stdin_set, NULL, NULL, NULL) == -1)
+    return -1;
+
+  return ctk_getch_async();
+}
+
 CTKBOOL
 ctk_init(void)
 {
@@ -715,6 +735,9 @@ ctk_init(void)
     return CTK_FALSE;
 
   if (curs_set(0) == ERR)
+    return CTK_FALSE;
+
+  if (nodelay(stdscr, TRUE) == ERR)
     return CTK_FALSE;
 
   wbkgd(stdscr, COLOR_PAIR(CTK_CP_BACKGROUND));
