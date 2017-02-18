@@ -60,11 +60,11 @@ ctk_item_remove_non_printable(struct ctk_item *item, unsigned int max)
   oslen = strlen(CTK_ITEM_OVERFLOW_STRING);
 
   if (max > oslen && len > max) {
-    memcpy(
+    memmove(
         item->__printable_name + max / 2,
         item->__printable_name + len - max / 2,
         max / 2 + 1);
-    memcpy(
+    memmove(
         item->__printable_name + max / 2 - oslen / 2,
         CTK_ITEM_OVERFLOW_STRING,
         oslen);

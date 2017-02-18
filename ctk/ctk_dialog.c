@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdarg.h>
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -125,7 +126,6 @@ ctk_file_dialog_on_submit_dir(ctk_widget_t *widget, struct ctk_item *item)
       (struct ctk_file_dialog *) ctk_widget_get_private(widget);
   char *path;
   char *effective_path;
-  char *message;
 
   /* We can safely ignore this */
   if (strcmp(item->name, ".") == 0)
@@ -143,18 +143,16 @@ ctk_file_dialog_on_submit_dir(ctk_widget_t *widget, struct ctk_item *item)
   }
 
   if (path == NULL) {
-    ctk_msgbox(CTK_DIALOG_ERROR, "Out of memory", message);
+    ctk_error("Open directory", "Out of memory");
     return;
   }
 
   if (!ctk_file_dialog_set_path(dialog, effective_path))
-    if ((message = strbuild(
+    ctk_error(
+        "Open directory",
         "Cannot open directory `%s': %s",
         effective_path,
-        strerror(errno))) != NULL) {
-      ctk_msgbox(CTK_DIALOG_ERROR, "Open directory", message);
-      free(message);
-    }
+        strerror(errno));
 
   free(path);
 }
@@ -181,7 +179,6 @@ ctk_file_dialog_on_submit_path(ctk_widget_t *widget, struct ctk_item *item)
 {
   struct ctk_file_dialog *dialog =
       (struct ctk_file_dialog *) ctk_widget_get_private(widget);
-  char *message;
   const char *path;
   struct stat sbuf;
 
@@ -193,7 +190,7 @@ ctk_file_dialog_on_submit_path(ctk_widget_t *widget, struct ctk_item *item)
    */
   if (stat(path, &sbuf) != -1 && S_ISREG(sbuf.st_mode)) {
     if ((dialog->curr_path = strdup(path)) == NULL) {
-      ctk_msgbox(CTK_DIALOG_ERROR, "Open file", "Out of memory");
+      ctk_error("Open file", "Out of memory");
       return;
     }
 
@@ -201,16 +198,16 @@ ctk_file_dialog_on_submit_path(ctk_widget_t *widget, struct ctk_item *item)
     return;
   }
 
-  if (!ctk_file_dialog_set_path(dialog, path))
-    if ((message = strbuild(
+  if (!ctk_file_dialog_set_path(dialog, path)) {
+    ctk_error(
+        "Open directory",
         "Cannot open directory `%s': %s",
         path,
-        strerror(errno))) != NULL) {
-      ctk_msgbox(CTK_DIALOG_ERROR, "Open directory", message);
-      free(message);
-      if (dialog->curr_directory != NULL)
-        ctk_entry_set_text(dialog->path_entry, dialog->curr_directory);
-    }
+        strerror(errno));
+
+    if (dialog->curr_directory != NULL)
+      ctk_entry_set_text(dialog->path_entry, dialog->curr_directory);
+  }
 }
 
 CTKPRIVATE void
@@ -639,4 +636,26 @@ done:
   doupdate();
 
   return ok;
+}
+
+CTKBOOL
+ctk_msgboxf(enum ctk_dialog_kind kind, const char *title, const char *fmt, ...)
+{
+  va_list ap;
+  char *msg;
+  CTKBOOL result = CTK_FALSE;
+
+  va_start(ap, fmt);
+
+  if ((msg = vstrbuild(fmt, ap)) == NULL)
+    goto done;
+
+  result = ctk_msgbox(kind, title, msg);
+
+  free(msg);
+
+done:
+  va_end(ap);
+
+  return result;
 }

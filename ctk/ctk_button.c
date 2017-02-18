@@ -162,8 +162,8 @@ ctk_button_new(
 
   width = strlen(caption) + 2;
 
-  if (width < 10)
-    width = 10;
+  if (width < CTK_BUTTON_MIN_SIZE)
+    width = CTK_BUTTON_MIN_SIZE;
 
   if ((widget = ctk_widget_ctor_start(
       root,

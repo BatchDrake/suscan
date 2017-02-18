@@ -32,13 +32,15 @@ struct suscan_source_widget_set;
 
 struct suscan_source_dialog {
   ctk_widget_t *window;
-  ctk_widget_t *button;
+  ctk_widget_t *ok_button;
+  ctk_widget_t *cancel_button;
   ctk_widget_t *selbutton;
   ctk_widget_t *menu;
 
   struct suscan_source_widget_set *current;
 
   PTR_LIST(struct suscan_source_widget_set, widget_set);
+  SUBOOL        cancel;
   SUBOOL        exit_flag;
 };
 
@@ -61,10 +63,11 @@ struct suscan_source_widget_set {
   NULL, /* widget_set_list */                   \
   0,    /* widget_set_count */                  \
   SU_FALSE, /* exit_flag */                     \
+  SU_FALSE, /* cancel */                        \
 }
 
 /*********************** Source Widgets API **********************************/
-void
+SUPRIVATE void
 suscan_source_widget_set_destroy(struct suscan_source_widget_set *widgets)
 {
   unsigned int i;
@@ -82,7 +85,7 @@ suscan_source_widget_set_destroy(struct suscan_source_widget_set *widgets)
   free(widgets);
 }
 
-void
+SUPRIVATE void
 suscan_source_widget_set_show(struct suscan_source_widget_set *set)
 {
   unsigned int i;
@@ -98,7 +101,7 @@ suscan_source_widget_set_show(struct suscan_source_widget_set *set)
     }
 }
 
-void
+SUPRIVATE void
 suscan_source_widget_set_hide(struct suscan_source_widget_set *set)
 {
   unsigned int i, j;
@@ -116,20 +119,48 @@ suscan_source_widget_set_hide(struct suscan_source_widget_set *set)
     }
 }
 
+SUPRIVATE int
+suscan_source_widget_set_widget_to_index(
+    const struct suscan_source_widget_set *set,
+    const ctk_widget_t *widget)
+{
+  int i;
+
+  for (i = 0; i < set->widget_count; ++i)
+    if (set->widget_list[i] == widget)
+      return i;
+
+  return -1;
+}
+
 SUPRIVATE void
 suscan_dialog_file_on_submit(ctk_widget_t *widget, struct ctk_item *item)
 {
   char *result = NULL;
-  char *base;
+  char *base = NULL;
+  int index;
+  const struct suscan_field *field;
   struct suscan_source_widget_set *set =
         (struct suscan_source_widget_set *) ctk_widget_get_private(widget);
   enum ctk_dialog_response response;
 
+  if ((index = suscan_source_widget_set_widget_to_index(set, widget)) == -1) {
+    ctk_error("SUScan", "Interface error, cannot find field");
+    return;
+  }
+
   if ((response = ctk_file_dialog("Open file...", &result))
       == CTK_DIALOG_RESPONSE_ERROR)
-    ctk_msgbox(CTK_DIALOG_ERROR, "SUScan", "Failed to open dialog");
+    ctk_error("SUScan", "Failed to open dialog");
+  else if (response == CTK_DIALOG_RESPONSE_OK) {
+    field = set->config->source->field_list[index];
 
-  if (response == CTK_DIALOG_RESPONSE_OK) {
+    if (!suscan_source_config_set_file(set->config, field->name, result)) {
+      ctk_error("SUScan", "Failed to configure file path");
+      free(result);
+      return;
+    }
+
     base = basename(result);
     if (strlen(base) > SUSCAN_SOURCE_DIALOG_MAX_BASENAME)
       strncpy(base + SUSCAN_SOURCE_DIALOG_MAX_BASENAME - 3, "...", 4);
@@ -138,7 +169,7 @@ suscan_dialog_file_on_submit(ctk_widget_t *widget, struct ctk_item *item)
   }
 }
 
-struct suscan_source_widget_set *
+SUPRIVATE struct suscan_source_widget_set *
 suscan_source_widget_set_new(
     struct suscan_source_dialog *dialog,
     const struct suscan_source *source)
@@ -256,6 +287,134 @@ fail:
   return NULL;
 }
 
+SUPRIVATE SUBOOL
+suscan_source_widget_set_parse_data(struct suscan_source_widget_set *set)
+{
+  unsigned int i;
+  ctk_widget_t *widget;
+  union suscan_field_value *value;
+  const struct suscan_field *field;
+  const char *text;
+  uint64_t int_val;
+  SUFLOAT float_val;
+
+  for (i = 0; i < set->config->source->field_count; ++i) {
+    if (set->config->source->field_list[i] != NULL) {
+      widget = set->widget_list[i];
+      field = set->config->source->field_list[i];
+
+      switch (field->type) {
+        case SUSCAN_FIELD_TYPE_STRING:
+          if ((text = ctk_entry_get_text(widget)) == NULL)
+            text = "";
+
+          if (strlen(text) == 0) {
+            if (!field->optional) {
+              ctk_error("SUScan", "Field `%s' is not optional", field->desc);
+              return SU_FALSE;
+            } else {
+              continue;
+            }
+          }
+
+          if (!suscan_source_config_set_string(
+              set->config,
+              field->name,
+              text)) {
+            ctk_error("Field `%s' cannot be configured", field->desc);
+            return SU_FALSE;
+          }
+
+          break;
+
+        case SUSCAN_FIELD_TYPE_INTEGER:
+          if ((text = ctk_entry_get_text(widget)) == NULL)
+            text = "";
+
+          if (strlen(text) == 0) {
+            if (!field->optional) {
+              ctk_error("SUScan", "Field `%s' is not optional", field->desc);
+              return SU_FALSE;
+            } else {
+              continue;
+            }
+          }
+
+          if (sscanf(text, "%llu", &int_val) < 1) {
+            ctk_error("Field `%s' is not an integer", field->desc);
+            return SU_FALSE;
+          }
+
+          if (!suscan_source_config_set_integer(
+              set->config,
+              field->name,
+              int_val)) {
+            ctk_error("Field `%s' cannot be configured", field->desc);
+            return SU_FALSE;
+          }
+
+          break;
+
+        case SUSCAN_FIELD_TYPE_FLOAT:
+          if ((text = ctk_entry_get_text(widget)) == NULL)
+            text = "";
+
+          if (strlen(text) == 0) {
+            if (!field->optional) {
+              ctk_error("SUScan", "Field `%s' is not optional", field->desc);
+              return SU_FALSE;
+            } else {
+              continue;
+            }
+          }
+
+          if (sscanf(text, SUFLOAT_FMT, &float_val) < 1) {
+            ctk_error("Field `%s' is not a real number", field->desc);
+            return SU_FALSE;
+          }
+
+          if (!suscan_source_config_set_float(
+              set->config,
+              field->name,
+              float_val)) {
+            ctk_error("Field `%s' cannot be configured", field->desc);
+            return SU_FALSE;
+          }
+
+          break;
+
+        case SUSCAN_FIELD_TYPE_FILE:
+          value = set->config->values[i];
+          text = value->as_string;
+
+          /*
+           * File fields are configured in the submit handler, we just
+           * check that its contents make sense.
+           */
+          if (strlen(text) == 0) {
+            if (!field->optional) {
+              ctk_error("SUScan", "Field `%s' is not optional", field->desc);
+              return SU_FALSE;
+            }
+          }
+
+          break;
+
+        default:
+          if (!field->optional) {
+            ctk_error(
+                "SUScan",
+                "Mandatory field `%s' cannot be configured in this interface",
+                field->desc);
+            return SU_FALSE;
+          }
+      }
+    }
+  }
+
+  return SU_TRUE;
+}
+
 SUPRIVATE void
 suscan_dialog_switch_widget_set(
     struct suscan_source_dialog *dialog,
@@ -286,8 +445,21 @@ suscan_dialog_on_submit(ctk_widget_t *widget, struct ctk_item *item)
   struct suscan_source_dialog *dialog =
       (struct suscan_source_dialog *) ctk_widget_get_private(widget);
 
-  dialog->exit_flag = SU_TRUE;
+  if (dialog->current != NULL
+      && suscan_source_widget_set_parse_data(dialog->current))
+    dialog->exit_flag = SU_TRUE;
 }
+
+SUPRIVATE void
+suscan_dialog_on_cancel(ctk_widget_t *widget, struct ctk_item *item)
+{
+  struct suscan_source_dialog *dialog =
+      (struct suscan_source_dialog *) ctk_widget_get_private(widget);
+
+  dialog->exit_flag = SU_TRUE;
+  dialog->cancel = SU_TRUE;
+}
+
 
 SUPRIVATE void
 suscan_source_dialog_finalize(struct suscan_source_dialog *dialog)
@@ -301,8 +473,11 @@ suscan_source_dialog_finalize(struct suscan_source_dialog *dialog)
   if (dialog->widget_set_list != NULL)
     free(dialog->widget_set_list);
 
-  if (dialog->button != NULL)
-    ctk_widget_destroy(dialog->button);
+  if (dialog->ok_button != NULL)
+    ctk_widget_destroy(dialog->ok_button);
+
+  if (dialog->cancel_button != NULL)
+    ctk_widget_destroy(dialog->cancel_button);
 
   if (dialog->menu != NULL)
     ctk_widget_destroy(dialog->menu);
@@ -345,7 +520,6 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
   struct ctk_widget_handlers hnd;
   struct suscan_source_widget_set *set;
   struct ctk_item *item;
-  unsigned int button_width;
   unsigned int i;
 
   /* Create Dialog Window */
@@ -394,33 +568,46 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
 
   /* Create source selection button */
   mvwaddstr(dialog->window->c_window, 2, 2, "Source type:");
-
-  /* Okay button */
-  button_width = 10;
-
-  if ((dialog->button = ctk_button_new(
-      dialog->window,
-      dialog->window->width / 2 - button_width / 2,
-      dialog->window->height - 3,
-      "OK")) == NULL)
-    return SU_FALSE;
-  ctk_widget_set_attrs(dialog->button, COLOR_PAIR(CTK_CP_TEXTAREA));
-  ctk_widget_set_private(dialog->button, dialog);
-
-  ctk_widget_get_handlers(dialog->button, &hnd);
-  hnd.submit_handler = suscan_dialog_on_submit;
-  ctk_widget_set_handlers(dialog->button, &hnd);
-
   ctk_selbutton_set_on_submit(
       dialog->selbutton,
       suscan_dialog_source_on_submit);
+
+
+  /* Okay button */
+  if ((dialog->ok_button = ctk_button_new(
+      dialog->window,
+      dialog->window->width - (CTK_BUTTON_MIN_SIZE + 2),
+      dialog->window->height - 2,
+      "OK")) == NULL)
+    return SU_FALSE;
+
+  ctk_widget_set_attrs(dialog->ok_button, COLOR_PAIR(CTK_CP_TEXTAREA));
+  ctk_widget_set_private(dialog->ok_button, dialog);
+  ctk_widget_get_handlers(dialog->ok_button, &hnd);
+  hnd.submit_handler = suscan_dialog_on_submit;
+  ctk_widget_set_handlers(dialog->ok_button, &hnd);
+
+  /* Cancel button */
+  if ((dialog->cancel_button = ctk_button_new(
+      dialog->window,
+      dialog->window->width - 2 * (CTK_BUTTON_MIN_SIZE + 2),
+      dialog->window->height - 2,
+      "Cancel")) == NULL)
+    return SU_FALSE;
+
+  ctk_widget_set_attrs(dialog->cancel_button, COLOR_PAIR(CTK_CP_TEXTAREA));
+  ctk_widget_set_private(dialog->cancel_button, dialog);
+  ctk_widget_get_handlers(dialog->cancel_button, &hnd);
+  hnd.submit_handler = suscan_dialog_on_cancel;
+  ctk_widget_set_handlers(dialog->cancel_button, &hnd);
 
   /* Rearrange all widgets to left */
   suscan_rearrange_widgets(dialog);
   suscan_widget_arrange_right(dialog, dialog->selbutton);
 
   ctk_widget_show(dialog->selbutton);
-  ctk_widget_show(dialog->button);
+  ctk_widget_show(dialog->ok_button);
+  ctk_widget_show(dialog->cancel_button);
   ctk_widget_show(dialog->window);
 
   /* Show first non-null source */
@@ -437,16 +624,17 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
   return SU_TRUE;
 }
 
-SUBOOL
-suscan_open_source_dialog(void)
+enum ctk_dialog_response
+suscan_open_source_dialog(struct suscan_source_config **config)
 {
   struct suscan_source_dialog dialog = suscan_source_dialog_INITIALIZER;
   int c;
-  SUBOOL ok = SU_FALSE;
+  enum ctk_dialog_response response = CTK_DIALOG_RESPONSE_ERROR;
 
   if (source_count == 0) {
     ctk_msgbox(CTK_DIALOG_ERROR, "Open source", "No signal sources available");
-    return SU_TRUE;
+    response = CTK_DIALOG_RESPONSE_CANCEL;
+    goto done;
   }
 
   if (!suscan_source_dialog_init(&dialog))
@@ -454,21 +642,33 @@ suscan_open_source_dialog(void)
 
   while (!dialog.exit_flag) {
     c = getch();
-    if (c == 'q')
-      break;
 
-    ctk_widget_notify_kbd(dialog.window, c);
-    ctk_update();
+    switch (c) {
+      case CTK_KEY_ESCAPE:
+        dialog.exit_flag = SU_TRUE;
+        dialog.cancel = SU_TRUE;
+        break;
+
+      default:
+        ctk_widget_notify_kbd(dialog.window, c);
+        ctk_update();
+    }
+  }
+
+  if (!dialog.cancel && dialog.current != NULL) {
+    *config = dialog.current->config;
+    dialog.current->config = NULL;
+    response = CTK_DIALOG_RESPONSE_OK;
+  } else {
+    response = CTK_DIALOG_RESPONSE_CANCEL;
   }
 
   ctk_widget_hide(dialog.window);
-
-  ok = SU_TRUE;
 
 done:
   suscan_source_dialog_finalize(&dialog);
 
   ctk_update();
 
-  return ok;
+  return response;
 }

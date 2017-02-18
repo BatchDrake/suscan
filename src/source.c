@@ -123,6 +123,7 @@ SUBOOL
 suscan_source_add_field(
     struct suscan_source *source,
     enum suscan_field_type type,
+    SUBOOL optional,
     const char *name,
     const char *desc)
 {
@@ -142,6 +143,7 @@ suscan_source_add_field(
   if ((field = calloc(1, sizeof(struct suscan_field))) == NULL)
     goto fail;
 
+  field->optional = optional;
   field->type = type;
   field->name = name_dup;
   field->desc = desc_dup;
@@ -324,6 +326,20 @@ suscan_source_config_set_file(
   return SU_TRUE;
 }
 
+union suscan_field_value *
+suscan_source_config_get_value(
+    const struct suscan_source_config *cfg,
+    const char *name)
+{
+  int id;
+
+  /* Assert field and field type */
+  if ((id = suscan_source_lookup_field_id(cfg->source, name)) == -1)
+    return NULL;
+
+  return cfg->values[id];
+}
+
 SUPRIVATE su_block_t *
 suscan_null_source_ctor(const struct suscan_source_config *config)
 {
@@ -344,7 +360,6 @@ suscan_null_source_init(void)
 
   return SU_TRUE;
 }
-
 
 SUBOOL
 suscan_init_sources(void)

@@ -64,6 +64,9 @@
 
 #define CTK_ITEM_INDEX(item) (item)->__index
 
+/* Button defines */
+#define CTK_BUTTON_MIN_SIZE         10
+
 /* Message box dialog defines */
 #define CTK_DIALOG_MSGBOX_MAX_WIDTH          (COLS - 8)
 #define CTK_DIALOG_MSGBOX_MIN_WIDTH          15
@@ -403,6 +406,23 @@ CTKBOOL ctk_msgbox(
     enum ctk_dialog_kind kind,
     const char *title,
     const char *msg);
+CTKBOOL ctk_msgboxf(
+    enum ctk_dialog_kind kind,
+    const char *title,
+    const char *fmt, ...);
+
+#define ctk_error(title, fmt, arg...) \
+  ctk_msgboxf(CTK_DIALOG_ERROR, title, fmt, ##arg)
+
+#define ctk_warning(title, fmt, arg...) \
+  ctk_msgboxf(CTK_DIALOG_WARNING, title, fmt, ##arg)
+
+#define ctk_info(title, fmt, arg...) \
+  ctk_info(CTK_DIALOG_INFO, title, fmt, ##arg)
+
+#define ctk_normal(title, fmt, arg...) \
+  ctk_msgboxf(CTK_DIALOG_NORMAL, title, fmt, ##arg)
+
 enum ctk_dialog_response ctk_file_dialog(const char *text, char **file);
 
 /************************** Generic CTK methods ******************************/

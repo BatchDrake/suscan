@@ -41,6 +41,7 @@ union suscan_field_value {
 
 struct suscan_field {
   enum suscan_field_type type;
+  SUBOOL optional;
   const char *name;
   const char *desc;
 };
@@ -78,6 +79,7 @@ struct suscan_field *suscan_source_lookup_field(
 SUBOOL suscan_source_add_field(
     struct suscan_source *source,
     enum suscan_field_type type,
+    SUBOOL optional,
     const char *name,
     const char *desc);
 void suscan_source_config_destroy(struct suscan_source_config *config);
@@ -100,11 +102,16 @@ SUBOOL suscan_source_config_set_file(
     const char *name,
     const char *value);
 
+union suscan_field_value *suscan_source_config_get_value(
+    const struct suscan_source_config *cfg,
+    const char *name);
+
 SUBOOL suscan_wav_source_init(void);
 SUBOOL suscan_iqfile_source_init(void);
 
 SUBOOL suscan_init_sources(void);
 
-SUBOOL suscan_open_source_dialog(void);
+enum ctk_dialog_response suscan_open_source_dialog(
+    struct suscan_source_config **config);
 
 #endif /* _MAIN_INCLUDE_H */

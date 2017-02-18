@@ -47,10 +47,16 @@ suscan_interface_notify_kbd(int c)
 void
 suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
 {
+  struct suscan_source_config *config = NULL;
+  enum ctk_dialog_response resp;
+
   switch (CTK_ITEM_INDEX(item)) {
     case 0:
-      if (!suscan_open_source_dialog())
-        ctk_msgbox(CTK_DIALOG_ERROR, "SUScan", "Failed to open source dialog");
+      if ((resp = suscan_open_source_dialog(&config))
+          == CTK_DIALOG_RESPONSE_ERROR)
+        ctk_error("SUScan", "Failed to open source dialog");
+      else if (resp == CTK_DIALOG_RESPONSE_OK)
+        suscan_source_config_destroy(config);
       break;
 
     case 1:

@@ -47,6 +47,7 @@ suscan_wav_source_init(void)
   if (!suscan_source_add_field(
       source,
       SUSCAN_FIELD_TYPE_FILE,
+      SU_FALSE,
       "path",
       "File path"))
     return SU_FALSE;
@@ -75,6 +76,7 @@ suscan_iqfile_source_init(void)
   if (!suscan_source_add_field(
       source,
       SUSCAN_FIELD_TYPE_FILE,
+      SU_FALSE,
       "path",
       "File path"))
     return SU_FALSE;
@@ -82,6 +84,7 @@ suscan_iqfile_source_init(void)
   if (!suscan_source_add_field(
       source,
       SUSCAN_FIELD_TYPE_INTEGER,
+      SU_FALSE,
       "fs",
       "Sampling frequency"))
     return SU_FALSE;
