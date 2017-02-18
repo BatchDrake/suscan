@@ -209,8 +209,18 @@ ctk_entry_on_kbd(ctk_widget_t *widget, int c)
     ctk_entry_set_cursor(widget, 0);
   else if (c == KEY_END)
     ctk_entry_set_cursor(widget, entry->length);
-  else if (c != '\t' && c != '\r')
+  else if (c != '\t' && c != '\r') {
+    if (entry->validator != NULL)
+      if (!(entry->validator) (
+          entry->buffer == NULL
+            ? ""
+            : entry->buffer,
+          c,
+          entry->p))
+        return;
+
     ctk_entry_insert(widget, c);
+  }
 
   ctk_widget_redraw(widget);
 }
@@ -250,6 +260,61 @@ ctk_entry_on_blur(ctk_widget_t *widget)
   ctk_widget_redraw(widget);
 }
 
+CTKBOOL
+ctk_entry_uint32_validator(const char *string, char c, int p)
+{
+  uint32_t u;
+
+  if (strlen(string) == 10)
+    return CTK_FALSE;
+
+  return isdigit(c);
+}
+
+CTKBOOL
+ctk_entry_uint64_validator(const char *string, char c, int p)
+{
+  uint32_t u;
+
+  if (strlen(string) == 20)
+    return CTK_FALSE;
+
+  return isdigit(c);
+}
+
+CTKBOOL
+ctk_entry_float_validator(const char *string, char c, int p)
+{
+  uint32_t u;
+
+  if (p == 0 && *string == '-')
+    /* We cannot write numbers before sign */
+    return CTK_FALSE;
+  else if (c == '-' && (p != 0 || *string == '-'))
+    /* There can be one sign at most, and it should be at the beginning*/
+    return CTK_FALSE;
+  else if (c == '.' && strchr(string, '.') != NULL)
+    /* There can be one point at most */
+    return CTK_FALSE;
+  else if (!isdigit(c))
+    /* Only decimal digits allowed */
+    return CTK_FALSE;
+
+  return CTK_TRUE;
+}
+
+void
+ctk_entry_set_validator(const ctk_widget_t *widget, ctk_entry_validator_t cb)
+{
+  ctk_entry_t *entry;
+
+  CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_ENTRY);
+
+  entry = CTK_WIDGET_AS_ENTRY(widget);
+
+  entry->validator = cb;
+}
+
 const char *
 ctk_entry_get_text(const ctk_widget_t *widget)
 {
@@ -271,10 +336,14 @@ ctk_entry_set_text(ctk_widget_t *widget, const char *text)
 
   entry = CTK_WIDGET_AS_ENTRY(widget);
 
+  if (entry->validator != NULL)
+    if (!(entry->validator) (text, '\0', -1))
+      return CTK_FALSE;
+
   if (!ctk_entry_buffer_set_length(widget, strlen(text)))
     return CTK_FALSE;
 
-  memcpy(entry->buffer, text, strlen(text) + 1);
+  memmove(entry->buffer, text, strlen(text) + 1);
 
   ctk_entry_move_cursor(widget, strlen(text));
 

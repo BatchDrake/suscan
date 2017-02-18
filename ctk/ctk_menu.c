@@ -27,7 +27,7 @@
 #include "ctk.h"
 
 CTKPRIVATE CTKBOOL
-ctk_menu_c_menu_is_posted(const ctk_menu_t *menu)
+ctk_menu_c_menu_should_be_posted(const ctk_menu_t *menu)
 {
   return menu->c_item_list != NULL && menu->c_item_list[0] != NULL;
 }
@@ -114,16 +114,19 @@ ctk_widget_menu_c_rescale(ctk_widget_t *widget)
 /* Low-level add functions */
 CTKBOOL
 __ctk_menu_add_item(
-    ctk_menu_t *menu,
+    ctk_widget_t *widget,
     const char *name,
     const char *desc,
     void *private)
 {
+  ctk_menu_t *menu = CTK_WIDGET_AS_MENU(widget);
   struct ctk_item *item = NULL;
   int id;
 
   if ((item = ctk_item_new(name, desc, private)) == NULL)
     return CTK_FALSE;
+
+  ctk_item_remove_non_printable(item, widget->width - 2);
 
   if ((id = PTR_LIST_APPEND_CHECK(menu->item, item)) == -1) {
     ctk_item_destroy(item);
@@ -137,7 +140,7 @@ __ctk_menu_add_item(
 
 CTKPRIVATE CTKBOOL
 __ctk_menu_add_multiple_items(
-    ctk_menu_t *menu,
+    ctk_widget_t *widget,
     const struct ctk_item *item,
     unsigned int count)
 {
@@ -145,7 +148,7 @@ __ctk_menu_add_multiple_items(
 
   for (i = 0; i < count; ++i) {
     if (!__ctk_menu_add_item(
-        menu,
+        widget,
         item[i].name,
         item[i].desc,
         item[i].private))
@@ -250,8 +253,7 @@ ctk_menu_sort(
   if (menu->item_count < 2)
     return CTK_TRUE;
 
-  if (unpost_menu(menu->c_menu) != E_OK)
-    return CTK_FALSE;
+  (void) unpost_menu(menu->c_menu);
 
   qsort_r(
       menu->c_item_list,
@@ -285,9 +287,8 @@ __ctk_menu_update(ctk_widget_t *widget)
 
   menu = CTK_WIDGET_AS_MENU(widget);
 
-  if (ctk_menu_c_menu_is_posted(menu))
-    if (unpost_menu(menu->c_menu) != E_OK)
-      return CTK_FALSE;
+  /* Ensure menu is unposted from here */
+  (void) unpost_menu(menu->c_menu);
 
   /* Modifications on the menu must be performed after unposting it */
   if (!ctk_menu_update_c_item_list(menu, &old_item_list))
@@ -300,7 +301,7 @@ __ctk_menu_update(ctk_widget_t *widget)
   if (!menu->autoresize)
     set_menu_format(menu->c_menu, widget->height - 2, 1);
 
-  if (ctk_menu_c_menu_is_posted(menu))
+  if (ctk_menu_c_menu_should_be_posted(menu))
     if (post_menu(menu->c_menu) != E_OK)
       return CTK_FALSE;
 
@@ -320,13 +321,9 @@ ctk_menu_add_item(
     const char *desc,
     void *private)
 {
-  ctk_menu_t *menu;
-
   CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_MENU);
 
-  menu = CTK_WIDGET_AS_MENU(widget);
-
-  if (!__ctk_menu_add_item(menu, name, desc, private))
+  if (!__ctk_menu_add_item(widget, name, desc, private))
     return CTK_FALSE;
 
   if (!__ctk_menu_update(widget))
@@ -341,13 +338,9 @@ ctk_menu_add_multiple_items(
     const struct ctk_item *items,
     unsigned int count)
 {
-  ctk_menu_t *menu;
-
   CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_MENU);
 
-  menu = CTK_WIDGET_AS_MENU(widget);
-
-  if (!__ctk_menu_add_multiple_items(menu, items, count))
+  if (!__ctk_menu_add_multiple_items(widget, items, count))
     return CTK_FALSE;
 
   if (!__ctk_menu_update(widget))
@@ -401,7 +394,7 @@ ctk_menu_on_resize(ctk_widget_t *widget, unsigned width, unsigned height)
   return CTK_TRUE;
 }
 
-CTKPRIVATE void
+void
 ctk_menu_on_kbd(ctk_widget_t *widget, int c)
 {
   ctk_menu_t *menu;
@@ -451,7 +444,7 @@ ctk_menu_on_destroy(ctk_widget_t *widget)
     free(menu->title);
 
   if (menu->c_menu != NULL) {
-    unpost_menu(menu->c_menu);
+    (void) unpost_menu(menu->c_menu);
     free_menu(menu->c_menu);
   }
 
@@ -510,10 +503,11 @@ CTKPRIVATE void
 ctk_menu_on_redraw(ctk_widget_t *widget)
 {
   ctk_menu_t *menu;
+
   menu = CTK_WIDGET_AS_MENU(widget);
 
-  if (ctk_menu_c_menu_is_posted(menu))
-    if (unpost_menu(menu->c_menu) == E_OK)
+  if (unpost_menu(menu->c_menu) == E_OK)
+    if (ctk_menu_c_menu_should_be_posted(menu))
       post_menu(menu->c_menu);
 }
 
@@ -544,6 +538,21 @@ ctk_menu_get_first_item(const ctk_widget_t *widget)
       return menu->item_list[i];
 
   return NULL;
+}
+
+struct ctk_item *
+ctk_menu_get_item_at(const ctk_widget_t *widget, unsigned int index)
+{
+  ctk_menu_t *menu;
+
+  CTK_WIDGET_ASSERT_CLASS(widget, CTK_WIDGET_CLASS_MENU);
+
+  menu = CTK_WIDGET_AS_MENU(widget);
+
+  if (index >= menu->item_count)
+    return NULL;
+
+  return menu->item_list[index];
 }
 
 struct ctk_item *

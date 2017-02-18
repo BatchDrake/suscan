@@ -41,14 +41,34 @@ ctk_item_destroy(struct ctk_item *item)
   free(item);
 }
 
-CTKPRIVATE void
-ctk_item_remove_non_printable(struct ctk_item *item)
+void
+ctk_item_remove_non_printable(struct ctk_item *item, unsigned int max)
 {
   unsigned int i;
+  unsigned int len;
+  unsigned int oslen;
 
-  for (i = 0; i < strlen(item->__printable_name); ++i)
-    if (!isprint(item->__printable_name[i]))
+  for (i = 0; i < strlen(item->name); ++i)
+    if (!isprint(item->name[i]))
       item->__printable_name[i] = '?';
+    else
+      item->__printable_name[i] = item->name[i];
+
+  item->__printable_name[i] = '\0';
+
+  len = strlen(item->__printable_name);
+  oslen = strlen(CTK_ITEM_OVERFLOW_STRING);
+
+  if (max > oslen && len > max) {
+    memcpy(
+        item->__printable_name + max / 2,
+        item->__printable_name + len - max / 2,
+        max / 2 + 1);
+    memcpy(
+        item->__printable_name + max / 2 - oslen / 2,
+        CTK_ITEM_OVERFLOW_STRING,
+        oslen);
+  }
 }
 
 struct ctk_item *
@@ -65,10 +85,10 @@ ctk_item_new(const char *name, const char *desc, void *private)
   if ((new->desc = strdup(desc)) == NULL)
     goto fail;
 
-  if ((new->__printable_name = strdup(name)) == NULL)
+  if ((new->__printable_name = malloc(strlen(name) + 1)) == NULL)
     goto fail;
 
-  ctk_item_remove_non_printable(new);
+  ctk_item_remove_non_printable(new, 0);
 
   new->private = private;
 

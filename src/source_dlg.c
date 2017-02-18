@@ -197,19 +197,22 @@ suscan_source_widget_set_new(
           break;
 
         case SUSCAN_FIELD_TYPE_INTEGER:
-          widget = ctk_entry_new(
+          if ((widget = ctk_entry_new(
               dialog->window,
               widget_x,
               widget_y,
-              SUSCAN_SOURCE_DIALOG_MAX_WIDGET_WIDTH);
+              SUSCAN_SOURCE_DIALOG_MAX_WIDGET_WIDTH)) != NULL)
+            /* Use a 32 bit limit to avoid HUGE sampling frequencies */
+            ctk_entry_set_validator(widget, ctk_entry_uint32_validator);
           break;
 
         case SUSCAN_FIELD_TYPE_FLOAT:
-          widget = ctk_entry_new(
+          if ((widget = ctk_entry_new(
               dialog->window,
               widget_x,
               widget_y,
-              SUSCAN_SOURCE_DIALOG_MAX_WIDGET_WIDTH);
+              SUSCAN_SOURCE_DIALOG_MAX_WIDGET_WIDTH)) != NULL)
+            ctk_entry_set_validator(widget, ctk_entry_float_validator);
           break;
 
         case SUSCAN_FIELD_TYPE_FILE:
@@ -341,7 +344,7 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
 {
   struct ctk_widget_handlers hnd;
   struct suscan_source_widget_set *set;
-
+  struct ctk_item *item;
   unsigned int button_width;
   unsigned int i;
 
@@ -420,11 +423,12 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
   ctk_widget_show(dialog->button);
   ctk_widget_show(dialog->window);
 
-  /* Show first set of widgets */
-  if (dialog->widget_set_count > 1)
-    suscan_dialog_switch_widget_set(dialog, dialog->widget_set_list[1]);
-  else
-    suscan_dialog_switch_widget_set(dialog, dialog->widget_set_list[0]);
+  /* Show first non-null source */
+  if ((item = ctk_menu_get_item_at(dialog->menu, 1)) == NULL)
+    if ((item = ctk_menu_get_first_item(dialog->menu)) == NULL)
+      return SU_FALSE;
+
+  ctk_selbutton_set_current_item(dialog->selbutton, item);
 
   ctk_window_focus_next(dialog->window);
 

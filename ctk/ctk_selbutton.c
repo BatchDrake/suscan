@@ -123,6 +123,12 @@ ctk_selbutton_menu_on_submit(ctk_widget_t *widget, struct ctk_item *item)
     (data->submit_handler) (widget, item);
 }
 
+void
+ctk_selbutton_set_current_item(ctk_widget_t *widget, struct ctk_item *item)
+{
+  ctk_selbutton_menu_on_submit(widget, item);
+}
+
 struct ctk_item *
 ctk_selbutton_get_current_item(ctk_widget_t *widget)
 {

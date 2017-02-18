@@ -161,8 +161,9 @@ main(int argc, char *argv[], char *envp[])
 
   exit_code = EXIT_SUCCESS;
 
-done:
   endwin();
+
+done:
 
   exit(exit_code);
 }

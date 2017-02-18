@@ -42,6 +42,8 @@
 #define CTK_WIDGET_ASSERT_CLASS(x, t) \
   assert(CTK_WIDGET(x)->class == t)
 
+#define CTK_ITEM_OVERFLOW_STRING "[...]"
+
 #define CTK_WIDGET_SHADOW_DX 2
 #define CTK_WIDGET_SHADOW_DY 1
 #define CTK_WIDGET_SHADOW_CHAR ACS_CKBOARD
@@ -237,6 +239,8 @@ typedef struct ctk_button ctk_button_t;
 /************************ CTK Entry definitions ******************************/
 #define CTK_WIDGET_AS_ENTRY(x) ((ctk_entry_t *) CTK_OBJECT_GET_SUB(x))
 
+typedef CTKBOOL (*ctk_entry_validator_t) (const char *string, char c, int p);
+
 struct ctk_entry {
   char *buffer;
   unsigned int allocation;
@@ -246,15 +250,25 @@ struct ctk_entry {
   int cur_attr; /* Cursor attribute */
   CTKBOOL has_focus;
 
-  /*
-   * TODO: add constraints
-   */
+  ctk_entry_validator_t validator; /* Content validator */
 };
 
 typedef struct ctk_entry ctk_entry_t;
 
-CTKBOOL ctk_init(void);
-void ctk_update(void);
+/*
+ * Validators are not a good way to ensure the input has a valid format,
+ * they are intended to be a guide for the user to input correct values.
+ */
+void ctk_entry_set_validator(
+    const ctk_widget_t *widget,
+    ctk_entry_validator_t cb);
+
+/*
+ * Builtin validators
+ */
+CTKBOOL ctk_entry_uint32_validator(const char *string, char c, int p);
+CTKBOOL ctk_entry_uint64_validator(const char *string, char c, int p);
+CTKBOOL ctk_entry_float_validator(const char *string, char c, int p);
 
 /***************************** CTK Widget API ********************************/
 void ctk_widget_destroy(ctk_widget_t *wid);
@@ -299,6 +313,7 @@ void ctk_widget_set_handlers(
 /***************************** CTK Item API **********************************/
 struct ctk_item *ctk_item_new(const char *name, const char *desc, void *private);
 struct ctk_item *ctk_item_dup(const struct ctk_item *item);
+void ctk_item_remove_non_printable(struct ctk_item *item, unsigned int max);
 void ctk_item_destroy(struct ctk_item *item);
 
 /**************************** Misc functions *********************************/
@@ -319,7 +334,7 @@ CTKBOOL ctk_menu_add_multiple_items(
     const struct ctk_item *items,
     unsigned int count);
 CTKBOOL __ctk_menu_add_item(
-    ctk_menu_t *menu,
+    ctk_widget_t *menu,
     const char *name,
     const char *desc,
     void *private);
@@ -330,7 +345,7 @@ unsigned int ctk_menu_get_item_count(const ctk_widget_t *widget);
 CTKBOOL ctk_menu_sort(
     ctk_widget_t *widget,
     int (*cmp)(const struct ctk_item *, const struct ctk_item *));
-
+void ctk_menu_on_kbd(ctk_widget_t *widget, int c);
 struct ctk_item *ctk_menu_get_first_item(const ctk_widget_t *widget);
 struct ctk_item *ctk_menu_get_current_item(const ctk_widget_t *widget);
 unsigned int ctk_menu_get_max_item_name_length(const ctk_widget_t *widget);
@@ -363,6 +378,12 @@ ctk_widget_t *ctk_selbutton_new(
     unsigned int y,
     ctk_widget_t *menu);
 void ctk_selbutton_set_on_submit(ctk_widget_t *widget, ctk_submit_handler_t cb);
+void ctk_selbutton_set_current_item(
+    ctk_widget_t *widget,
+    struct ctk_item *item);
+struct ctk_item *ctk_menu_get_item_at(
+    const ctk_widget_t *widget,
+    unsigned int index);
 struct ctk_item *ctk_selbutton_get_current_item(ctk_widget_t *widget);
 void ctk_selbutton_set_private(ctk_widget_t *widget, void *private);
 void *ctk_selbutton_get_private(const ctk_widget_t *widget);
@@ -383,5 +404,9 @@ CTKBOOL ctk_msgbox(
     const char *title,
     const char *msg);
 enum ctk_dialog_response ctk_file_dialog(const char *text, char **file);
+
+/************************** Generic CTK methods ******************************/
+CTKBOOL ctk_init(void);
+void ctk_update(void);
 
 #endif /* _CTK_H */

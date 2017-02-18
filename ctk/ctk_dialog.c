@@ -77,6 +77,9 @@ ctk_file_dialog_get_selected_file(const struct ctk_file_dialog *dialog)
   if (dialog->curr_directory == NULL)
     return NULL;
 
+  if (ctk_menu_get_item_count(dialog->file_menu) == 0)
+    return NULL;
+
   if ((item = ctk_menu_get_current_item(dialog->file_menu)) == NULL)
     return NULL;
 
@@ -154,6 +157,23 @@ ctk_file_dialog_on_submit_dir(ctk_widget_t *widget, struct ctk_item *item)
     }
 
   free(path);
+}
+
+CTKPRIVATE void
+ctk_file_dialog_on_kbd_file(ctk_widget_t *widget, int c)
+{
+  char *fullpath;
+  struct ctk_file_dialog *dialog =
+        (struct ctk_file_dialog *) ctk_widget_get_private(widget);
+
+  if (c == ' ') {
+    if ((fullpath = ctk_file_dialog_get_selected_file(dialog)) != NULL) {
+      ctk_entry_set_text(dialog->path_entry, fullpath);
+      free(fullpath);
+    }
+  } else {
+    ctk_menu_on_kbd(widget, c);
+  }
 }
 
 CTKPRIVATE void
@@ -279,14 +299,14 @@ ctk_file_dialog_set_path(struct ctk_file_dialog *dialog, const char *path)
     if (stat(fullpath, &sbuf) != -1) {
       if (S_ISDIR(sbuf.st_mode)) {
         if (!__ctk_menu_add_item(
-            CTK_WIDGET_AS_MENU(dialog->dir_menu),
+            dialog->dir_menu,
             ent->d_name,
             CTK_DIALOG_RIGHT_PADDING,
             dialog))
           goto done;
       } else {
         if (!__ctk_menu_add_item(
-            CTK_WIDGET_AS_MENU(dialog->file_menu),
+            dialog->file_menu,
             ent->d_name,
             CTK_DIALOG_RIGHT_PADDING,
             dialog))
@@ -419,6 +439,7 @@ ctk_file_dialog_init(struct ctk_file_dialog *dialog, const char *title)
 
   ctk_widget_get_handlers(dialog->file_menu, &hnd);
   hnd.submit_handler = ctk_file_dialog_on_submit_file;
+  hnd.kbd_handler    = ctk_file_dialog_on_kbd_file;
   ctk_widget_set_handlers(dialog->file_menu, &hnd);
 
   ctk_widget_get_handlers(dialog->dir_menu, &hnd);
@@ -450,7 +471,6 @@ ctk_file_dialog(const char *title, char **file)
 {
   struct ctk_file_dialog dialog = ctk_file_dialog_INITIALIZER;
   enum ctk_dialog_response resp = CTK_DIALOG_RESPONSE_ERROR;
-  const struct ctk_item *file_item = NULL;
   char *cwd = NULL;
   int c;
 
@@ -479,7 +499,7 @@ ctk_file_dialog(const char *title, char **file)
     goto done;
   }
 
-  if ((file_item = ctk_menu_get_current_item(dialog.file_menu)) == NULL
+  if (ctk_menu_get_item_count(dialog.file_menu) == 0
       && dialog.curr_path == NULL) {
     resp = CTK_DIALOG_RESPONSE_CANCEL;
     goto done;
