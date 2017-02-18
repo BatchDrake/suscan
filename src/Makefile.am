@@ -25,4 +25,5 @@ suscan_LDADD = ../util/libutil.la \
 	@menu_LIBS@											\
 	@GLOBAL_LDFLAGS@
 
-suscan_SOURCES = file_sources.c main.c source.c source_dlg.c suscan.h
+suscan_SOURCES = file_sources.c main.c mq.c source.c source_dlg.c suscan.h \
+	worker.c

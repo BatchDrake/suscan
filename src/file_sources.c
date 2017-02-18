@@ -70,7 +70,7 @@ suscan_iqfile_source_init(void)
   if ((source = suscan_source_register(
       "I/Q File",
       "GQRX's I/Q recording",
-      suscan_wav_source_ctor)) == NULL)
+      suscan_iqfile_source_ctor)) == NULL)
     return SU_FALSE;
 
   if (!suscan_source_add_field(

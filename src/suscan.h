@@ -26,6 +26,32 @@
 #define SUSCAN_SOURCE_TYPE_WAV_FILE ((void *) 4)
 #define SUSCAN_SOURCE_TYPE_ALSA     ((void *) 5)
 
+#define SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT  0x0
+#define SUSCAN_WORKER_MESSAGE_TYPE_HALT         0xffffffff
+
+#define SUSCAN_WORKER_INIT_OK                   0
+#define SUSCAN_WORKER_INIT_FAILURE              1
+
+struct suscan_worker_status_msg {
+  int code;
+  char *err_msg;
+};
+
+struct suscan_msg {
+  uint32_t type;
+  void *private;
+
+  struct suscan_msg *next;
+};
+
+struct suscan_mq {
+  pthread_mutex_t acquire_lock;
+  pthread_cond_t  acquire_cond;
+
+  struct suscan_msg *head;
+  struct suscan_msg *tail;
+};
+
 enum suscan_field_type {
   SUSCAN_FIELD_TYPE_STRING,
   SUSCAN_FIELD_TYPE_INTEGER,
@@ -61,6 +87,41 @@ struct suscan_source_config {
   const struct suscan_source *source;
   union suscan_field_value **values;
 };
+
+struct suscan_worker {
+  struct suscan_mq mq_in;  /* To-thread messages */
+  struct suscan_mq mq_out; /* From-thread messages */
+  struct suscan_source_config *config;
+  SUBOOL running;
+
+  pthread_t thread;
+};
+
+typedef struct suscan_worker suscan_worker_t;
+
+/*************************** Message queue API *******************************/
+SUBOOL suscan_mq_init(struct suscan_mq *mq);
+void   suscan_mq_finalize(struct suscan_mq *mq);
+void  *suscan_mq_read(struct suscan_mq *mq, uint32_t *type);
+SUBOOL suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *private);
+SUBOOL suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *private);
+
+/****************************** Worker API ***********************************/
+void suscan_worker_status_msg_destroy(struct suscan_worker_status_msg *status);
+struct suscan_worker_status_msg *suscan_worker_status_msg_new(
+    uint32_t code,
+    const char *msg);
+SUBOOL suscan_worker_send_status(
+    suscan_worker_t *worker,
+    uint32_t type,
+    int code,
+    const char *err_msg_fmt, ...);
+void *suscan_worker_read(suscan_worker_t *worker, uint32_t *type);
+void suscan_worker_dispose_message(uint32_t type, void *ptr);
+void suscan_worker_destroy(suscan_worker_t *worker);
+suscan_worker_t *suscan_worker_new(struct suscan_source_config *config);
+
+/**************************** Source API *************************************/
 
 struct suscan_source *suscan_source_lookup(const char *name);
 struct suscan_source *suscan_source_register(
