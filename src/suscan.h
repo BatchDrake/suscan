@@ -89,8 +89,8 @@ struct suscan_source_config {
 };
 
 struct suscan_worker {
-  struct suscan_mq mq_in;  /* To-thread messages */
-  struct suscan_mq mq_out; /* From-thread messages */
+  struct suscan_mq mq_in;   /* To-thread messages */
+  struct suscan_mq *mq_out; /* From-thread messages */
   struct suscan_source_config *config;
   SUBOOL running;
 
@@ -119,7 +119,9 @@ SUBOOL suscan_worker_send_status(
 void *suscan_worker_read(suscan_worker_t *worker, uint32_t *type);
 void suscan_worker_dispose_message(uint32_t type, void *ptr);
 void suscan_worker_destroy(suscan_worker_t *worker);
-suscan_worker_t *suscan_worker_new(struct suscan_source_config *config);
+suscan_worker_t *suscan_worker_new(
+    struct suscan_source_config *config,
+    struct suscan_mq *mq);
 
 /**************************** Source API *************************************/
 

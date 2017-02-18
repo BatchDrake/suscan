@@ -81,7 +81,7 @@ suscan_worker_send_status(
   if ((msg = suscan_worker_status_msg_new(code, err_msg)) == NULL)
     goto done;
 
-  suscan_mq_write(&worker->mq_out, type, msg);
+  suscan_mq_write(worker->mq_out, type, msg);
 
   ok = SU_TRUE;
 
@@ -117,7 +117,7 @@ SUPRIVATE void
 suscan_worker_ack_halt(suscan_worker_t *worker)
 {
   suscan_mq_write_urgent(
-      &worker->mq_out,
+      worker->mq_out,
       SUSCAN_WORKER_MESSAGE_TYPE_HALT,
       NULL);
 }
@@ -177,7 +177,7 @@ halt:
 void *
 suscan_worker_read(suscan_worker_t *worker, uint32_t *type)
 {
-  return suscan_mq_read(&worker->mq_out, type);
+  return suscan_mq_read(worker->mq_out, type);
 }
 
 void
@@ -187,7 +187,7 @@ suscan_worker_destroy(suscan_worker_t *worker)
 
   if (worker->running) {
     suscan_worker_req_halt(worker);
-    (void) suscan_mq_read(&worker->mq_out, &result);
+    (void) suscan_mq_read(worker->mq_out, &result);
 
     /* Couldn't stop thread, leave to avoid memory corruption */
     if (result != SUSCAN_WORKER_MESSAGE_TYPE_HALT)
@@ -200,13 +200,14 @@ suscan_worker_destroy(suscan_worker_t *worker)
     suscan_source_config_destroy(worker->config);
 
   suscan_mq_finalize(&worker->mq_in);
-  suscan_mq_finalize(&worker->mq_out);
 
   free(worker);
 }
 
 suscan_worker_t *
-suscan_worker_new(struct suscan_source_config *config)
+suscan_worker_new(
+    struct suscan_source_config *config,
+    struct suscan_mq *mq)
 {
   suscan_worker_t *worker = NULL;
 
@@ -216,8 +217,7 @@ suscan_worker_new(struct suscan_source_config *config)
   if (!suscan_mq_init(&worker->mq_in))
     goto fail;
 
-  if (!suscan_mq_init(&worker->mq_out))
-    goto fail;
+  worker->mq_out = mq;
 
   if (pthread_create(
       &worker->thread,
