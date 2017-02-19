@@ -186,7 +186,8 @@ suscan_worker_thread(void *data)
         count = 0;
         su_channel_detector_get_channel_list(detector, &ch_list, &ch_count);
 
-        if ((channel_msg = suscan_worker_channel_msg_new(ch_list, ch_count))
+        if ((channel_msg =
+              suscan_worker_channel_msg_new(worker, ch_list, ch_count))
             == NULL) {
           suscan_worker_send_status(
               worker,

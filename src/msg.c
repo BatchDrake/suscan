@@ -79,7 +79,10 @@ suscan_worker_channel_msg_destroy(struct suscan_worker_channel_msg *msg)
 }
 
 struct suscan_worker_channel_msg *
-suscan_worker_channel_msg_new(struct sigutils_channel **list, unsigned int len)
+suscan_worker_channel_msg_new(
+    const suscan_worker_t *worker,
+    struct sigutils_channel **list,
+    unsigned int len)
 {
   unsigned int i;
   struct suscan_worker_channel_msg *new = NULL;
@@ -94,6 +97,7 @@ suscan_worker_channel_msg_new(struct sigutils_channel **list, unsigned int len)
       goto fail;
 
   new->channel_count = len;
+  new->source = worker->config->source;
 
   for (i = 0; i < len; ++i)
     if (list[i] != NULL)

@@ -100,6 +100,34 @@ suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
   }
 }
 
+void
+suscan_redraw_results_header(void)
+{
+  wattron(main_interface.m_results->c_window, COLOR_PAIR(CTK_CP_BACKGROUND_TEXT));
+
+  /* mvwaddch (main_interface.m_results->c_window, 0, 2, ACS_RTEE); */
+  mvwprintw(main_interface.m_results->c_window, 0, 3,  " Channel freq");
+  /* mvwaddch (main_interface.m_results->c_window, 0, 16, ACS_LTEE); */
+
+  /* mvwaddch (main_interface.m_results->c_window, 0, 18, ACS_RTEE); */
+  mvwprintw(main_interface.m_results->c_window, 0, 19, " Bandwidth");
+  /* mvwaddch (main_interface.m_results->c_window, 0, 29, ACS_LTEE); */
+
+  /* mvwaddch (main_interface.m_results->c_window, 0, 31, ACS_RTEE); */
+  mvwprintw(main_interface.m_results->c_window, 0, 32, "  SNR  ");
+  /* mvwaddch (main_interface.m_results->c_window, 0, 39, ACS_LTEE); */
+
+  /* mvwaddch (main_interface.m_results->c_window, 0, 41, ACS_RTEE); */
+  mvwprintw(main_interface.m_results->c_window, 0, 42, "   N0   ");
+  /* mvwaddch (main_interface.m_results->c_window, 0, 50, ACS_LTEE); */
+
+  /* mvwaddch (main_interface.m_results->c_window, 0, 55, ACS_RTEE); */
+  mvwprintw(main_interface.m_results->c_window, 0, 56, "    Signal source   ");
+  /* mvwaddch (main_interface.m_results->c_window, 0, 77, ACS_LTEE); */
+
+  /* wattroff(main_interface.m_results->c_window, A_REVERSE); */
+}
+
 SUBOOL
 suscan_init_windows(void)
 {
@@ -124,12 +152,30 @@ suscan_init_windows(void)
   SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_channel, 25, 1));
   SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_channel, COLS - 25, 10));
 
+  SUSCAN_MANDATORY(main_interface.m_results =
+      ctk_menu_new(
+          main_interface.w_results,
+          2,
+          1));
+
+  ctk_widget_set_shadow(main_interface.m_results, CTK_FALSE);
+  ctk_menu_set_autoresize(main_interface.m_results, SU_FALSE);
+
+  ctk_widget_resize(
+      main_interface.m_results,
+      main_interface.w_results->width - 4,
+      main_interface.w_results->height - 2);
+
+  ctk_widget_show(main_interface.m_results);
   ctk_widget_show(main_interface.w_status);
   ctk_widget_show(main_interface.w_channel);
   ctk_widget_show(main_interface.w_results);
 
+  suscan_redraw_results_header();
+
   return SU_TRUE;
 }
+
 
 SUBOOL
 suscan_init_menus(void)
@@ -248,10 +294,23 @@ suscan_clear_mq(void)
   suscan_mq_finalize(&main_interface.mq);
 }
 
+SUPRIVATE int
+suscan_compare_channels(const struct ctk_item *a, const struct ctk_item *b)
+{
+  const struct sigutils_channel *c_a =
+      (const struct sigutils_channel *) a->private;
+  const struct sigutils_channel *c_b =
+      (const struct sigutils_channel *) b->private;
+
+  return c_a->fc - c_b->fc;
+}
+
 SUBOOL
 suscan_ui_loop(const char *a0)
 {
   int c;
+  unsigned int i;
+  char *channel_line;
   void *ptr;
   uint32_t type;
   struct suscan_worker_status_msg *status;
@@ -280,22 +339,35 @@ suscan_ui_loop(const char *a0)
               status->err_msg == NULL
               ? "Source couldn't be initialized"
               : status->err_msg);
-        else
-          mvwprintw(
-              main_interface.w_results->c_window,
-              1,
-              1,
-              "Channel detector initialized");
         break;
 
       case SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL:
         channels = (struct suscan_worker_channel_msg *) ptr;
-        mvwprintw(
-            main_interface.w_results->c_window,
-            2,
-            1,
-            "Channels: %d",
-            channels->channel_count);
+
+        ctk_menu_clear(main_interface.m_results);
+
+        for (i = 0; i < channels->channel_count; ++i) {
+          if ((channel_line = strbuild(
+              "%+12.2lf Hz   %7.2lf Hz   %3.1lf dB  %6.1lf dB      %s",
+              channels->channel_list[i]->fc,
+              channels->channel_list[i]->bw,
+              channels->channel_list[i]->snr,
+              channels->channel_list[i]->N0,
+              channels->source->desc)) != NULL) {
+            ctk_menu_add_item(
+                main_interface.m_results,
+                channel_line,
+                "                                            ",
+                channels->channel_list[i]);
+            free(channel_line);
+          }
+        }
+
+        ctk_menu_sort(main_interface.m_results, suscan_compare_channels);
+
+        ctk_widget_redraw(main_interface.m_results);
+
+        suscan_redraw_results_header();
         break;
     }
 

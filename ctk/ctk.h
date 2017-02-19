@@ -393,6 +393,7 @@ struct ctk_item *ctk_menu_get_item_at(
 struct ctk_item *ctk_selbutton_get_current_item(ctk_widget_t *widget);
 void ctk_selbutton_set_private(ctk_widget_t *widget, void *private);
 void *ctk_selbutton_get_private(const ctk_widget_t *widget);
+CTKBOOL ctk_selbutton_adjust_size(ctk_widget_t *widget);
 
 /************************** CTK Entry functions ******************************/
 ctk_widget_t *ctk_entry_new(

@@ -156,6 +156,21 @@ ctk_selbutton_get_private(const ctk_widget_t *widget)
   return data->private;
 }
 
+CTKBOOL
+ctk_selbutton_adjust_size(ctk_widget_t *widget)
+{
+  ctk_widget_t *menu;
+  struct ctk_selbutton_data *data =
+        (struct ctk_selbutton_data *) ctk_widget_get_private(widget);
+
+  menu = data->menu;
+
+  return ctk_widget_resize(
+      widget,
+      5 + ctk_menu_get_max_item_name_length(menu),
+      1);
+}
+
 ctk_widget_t *
 ctk_selbutton_new(
     ctk_widget_t *root,
@@ -196,7 +211,7 @@ ctk_selbutton_new(
   /* Overwrite keyboard handler */
   hnd.kbd_handler = ctk_selbutton_on_kbd;
 
-  if (!ctk_widget_resize(button, ctk_menu_get_max_item_name_length(menu), 1))
+  if (!ctk_selbutton_adjust_size(button))
     goto fail;
 
   if (root == NULL) {

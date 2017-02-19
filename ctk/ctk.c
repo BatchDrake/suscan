@@ -203,7 +203,6 @@ ctk_widget_fill_shadow(ctk_widget_t *widget)
 
       attrs |= COLOR_PAIR(1);
 
-
       wattron(widget->c_win_shadow, attrs);
 
       if (isspace(c) || c == 0 || (attrs & A_ALTCHARSET))

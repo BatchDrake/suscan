@@ -69,25 +69,6 @@ struct xsig_source *xsig_source_new(const struct xsig_source_params *params);
 SUBOOL xsig_source_acquire(struct xsig_source *source);
 su_block_t *xsig_source_create_block(const struct xsig_source_params *params);
 
-
-/* Worker messages */
-struct suscan_worker_status_msg {
-  int code;
-  char *err_msg;
-};
-
-struct suscan_worker_channel_msg {
-  PTR_LIST(struct sigutils_channel, channel);
-};
-
-
-struct suscan_msg {
-  uint32_t type;
-  void *private;
-
-  struct suscan_msg *next;
-};
-
 struct suscan_mq {
   pthread_mutex_t acquire_lock;
   pthread_cond_t  acquire_cond;
@@ -142,6 +123,25 @@ struct suscan_worker {
 };
 
 typedef struct suscan_worker suscan_worker_t;
+
+/* Worker messages */
+struct suscan_worker_status_msg {
+  int code;
+  char *err_msg;
+};
+
+struct suscan_worker_channel_msg {
+  const struct suscan_source *source;
+  PTR_LIST(struct sigutils_channel, channel);
+};
+
+struct suscan_msg {
+  uint32_t type;
+  void *private;
+
+  struct suscan_msg *next;
+};
+
 
 /*************************** Message queue API *******************************/
 SUBOOL suscan_mq_init(struct suscan_mq *mq);
@@ -232,6 +232,7 @@ struct suscan_worker_status_msg *suscan_worker_status_msg_new(
     const char *msg);
 void suscan_worker_channel_msg_destroy(struct suscan_worker_channel_msg *msg);
 struct suscan_worker_channel_msg *suscan_worker_channel_msg_new(
+    const suscan_worker_t *worker,
     struct sigutils_channel **list,
     unsigned int len);
 void suscan_worker_dispose_message(uint32_t type, void *ptr);
