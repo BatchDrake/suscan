@@ -606,6 +606,10 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
 
   /* Center window */
   ctk_widget_center(dialog->window);
+  ctk_widget_move(
+      dialog->menu,
+      dialog->selbutton->x + dialog->window->x,
+      dialog->selbutton->y + dialog->window->y);
 
   /* Show all */
   ctk_widget_show(dialog->selbutton);

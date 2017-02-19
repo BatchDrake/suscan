@@ -50,17 +50,20 @@
 
 #define CTK_CTRL(key) (toupper(key) - '@')
 
-#define CTK_CP_TEXTAREA             1
-#define CTK_CP_WIDGET               2
-#define CTK_CP_MENU_SELECT          3
-#define CTK_CP_ACCEL_HIGHLIGHT      4
-#define CTK_CP_MENU_TITLE_HIGHLIGHT 5
-#define CTK_CP_DIALOG_NORMAL        6
-#define CTK_CP_DIALOG_INFO          7
-#define CTK_CP_DIALOG_WARNING       8
-#define CTK_CP_DIALOG_ERROR         9
-#define CTK_CP_BACKGROUND           10
-#define CTK_CP_BACKGROUND_TEXT      11
+/* Odd colors are shaded colors */
+#define CTK_CP_PURE_BLACK           1
+#define CTK_CP_TEXTAREA             2
+#define CTK_CP_WIDGET               4
+#define CTK_CP_MENU_SELECT          6
+#define CTK_CP_ACCEL_HIGHLIGHT      8
+#define CTK_CP_MENU_TITLE_HIGHLIGHT 10
+#define CTK_CP_DIALOG_COLOR_START   12
+#define CTK_CP_DIALOG_NORMAL        12
+#define CTK_CP_DIALOG_INFO          14
+#define CTK_CP_DIALOG_WARNING       16
+#define CTK_CP_DIALOG_ERROR         18
+#define CTK_CP_BACKGROUND           20
+#define CTK_CP_BACKGROUND_TEXT      22
 
 #define CTK_ITEM_INDEX(item) (item)->__index
 

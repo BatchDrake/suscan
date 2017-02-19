@@ -562,7 +562,7 @@ ctk_msgbox(enum ctk_dialog_kind kind, const char *title, const char *msg)
 
   ctk_widget_set_shadow(window, CTK_TRUE);
 
-  ctk_widget_set_attrs(window, COLOR_PAIR(kind + 6));
+  ctk_widget_set_attrs(window, COLOR_PAIR(2 * kind + CTK_CP_DIALOG_COLOR_START));
 
   ctk_dialog_get_text_size(msg, &text_width, &text_height);
 

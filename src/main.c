@@ -80,22 +80,23 @@ suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
 SUBOOL
 suscan_init_windows(void)
 {
-  init_pair(12, COLOR_CYAN, COLOR_BLUE);
+  init_pair(24, COLOR_CYAN, COLOR_BLUE);
+  init_pair(25, COLOR_BLACK, COLOR_BLUE);
 
   SUSCAN_MANDATORY(main_interface.w_status = ctk_window_new("Source status"));
-  ctk_widget_set_attrs(main_interface.w_status, COLOR_PAIR(12) | A_BOLD);
+  ctk_widget_set_attrs(main_interface.w_status, COLOR_PAIR(24) | A_BOLD);
 
   SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_status, 0, 1));
   SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_status, 25, 10));
 
   SUSCAN_MANDATORY(main_interface.w_results = ctk_window_new("Results"));
-  ctk_widget_set_attrs(main_interface.w_results, COLOR_PAIR(12) | A_BOLD);
+  ctk_widget_set_attrs(main_interface.w_results, COLOR_PAIR(24) | A_BOLD);
 
   SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_results, 0, 11));
   SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_results, COLS, LINES - 12));
 
   SUSCAN_MANDATORY(main_interface.w_channel = ctk_window_new("Channel"));
-  ctk_widget_set_attrs(main_interface.w_channel, COLOR_PAIR(12) | A_BOLD);
+  ctk_widget_set_attrs(main_interface.w_channel, COLOR_PAIR(24) | A_BOLD);
 
   SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_channel, 25, 1));
   SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_channel, COLS - 25, 10));

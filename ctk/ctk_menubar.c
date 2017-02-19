@@ -56,7 +56,9 @@ ctk_menubar_on_redraw(ctk_widget_t *widget)
       title = CTK_WIDGET_AS_MENU(curr_menu)->title;
       len = strlen(title);
 
-      wattron(widget->c_window, COLOR_PAIR(i == bar->active ? 3 : 2));
+      wattron(
+          widget->c_window,
+          COLOR_PAIR(i == bar->active ? CTK_CP_MENU_SELECT : CTK_CP_TEXTAREA));
       mvwaddstr(widget->c_window, 0, ptr, title);
 
       /* Highlight accelerator */
@@ -65,10 +67,14 @@ ctk_menubar_on_redraw(ctk_widget_t *widget)
           if (tolower(title[j]) == curr_menu->accel) {
             wattron(widget->c_window, A_UNDERLINE);
             if (bar->escape && bar->active == -1)
-              wattron(widget->c_window, A_BOLD | COLOR_PAIR(4));
+              wattron(
+                  widget->c_window,
+                  A_BOLD | COLOR_PAIR(CTK_CP_ACCEL_HIGHLIGHT));
             mvwaddch(widget->c_window, 0, ptr + j, title[j]);
             if (bar->escape && bar->active == -1)
-              wattroff(widget->c_window, A_BOLD | COLOR_PAIR(4));
+              wattroff(
+                  widget->c_window,
+                  A_BOLD | COLOR_PAIR(CTK_CP_ACCEL_HIGHLIGHT));
             wattroff(widget->c_window, A_UNDERLINE);
             break;
           }

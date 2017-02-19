@@ -184,18 +184,32 @@ ctk_widget_fill_shadow(ctk_widget_t *widget)
 {
   unsigned int i, j;
   unsigned int x, y;
-  chtype attr;
+  chtype chinfo;
+  chtype attrs;
+  char c;
 
   for (j = 0; j < widget->height; ++j)
     for (i = 0; i < widget->width; ++i) {
       x = i + widget->x + CTK_WIDGET_SHADOW_DX;
       y = j + widget->y + CTK_WIDGET_SHADOW_DY;
 
-      attr = A_COLOR & (
+      chinfo =
           widget->root == NULL
           ? mvwinch(newscr, y, x)
-          : mvwinch(widget->root->c_window, y, x));
-      mvwaddch(widget->c_win_shadow, j, i, CTK_WIDGET_SHADOW_CHAR | attr);
+          : mvwinch(widget->root->c_window, y, x);
+
+      c = chinfo & A_CHARTEXT;
+      attrs = chinfo & (A_ALTCHARSET | A_COLOR);
+
+      attrs |= COLOR_PAIR(1);
+
+
+      wattron(widget->c_win_shadow, attrs);
+
+      if (isspace(c) || c == 0 || (attrs & A_ALTCHARSET))
+        mvwaddch(widget->c_win_shadow, j, i, CTK_WIDGET_SHADOW_CHAR);
+      else
+        mvwaddch(widget->c_win_shadow, j, i, c);
     }
 }
 
@@ -615,7 +629,7 @@ ctk_widget_ctor_start(
   wid->y = y;
   wid->width = width;
   wid->height = height;
-  wid->attrs = COLOR_PAIR(1);
+  wid->attrs = COLOR_PAIR(CTK_CP_TEXTAREA);
 
   if (root == NULL)
     wid->c_window = newwin(height, width, y, x);
@@ -699,40 +713,73 @@ ctk_init(void)
   if (init_pair(CTK_CP_TEXTAREA, COLOR_WHITE, COLOR_BLACK) == ERR)
     return CTK_FALSE;
 
+  if (init_pair(CTK_CP_TEXTAREA + 1, COLOR_BLACK, COLOR_BLACK) == ERR)
+    return CTK_FALSE;
+
   /* Menubar text */
   if (init_pair(CTK_CP_WIDGET, COLOR_BLACK, COLOR_WHITE) == ERR)
+    return CTK_FALSE;
+
+  if (init_pair(CTK_CP_WIDGET + 1, COLOR_BLACK, COLOR_WHITE) == ERR)
     return CTK_FALSE;
 
   /* Selected menu in menubar */
   if (init_pair(CTK_CP_MENU_SELECT, COLOR_WHITE, COLOR_BLUE) == ERR)
     return CTK_FALSE;
 
+  if (init_pair(CTK_CP_MENU_SELECT + 1, COLOR_BLACK, COLOR_BLUE) == ERR)
+    return CTK_FALSE;
+
   /* Accelerator highlight */
   if (init_pair(CTK_CP_ACCEL_HIGHLIGHT, COLOR_BLUE, COLOR_WHITE) == ERR)
       return CTK_FALSE;
+
+  if (init_pair(CTK_CP_ACCEL_HIGHLIGHT + 1, COLOR_BLACK, COLOR_WHITE) == ERR)
+    return CTK_FALSE;
 
   /* Menu title highlight */
   if (init_pair(CTK_CP_MENU_TITLE_HIGHLIGHT, COLOR_BLACK, COLOR_WHITE) == ERR)
       return CTK_FALSE;
 
+  if (init_pair(CTK_CP_MENU_TITLE_HIGHLIGHT + 1, COLOR_BLACK, COLOR_WHITE) == ERR)
+    return CTK_FALSE;
+
   /* Dialog colors */
   if (init_pair(CTK_CP_DIALOG_NORMAL, COLOR_BLACK, COLOR_WHITE) == ERR)
     return CTK_FALSE;
 
+  if (init_pair(CTK_CP_DIALOG_NORMAL + 1, COLOR_BLACK, COLOR_WHITE) == ERR)
+      return CTK_FALSE;
+
   if (init_pair(CTK_CP_DIALOG_INFO, COLOR_WHITE, COLOR_BLUE) == ERR)
+    return CTK_FALSE;
+
+  if (init_pair(CTK_CP_DIALOG_INFO + 1, COLOR_BLACK, COLOR_BLUE) == ERR)
     return CTK_FALSE;
 
   if (init_pair(CTK_CP_DIALOG_WARNING, COLOR_BLACK, COLOR_YELLOW) == ERR)
     return CTK_FALSE;
 
+  if (init_pair(CTK_CP_DIALOG_WARNING + 1, COLOR_BLACK, COLOR_YELLOW) == ERR)
+    return CTK_FALSE;
+
   if (init_pair(CTK_CP_DIALOG_ERROR, COLOR_WHITE, COLOR_RED) == ERR)
+    return CTK_FALSE;
+
+  if (init_pair(CTK_CP_DIALOG_ERROR + 1, COLOR_BLACK, COLOR_RED) == ERR)
     return CTK_FALSE;
 
   if (init_pair(CTK_CP_BACKGROUND, COLOR_BLACK, COLOR_BLUE) == ERR)
     return CTK_FALSE;
 
+  if (init_pair(CTK_CP_BACKGROUND + 1, COLOR_BLACK, COLOR_BLUE) == ERR)
+    return CTK_FALSE;
+
   if (init_pair(CTK_CP_BACKGROUND_TEXT, COLOR_WHITE, COLOR_BLUE) == ERR)
     return CTK_FALSE;
+
+  if (init_pair(CTK_CP_BACKGROUND_TEXT + 1, COLOR_BLACK, COLOR_BLUE) == ERR)
+      return CTK_FALSE;
 
   if (curs_set(0) == ERR)
     return CTK_FALSE;

@@ -85,14 +85,14 @@ ctk_button_on_redraw(ctk_widget_t *widget)
       highlighted = CTK_TRUE;
       wattron(widget->c_window, A_UNDERLINE);
       if (has_focus)
-        wattron(widget->c_window, COLOR_PAIR(4));
+        wattron(widget->c_window, COLOR_PAIR(CTK_CP_ACCEL_HIGHLIGHT));
     }
 
     mvwaddch(widget->c_window, 0, pos + j, caption[j]);
 
     if (is_accel) {
       if (has_focus)
-        wattroff(widget->c_window, COLOR_PAIR(4));
+        wattroff(widget->c_window, COLOR_PAIR(CTK_CP_ACCEL_HIGHLIGHT));
       wattroff(widget->c_window, A_UNDERLINE);
     }
   }
