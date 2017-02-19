@@ -134,6 +134,29 @@ suscan_mq_read(struct suscan_mq *mq, uint32_t *type)
 }
 
 SUBOOL
+suscan_mq_poll(struct suscan_mq *mq, uint32_t *type, void **private)
+{
+  struct suscan_msg *msg;
+
+  suscan_mq_enter(mq);
+
+  msg = suscan_mq_pop(mq);
+
+  suscan_mq_leave(mq);
+
+  if (msg != NULL) {
+    *private = msg->private;
+    *type = msg->type;
+
+    suscan_msg_destroy(msg);
+
+    return SU_TRUE;
+  }
+
+  return SU_FALSE;
+}
+
+SUBOOL
 suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *private)
 {
   struct suscan_msg *msg;

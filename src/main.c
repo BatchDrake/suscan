@@ -37,6 +37,9 @@ struct suscan_interface {
   ctk_widget_t *w_results;
   ctk_widget_t *w_channel;
   ctk_widget_t *m_results;
+
+  /* Signal workers */
+  PTR_LIST(suscan_worker_t, worker);
 };
 
 SUPRIVATE pthread_t kbd_thread;
@@ -61,14 +64,22 @@ suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
 {
   struct suscan_source_config *config = NULL;
   enum ctk_dialog_response resp;
+  suscan_worker_t *worker = NULL;
 
   switch (CTK_ITEM_INDEX(item)) {
     case 0:
       if ((resp = suscan_open_source_dialog(&config))
           == CTK_DIALOG_RESPONSE_ERROR)
         ctk_error("SUScan", "Failed to open source dialog");
-      else if (resp == CTK_DIALOG_RESPONSE_OK)
-        suscan_source_config_destroy(config);
+      else if (resp == CTK_DIALOG_RESPONSE_OK) {
+        if ((worker = suscan_worker_new(config, &main_interface.mq)) == NULL) {
+          ctk_error("SUScan", "Failed to create worker");
+          suscan_source_config_destroy(config);
+        } else if (PTR_LIST_APPEND_CHECK(main_interface.worker, worker) == -1) {
+          ctk_error("SUScan", "Failed to append worker");
+          suscan_worker_destroy(worker);
+        }
+      }
       break;
 
     case 1:
@@ -150,7 +161,7 @@ suscan_init_menus(void)
  * Keyboard thread: stupid and cumbersome kludge used to tell the main thread
  * that it's time to attempt to read a character from the keyboard. Again,
  * this is ncurses fault: you cannot have console input in one thread and
- * console output on other thread. This design flaw is difficult to explain,
+ * console output in other thread. This design flaw is difficult to explain,
  * but it's probably related to the fact that the people that designed
  * ncurses lived in an age where multi-threaded text UI applications were
  * rare. Again, ncurses is making me waste time writing senseless hacks
@@ -202,8 +213,6 @@ suscan_screen_init(void)
   if (!ctk_init())
     return SU_FALSE;
 
-/*  scrollok(stdscr, TRUE); */
-
   wattron(stdscr, A_BOLD | COLOR_PAIR(CTK_CP_BACKGROUND_TEXT));
   mvwaddstr(stdscr, LINES - 1, COLS - strlen(app_name), app_name);
 
@@ -217,6 +226,7 @@ suscan_ui_loop(const char *a0)
   void *ptr;
   uint32_t type;
   struct suscan_worker_status_msg *status;
+  struct suscan_worker_channel_msg *channels;
 
   while (!exit_flag) {
     ptr = suscan_mq_read(&main_interface.mq, &type);
@@ -234,13 +244,29 @@ suscan_ui_loop(const char *a0)
       case SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT:
         status = (struct suscan_worker_status_msg *) ptr;
 
-        if (status->code != SUSCAN_WORKER_INIT_OK)
+        if (status->code != SUSCAN_WORKER_INIT_SUCCESS)
           ctk_error(
               "SUScan",
               "%s",
               status->err_msg == NULL
               ? "Source couldn't be initialized"
               : status->err_msg);
+        else
+          mvwprintw(
+              main_interface.w_results->c_window,
+              1,
+              1,
+              "Channel detector initialized");
+        break;
+
+      case SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL:
+        channels = (struct suscan_worker_channel_msg *) ptr;
+        mvwprintw(
+            main_interface.w_results->c_window,
+            2,
+            1,
+            "Channels: %d",
+            channels->channel_count);
         break;
     }
 
@@ -253,7 +279,7 @@ suscan_ui_loop(const char *a0)
 int
 main(int argc, char *argv[], char *envp[])
 {
-
+  unsigned int i;
   int exit_code = EXIT_FAILURE;
 
   char text[50];
@@ -277,10 +303,15 @@ main(int argc, char *argv[], char *envp[])
   if (suscan_ui_loop(argv[0]))
     exit_code = EXIT_SUCCESS;
 
+  endwin();
+
+  fprintf(stderr, "%s: waiting for other threads to stop...\n", argv[0]);
   pthread_cancel(kbd_thread);
   pthread_join(kbd_thread, NULL);
 
-  endwin();
+  fprintf(stderr, "%s: terminating all workers...\n", argv[0]);
+  for (i = 0; i < main_interface.worker_count; ++i)
+    suscan_worker_destroy(main_interface.worker_list[i]);
 
 done:
   exit(exit_code);

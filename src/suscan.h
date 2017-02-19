@@ -8,7 +8,9 @@
 
 #include <config.h> /* General compile-time configuration parameters */
 #include <util.h> /* From util: Common utility library */
+#include <sndfile.h>
 #include <sigutils/sigutils.h>
+#include <sigutils/detect.h>
 
 #include "ctk.h"
 
@@ -26,17 +28,58 @@
 #define SUSCAN_SOURCE_TYPE_WAV_FILE ((void *) 4)
 #define SUSCAN_SOURCE_TYPE_ALSA     ((void *) 5)
 
-#define SUSCAN_WORKER_MESSAGE_TYPE_KEYBOARD     0x0
-#define SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT  0x1
-#define SUSCAN_WORKER_MESSAGE_TYPE_HALT         0xffffffff
+#define SUSCAN_WORKER_MESSAGE_TYPE_KEYBOARD      0x0
+#define SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT   0x1
+#define SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL       0x2
+#define SUSCAN_WORKER_MESSAGE_TYPE_EOS           0x3
+#define SUSCAN_WORKER_MESSAGE_TYPE_INTERNAL      0x4
+#define SUSCAN_WORKER_MESSAGE_TYPE_HALT          0xffffffff
 
-#define SUSCAN_WORKER_INIT_OK                   0
-#define SUSCAN_WORKER_INIT_FAILURE              1
+#define SUSCAN_WORKER_INIT_SUCCESS              0
+#define SUSCAN_WORKER_INIT_FAILURE              -1
 
+/* Extensible signal source object */
+struct xsig_source;
+
+struct xsig_source_params {
+  SUBOOL raw_iq;
+  unsigned int samp_rate;
+  const char *file;
+  SUSCOUNT window_size;
+  void *private;
+  void (*onacquire) (struct xsig_source *source, void *private);
+};
+
+struct xsig_source {
+  struct xsig_source_params params;
+  SF_INFO info;
+  uint64_t samp_rate;
+  SNDFILE *sf;
+
+  union {
+    SUFLOAT *as_real;
+    SUCOMPLEX *as_complex;
+  };
+
+  SUSCOUNT avail;
+};
+
+void xsig_source_destroy(struct xsig_source *source);
+struct xsig_source *xsig_source_new(const struct xsig_source_params *params);
+SUBOOL xsig_source_acquire(struct xsig_source *source);
+su_block_t *xsig_source_create_block(const struct xsig_source_params *params);
+
+
+/* Worker messages */
 struct suscan_worker_status_msg {
   int code;
   char *err_msg;
 };
+
+struct suscan_worker_channel_msg {
+  PTR_LIST(struct sigutils_channel, channel);
+};
+
 
 struct suscan_msg {
   uint32_t type;
@@ -104,6 +147,7 @@ typedef struct suscan_worker suscan_worker_t;
 SUBOOL suscan_mq_init(struct suscan_mq *mq);
 void   suscan_mq_finalize(struct suscan_mq *mq);
 void  *suscan_mq_read(struct suscan_mq *mq, uint32_t *type);
+SUBOOL suscan_mq_poll(struct suscan_mq *mq, uint32_t *type, void **private);
 SUBOOL suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *private);
 SUBOOL suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *private);
 
@@ -177,5 +221,16 @@ SUBOOL suscan_init_sources(void);
 
 enum ctk_dialog_response suscan_open_source_dialog(
     struct suscan_source_config **config);
+
+/* Message constructors and destructors */
+void suscan_worker_status_msg_destroy(struct suscan_worker_status_msg *status);
+struct suscan_worker_status_msg *suscan_worker_status_msg_new(
+    uint32_t code,
+    const char *msg);
+void suscan_worker_channel_msg_destroy(struct suscan_worker_channel_msg *msg);
+struct suscan_worker_channel_msg *suscan_worker_channel_msg_new(
+    struct sigutils_channel **list,
+    unsigned int len);
+void suscan_worker_dispose_message(uint32_t type, void *ptr);
 
 #endif /* _MAIN_INCLUDE_H */
