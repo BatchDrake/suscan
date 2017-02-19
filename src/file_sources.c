@@ -316,7 +316,7 @@ suscan_wav_source_init(void)
   struct suscan_source *source = NULL;
 
   if ((source = suscan_source_register(
-      "WAV File",
+      "wavfile",
       "WAV/PCM/AIFF sound file",
       suscan_wav_source_ctor)) == NULL)
     return SU_FALSE;
@@ -360,7 +360,7 @@ suscan_iqfile_source_init(void)
   struct suscan_source *source = NULL;
 
   if ((source = suscan_source_register(
-      "I/Q File",
+      "iqfile",
       "GQRX's I/Q recording",
       suscan_iqfile_source_ctor)) == NULL)
     return SU_FALSE;

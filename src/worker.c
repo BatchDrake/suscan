@@ -89,14 +89,17 @@ suscan_worker_ack_halt(suscan_worker_t *worker)
 SUPRIVATE void
 suscan_wait_for_halt(suscan_worker_t *worker)
 {
-  uint32_t result;
+  uint32_t type;
+  void *private;
 
   for (;;) {
-    suscan_mq_read(&worker->mq_in, &result);
-    if (result == SUSCAN_WORKER_MESSAGE_TYPE_HALT) {
+    private = suscan_mq_read(&worker->mq_in, &type);
+    if (type == SUSCAN_WORKER_MESSAGE_TYPE_HALT) {
       suscan_worker_ack_halt(worker);
       break;
     }
+
+    suscan_worker_dispose_message(type, private);
   }
 }
 
@@ -260,7 +263,7 @@ suscan_worker_thread(void *data)
       if (type == SUSCAN_WORKER_MESSAGE_TYPE_HALT) {
         suscan_worker_ack_halt(worker);
         halt_acked = SU_TRUE;
-        goto halt;
+        goto done;
       }
 
       suscan_worker_dispose_message(type, private);
@@ -274,13 +277,11 @@ done:
   if (src_block != NULL)
     su_block_destroy(src_block);
 
-  if (halt_acked)
+  if (!halt_acked)
     suscan_wait_for_halt(worker);
 
 halt:
-  worker->running = SU_FALSE;
-
-  pthread_detach(pthread_self());
+  pthread_exit(NULL);
 
   return NULL;
 }
@@ -294,19 +295,24 @@ suscan_worker_read(suscan_worker_t *worker, uint32_t *type)
 void
 suscan_worker_destroy(suscan_worker_t *worker)
 {
-  uint32_t result;
+  uint32_t type;
+  void *private;
 
   if (worker->running) {
     suscan_worker_req_halt(worker);
-    do
-      (void) suscan_mq_read(worker->mq_out, &result);
-    while (result == SUSCAN_WORKER_MESSAGE_TYPE_KEYBOARD);
 
-    /* Couldn't stop thread, leave to avoid memory corruption */
-    if (result != SUSCAN_WORKER_MESSAGE_TYPE_HALT)
+    /*
+     * TODO: this cannot wait forever. Add suscan_mq_read_with_timeout
+     */
+    do {
+      private = suscan_mq_read(worker->mq_out, &type);
+      suscan_worker_dispose_message(type, private);
+    } while (type != SUSCAN_WORKER_MESSAGE_TYPE_HALT);
+
+    if (pthread_join(worker->thread, NULL) == -1) {
+      SU_ERROR("Thread failed to join, memory leak ahead\n");
       return;
-
-    pthread_join(worker->thread, NULL);
+    }
   }
 
   if (worker->config != NULL)

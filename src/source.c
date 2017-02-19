@@ -353,12 +353,123 @@ suscan_null_source_init(void)
   struct suscan_source *source = NULL;
 
   if ((source = suscan_source_register(
-      "Null source",
+      "null",
       "Dummy silent source",
       suscan_null_source_ctor)) == NULL)
     return SU_FALSE;
 
   return SU_TRUE;
+}
+
+
+struct suscan_source_config *
+suscan_source_string_to_config(const char *string)
+{
+  arg_list_t *al;
+  struct suscan_field *field = NULL;
+  struct suscan_source *src = NULL;
+  struct suscan_source_config *config = NULL;
+  SUBOOL ok = SU_FALSE;
+  char *val;
+  char *key;
+  unsigned int i;
+  uint64_t int_val;
+  SUFLOAT float_val;
+
+  if ((al = csv_split_line(string)) == NULL) {
+    SU_ERROR("Failed to parse source string\n");
+    goto done;
+  }
+
+  if (al->al_argc == 0) {
+    SU_ERROR("Invalid source string\n");
+    goto done;
+  }
+
+  if ((src = suscan_source_lookup(al->al_argv[0])) == NULL) {
+    SU_ERROR("Unknown source `%s'\n", al->al_argv[0]);
+    goto done;
+  }
+
+  if ((config = suscan_source_config_new(src)) == NULL) {
+    SU_ERROR("Failed to initialize source config\n");
+    goto done;
+  }
+
+  for (i = 1; i < al->al_argc; ++i) {
+    key = al->al_argv[i];
+
+    if ((val = strchr(key, '=')) == NULL) {
+      SU_ERROR("Malformed parameter string: `%s'\n", al->al_argv[i]);
+      goto done;
+    }
+
+    *val++ = '\0';
+
+    if ((field = suscan_source_lookup_field(src, key)) == NULL) {
+      SU_ERROR("Unknown parameter `%s' for source\n", key);
+      goto done;
+    }
+
+    switch (field->type) {
+      case SUSCAN_FIELD_TYPE_FILE:
+        if (!suscan_source_config_set_file(config, key, val)) {
+          SU_ERROR("Cannot set file parameter `%s'\n", key);
+          goto done;
+        }
+        break;
+
+      case SUSCAN_FIELD_TYPE_STRING:
+        if (!suscan_source_config_set_string(config, key, val)) {
+          SU_ERROR("Cannot set string parameter `%s'\n", key);
+          goto done;
+        }
+        break;
+
+      case SUSCAN_FIELD_TYPE_INTEGER:
+        if (sscanf(val, "%lli", &int_val) < 1) {
+          SU_ERROR("Invalid value for parameter `%s': `%s'\n", key, val);
+          goto done;
+        }
+
+        if (!suscan_source_config_set_integer(config, key, int_val)) {
+          SU_ERROR("Cannot set string parameter `%s'\n", key);
+          goto done;
+        }
+        break;
+
+      case SUSCAN_FIELD_TYPE_FLOAT:
+        if (sscanf(val, SUFLOAT_FMT, &float_val) < 1) {
+          SU_ERROR("Invalid value for parameter `%s': `%s'\n", key, val);
+          goto done;
+        }
+
+        if (!suscan_source_config_set_float(config, key, float_val)) {
+          SU_ERROR("Cannot set string parameter `%s'\n", key);
+          goto done;
+        }
+        break;
+
+      default:
+        SU_ERROR("Parameter `%s' cannot be set for this source\n", key);
+        break;
+    }
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok) {
+    if (config != NULL) {
+      suscan_source_config_destroy(config);
+      config = NULL;
+    }
+  }
+
+  if (al != NULL)
+    free_al(al);
+
+  return config;
 }
 
 SUBOOL

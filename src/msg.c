@@ -106,7 +106,8 @@ suscan_worker_channel_msg_new(struct sigutils_channel **list, unsigned int len)
   return new;
 
 fail:
-  suscan_worker_channel_msg_destroy(new);
+  if (new != NULL)
+    suscan_worker_channel_msg_destroy(new);
 
   return NULL;
 }

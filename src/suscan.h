@@ -214,6 +214,9 @@ union suscan_field_value *suscan_source_config_get_value(
     const struct suscan_source_config *cfg,
     const char *name);
 
+struct suscan_source_config *suscan_source_string_to_config(const char *string);
+
+
 SUBOOL suscan_wav_source_init(void);
 SUBOOL suscan_iqfile_source_init(void);
 

@@ -59,6 +59,21 @@ suscan_interface_notify_kbd(int c)
   return SU_TRUE;
 }
 
+SUBOOL
+suscan_open_source(struct suscan_source_config *config)
+{
+  suscan_worker_t *worker;
+
+  if ((worker = suscan_worker_new(config, &main_interface.mq)) == NULL) {
+    return SU_FALSE;
+  } else if (PTR_LIST_APPEND_CHECK(main_interface.worker, worker) == -1) {
+    suscan_worker_destroy(worker);
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
 void
 suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
 {
@@ -72,12 +87,9 @@ suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
           == CTK_DIALOG_RESPONSE_ERROR)
         ctk_error("SUScan", "Failed to open source dialog");
       else if (resp == CTK_DIALOG_RESPONSE_OK) {
-        if ((worker = suscan_worker_new(config, &main_interface.mq)) == NULL) {
-          ctk_error("SUScan", "Failed to create worker");
+        if (!suscan_open_source(config)) {
+          ctk_error("SUScan", "Failed to create worker thread");
           suscan_source_config_destroy(config);
-        } else if (PTR_LIST_APPEND_CHECK(main_interface.worker, worker) == -1) {
-          ctk_error("SUScan", "Failed to append worker");
-          suscan_worker_destroy(worker);
         }
       }
       break;
@@ -219,6 +231,23 @@ suscan_screen_init(void)
   return SU_TRUE;
 }
 
+void
+suscan_clear_mq(void)
+{
+  uint32_t type;
+  void *private;
+  unsigned int n = 0;
+
+  while (suscan_mq_poll(&main_interface.mq, &type, &private)) {
+    suscan_worker_dispose_message(type, private);
+    ++n;
+  }
+
+  printf("%d messages cleared\n", n);
+
+  suscan_mq_finalize(&main_interface.mq);
+}
+
 SUBOOL
 suscan_ui_loop(const char *a0)
 {
@@ -281,8 +310,7 @@ main(int argc, char *argv[], char *envp[])
 {
   unsigned int i;
   int exit_code = EXIT_FAILURE;
-
-  char text[50];
+  struct suscan_source_config *config;
   int n = 0;
 
   if (!suscan_init_sources()) {
@@ -300,6 +328,23 @@ main(int argc, char *argv[], char *envp[])
     goto done;
   }
 
+  for (i = 1; i < argc; ++i) {
+    if ((config = suscan_source_string_to_config(argv[i])) == NULL) {
+      fprintf(stderr, "%s: failed to parse source string\n", argv[0]);
+      goto done;
+    }
+
+    if (!suscan_open_source(config)) {
+      fprintf(
+          stderr,
+          "%s: failed to open source `%s'\n",
+          argv[0],
+          config->source->desc);
+      suscan_source_config_destroy(config);
+      goto done;
+    }
+  }
+
   if (suscan_ui_loop(argv[0]))
     exit_code = EXIT_SUCCESS;
 
@@ -312,6 +357,8 @@ main(int argc, char *argv[], char *envp[])
   fprintf(stderr, "%s: terminating all workers...\n", argv[0]);
   for (i = 0; i < main_interface.worker_count; ++i)
     suscan_worker_destroy(main_interface.worker_list[i]);
+
+  suscan_clear_mq();
 
 done:
   exit(exit_code);
