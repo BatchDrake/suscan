@@ -23,8 +23,9 @@
 #include <assert.h>
 #include <ctype.h>
 #include <libgen.h>
-#include <ctk.h>
-#include "suscan.h"
+
+#include "source.h"
+#include "xsig.h"
 
 /* Will never be freed */
 PTR_LIST(struct suscan_source, source);

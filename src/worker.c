@@ -18,63 +18,38 @@
 
 */
 
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <stdarg.h>
-#include <ctype.h>
-#include <libgen.h>
-#include <pthread.h>
-#include <stdint.h>
+#include "worker.h"
 
-#include <pthread.h>
-#include "suscan.h"
+/*
+ * worker.c: It's essentially a consumer of asynchronous callbacks. However,
+ * the object they work on *doesn't belong to it*. It's just a way to
+ * delegate the burden of expensive calculation to different threads.
+ */
 
 
-SUBOOL
-suscan_worker_send_status(
-    suscan_worker_t *worker,
-    uint32_t type,
-    int code,
-    const char *err_msg_fmt, ...)
+SUPRIVATE struct suscan_worker_callback *
+suscan_worker_callback_new(
+    SUBOOL (*func) (
+        struct suscan_mq *mq_out,
+      void *worker_private,
+      void *callback_private),
+  void *private)
 {
-  struct suscan_worker_status_msg *msg;
-  va_list ap;
-  char *err_msg = NULL;
-  SUBOOL ok = SU_FALSE;
+  struct suscan_worker_callback *cb;
 
-  va_start(ap, err_msg_fmt);
+  if ((cb = malloc(sizeof (struct suscan_worker_callback))) == NULL)
+    return NULL;
 
-  if (err_msg_fmt != NULL)
-    if ((err_msg = vstrbuild(err_msg_fmt, ap)) == NULL)
-      goto done;
+  cb->func = func;
+  cb->private = private;
 
-  if ((msg = suscan_worker_status_msg_new(code, err_msg)) == NULL)
-    goto done;
-
-  if (!suscan_mq_write(worker->mq_out, type, msg)) {
-    suscan_worker_dispose_message(type, msg);
-    goto done;
-  }
-
-  ok = SU_TRUE;
-
-done:
-  if (err_msg != NULL)
-    free(err_msg);
-
-  va_end(ap);
-
-  return ok;
+  return cb;
 }
 
 SUPRIVATE void
-suscan_worker_req_halt(suscan_worker_t *worker)
+suscan_worker_callback_destroy(struct suscan_worker_callback *callback)
 {
-  suscan_mq_write_urgent(
-      &worker->mq_in,
-      SUSCAN_WORKER_MESSAGE_TYPE_HALT,
-      NULL);
+  free(callback);
 }
 
 SUPRIVATE void
@@ -82,24 +57,24 @@ suscan_worker_ack_halt(suscan_worker_t *worker)
 {
   suscan_mq_write_urgent(
       worker->mq_out,
-      SUSCAN_WORKER_MESSAGE_TYPE_HALT,
-      NULL);
+      SUSCAN_WORKER_MSG_TYPE_HALT,
+      worker); /* Inform which worker has just been halted */
 }
 
 SUPRIVATE void
-suscan_wait_for_halt(suscan_worker_t *worker)
+suscan_worker_wait_for_halt(suscan_worker_t *worker)
 {
   uint32_t type;
-  void *private;
+  struct suscan_worker_callback *cb;
 
   for (;;) {
-    private = suscan_mq_read(&worker->mq_in, &type);
-    if (type == SUSCAN_WORKER_MESSAGE_TYPE_HALT) {
+    cb = suscan_mq_read(&worker->mq_in, &type);
+    if (type == SUSCAN_WORKER_MSG_TYPE_HALT) {
       suscan_worker_ack_halt(worker);
       break;
     }
 
-    suscan_worker_dispose_message(type, private);
+    suscan_worker_callback_destroy(cb);
   }
 }
 
@@ -107,253 +82,123 @@ SUPRIVATE void *
 suscan_worker_thread(void *data)
 {
   suscan_worker_t *worker = (suscan_worker_t *) data;
-  su_block_port_t port = su_block_port_INITIALIZER;
-  su_channel_detector_t *detector = NULL;
-  struct sigutils_channel_detector_params params =
-      sigutils_channel_detector_params_INITIALIZER;
-  struct suscan_worker_channel_msg *channel_msg = NULL;
-  struct sigutils_channel **ch_list;
-  struct xsig_source *instance;
-  unsigned int ch_count;
-
-  void *private;
-  uint32_t type;
-  su_block_t *src_block = NULL;
-  unsigned int count = 0;
-  int ret;
+  struct suscan_worker_callback *cb;
   SUBOOL halt_acked = SU_FALSE;
-  SUCOMPLEX sample;
+  uint32_t type;
 
-  if ((src_block = (worker->config->source->ctor)(worker->config)) == NULL) {
-    suscan_worker_send_status(
-        worker,
-        SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
-        SUSCAN_WORKER_INIT_FAILURE,
-        "Failed to initialize source type `%s'",
-        worker->config->source->name);
-    goto done;
-  }
-
-  if ((instance = su_block_get_property_ref(
-        src_block,
-        SU_PROPERTY_TYPE_OBJECT,
-        "instance")) == NULL) {
-    suscan_worker_send_status(
-        worker,
-        SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
-        SUSCAN_WORKER_INIT_FAILURE,
-        "Failed to get instance data of source `%s'",
-        worker->config->source->name);
-    goto done;
-  }
-
-  params.samp_rate = instance->samp_rate;
-  params.alpha = 1e-2;
-
-  if ((detector = su_channel_detector_new(&params)) == NULL) {
-    suscan_worker_send_status(
-        worker,
-        SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
-        SUSCAN_WORKER_INIT_FAILURE,
-        "Failed to initialize channel detector");
-    goto done;
-  }
-
-  if (!su_block_port_plug(&port, src_block, 0)) {
-    suscan_worker_send_status(
-        worker,
-        SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
-        SUSCAN_WORKER_INIT_FAILURE,
-        "Failed to plug source port");
-    goto done;
-  }
-
-  /* Signal initialization success */
-  suscan_worker_send_status(
-      worker,
-      SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
-      SUSCAN_WORKER_INIT_SUCCESS,
-      NULL);
-
-  for (;;) {
-    /*
-     * TODO: add a condition variable to wait for events, both from the source
-     * and the input queue.
-     */
-    if ((ret = su_block_port_read(&port, &sample, 1)) == 1) {
-      su_channel_detector_feed(detector, sample);
-      if (++count == params.window_size) {
-        count = 0;
-        su_channel_detector_get_channel_list(detector, &ch_list, &ch_count);
-
-        if ((channel_msg =
-              suscan_worker_channel_msg_new(worker, ch_list, ch_count))
-            == NULL) {
-          suscan_worker_send_status(
-              worker,
-              SUSCAN_WORKER_MESSAGE_TYPE_INTERNAL,
-              ret,
-              "Cannot create message: %s",
-              strerror(errno));
+  while ((cb = suscan_mq_read(&worker->mq_in, &type)) != NULL) {
+    if (type == SUSCAN_WORKER_MSG_TYPE_CALLBACK) {
+      if (!(cb->func) (worker->mq_out, worker->private, cb->private)) {
+        /* Callback returns FALSE: remove from message queue */
+        suscan_worker_callback_destroy(cb);
+      } else {
+        /* Callback returns TRUE: queue again */
+        if (!suscan_mq_write(&worker->mq_in, type, cb))
           goto done;
-        }
-
-        if (!suscan_mq_write(
-            worker->mq_out,
-            SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL,
-            channel_msg)) {
-          suscan_worker_dispose_message(
-              SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL,
-              channel_msg);
-          suscan_worker_send_status(
-              worker,
-              SUSCAN_WORKER_MESSAGE_TYPE_INTERNAL,
-              ret,
-              "Cannot write message: %s",
-              strerror(errno));
-          goto done;
-        }
       }
-    } else {
-      switch (ret) {
-        case SU_BLOCK_PORT_READ_END_OF_STREAM:
-          suscan_worker_send_status(
-              worker,
-              SUSCAN_WORKER_MESSAGE_TYPE_EOS,
-              ret,
-              "End of stream reached");
-          break;
-
-        case SU_BLOCK_PORT_READ_ERROR_NOT_INITIALIZED:
-          suscan_worker_send_status(
-                worker,
-                SUSCAN_WORKER_MESSAGE_TYPE_EOS,
-                ret,
-                "Port not initialized");
-          break;
-
-        case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
-          suscan_worker_send_status(
-                worker,
-                SUSCAN_WORKER_MESSAGE_TYPE_EOS,
-                ret,
-                "Acquire failed (source I/O error)");
-          break;
-
-        case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
-          suscan_worker_send_status(
-                worker,
-                SUSCAN_WORKER_MESSAGE_TYPE_EOS,
-                ret,
-                "Port desync");
-          break;
-
-        default:
-          suscan_worker_send_status(
-                worker,
-                SUSCAN_WORKER_MESSAGE_TYPE_EOS,
-                ret,
-                "Unexpected read result %d", ret);
-      }
-
+    } else if (type == SUSCAN_WORKER_MSG_TYPE_HALT) {
+      suscan_worker_ack_halt(worker);
+      halt_acked = SU_TRUE;
       goto done;
-    }
-
-    /* Pop all messages from queue before reading from the source */
-    while (suscan_mq_poll(&worker->mq_in, &type, &private)) {
-      if (type == SUSCAN_WORKER_MESSAGE_TYPE_HALT) {
-        suscan_worker_ack_halt(worker);
-        halt_acked = SU_TRUE;
-        goto done;
-      }
-
-      suscan_worker_dispose_message(type, private);
     }
   }
 
 done:
-  if (detector != NULL)
-    su_channel_detector_destroy(detector);
-
-  if (src_block != NULL)
-    su_block_destroy(src_block);
-
   if (!halt_acked)
-    suscan_wait_for_halt(worker);
+    suscan_worker_wait_for_halt(worker);
 
 halt:
+  worker->state = SUSCAN_WORKER_STATE_HALTED;
+
   pthread_exit(NULL);
 
   return NULL;
 }
 
-void *
-suscan_worker_read(suscan_worker_t *worker, uint32_t *type)
+SUBOOL
+suscan_worker_push(
+    suscan_worker_t *worker,
+    SUBOOL (*func) (
+          struct suscan_mq *mq_out,
+          void *worker_private,
+          void *callback_private),
+    void *private)
 {
-  return suscan_mq_read(worker->mq_out, type);
+  struct suscan_worker_callback *cb;
+
+  if ((cb = suscan_worker_callback_new(func, private)) == NULL)
+    return SU_FALSE;
+
+  if (!suscan_mq_write(&worker->mq_in, SUSCAN_WORKER_MSG_TYPE_CALLBACK, cb)) {
+    suscan_worker_callback_destroy(cb);
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
 }
 
 void
+suscan_worker_req_halt(suscan_worker_t *worker)
+{
+  suscan_mq_write_urgent(
+      &worker->mq_in,
+      SUSCAN_WORKER_MSG_TYPE_HALT,
+      NULL);
+}
+
+SUBOOL
 suscan_worker_destroy(suscan_worker_t *worker)
 {
-  uint32_t type;
-  void *private;
-
-  if (worker->running) {
-    suscan_worker_req_halt(worker);
-
-    /*
-     * TODO: this cannot wait forever. Add suscan_mq_read_with_timeout
-     */
-    do {
-      private = suscan_mq_read(worker->mq_out, &type);
-      suscan_worker_dispose_message(type, private);
-    } while (type != SUSCAN_WORKER_MESSAGE_TYPE_HALT);
-
-    if (pthread_join(worker->thread, NULL) == -1) {
-      SU_ERROR("Thread failed to join, memory leak ahead\n");
-      return;
-    }
+  if (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
+    SU_ERROR("Cannot destroy worker %p: still running\n", worker);
+    return SU_FALSE;
   }
 
-  if (worker->config != NULL)
-    suscan_source_config_destroy(worker->config);
+  if (worker->state == SUSCAN_WORKER_STATE_HALTED)
+    if (pthread_join(worker->thread, NULL) == -1) {
+      SU_ERROR("Thread failed to join, memory leak ahead\n");
+      return SU_FALSE;
+    }
 
+  /* Thread stopped, safe to free everything */
   suscan_mq_finalize(&worker->mq_in);
 
   free(worker);
+
+  return SU_TRUE;
 }
 
 suscan_worker_t *
 suscan_worker_new(
-    struct suscan_source_config *config,
-    struct suscan_mq *mq)
+    struct suscan_mq *mq_out,
+    void *private)
 {
-  suscan_worker_t *worker = NULL;
+  suscan_worker_t *new = NULL;
 
-  if ((worker = calloc(1, sizeof (suscan_worker_t))) == NULL)
+  if ((new = calloc(1, sizeof (suscan_worker_t))) == NULL)
     goto fail;
 
-  if (!suscan_mq_init(&worker->mq_in))
-    goto fail;
+  new->state = SUSCAN_WORKER_STATE_CREATED;
+  new->mq_out = mq_out;
+  new->private = private;
 
-  worker->mq_out = mq;
-  worker->config = config;
+  if (!suscan_mq_init(&new->mq_in))
+    goto fail;
 
   if (pthread_create(
-      &worker->thread,
+      &new->thread,
       NULL,
       suscan_worker_thread,
-      worker) == -1)
+      new) == -1)
     goto fail;
 
-  worker->running = SU_TRUE;
+  new->state = SUSCAN_WORKER_STATE_RUNNING;
 
-  return worker;
+  return new;
 
 fail:
-  if (worker != NULL)
-    suscan_worker_destroy(worker);
+  if (new != NULL)
+    suscan_worker_destroy(new);
 
   return NULL;
 }

@@ -26,8 +26,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#include <pthread.h>
-#include "suscan.h"
+#include "mq.h"
 
 SUPRIVATE void
 suscan_mq_enter(struct suscan_mq *mq)

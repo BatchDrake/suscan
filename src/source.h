@@ -1,0 +1,112 @@
+/*
+
+  Copyright (C) 2017 Gonzalo José Carracedo Carballal
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Lesser General Public License as
+  published by the Free Software Foundation, either version 3 of the
+  License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this program.  If not, see
+  <http://www.gnu.org/licenses/>
+
+*/
+
+#ifndef _SOURCE_H
+#define _SOURCE_H
+
+#include <util.h> /* From util: Common utility library */
+#include <sigutils/sigutils.h>
+
+enum suscan_field_type {
+  SUSCAN_FIELD_TYPE_STRING,
+  SUSCAN_FIELD_TYPE_INTEGER,
+  SUSCAN_FIELD_TYPE_FLOAT,
+  SUSCAN_FIELD_TYPE_FILE
+};
+
+union suscan_field_value {
+  uint64_t as_int;
+  SUFLOAT  as_float;
+  char     as_string[0];
+};
+
+struct suscan_field {
+  enum suscan_field_type type;
+  SUBOOL optional;
+  const char *name;
+  const char *desc;
+};
+
+struct suscan_source_config;
+
+struct suscan_source {
+  const char *name;
+  const char *desc;
+
+  PTR_LIST(struct suscan_field, field);
+
+  su_block_t *(*ctor) (const struct suscan_source_config *);
+};
+
+struct suscan_source_config {
+  const struct suscan_source *source;
+  union suscan_field_value **values;
+};
+
+/**************************** Source API *************************************/
+struct suscan_source *suscan_source_lookup(const char *name);
+struct suscan_source *suscan_source_register(
+    const char *name,
+    const char *desc,
+    su_block_t *(*ctor) (const struct suscan_source_config *));
+int suscan_source_lookup_field_id(
+    const struct suscan_source *source,
+    const char *name);
+struct suscan_field *suscan_source_field_id_to_field(
+    const struct suscan_source *source,
+    int id);
+struct suscan_field *suscan_source_lookup_field(
+    const struct suscan_source *source,
+    const char *name);
+SUBOOL suscan_source_add_field(
+    struct suscan_source *source,
+    enum suscan_field_type type,
+    SUBOOL optional,
+    const char *name,
+    const char *desc);
+void suscan_source_config_destroy(struct suscan_source_config *config);
+struct suscan_source_config *suscan_source_config_new(
+    const struct suscan_source *source);
+SUBOOL suscan_source_config_set_integer(
+    struct suscan_source_config *cfg,
+    const char *name,
+    uint64_t value);
+SUBOOL suscan_source_config_set_float(
+    struct suscan_source_config *cfg,
+    const char *name,
+    SUFLOAT value);
+SUBOOL suscan_source_config_set_string(
+    struct suscan_source_config *cfg,
+    const char *name,
+    const char *value);
+SUBOOL suscan_source_config_set_file(
+    struct suscan_source_config *cfg,
+    const char *name,
+    const char *value);
+
+union suscan_field_value *suscan_source_config_get_value(
+    const struct suscan_source_config *cfg,
+    const char *name);
+
+struct suscan_source_config *suscan_source_string_to_config(const char *string);
+
+SUBOOL suscan_init_sources(void);
+
+#endif /* _SOURCE_H */

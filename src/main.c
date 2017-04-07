@@ -38,8 +38,8 @@ struct suscan_interface {
   ctk_widget_t *w_channel;
   ctk_widget_t *m_results;
 
-  /* Signal workers */
-  PTR_LIST(suscan_worker_t, worker);
+  /* Signal analyzers */
+  PTR_LIST(suscan_analyzer_t, analyzer);
 };
 
 SUPRIVATE pthread_t kbd_thread;
@@ -62,12 +62,12 @@ suscan_interface_notify_kbd(int c)
 SUBOOL
 suscan_open_source(struct suscan_source_config *config)
 {
-  suscan_worker_t *worker;
+  suscan_analyzer_t *analyzer;
 
-  if ((worker = suscan_worker_new(config, &main_interface.mq)) == NULL) {
+  if ((analyzer = suscan_analyzer_new(config, &main_interface.mq)) == NULL) {
     return SU_FALSE;
-  } else if (PTR_LIST_APPEND_CHECK(main_interface.worker, worker) == -1) {
-    suscan_worker_destroy(worker);
+  } else if (PTR_LIST_APPEND_CHECK(main_interface.analyzer, analyzer) == -1) {
+    suscan_analyzer_destroy(analyzer);
     return SU_FALSE;
   }
 
@@ -79,7 +79,7 @@ suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
 {
   struct suscan_source_config *config = NULL;
   enum ctk_dialog_response resp;
-  suscan_worker_t *worker = NULL;
+  suscan_analyzer_t *analyzer = NULL;
 
   switch (CTK_ITEM_INDEX(item)) {
     case 0:
@@ -88,7 +88,7 @@ suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
         ctk_error("SUScan", "Failed to open source dialog");
       else if (resp == CTK_DIALOG_RESPONSE_OK) {
         if (!suscan_open_source(config)) {
-          ctk_error("SUScan", "Failed to create worker thread");
+          ctk_error("SUScan", "Failed to create analyzer thread");
           suscan_source_config_destroy(config);
         }
       }
@@ -285,7 +285,7 @@ suscan_clear_mq(void)
   unsigned int n = 0;
 
   while (suscan_mq_poll(&main_interface.mq, &type, &private)) {
-    suscan_worker_dispose_message(type, private);
+    suscan_analyzer_dispose_message(type, private);
     ++n;
   }
 
@@ -313,8 +313,8 @@ suscan_ui_loop(const char *a0)
   char *channel_line;
   void *ptr;
   uint32_t type;
-  struct suscan_worker_status_msg *status;
-  struct suscan_worker_channel_msg *channels;
+  struct suscan_analyzer_status_msg *status;
+  struct suscan_analyzer_channel_msg *channels;
 
   while (!exit_flag) {
     ptr = suscan_mq_read(&main_interface.mq, &type);
@@ -330,9 +330,9 @@ suscan_ui_loop(const char *a0)
         break;
 
       case SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT:
-        status = (struct suscan_worker_status_msg *) ptr;
+        status = (struct suscan_analyzer_status_msg *) ptr;
 
-        if (status->code != SUSCAN_WORKER_INIT_SUCCESS)
+        if (status->code != SUSCAN_ANALYZER_INIT_SUCCESS)
           ctk_error(
               "SUScan",
               "%s",
@@ -342,7 +342,7 @@ suscan_ui_loop(const char *a0)
         break;
 
       case SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL:
-        channels = (struct suscan_worker_channel_msg *) ptr;
+        channels = (struct suscan_analyzer_channel_msg *) ptr;
 
         ctk_menu_clear(main_interface.m_results);
 
@@ -371,7 +371,7 @@ suscan_ui_loop(const char *a0)
         break;
     }
 
-    suscan_worker_dispose_message(type, ptr);
+    suscan_analyzer_dispose_message(type, ptr);
 
     ctk_update();
   }
@@ -426,9 +426,9 @@ main(int argc, char *argv[], char *envp[])
   pthread_cancel(kbd_thread);
   pthread_join(kbd_thread, NULL);
 
-  fprintf(stderr, "%s: terminating all workers...\n", argv[0]);
-  for (i = 0; i < main_interface.worker_count; ++i)
-    suscan_worker_destroy(main_interface.worker_list[i]);
+  fprintf(stderr, "%s: terminating all analyzers...\n", argv[0]);
+  for (i = 0; i < main_interface.analyzer_count; ++i)
+    suscan_analyzer_destroy(main_interface.analyzer_list[i]);
 
   suscan_clear_mq();
 
