@@ -24,18 +24,54 @@
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
 
+#include "worker.h"
+#include "source.h"
+#include "xsig.h"
+
+enum suscan_aync_state {
+  SUSCAN_ASYNC_STATE_RUNNING,
+  SUSCAN_ASYNC_STATE_HALTING,
+  SUSCAN_ASYNC_STATE_HALTED
+};
+
 struct suscan_channel_analyzer {
   struct sigutils_channel channel;
+  su_block_port_t port;                /* Slave reading port */
   su_channel_detector_t *fac_baud_det; /* FAC baud detector */
   su_channel_detector_t *nln_baud_det; /* Non-linear baud detector */
+
+  enum suscan_aync_state state;        /* Used to remove analyzer from queue */
+};
+
+typedef struct suscan_channel_analyzer suscan_channel_analyzer_t;
+
+struct suscan_analyzer_source {
+  struct suscan_source_config *config;
+  su_block_t *block;
+  su_block_port_t port; /* Master reading port */
+  su_channel_detector_t *detector; /* Channel detector */
+  struct xsig_source *instance;
+  SUSCOUNT samp_count;
 };
 
 struct suscan_analyzer {
   struct suscan_mq mq_in;   /* To-thread messages */
   struct suscan_mq *mq_out; /* From-thread messages */
-  struct suscan_source_config *config;
+
   SUBOOL running;
 
+  /* Source worker objects */
+  struct suscan_analyzer_source source;
+  suscan_worker_t *source_wk; /* Used by one source only */
+
+  /* Analyzer objects */
+  PTR_LIST(suscan_channel_analyzer_t, chan_analyzer);
+
+  /* Consumer workers (initially idle) */
+  PTR_LIST(suscan_worker_t, consumer_wk);
+  unsigned int next_consumer; /* Next consumer worker to use */
+
+  /* Analyzer thread */
   pthread_t thread;
 };
 

@@ -99,7 +99,7 @@ suscan_analyzer_channel_msg_new(
       goto fail;
 
   new->channel_count = len;
-  new->source = analyzer->config->source;
+  new->source = analyzer->source.config->source;
 
   for (i = 0; i < len; ++i)
     if (list[i] != NULL)

@@ -324,7 +324,7 @@ suscan_ui_loop(const char *a0)
         c = ctk_getch_async();
 
         if (c != ERR && !suscan_interface_notify_kbd(c)) {
-          fprintf(stderr, "%s: failed to send key to interface\n", a0);
+          fprintf(stderr, "%s: failed to send ksuscan_ui_loopey to interface\n", a0);
           return SU_FALSE;
         }
         break;
@@ -382,7 +382,7 @@ main(int argc, char *argv[], char *envp[])
 {
   unsigned int i;
   int exit_code = EXIT_FAILURE;
-  struct suscan_source_config *config;
+  struct suscan_source_config *config = NULL;
   int n = 0;
 
   if (!suscan_init_sources()) {
@@ -402,18 +402,20 @@ main(int argc, char *argv[], char *envp[])
 
   for (i = 1; i < argc; ++i) {
     if ((config = suscan_source_string_to_config(argv[i])) == NULL) {
-      fprintf(stderr, "%s: failed to parse source string\n", argv[0]);
+      ctk_error(
+          "Open source from command line",
+          "Failed to parse source string:\n\n%s\n",
+          argv[i]);
       goto done;
     }
 
     if (!suscan_open_source(config)) {
-      fprintf(
-          stderr,
-          "%s: failed to open source `%s'\n",
-          argv[0],
+      ctk_error(
+          "Open source from command line",
+          "Failed to open source `%s'\n",
           config->source->desc);
       suscan_source_config_destroy(config);
-      goto done;
+      config = NULL;
     }
   }
 
@@ -433,6 +435,9 @@ main(int argc, char *argv[], char *envp[])
   suscan_clear_mq();
 
 done:
+  if (config != NULL)
+    suscan_source_config_destroy(config);
+
   exit(exit_code);
 }
 

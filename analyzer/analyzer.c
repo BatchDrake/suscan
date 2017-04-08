@@ -20,10 +20,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
-#include <stdarg.h>
-#include <ctype.h>
-#include <libgen.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <stdint.h>
 
@@ -33,6 +30,82 @@
 #include "analyzer.h"
 #include "msg.h"
 
+/************************ Source worker callback *****************************/
+SUPRIVATE SUBOOL
+suscan_source_wk_cb(
+    struct suscan_mq *mq_out,
+    void *worker_private,
+    void *callback_private)
+{
+  struct suscan_analyzer *analyzer =
+      (struct suscan_analyzer *) worker_private;
+  struct suscan_analyzer_source *source =
+      (struct suscan_analyzer_source *) callback_private;
+  int ret;
+  SUCOMPLEX sample;
+  SUBOOL restart = SU_FALSE;
+
+  if ((ret = su_block_port_read(&source->port, &sample, 1)) == 1) {
+    su_channel_detector_feed(source->detector, sample);
+    if (++source->samp_count == source->detector->params.window_size) {
+      source->samp_count = 0;
+
+      if (!suscan_analyzer_send_detector_channels(analyzer, source->detector))
+        goto done;
+    }
+  } else {
+    switch (ret) {
+      case SU_BLOCK_PORT_READ_END_OF_STREAM:
+        suscan_analyzer_send_status(
+            analyzer,
+            SUSCAN_WORKER_MESSAGE_TYPE_EOS,
+            ret,
+            "End of stream reached");
+        break;
+
+      case SU_BLOCK_PORT_READ_ERROR_NOT_INITIALIZED:
+        suscan_analyzer_send_status(
+              analyzer,
+              SUSCAN_WORKER_MESSAGE_TYPE_EOS,
+              ret,
+              "Port not initialized");
+        break;
+
+      case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
+        suscan_analyzer_send_status(
+              analyzer,
+              SUSCAN_WORKER_MESSAGE_TYPE_EOS,
+              ret,
+              "Acquire failed (source I/O error)");
+        break;
+
+      case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
+        suscan_analyzer_send_status(
+              analyzer,
+              SUSCAN_WORKER_MESSAGE_TYPE_EOS,
+              ret,
+              "Port desync");
+        break;
+
+      default:
+        suscan_analyzer_send_status(
+              analyzer,
+              SUSCAN_WORKER_MESSAGE_TYPE_EOS,
+              ret,
+              "Unexpected read result %d", ret);
+    }
+
+    goto done;
+  }
+
+  restart = SU_TRUE;
+
+done:
+  return restart;
+}
+
+
+/************************* Main analyzer thread *******************************/
 SUPRIVATE void
 suscan_analyzer_req_halt(suscan_analyzer_t *analyzer)
 {
@@ -68,66 +141,74 @@ suscan_wait_for_halt(suscan_analyzer_t *analyzer)
   }
 }
 
+SUPRIVATE void
+suscan_analyzer_source_finalize(struct suscan_analyzer_source *source)
+{
+  su_block_port_unplug(&source->port);
+
+  if (source->detector != NULL)
+    su_channel_detector_destroy(source->detector);
+
+  if (source->block != NULL)
+    su_block_destroy(source->block);
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_source_init(
+    struct suscan_analyzer_source *source,
+    struct suscan_source_config *config)
+{
+  SUBOOL ok;
+  struct sigutils_channel_detector_params params =
+        sigutils_channel_detector_params_INITIALIZER;
+
+  source->config = config;
+
+  if ((source->block = (config->source->ctor)(config)) == NULL)
+    goto done;
+
+  if ((source->instance = su_block_get_property_ref(
+      source->block,
+      SU_PROPERTY_TYPE_OBJECT,
+      "instance")) == NULL)
+    goto done;
+
+  params.mode = SU_CHANNEL_DETECTOR_MODE_DISCOVERY;
+  params.samp_rate = source->instance->samp_rate;
+  params.alpha = 1e-2;
+  params.window_size = 4096;
+
+  source->samp_count = 0;
+
+  if ((source->detector = su_channel_detector_new(&params)) == NULL)
+    goto done;
+
+  if (!su_block_port_plug(&source->port, source->block, 0))
+    goto done;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
 SUPRIVATE void *
 suscan_analyzer_thread(void *data)
 {
   suscan_analyzer_t *analyzer = (suscan_analyzer_t *) data;
-  su_block_port_t port = su_block_port_INITIALIZER;
-  su_channel_detector_t *detector = NULL;
-  struct sigutils_channel_detector_params params =
-      sigutils_channel_detector_params_INITIALIZER;
-  struct xsig_source *instance;
-
   void *private;
   uint32_t type;
-  su_block_t *src_block = NULL;
-  unsigned int count = 0;
-  int ret;
   SUBOOL halt_acked = SU_FALSE;
-  SUCOMPLEX sample;
 
-  if ((src_block = (analyzer->config->source->ctor)(analyzer->config)) == NULL) {
+  if (!suscan_worker_push(
+      analyzer->source_wk,
+      suscan_source_wk_cb,
+      &analyzer->source)) {
     suscan_analyzer_send_status(
         analyzer,
         SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
         SUSCAN_ANALYZER_INIT_FAILURE,
-        "Failed to initialize source type `%s'",
-        analyzer->config->source->name);
-    goto done;
-  }
-
-  if ((instance = su_block_get_property_ref(
-        src_block,
-        SU_PROPERTY_TYPE_OBJECT,
-        "instance")) == NULL) {
-    suscan_analyzer_send_status(
-        analyzer,
-        SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
-        SUSCAN_ANALYZER_INIT_FAILURE,
-        "Failed to get instance data of source `%s'",
-        analyzer->config->source->name);
-    goto done;
-  }
-
-  params.samp_rate = instance->samp_rate;
-  params.alpha = 1e-2;
-  params.window_size = 4096;
-
-  if ((detector = su_channel_detector_new(&params)) == NULL) {
-    suscan_analyzer_send_status(
-        analyzer,
-        SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
-        SUSCAN_ANALYZER_INIT_FAILURE,
-        "Failed to initialize channel detector");
-    goto done;
-  }
-
-  if (!su_block_port_plug(&port, src_block, 0)) {
-    suscan_analyzer_send_status(
-        analyzer,
-        SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
-        SUSCAN_ANALYZER_INIT_FAILURE,
-        "Failed to plug source port");
+        "Failed to push async callback to worker");
     goto done;
   }
 
@@ -138,66 +219,12 @@ suscan_analyzer_thread(void *data)
       SUSCAN_ANALYZER_INIT_SUCCESS,
       NULL);
 
+  /* Pop all messages from queue before reading from the source */
   for (;;) {
-    /*
-     * TODO: add a condition variable to wait for events, both from the source
-     * and the input queue.
-     */
-    if ((ret = su_block_port_read(&port, &sample, 1)) == 1) {
-      su_channel_detector_feed(detector, sample);
-      if (++count == params.window_size) {
-        count = 0;
+    /* First read: blocks */
+    private = suscan_mq_read(&analyzer->mq_in, &type);
 
-        if (!suscan_analyzer_send_detector_channels(analyzer, detector))
-          goto done;
-      }
-    } else {
-      switch (ret) {
-        case SU_BLOCK_PORT_READ_END_OF_STREAM:
-          suscan_analyzer_send_status(
-              analyzer,
-              SUSCAN_WORKER_MESSAGE_TYPE_EOS,
-              ret,
-              "End of stream reached");
-          break;
-
-        case SU_BLOCK_PORT_READ_ERROR_NOT_INITIALIZED:
-          suscan_analyzer_send_status(
-                analyzer,
-                SUSCAN_WORKER_MESSAGE_TYPE_EOS,
-                ret,
-                "Port not initialized");
-          break;
-
-        case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
-          suscan_analyzer_send_status(
-                analyzer,
-                SUSCAN_WORKER_MESSAGE_TYPE_EOS,
-                ret,
-                "Acquire failed (source I/O error)");
-          break;
-
-        case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
-          suscan_analyzer_send_status(
-                analyzer,
-                SUSCAN_WORKER_MESSAGE_TYPE_EOS,
-                ret,
-                "Port desync");
-          break;
-
-        default:
-          suscan_analyzer_send_status(
-                analyzer,
-                SUSCAN_WORKER_MESSAGE_TYPE_EOS,
-                ret,
-                "Unexpected read result %d", ret);
-      }
-
-      goto done;
-    }
-
-    /* Pop all messages from queue before reading from the source */
-    while (suscan_mq_poll(&analyzer->mq_in, &type, &private)) {
+    do {
       switch (type) {
         case SUSCAN_WORKER_MESSAGE_TYPE_HALT:
           suscan_analyzer_ack_halt(analyzer);
@@ -205,22 +232,25 @@ suscan_analyzer_thread(void *data)
           /* Nothing to dispose, safe to break the loop */
           goto done;
 
-          /* TODO: parse analyzer commands here */
+        case SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL:
+          /* Forward these messages to output */
+          if (!suscan_mq_write(analyzer->mq_out, type, private))
+            goto done;
+
+          break;
       }
 
       suscan_analyzer_dispose_message(type, private);
-    }
+
+      /* Next reads: until message queue is empty */
+    } while (suscan_mq_poll(&analyzer->mq_in, &type, &private));
   }
 
 done:
-  if (detector != NULL)
-    su_channel_detector_destroy(detector);
-
-  if (src_block != NULL)
-    su_block_destroy(src_block);
-
   if (!halt_acked)
     suscan_wait_for_halt(analyzer);
+
+  /* TODO: finalize all workers */
 
 halt:
   pthread_exit(NULL);
@@ -238,6 +268,8 @@ void
 suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 {
   uint32_t type;
+  unsigned int i;
+
   void *private;
 
   if (analyzer->running) {
@@ -257,12 +289,33 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
     }
   }
 
-  if (analyzer->config != NULL)
-    suscan_source_config_destroy(analyzer->config);
+  /* If we get to this point, it means that all workers have finished */
+  if (analyzer->source_wk != NULL)
+    suscan_worker_destroy(analyzer->source_wk);
+
+  for (i = 0; i < analyzer->consumer_wk_count; ++i)
+    if (analyzer->consumer_wk_list[i] != NULL)
+      suscan_worker_destroy(analyzer->consumer_wk_list[i]);
+
+  if (analyzer->consumer_wk_list != NULL)
+    free(analyzer->consumer_wk_list);
+
+  suscan_analyzer_source_finalize(&analyzer->source);
 
   suscan_mq_finalize(&analyzer->mq_in);
 
   free(analyzer);
+}
+
+SUPRIVATE unsigned int
+suscan_get_min_consumer_workers(void)
+{
+  long count;
+
+  if ((count = sysconf(_SC_NPROCESSORS_ONLN)) < 2)
+    count = 2;
+
+  return count - 1;
 }
 
 suscan_analyzer_t *
@@ -271,15 +324,39 @@ suscan_analyzer_new(
     struct suscan_mq *mq)
 {
   suscan_analyzer_t *analyzer = NULL;
+  suscan_worker_t *worker;
+  unsigned int worker_count;
+  unsigned int i;
 
   if ((analyzer = calloc(1, sizeof (suscan_analyzer_t))) == NULL)
     goto fail;
 
+  /* Create input message queue */
   if (!suscan_mq_init(&analyzer->mq_in))
     goto fail;
 
+  /* Initialize source */
+  if (!suscan_analyzer_source_init(&analyzer->source, config))
+    goto fail;
+
+  /* Create source worker */
+  if ((analyzer->source_wk = suscan_worker_new(&analyzer->mq_in, analyzer))
+      == NULL)
+    goto fail;
+
+  /* Create consumer workers */
+  worker_count = suscan_get_min_consumer_workers();
+  for (i = 0; i < worker_count; ++i) {
+    if ((worker = suscan_worker_new(&analyzer->mq_in, analyzer)) == NULL)
+      goto fail;
+
+    if (PTR_LIST_APPEND_CHECK(analyzer->consumer_wk, worker) == -1) {
+      suscan_worker_destroy(worker);
+      goto fail;
+    }
+  }
+
   analyzer->mq_out = mq;
-  analyzer->config = config;
 
   if (pthread_create(
       &analyzer->thread,

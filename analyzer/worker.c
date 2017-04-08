@@ -86,21 +86,28 @@ suscan_worker_thread(void *data)
   SUBOOL halt_acked = SU_FALSE;
   uint32_t type;
 
-  while ((cb = suscan_mq_read(&worker->mq_in, &type)) != NULL) {
-    if (type == SUSCAN_WORKER_MSG_TYPE_CALLBACK) {
-      if (!(cb->func) (worker->mq_out, worker->private, cb->private)) {
-        /* Callback returns FALSE: remove from message queue */
-        suscan_worker_callback_destroy(cb);
-      } else {
-        /* Callback returns TRUE: queue again */
-        if (!suscan_mq_write(&worker->mq_in, type, cb))
-          goto done;
+  for (;;) {
+    /* First read: blocking */
+    cb = suscan_mq_read(&worker->mq_in, &type);
+
+    do {
+      if (type == SUSCAN_WORKER_MSG_TYPE_CALLBACK) {
+        if (!(cb->func) (worker->mq_out, worker->private, cb->private)) {
+          /* Callback returns FALSE: remove from message queue */
+          suscan_worker_callback_destroy(cb);
+        } else {
+          /* Callback returns TRUE: queue again */
+          if (!suscan_mq_write(&worker->mq_in, type, cb))
+            goto done;
+        }
+      } else if (type == SUSCAN_WORKER_MSG_TYPE_HALT) {
+        suscan_worker_ack_halt(worker);
+        halt_acked = SU_TRUE;
+        goto done;
       }
-    } else if (type == SUSCAN_WORKER_MSG_TYPE_HALT) {
-      suscan_worker_ack_halt(worker);
-      halt_acked = SU_TRUE;
-      goto done;
-    }
+
+      /* Next reads: until queue is empty */
+    } while (suscan_mq_poll(&worker->mq_in, &type, (void *) &cb));
   }
 
 done:

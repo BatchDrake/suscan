@@ -9,13 +9,12 @@
 #include <config.h> /* General compile-time configuration parameters */
 #include <util.h> /* From util: Common utility library */
 
-#include "worker.h" /* Worker object */
-#include "source.h" /* Generic source API */
-#include "xsig.h"   /* File sources */
-#include "mq.h"     /* Message queue object */
-#include "analyzer.h"
+#include <analyzer/source.h> /* Generic source API */
+#include <analyzer/xsig.h>   /* File sources */
+#include <analyzer/mq.h>     /* Message queue object */
+#include <analyzer/analyzer.h>
 
-#include "msg.h"    /* Suscan-specific messages */
+#include <analyzer/msg.h>    /* Suscan-specific messages */
 
 #include "ctk.h"
 
