@@ -86,5 +86,6 @@ AC_OUTPUT([
   Makefile
   src/Makefile
   util/Makefile
+  analyzer/Makefile
   ctk/Makefile
 ])

@@ -2,7 +2,7 @@
 
 
 bin_PROGRAMS = suscan
-suscan_CFLAGS = -I. -I../util -I../ctk -g -O0 \
+suscan_CFLAGS = -I. -I../util -I../ctk -I.. -g -O0 \
 	@sigutils_CFLAGS@ 					\
 	@fftw3_CFLAGS@     					\
 	@sndfile_CFLAGS@						\
@@ -16,6 +16,7 @@ suscan_LDFLAGS = @GLOBAL_LDFLAGS@
 
 suscan_LDADD = ../util/libutil.la \
 	../ctk/libctk.la						    \
+	../analyzer/libanalyzer.la	    \
 	@sigutils_LIBS@		 							\
 	@fftw3_LIBS@     								\
 	@sndfile_LIBS@									\
@@ -25,5 +26,4 @@ suscan_LDADD = ../util/libutil.la \
 	@menu_LIBS@											\
 	@GLOBAL_LDFLAGS@
 
-suscan_SOURCES = file_sources.c main.c mq.c msg.c msg.h source.c source_dlg.c \
-	suscan.h analyzer.c source.h xsig.h mq.h worker.c worker.h analyzer.h
+suscan_SOURCES = main.c source_dlg.c suscan.h
