@@ -167,6 +167,13 @@ suscan_analyzer_source_init(
   if ((source->block = (config->source->ctor)(config)) == NULL)
     goto done;
 
+  /* Master/slave flow controller */
+  if (!su_block_set_flow_controller(
+      source->block,
+      0,
+      SU_FLOW_CONTROL_KIND_MASTER_SLAVE))
+    goto done;
+
   if ((source->instance = su_block_get_property_ref(
       source->block,
       SU_PROPERTY_TYPE_OBJECT,
@@ -184,6 +191,13 @@ suscan_analyzer_source_init(
     goto done;
 
   if (!su_block_port_plug(&source->port, source->block, 0))
+    goto done;
+
+  /*
+   * This is the master port. Other readers must wait for this reader
+   * to complete before asking block for additional samples.
+   */
+  if (!su_block_set_master_port(source->block, 0, &source->port))
     goto done;
 
   ok = SU_TRUE;
