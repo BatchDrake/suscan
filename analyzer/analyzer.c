@@ -237,10 +237,14 @@ suscan_analyzer_thread(void *data)
           if (!suscan_mq_write(analyzer->mq_out, type, private))
             goto done;
 
+          /* Not belonging to us anymore */
+          private = NULL;
+
           break;
       }
 
-      suscan_analyzer_dispose_message(type, private);
+      if (private != NULL)
+        suscan_analyzer_dispose_message(type, private);
 
       /* Next reads: until message queue is empty */
     } while (suscan_mq_poll(&analyzer->mq_in, &type, &private));
