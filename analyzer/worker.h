@@ -27,7 +27,7 @@
 #include "mq.h"
 
 #define SUSCAN_WORKER_MSG_TYPE_CALLBACK 0
-#define SUSCAN_WORKER_MSG_TYPE_HALT     1
+#define SUSCAN_WORKER_MSG_TYPE_HALT     0xffffffff
 
 enum suscan_worker_state {
   SUSCAN_WORKER_STATE_CREATED,

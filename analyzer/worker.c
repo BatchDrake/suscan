@@ -156,6 +156,9 @@ suscan_worker_req_halt(suscan_worker_t *worker)
 SUBOOL
 suscan_worker_destroy(suscan_worker_t *worker)
 {
+  void *cb;
+  uint32_t type;
+
   if (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
     SU_ERROR("Cannot destroy worker %p: still running\n", worker);
     return SU_FALSE;
@@ -167,7 +170,11 @@ suscan_worker_destroy(suscan_worker_t *worker)
       return SU_FALSE;
     }
 
-  /* Thread stopped, safe to free everything */
+  /* Thread stopped, pop all messages and release memory */
+  while (suscan_mq_poll(&worker->mq_in, &type, &cb))
+    if (type == SUSCAN_WORKER_MSG_TYPE_CALLBACK)
+      suscan_worker_callback_destroy((struct suscan_worker_callback *) cb);
+
   suscan_mq_finalize(&worker->mq_in);
 
   free(worker);

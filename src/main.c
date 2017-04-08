@@ -240,7 +240,7 @@ suscan_keyboard_thread(void *unused)
 
     suscan_mq_write_urgent(
         &main_interface.mq,
-        SUSCAN_WORKER_MESSAGE_TYPE_KEYBOARD,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_KEYBOARD,
         NULL);
   }
 
@@ -320,7 +320,7 @@ suscan_ui_loop(const char *a0)
     ptr = suscan_mq_read(&main_interface.mq, &type);
 
     switch (type) {
-      case SUSCAN_WORKER_MESSAGE_TYPE_KEYBOARD:
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_KEYBOARD:
         c = ctk_getch_async();
 
         if (c != ERR && !suscan_interface_notify_kbd(c)) {
@@ -329,7 +329,7 @@ suscan_ui_loop(const char *a0)
         }
         break;
 
-      case SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT:
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
         status = (struct suscan_analyzer_status_msg *) ptr;
 
         if (status->code != SUSCAN_ANALYZER_INIT_SUCCESS)
@@ -341,7 +341,7 @@ suscan_ui_loop(const char *a0)
               : status->err_msg);
         break;
 
-      case SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL:
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
         channels = (struct suscan_analyzer_channel_msg *) ptr;
 
         ctk_menu_clear(main_interface.m_results);

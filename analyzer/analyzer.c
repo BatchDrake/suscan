@@ -58,7 +58,7 @@ suscan_source_wk_cb(
       case SU_BLOCK_PORT_READ_END_OF_STREAM:
         suscan_analyzer_send_status(
             analyzer,
-            SUSCAN_WORKER_MESSAGE_TYPE_EOS,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
             ret,
             "End of stream reached");
         break;
@@ -66,7 +66,7 @@ suscan_source_wk_cb(
       case SU_BLOCK_PORT_READ_ERROR_NOT_INITIALIZED:
         suscan_analyzer_send_status(
               analyzer,
-              SUSCAN_WORKER_MESSAGE_TYPE_EOS,
+              SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
               ret,
               "Port not initialized");
         break;
@@ -74,7 +74,7 @@ suscan_source_wk_cb(
       case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
         suscan_analyzer_send_status(
               analyzer,
-              SUSCAN_WORKER_MESSAGE_TYPE_EOS,
+              SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
               ret,
               "Acquire failed (source I/O error)");
         break;
@@ -82,7 +82,7 @@ suscan_source_wk_cb(
       case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
         suscan_analyzer_send_status(
               analyzer,
-              SUSCAN_WORKER_MESSAGE_TYPE_EOS,
+              SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
               ret,
               "Port desync");
         break;
@@ -90,7 +90,7 @@ suscan_source_wk_cb(
       default:
         suscan_analyzer_send_status(
               analyzer,
-              SUSCAN_WORKER_MESSAGE_TYPE_EOS,
+              SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
               ret,
               "Unexpected read result %d", ret);
     }
@@ -111,7 +111,7 @@ suscan_analyzer_req_halt(suscan_analyzer_t *analyzer)
 {
   suscan_mq_write_urgent(
       &analyzer->mq_in,
-      SUSCAN_WORKER_MESSAGE_TYPE_HALT,
+      SUSCAN_WORKER_MSG_TYPE_HALT,
       NULL);
 }
 
@@ -120,7 +120,7 @@ suscan_analyzer_ack_halt(suscan_analyzer_t *analyzer)
 {
   suscan_mq_write_urgent(
       analyzer->mq_out,
-      SUSCAN_WORKER_MESSAGE_TYPE_HALT,
+      SUSCAN_WORKER_MSG_TYPE_HALT,
       NULL);
 }
 
@@ -132,7 +132,7 @@ suscan_wait_for_halt(suscan_analyzer_t *analyzer)
 
   for (;;) {
     private = suscan_mq_read(&analyzer->mq_in, &type);
-    if (type == SUSCAN_WORKER_MESSAGE_TYPE_HALT) {
+    if (type == SUSCAN_WORKER_MSG_TYPE_HALT) {
       suscan_analyzer_ack_halt(analyzer);
       break;
     }
@@ -206,7 +206,7 @@ suscan_analyzer_thread(void *data)
       &analyzer->source)) {
     suscan_analyzer_send_status(
         analyzer,
-        SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
         SUSCAN_ANALYZER_INIT_FAILURE,
         "Failed to push async callback to worker");
     goto done;
@@ -215,7 +215,7 @@ suscan_analyzer_thread(void *data)
   /* Signal initialization success */
   suscan_analyzer_send_status(
       analyzer,
-      SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
       SUSCAN_ANALYZER_INIT_SUCCESS,
       NULL);
 
@@ -226,13 +226,13 @@ suscan_analyzer_thread(void *data)
 
     do {
       switch (type) {
-        case SUSCAN_WORKER_MESSAGE_TYPE_HALT:
+        case SUSCAN_WORKER_MSG_TYPE_HALT:
           suscan_analyzer_ack_halt(analyzer);
           halt_acked = SU_TRUE;
           /* Nothing to dispose, safe to break the loop */
           goto done;
 
-        case SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL:
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
           /* Forward these messages to output */
           if (!suscan_mq_write(analyzer->mq_out, type, private))
             goto done;
@@ -268,6 +268,35 @@ suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type)
   return suscan_mq_read(analyzer->mq_out, type);
 }
 
+
+SUPRIVATE SUBOOL
+suscan_analyzer_consume_mq_until_halt(struct suscan_mq *mq)
+{
+  void *private;
+  uint32_t type;
+
+  while (suscan_mq_poll(mq, &type, &private))
+    if (type == SUSCAN_WORKER_MSG_TYPE_HALT)
+      return SU_TRUE;
+    else
+      suscan_analyzer_dispose_message(type, private);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_halt_worker(suscan_worker_t *worker)
+{
+  if (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
+    suscan_worker_req_halt(worker);
+
+    while (!suscan_analyzer_consume_mq_until_halt(worker->mq_out))
+      suscan_mq_wait(worker->mq_out);
+  }
+
+  return suscan_worker_destroy(worker);
+}
+
 void
 suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 {
@@ -282,10 +311,8 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
     /*
      * TODO: this cannot wait forever. Add suscan_mq_read_with_timeout
      */
-    do {
-      private = suscan_mq_read(analyzer->mq_out, &type);
-      suscan_analyzer_dispose_message(type, private);
-    } while (type != SUSCAN_WORKER_MESSAGE_TYPE_HALT);
+    while (!suscan_analyzer_consume_mq_until_halt(analyzer->mq_out))
+      suscan_mq_wait(analyzer->mq_out);
 
     if (pthread_join(analyzer->thread, NULL) == -1) {
       SU_ERROR("Thread failed to join, memory leak ahead\n");
@@ -293,14 +320,25 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
     }
   }
 
-  /* If we get to this point, it means that all workers have finished */
   if (analyzer->source_wk != NULL)
-    suscan_worker_destroy(analyzer->source_wk);
+    if (!suscan_analyzer_halt_worker(analyzer->source_wk)) {
+      SU_ERROR("Source worker destruction failed, memory leak ahead\n");
+      return;
+    }
 
   for (i = 0; i < analyzer->consumer_wk_count; ++i)
     if (analyzer->consumer_wk_list[i] != NULL)
-      suscan_worker_destroy(analyzer->consumer_wk_list[i]);
+      if (!suscan_analyzer_halt_worker(analyzer->consumer_wk_list[i])) {
+        SU_ERROR("Consumer worker destruction failed, memory leak ahead\n");
+        return;
+      }
 
+  if (suscan_analyzer_consume_mq_until_halt(&analyzer->mq_in)) {
+    SU_ERROR("Unexpected HALT message! Leaking memory just in case...\n");
+    return;
+  }
+
+  /* All workers destroyed, is safe to free memory now */
   if (analyzer->consumer_wk_list != NULL)
     free(analyzer->consumer_wk_list);
 

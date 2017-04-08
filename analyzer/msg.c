@@ -122,12 +122,12 @@ void
 suscan_analyzer_dispose_message(uint32_t type, void *ptr)
 {
   switch (type) {
-    case SUSCAN_WORKER_MESSAGE_TYPE_SOURCE_INIT:
-    case SUSCAN_WORKER_MESSAGE_TYPE_EOS:
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
       suscan_analyzer_status_msg_destroy(ptr);
       break;
 
-    case SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL:
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
       suscan_analyzer_channel_msg_destroy(ptr);
       break;
   }
@@ -187,7 +187,7 @@ suscan_analyzer_send_detector_channels(
       == NULL) {
     suscan_analyzer_send_status(
         analyzer,
-        SUSCAN_WORKER_MESSAGE_TYPE_INTERNAL,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
         -1,
         "Cannot create message: %s",
         strerror(errno));
@@ -196,11 +196,11 @@ suscan_analyzer_send_detector_channels(
 
   if (!suscan_mq_write(
       analyzer->mq_out,
-      SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL,
       msg)) {
     suscan_analyzer_send_status(
         analyzer,
-        SUSCAN_WORKER_MESSAGE_TYPE_INTERNAL,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
         -1,
         "Cannot write message: %s",
         strerror(errno));
@@ -214,6 +214,6 @@ suscan_analyzer_send_detector_channels(
 
 done:
   if (msg != NULL)
-    suscan_analyzer_dispose_message(SUSCAN_WORKER_MESSAGE_TYPE_CHANNEL, msg);
+    suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL, msg);
   return ok;
 }
