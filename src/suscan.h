@@ -32,4 +32,7 @@
 #define SUSCAN_SOURCE_TYPE_WAV_FILE ((void *) 4)
 #define SUSCAN_SOURCE_TYPE_ALSA     ((void *) 5)
 
+enum ctk_dialog_response suscan_open_source_dialog(
+    struct suscan_source_config **config);
+
 #endif /* _MAIN_INCLUDE_H */

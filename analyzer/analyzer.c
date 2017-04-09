@@ -24,23 +24,159 @@
 #include <pthread.h>
 #include <stdint.h>
 
+#include <sigutils/sigutils.h>
+#include <sigutils/detect.h>
+
 #include "mq.h"
 #include "source.h"
 #include "xsig.h"
 #include "analyzer.h"
 #include "msg.h"
 
+/************************* Channel analyzer API ******************************/
+void
+suscan_channel_analyzer_destroy(suscan_channel_analyzer_t *chanal)
+{
+  if (chanal->fac_baud_det != NULL)
+    su_channel_detector_destroy(chanal->fac_baud_det);
+
+  if (chanal->nln_baud_det != NULL)
+    su_channel_detector_destroy(chanal->nln_baud_det);
+
+  if (chanal->read_buf != NULL)
+    free(chanal->read_buf);
+
+  free(chanal);
+}
+
+suscan_channel_analyzer_t *
+suscan_channel_analyzer_new(const struct sigutils_channel *channel)
+{
+  suscan_channel_analyzer_t *new;
+  struct sigutils_channel_detector_params params =
+      sigutils_channel_detector_params_INITIALIZER;
+
+  if ((new = calloc(1, sizeof (suscan_channel_analyzer_t))) == NULL)
+    goto fail;
+
+  new->state = SUSCAN_ASYNC_STATE_CREATED;
+
+  /* Common channel parameters */
+  su_channel_params_adjust_to_channel(&params, channel);
+
+  params.window_size = 4096;
+  params.alpha = 1e-3;
+
+  if (params.decimation < 2)
+    params.decimation = 1;
+  else
+    params.decimation /= 2;
+
+  /* Create generic autocorrelation-based detector */
+  params.mode = SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION;
+  if ((new->fac_baud_det = su_channel_detector_new(&params)) == NULL)
+    goto fail;
+
+  /* Create non-linear baud rate detector */
+  params.mode = SU_CHANNEL_DETECTOR_MODE_NONLINEAR_DIFF;
+  if ((new->nln_baud_det = su_channel_detector_new(&params)) == NULL)
+    goto fail;
+
+  /* Create read window */
+  new->read_size = params.window_size;
+  if ((new->read_buf = malloc(sizeof(SUCOMPLEX) * new->read_size)) == NULL)
+    goto fail;
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_channel_analyzer_destroy(new);
+
+  return NULL;
+}
+/******************* Channel analyzer worker callback ************************/
+SUPRIVATE SUBOOL
+suscan_channel_analyzer_wk_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
+  suscan_channel_analyzer_t *chanal = (suscan_channel_analyzer_t *) cb_private;
+  unsigned int i;
+  SUSDIFF got;
+  SUCOMPLEX sample;
+  SUBOOL restart = SU_FALSE;
+
+  got = su_block_port_read(&chanal->port, chanal->read_buf, chanal->read_size);
+
+  if (got > 0) {
+    /* Got samples, forward them to baud detectors */
+    for (i = 0; i < got; ++i) {
+      if (!su_channel_detector_feed(chanal->fac_baud_det, chanal->read_buf[i]))
+        goto done;
+
+      if (!su_channel_detector_feed(chanal->nln_baud_det, chanal->read_buf[i]))
+        goto done;
+    }
+  } else {
+    /* Failed to get samples, figure out why */
+    switch (got) {
+      case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
+        /*
+         * This is not necessarily an error: port desyncs happen
+         * naturally if the system is running tight on resources. We
+         * just silently resync the port
+         */
+        if (!su_block_port_resync(&chanal->port))
+          goto done;
+        break;
+
+      case SU_BLOCK_PORT_READ_END_OF_STREAM:
+        suscan_analyzer_send_status(
+            analyzer,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+            got,
+            "End of stream reached");
+        goto done;
+
+      case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
+        suscan_analyzer_send_status(
+            analyzer,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+            got,
+            "Acquire failed (source I/O error)");
+        goto done;
+
+      default:
+        suscan_analyzer_send_status(
+            analyzer,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+            got,
+            "Unexpected read result %d", got);
+    }
+  }
+
+  restart = SU_TRUE;
+
+done:
+  if (!restart)
+    chanal->state = SUSCAN_ASYNC_STATE_HALTED;
+
+  return restart;
+}
+
 /************************ Source worker callback *****************************/
 SUPRIVATE SUBOOL
 suscan_source_wk_cb(
     struct suscan_mq *mq_out,
-    void *worker_private,
-    void *callback_private)
+    void *wk_private,
+    void *cb_private)
 {
-  struct suscan_analyzer *analyzer =
-      (struct suscan_analyzer *) worker_private;
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
   struct suscan_analyzer_source *source =
-      (struct suscan_analyzer_source *) callback_private;
+      (struct suscan_analyzer_source *) cb_private;
   int ret;
   SUCOMPLEX sample;
   SUBOOL restart = SU_FALSE;
@@ -311,6 +447,40 @@ suscan_analyzer_halt_worker(suscan_worker_t *worker)
   return suscan_worker_destroy(worker);
 }
 
+SUPRIVATE unsigned int
+suscan_get_min_consumer_workers(void)
+{
+  long count;
+
+  if ((count = sysconf(_SC_NPROCESSORS_ONLN)) < 2)
+    count = 2;
+
+  return count - 1;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_push_consumer(
+    suscan_analyzer_t *analyzer,
+    SUBOOL (*func) (
+          struct suscan_mq *mq_out,
+          void *wk_private,
+          void *cb_private),
+    void *private)
+{
+  if (!suscan_worker_push(
+      analyzer->consumer_wk_list[analyzer->next_consumer],
+      func,
+      private))
+    return SU_FALSE;
+
+  /* Increment next consumer counter */
+  analyzer->next_consumer =
+      (analyzer->next_consumer + 1) % analyzer->consumer_wk_count;
+
+  return SU_TRUE;
+}
+
+/********************** Suscan analyzer public API ***************************/
 void
 suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 {
@@ -352,10 +522,20 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
     return;
   }
 
-  /* All workers destroyed, is safe to free memory now */
+
+  /* All workers destroyed, it's safe now to delete the worker list */
   if (analyzer->consumer_wk_list != NULL)
     free(analyzer->consumer_wk_list);
 
+  /* Remove all channel analyzers */
+  for (i = 0; i < analyzer->chan_analyzer_count; ++i)
+    if (analyzer->chan_analyzer_list[i] != NULL)
+      suscan_channel_analyzer_destroy(analyzer->chan_analyzer_list[i]);
+
+  if (analyzer->chan_analyzer_list != NULL)
+    free(analyzer->chan_analyzer_list);
+
+  /* Delete source information */
   suscan_analyzer_source_finalize(&analyzer->source);
 
   suscan_mq_finalize(&analyzer->mq_in);
@@ -363,15 +543,60 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   free(analyzer);
 }
 
-SUPRIVATE unsigned int
-suscan_get_min_consumer_workers(void)
+SUBOOL
+suscan_analyzer_dispose_channel_analyzer_handle(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle)
 {
-  long count;
+  if (handle < 0 || handle >= analyzer->chan_analyzer_count)
+    return SU_FALSE;
 
-  if ((count = sysconf(_SC_NPROCESSORS_ONLN)) < 2)
-    count = 2;
+  if (analyzer->chan_analyzer_list[handle] == NULL)
+    return SU_FALSE;
 
-  return count - 1;
+  analyzer->chan_analyzer_list[handle] = NULL;
+
+  return SU_TRUE;
+}
+
+SUHANDLE
+suscan_analyzer_register_channel_analyzer(
+    suscan_analyzer_t *analyzer,
+    suscan_channel_analyzer_t *chanal)
+{
+  SUHANDLE hnd;
+
+  if (chanal->state != SUSCAN_ASYNC_STATE_CREATED)
+    return SU_FALSE;
+
+  /*
+   * Plug to source. Since we are using master/slave flow control,
+   * this will not block all consumers until actual read takes place
+   * at worker context
+   */
+  if (!su_block_port_plug(&chanal->port, analyzer->source.block, 0))
+    return -1;
+
+  /* Plugged. Append handle to list */
+  if ((hnd = PTR_LIST_APPEND_CHECK(analyzer->chan_analyzer, chanal)) == -1) {
+    su_block_port_unplug(&chanal->port);
+    return -1;
+  }
+
+  /* Mark it as running and push to worker */
+  chanal->state = SUSCAN_ASYNC_STATE_RUNNING;
+
+  if (!suscan_analyzer_push_consumer(
+      analyzer,
+      suscan_channel_analyzer_wk_cb,
+      chanal)) {
+    chanal->state = SUSCAN_ASYNC_STATE_CREATED;
+    suscan_analyzer_dispose_channel_analyzer_handle(analyzer, hnd);
+    su_block_port_unplug(&chanal->port);
+    return -1;
+  }
+
+  return hnd;
 }
 
 suscan_analyzer_t *

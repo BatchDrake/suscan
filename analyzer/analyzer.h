@@ -28,17 +28,24 @@
 #include "source.h"
 #include "xsig.h"
 
+#define SUHANDLE int32_t
+
 enum suscan_aync_state {
+  SUSCAN_ASYNC_STATE_CREATED,
   SUSCAN_ASYNC_STATE_RUNNING,
   SUSCAN_ASYNC_STATE_HALTING,
   SUSCAN_ASYNC_STATE_HALTED
 };
 
+/* TODO: protect baudrate access with mutexes */
 struct suscan_channel_analyzer {
   struct sigutils_channel channel;
   su_block_port_t port;                /* Slave reading port */
   su_channel_detector_t *fac_baud_det; /* FAC baud detector */
   su_channel_detector_t *nln_baud_det; /* Non-linear baud detector */
+
+  SUCOMPLEX *read_buf;
+  SUSCOUNT   read_size;
 
   enum suscan_aync_state state;        /* Used to remove analyzer from queue */
 };
@@ -78,6 +85,11 @@ struct suscan_analyzer {
 typedef struct suscan_analyzer suscan_analyzer_t;
 
 
+/************************** Channel Analyzer API ******************************/
+void suscan_channel_analyzer_destroy(suscan_channel_analyzer_t *chanal);
+suscan_channel_analyzer_t *
+suscan_channel_analyzer_new(const struct sigutils_channel *channel);
+
 /****************************** Analyzer API **********************************/
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);
@@ -86,7 +98,11 @@ suscan_analyzer_t *suscan_analyzer_new(
     struct suscan_source_config *config,
     struct suscan_mq *mq);
 
-enum ctk_dialog_response suscan_open_source_dialog(
-    struct suscan_source_config **config);
+SUHANDLE suscan_analyzer_register_channel_analyzer(
+    suscan_analyzer_t *analyzer,
+    suscan_channel_analyzer_t *chanal);
+SUBOOL suscan_analyzer_dispose_channel_analyzer_handle(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle);
 
 #endif /* _ANALYZER_H */

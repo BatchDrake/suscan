@@ -49,8 +49,8 @@ typedef struct suscan_worker suscan_worker_t;
 struct suscan_worker_callback {
   SUBOOL (*func) (
       struct suscan_mq *mq_out,
-      void *worker_private,
-      void *callback_private);
+      void *wk_private,
+      void *cb_private);
   void *private;
 };
 
@@ -58,9 +58,9 @@ struct suscan_worker_callback {
 SUBOOL suscan_worker_push(
     suscan_worker_t *worker,
     SUBOOL (*func) (
-          struct suscan_mq *mq_out,
-          void *worker_private,
-          void *callback_private),
+        struct suscan_mq *mq_out,
+        void *wk_private,
+        void *cb_private),
     void *private);
 void suscan_worker_req_halt(suscan_worker_t *worker);
 SUBOOL suscan_worker_destroy(suscan_worker_t *worker);
