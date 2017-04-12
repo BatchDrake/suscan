@@ -26,6 +26,7 @@
 
 #include "source.h"
 #include "xsig.h"
+#include "sources/bladerf.h"
 
 /* Will never be freed */
 PTR_LIST(struct suscan_source, source);
@@ -199,7 +200,7 @@ suscan_source_config_new(const struct suscan_source *source)
 
   /* Allocate space for all fields */
   for (i = 0; i < source->field_count; ++i)
-    if ((new->values[i] = calloc(1, sizeof(union suscan_field_value))) == NULL)
+    if ((new->values[i] = calloc(1, sizeof(struct suscan_field_value))) == NULL)
       goto fail;
 
   return new;
@@ -230,6 +231,31 @@ suscan_source_config_set_integer(
     return SU_FALSE;
 
   cfg->values[id]->as_int = value;
+  cfg->values[id]->set = SU_TRUE;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_config_set_bool(
+    struct suscan_source_config *cfg,
+    const char *name,
+    SUBOOL value)
+{
+  const struct suscan_field *field;
+  int id;
+
+  /* Assert field and field type */
+  if ((id = suscan_source_lookup_field_id(cfg->source, name)) == -1)
+    return SU_FALSE;
+
+  field = suscan_source_field_id_to_field(cfg->source, id);
+
+  if (field->type != SUSCAN_FIELD_TYPE_BOOLEAN)
+    return SU_FALSE;
+
+  cfg->values[id]->as_bool = value;
+  cfg->values[id]->set = SU_TRUE;
 
   return SU_TRUE;
 }
@@ -264,7 +290,7 @@ suscan_source_config_set_string(
     const char *value)
 {
   const struct suscan_field *field;
-  union suscan_field_value *tmp;
+  struct suscan_field_value *tmp;
   size_t str_size;
   int id;
 
@@ -281,13 +307,16 @@ suscan_source_config_set_string(
 
   /* Acceptable check to avoid unnecessary allocations */
   if (strlen(cfg->values[id]->as_string) < str_size - 1) {
-    if ((tmp = realloc(cfg->values[id], str_size)) == NULL)
+    if ((tmp = realloc(
+        cfg->values[id],
+        sizeof (struct suscan_field_value) + str_size)) == NULL)
       return SU_FALSE;
 
     cfg->values[id] = tmp;
   }
 
   strncpy(cfg->values[id]->as_string, value, str_size);
+  cfg->values[id]->set = SU_TRUE;
 
   return SU_TRUE;
 }
@@ -299,7 +328,7 @@ suscan_source_config_set_file(
     const char *value)
 {
   const struct suscan_field *field;
-  union suscan_field_value *tmp;
+  struct suscan_field_value *tmp;
   size_t str_size;
   int id;
 
@@ -316,18 +345,21 @@ suscan_source_config_set_file(
 
   /* Acceptable check to avoid unnecessary allocations */
   if (strlen(cfg->values[id]->as_string) < str_size - 1) {
-    if ((tmp = realloc(cfg->values[id], str_size)) == NULL)
+    if ((tmp = realloc(
+        cfg->values[id],
+        sizeof (struct suscan_field_value) + str_size)) == NULL)
       return SU_FALSE;
 
     cfg->values[id] = tmp;
   }
 
   strncpy(cfg->values[id]->as_string, value, str_size);
+  cfg->values[id]->set = SU_TRUE;
 
   return SU_TRUE;
 }
 
-union suscan_field_value *
+struct suscan_field_value *
 suscan_source_config_get_value(
     const struct suscan_source_config *cfg,
     const char *name)
@@ -376,6 +408,7 @@ suscan_source_string_to_config(const char *string)
   unsigned int i;
   uint64_t int_val;
   SUFLOAT float_val;
+  SUBOOL bool_val;
 
   if ((al = csv_split_line(string)) == NULL) {
     SU_ERROR("Failed to parse source string\n");
@@ -451,6 +484,26 @@ suscan_source_string_to_config(const char *string)
         }
         break;
 
+      case SUSCAN_FIELD_TYPE_BOOLEAN:
+        if (strcasecmp(val, "true") == 0 ||
+            strcasecmp(val, "yes")  == 0 ||
+            strcasecmp(val, "1")    == 0)
+          bool_val = SU_TRUE;
+        else if (strcasecmp(val, "false") == 0 ||
+            strcasecmp(val, "no")         == 0 ||
+            strcasecmp(val, "0")          == 0)
+          bool_val = SU_FALSE;
+        else {
+          SU_ERROR("Invalid boolean value for parameter `%s'\n", key);
+          goto done;
+        }
+
+        if (!suscan_source_config_set_bool(config, key, bool_val)) {
+          SU_ERROR("Failed to set boolean parameter `%s'\n", key);
+          goto done;
+        }
+        break;
+
       default:
         SU_ERROR("Parameter `%s' cannot be set for this source\n", key);
         break;
@@ -483,6 +536,9 @@ suscan_init_sources(void)
     return SU_FALSE;
 
   if (!suscan_iqfile_source_init())
+    return SU_FALSE;
+
+  if (!suscan_bladeRF_source_init())
     return SU_FALSE;
 
   return SU_TRUE;

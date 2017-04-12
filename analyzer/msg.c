@@ -100,12 +100,15 @@ suscan_analyzer_channel_msg_new(
 
   new->channel_count = len;
   new->source = analyzer->source.config->source;
-
   for (i = 0; i < len; ++i)
     if (list[i] != NULL)
-      if (SU_CHANNEL_IS_VALID(list[i]))
-        if ((new->channel_list[n++] = su_channel_dup(list[i])) == NULL)
+      if (SU_CHANNEL_IS_VALID(list[i])) {
+        if ((new->channel_list[n] = su_channel_dup(list[i])) == NULL)
           goto fail;
+
+        new->channel_list[n]->fc += analyzer->source.fc;
+        ++n;
+      }
 
   new->channel_count = n;
 

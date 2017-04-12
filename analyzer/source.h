@@ -28,13 +28,18 @@ enum suscan_field_type {
   SUSCAN_FIELD_TYPE_STRING,
   SUSCAN_FIELD_TYPE_INTEGER,
   SUSCAN_FIELD_TYPE_FLOAT,
-  SUSCAN_FIELD_TYPE_FILE
+  SUSCAN_FIELD_TYPE_FILE,
+  SUSCAN_FIELD_TYPE_BOOLEAN
 };
 
-union suscan_field_value {
-  uint64_t as_int;
-  SUFLOAT  as_float;
-  char     as_string[0];
+struct suscan_field_value {
+  SUBOOL set;
+  union {
+    uint64_t as_int;
+    SUBOOL   as_bool;
+    SUFLOAT  as_float;
+    char     as_string[0];
+  };
 };
 
 struct suscan_field {
@@ -57,7 +62,7 @@ struct suscan_source {
 
 struct suscan_source_config {
   const struct suscan_source *source;
-  union suscan_field_value **values;
+  struct suscan_field_value **values;
 };
 
 /**************************** Source API *************************************/
@@ -100,8 +105,12 @@ SUBOOL suscan_source_config_set_file(
     struct suscan_source_config *cfg,
     const char *name,
     const char *value);
+SUBOOL suscan_source_config_set_bool(
+    struct suscan_source_config *cfg,
+    const char *name,
+    SUBOOL value);
 
-union suscan_field_value *suscan_source_config_get_value(
+struct suscan_field_value *suscan_source_config_get_value(
     const struct suscan_source_config *cfg,
     const char *name);
 

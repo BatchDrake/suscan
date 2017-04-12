@@ -22,7 +22,6 @@
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
-#include <libgen.h>
 
 #include "source.h"
 #include "xsig.h"
@@ -296,7 +295,7 @@ SUPRIVATE su_block_t *
 suscan_wav_source_ctor(const struct suscan_source_config *config)
 {
   struct xsig_source_params params;
-  union suscan_field_value *value;
+  struct suscan_field_value *value;
 
   if ((value = suscan_source_config_get_value(config, "path")) == NULL)
     return NULL;
@@ -337,7 +336,7 @@ SUPRIVATE su_block_t *
 suscan_iqfile_source_ctor(const struct suscan_source_config *config)
 {
   struct xsig_source_params params;
-  union suscan_field_value *value;
+  struct suscan_field_value *value;
 
   if ((value = suscan_source_config_get_value(config, "path")) == NULL)
     return NULL;

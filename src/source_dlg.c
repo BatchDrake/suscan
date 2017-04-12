@@ -50,6 +50,9 @@ struct suscan_source_widget_set {
 
   /* Widget controls */
   PTR_LIST(ctk_widget_t, widget);
+
+  /* Extra widgets, not directly related to fields */
+  PTR_LIST(ctk_widget_t, extra);
 };
 
 
@@ -81,6 +84,13 @@ suscan_source_widget_set_destroy(struct suscan_source_widget_set *widgets)
 
   if (widgets->widget_list != NULL)
     free(widgets->widget_list);
+
+  for (i = 0; i < widgets->extra_count; ++i)
+    if (widgets->extra_list[i] != NULL)
+      ctk_widget_destroy(widgets->extra_list[i]);
+
+  if (widgets->extra_list != NULL)
+    free(widgets->extra_list);
 
   free(widgets);
 }
@@ -133,6 +143,28 @@ suscan_source_widget_set_widget_to_index(
   return -1;
 }
 
+SUPRIVATE SUBOOL
+sucan_source_widget_set_rearrange_extra(struct suscan_source_widget_set *set)
+{
+  unsigned int i;
+  unsigned int ep = 0;
+
+  for (i = 0; i < set->config->source->field_count; ++i)
+    if (set->config->source->field_list[i] != NULL)
+      if (set->config->source->field_list[i]->type
+          == SUSCAN_FIELD_TYPE_BOOLEAN) {
+        assert(set->extra_list != NULL);
+        assert(set->extra_list[ep] != NULL);
+        if (!ctk_widget_move(
+            set->extra_list[ep++],
+            set->widget_list[i]->x + set->dialog->window->x,
+            set->widget_list[i]->y + set->dialog->window->y))
+          return SU_FALSE;
+      }
+
+  return SU_TRUE;
+}
+
 SUPRIVATE void
 suscan_dialog_file_on_submit(ctk_widget_t *widget, struct ctk_item *item)
 {
@@ -169,6 +201,71 @@ suscan_dialog_file_on_submit(ctk_widget_t *widget, struct ctk_item *item)
   }
 }
 
+SUPRIVATE void
+suscan_source_boolean_on_submit(ctk_widget_t *widget, struct ctk_item *item)
+{
+  struct suscan_field_value *value =
+      (struct suscan_field_value *) ctk_selbutton_get_private(widget);
+
+  value->as_bool = (SUBOOL) (long) item->private;
+  value->set = SU_TRUE;
+}
+
+SUPRIVATE ctk_widget_t *
+suscan_source_boolean_widget_new(
+    struct suscan_source_dialog *dialog,
+    struct suscan_source_widget_set *set,
+    struct suscan_field_value *value,
+    unsigned int x,
+    unsigned int y)
+{
+  ctk_widget_t *menu = NULL;
+  ctk_widget_t *selbutton = NULL;
+
+  if ((menu = ctk_menu_new(NULL, x, y)) == NULL)
+    goto fail;
+
+  if (!ctk_menu_add_item(
+      menu,
+      "Yes",
+      "",
+      (void *) SU_TRUE))
+    goto fail;
+
+
+  if (!ctk_menu_add_item(
+      menu,
+      "No",
+      "",
+      (void *) SU_FALSE))
+    goto fail;
+
+  if ((selbutton =
+      ctk_selbutton_new(dialog->window, x, y, menu)) == NULL)
+    goto fail;
+
+  ctk_widget_set_attrs(selbutton, COLOR_PAIR(CTK_CP_TEXTAREA));
+  ctk_selbutton_set_private(selbutton, value);
+  ctk_selbutton_set_on_submit(
+      selbutton,
+      suscan_source_boolean_on_submit);
+
+  /* Keep track of this dependency */
+  if (PTR_LIST_APPEND_CHECK(set->extra, menu) == -1)
+    goto fail;
+
+  return selbutton;
+
+fail:
+  if (selbutton != NULL)
+    ctk_widget_destroy(selbutton);
+
+  if (menu != NULL)
+    ctk_widget_destroy(menu);
+
+  return NULL;
+}
+
 SUPRIVATE struct suscan_source_widget_set *
 suscan_source_widget_set_new(
     struct suscan_source_dialog *dialog,
@@ -191,7 +288,7 @@ suscan_source_widget_set_new(
   if ((new->config = suscan_source_config_new(source)) == NULL)
     goto fail;
 
-  height = SUSCAN_SOURCE_DIALOG_Y_PADDING + new->config->source->field_count;
+  height = SUSCAN_SOURCE_DIALOG_Y_PADDING + 2 * new->config->source->field_count;
 
   /* Make room for all widgets */
   if (height > dialog->window->height)
@@ -258,6 +355,15 @@ suscan_source_widget_set_new(
           }
           break;
 
+        case SUSCAN_FIELD_TYPE_BOOLEAN:
+          widget = suscan_source_boolean_widget_new(
+              dialog,
+              new,
+              new->config->values[i],
+              widget_x,
+              widget_y);
+          break;
+
         default:
           /* Unknown field type */
           ctk_msgbox(CTK_DIALOG_ERROR, "Source dialog", "Invalid field type");
@@ -268,7 +374,8 @@ suscan_source_widget_set_new(
       if (widget == NULL)
         goto fail;
 
-      ctk_widget_set_private(widget, new);
+      if (new->config->source->field_list[i]->type != SUSCAN_FIELD_TYPE_BOOLEAN)
+        ctk_widget_set_private(widget, new);
 
       /* Indexes must be the same */
       if (PTR_LIST_APPEND_CHECK(new->widget, widget) != i) {
@@ -292,7 +399,7 @@ suscan_source_widget_set_parse_data(struct suscan_source_widget_set *set)
 {
   unsigned int i;
   ctk_widget_t *widget;
-  union suscan_field_value *value;
+  struct suscan_field_value *value;
   const struct suscan_field *field;
   const char *text;
   uint64_t int_val;
@@ -526,7 +633,7 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
   if ((dialog->window = ctk_window_new("Open source")) == NULL)
     return SU_FALSE;
 
-  ctk_widget_resize(dialog->window, 33, 15);
+  ctk_widget_resize(dialog->window, 33, 18);
   ctk_widget_set_shadow(dialog->window, CTK_TRUE);
 
   /* Create source menu list */
@@ -610,6 +717,11 @@ suscan_source_dialog_init(struct suscan_source_dialog *dialog)
       dialog->menu,
       dialog->selbutton->x + dialog->window->x,
       dialog->selbutton->y + dialog->window->y);
+
+  /* Rearrange extra widgets */
+  for (i = 0; i < dialog->widget_set_count; ++i)
+    if (!sucan_source_widget_set_rearrange_extra(dialog->widget_set_list[i]))
+      return SU_FALSE;
 
   /* Show all */
   ctk_widget_show(dialog->selbutton);

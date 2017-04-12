@@ -183,7 +183,7 @@ suscan_source_wk_cb(
 
   if ((ret = su_block_port_read(&source->port, &sample, 1)) == 1) {
     su_channel_detector_feed(source->detector, sample);
-    if (++source->samp_count == source->detector->params.window_size) {
+    if (source->samp_count++ >= .1 * source->detector->params.samp_rate) {
       source->samp_count = 0;
 
       if (!suscan_analyzer_send_detector_channels(analyzer, source->detector))
@@ -295,6 +295,9 @@ suscan_analyzer_source_init(
     struct suscan_source_config *config)
 {
   SUBOOL ok;
+  const uint64_t *samp_rate;
+  const uint64_t *fc;
+
   struct sigutils_channel_detector_params params =
         sigutils_channel_detector_params_INITIALIZER;
 
@@ -310,14 +313,42 @@ suscan_analyzer_source_init(
       SU_FLOW_CONTROL_KIND_MASTER_SLAVE))
     goto done;
 
-  if ((source->instance = su_block_get_property_ref(
+  /* Retrieve sample rate */
+  if (strcmp(source->config->source->name, "wavfile") == 0
+      || strcmp(source->config->source->name, "iqfile") == 0) {
+    /* This source is special, and exposes an "instance" */
+    if ((source->instance = su_block_get_property_ref(
+        source->block,
+        SU_PROPERTY_TYPE_OBJECT,
+        "instance")) != NULL) {
+      params.samp_rate = source->instance->samp_rate;
+    } else {
+      SU_ERROR("Failed to get sample rate");
+      goto done;
+    }
+  } else {
+    /* Other sources must populate samp_rate */
+    if ((samp_rate = su_block_get_property_ref(
+        source->block,
+        SU_PROPERTY_TYPE_INTEGER,
+        "samp_rate")) != NULL) {
+      params.samp_rate = *samp_rate;
+    } else {
+      SU_ERROR("Failed to get sample rate");
+      goto done;
+    }
+  }
+
+  /* Retrieve center frequency, if any */
+  if ((fc = su_block_get_property_ref(
       source->block,
-      SU_PROPERTY_TYPE_OBJECT,
-      "instance")) == NULL)
-    goto done;
+      SU_PROPERTY_TYPE_INTEGER,
+      "fc")) != NULL) {
+    source->fc = *fc;
+  }
 
   params.mode = SU_CHANNEL_DETECTOR_MODE_DISCOVERY;
-  params.samp_rate = source->instance->samp_rate;
+
   params.alpha = 1e-2;
   params.window_size = 4096;
 

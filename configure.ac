@@ -5,7 +5,7 @@ AC_PREREQ(2.65)
 
 AC_INIT(suscan, 0.1)
 
-AC_CONFIG_HEADERS(src/config.h)
+AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_MACRO_DIR([m4])
 
 AM_INIT_AUTOMAKE([1.11.1])
@@ -49,35 +49,43 @@ AC_FUNC_MALLOC
 GLOBAL_LDFLAGS="-lm -lpthread -ldl -export-dynamic -rdynamic"
 
 dnl Macro snippets imported from dependency `sigutils'
-PKG_CHECK_MODULES(sigutils, [sigutils >= 0.1])
+PKG_CHECK_MODULES(sigutils, [sigutils >= 0.1], , [AC_MSG_ERROR([Couldn't find sigutils])])
 AC_SUBST(sigutils_CFLAGS)
 AC_SUBST(sigutils_LIBS)
 
-PKG_CHECK_MODULES(fftw3, [fftw3 >= 3.0])
+PKG_CHECK_MODULES(fftw3, [fftw3 >= 3.0], , [AC_MSG_ERROR([Couldn't find libfftw3])])
 AC_SUBST(fftw3_CFLAGS)
 AC_SUBST(fftw3_LIBS)
 
-PKG_CHECK_MODULES(sndfile, sndfile >= 1.0.2, ac_cv_sndfile=1, [AC_MSG_ERROR([Couldn't find libsndfile])])
+PKG_CHECK_MODULES(sndfile, sndfile >= 1.0.2, , [AC_MSG_ERROR([Couldn't find libsndfile])])
 AC_SUBST(sndfile_CFLAGS)
 AC_SUBST(sndfile_LIBS)
 
-PKG_CHECK_MODULES([asoundlib], [ alsa >= 1.0.25 ])
+PKG_CHECK_MODULES([asoundlib], [ alsa >= 1.0.25 ], , [AC_MSG_ERROR([Couldn't find ALSA libraries])])
 AC_SUBST(asoundlib_CFLAGS)
 AC_SUBST(asoundlib_LIBS)
 
-PKG_CHECK_MODULES([ncurses], [ ncurses >= 6.0.0 ])
+PKG_CHECK_MODULES([ncurses], [ ncurses >= 6.0.0 ], , [AC_MSG_ERROR([Couldn't find ncurses])])
 AC_SUBST(ncurses_CFLAGS)
 AC_SUBST(ncurses_LIBS)
 
-PKG_CHECK_MODULES([panel], [ panel >= 6.0.0 ])
+PKG_CHECK_MODULES([panel], [ panel >= 6.0.0 ], , [AC_MSG_ERROR([Couldn't find ncurses' panel library])])
 AC_SUBST(panel_CFLAGS)
 AC_SUBST(panel_LIBS)
 
-PKG_CHECK_MODULES([menu], [ menu >= 6.0.0 ])
+PKG_CHECK_MODULES([menu], [ menu >= 6.0.0 ], , [AC_MSG_ERROR([Couldn't find ncurses' menu library])])
 AC_SUBST(menu_CFLAGS)
 AC_SUBST(menu_LIBS)
 
+PKG_CHECK_MODULES(bladeRF, libbladeRF >= 0.28, ac_cv_bladeRF=yes)
 
+if test "$ac_cv_bladeRF" != no ; then
+  AC_DEFINE([HAVE_BLADERF], [0], [Compiled with bladeRF support])
+  AC_DEFINE(HAVE_BLADERF,1)
+  AC_SUBST(HAVE_BLADERF)
+  AC_SUBST(bladeRF_CFLAGS)
+  AC_SUBST(bladeRF_LIBS)
+fi
 
 dnl Macro snippets imported from dependency `util'
 AC_SUBST(GLOBAL_CFLAGS)

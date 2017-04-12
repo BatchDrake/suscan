@@ -24,6 +24,7 @@ suscan_LDADD = ../util/libutil.la \
 	@ncurses_LIBS@									\
 	@panel_LIBS@										\
 	@menu_LIBS@											\
+	@bladeRF_LIBS@									\
 	@GLOBAL_LDFLAGS@
 
 suscan_SOURCES = main.c source_dlg.c suscan.h

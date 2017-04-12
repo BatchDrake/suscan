@@ -348,7 +348,7 @@ suscan_ui_loop(const char *a0)
 
         for (i = 0; i < channels->channel_count; ++i) {
           if ((channel_line = strbuild(
-              "%+12.2lf Hz   %7.2lf Hz   %3.1lf dB  %6.1lf dB      %s",
+              "%+12.2lf Hz   %7.2lf Hz   %4.1lf dB  %6.1lf dB      %s",
               channels->channel_list[i]->fc,
               channels->channel_list[i]->bw,
               channels->channel_list[i]->snr,
