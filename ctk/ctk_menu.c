@@ -29,7 +29,9 @@
 CTKPRIVATE CTKBOOL
 ctk_menu_c_menu_should_be_posted(const ctk_menu_t *menu)
 {
-  return menu->c_item_list != NULL && menu->c_item_list[0] != NULL;
+  return menu->c_item_list != NULL
+      && menu->c_item_list[0] != NULL
+      && menu->item_count != 0;
 }
 
 CTKPRIVATE void
