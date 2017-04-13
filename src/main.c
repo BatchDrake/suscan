@@ -349,6 +349,21 @@ suscan_compare_channels(const struct ctk_item *a, const struct ctk_item *b)
   return c_a->fc - c_b->fc;
 }
 
+SUPRIVATE void
+suscan_remove_analyzer(suscan_analyzer_t *analyzer)
+{
+  unsigned int i;
+
+  for (i = 0; i < main_interface.analyzer_count; ++i)
+    if (main_interface.analyzer_list[i] == analyzer) {
+      main_interface.analyzer_list[i] = NULL;
+      suscan_analyzer_destroy(analyzer);
+      return;
+    }
+
+  ctk_error("SUScan", "Spurious EOS message received from unknown analyzer\n");
+}
+
 SUBOOL
 suscan_ui_loop(const char *a0)
 {
@@ -412,6 +427,20 @@ suscan_ui_loop(const char *a0)
         ctk_widget_redraw(main_interface.m_results);
 
         suscan_redraw_results_header();
+        break;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
+        status = (struct suscan_analyzer_status_msg *) ptr;
+
+        ctk_warning(
+            "End of stream",
+            "%s",
+            status->err_msg == NULL
+                ? "Unexpected end of stream in analyzer"
+                : status->err_msg);
+
+        suscan_remove_analyzer(status->sender);
+
         break;
     }
 
@@ -479,7 +508,8 @@ main(int argc, char *argv[], char *envp[])
 
   fprintf(stderr, "%s: terminating all analyzers...\n", argv[0]);
   for (i = 0; i < main_interface.analyzer_count; ++i)
-    suscan_analyzer_destroy(main_interface.analyzer_list[i]);
+    if (main_interface.analyzer_list[i] != NULL)
+      suscan_analyzer_destroy(main_interface.analyzer_list[i]);
 
   suscan_clear_mq();
 

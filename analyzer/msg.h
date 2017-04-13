@@ -40,6 +40,7 @@
 struct suscan_analyzer_status_msg {
   int code;
   char *err_msg;
+  suscan_analyzer_t *sender;
 };
 
 /* Channel notification message */

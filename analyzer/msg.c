@@ -158,6 +158,8 @@ suscan_analyzer_send_status(
   if ((msg = suscan_analyzer_status_msg_new(code, err_msg)) == NULL)
     goto done;
 
+  msg->sender = analyzer;
+
   if (!suscan_mq_write(analyzer->mq_out, type, msg)) {
     suscan_analyzer_dispose_message(type, msg);
     goto done;

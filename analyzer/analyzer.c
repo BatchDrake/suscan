@@ -201,34 +201,34 @@ suscan_source_wk_cb(
 
       case SU_BLOCK_PORT_READ_ERROR_NOT_INITIALIZED:
         suscan_analyzer_send_status(
-              analyzer,
-              SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-              ret,
-              "Port not initialized");
+            analyzer,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+            ret,
+            "Port not initialized");
         break;
 
       case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
         suscan_analyzer_send_status(
-              analyzer,
-              SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-              ret,
-              "Acquire failed (source I/O error)");
+            analyzer,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+            ret,
+            "Acquire failed (source I/O error)");
         break;
 
       case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
         suscan_analyzer_send_status(
-              analyzer,
-              SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-              ret,
-              "Port desync");
+            analyzer,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+            ret,
+            "Port desync");
         break;
 
       default:
         suscan_analyzer_send_status(
-              analyzer,
-              SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-              ret,
-              "Unexpected read result %d", ret);
+            analyzer,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+            ret,
+            "Unexpected read result %d", ret);
     }
 
     goto done;
@@ -413,6 +413,7 @@ suscan_analyzer_thread(void *data)
           /* Nothing to dispose, safe to break the loop */
           goto done;
 
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
         case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
           /* Forward these messages to output */
           if (!suscan_mq_write(analyzer->mq_out, type, private))
