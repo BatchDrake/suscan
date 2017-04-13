@@ -40,13 +40,14 @@
 struct suscan_analyzer_status_msg {
   int code;
   char *err_msg;
-  suscan_analyzer_t *sender;
+  const suscan_analyzer_t *sender;
 };
 
 /* Channel notification message */
 struct suscan_analyzer_channel_msg {
   const struct suscan_source *source;
   PTR_LIST(struct sigutils_channel, channel);
+  const suscan_analyzer_t *sender;
 };
 
 /* Channel analyzer command */

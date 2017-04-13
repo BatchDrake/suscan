@@ -178,11 +178,33 @@ suscan_source_wk_cb(
   struct suscan_analyzer_source *source =
       (struct suscan_analyzer_source *) cb_private;
   int ret;
+  struct timeval read_start;
+  struct timeval process_start;
+  struct timeval process_end;
+  struct timeval sub;
+  uint64_t total, cpu;
+
   SUCOMPLEX sample;
   SUBOOL restart = SU_FALSE;
 
+  gettimeofday(&read_start, NULL);
   if ((ret = su_block_port_read(&source->port, &sample, 1)) == 1) {
+    gettimeofday(&process_start, NULL);
     su_channel_detector_feed(source->detector, sample);
+    gettimeofday(&process_end, NULL);
+
+    /* Compute CPU usage */
+    timersub(&process_end, &read_start, &sub);
+    total = sub.tv_sec * 1000000 + sub.tv_usec;
+
+    timersub(&process_end, &process_start, &sub);
+    cpu = sub.tv_sec * 1000000 + sub.tv_usec;
+
+    if (total == 0)
+      analyzer->cpu_usage = 1.;
+    else
+      analyzer->cpu_usage = (SUFLOAT) cpu / (SUFLOAT) total;
+
     if (source->samp_count++ >= .1 * source->detector->params.samp_rate) {
       source->samp_count = 0;
 
@@ -190,6 +212,9 @@ suscan_source_wk_cb(
         goto done;
     }
   } else {
+    analyzer->eos = SU_TRUE;
+    analyzer->cpu_usage = 0;
+
     switch (ret) {
       case SU_BLOCK_PORT_READ_END_OF_STREAM:
         suscan_analyzer_send_status(
@@ -413,9 +438,9 @@ suscan_analyzer_thread(void *data)
           /* Nothing to dispose, safe to break the loop */
           goto done;
 
+        /* Forward these messages to output */
         case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
         case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
-          /* Forward these messages to output */
           if (!suscan_mq_write(analyzer->mq_out, type, private))
             goto done;
 

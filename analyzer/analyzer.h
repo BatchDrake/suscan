@@ -67,6 +67,10 @@ struct suscan_analyzer {
   struct suscan_mq *mq_out; /* From-thread messages */
 
   SUBOOL running;
+  SUBOOL eos;
+
+  /* Usage statistics (CPU, etc) */
+  SUFLOAT cpu_usage;
 
   /* Source worker objects */
   struct suscan_analyzer_source source;

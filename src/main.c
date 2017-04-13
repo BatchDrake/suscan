@@ -36,9 +36,9 @@ struct suscan_interface {
   ctk_widget_t *m_edit;
 
   ctk_widget_t *w_status;
+  ctk_widget_t *w_channels;
   ctk_widget_t *w_results;
-  ctk_widget_t *w_channel;
-  ctk_widget_t *m_results;
+  ctk_widget_t *m_channels;
 
   /* Signal analyzers */
   PTR_LIST(suscan_analyzer_t, analyzer);
@@ -126,31 +126,63 @@ suscan_source_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
 }
 
 void
-suscan_redraw_results_header(void)
+suscan_redraw_channels_header(void)
 {
-  wattron(main_interface.m_results->c_window, COLOR_PAIR(CTK_CP_BACKGROUND_TEXT));
+  wattron(main_interface.m_channels->c_window, COLOR_PAIR(CTK_CP_BACKGROUND_TEXT));
 
-  /* mvwaddch (main_interface.m_results->c_window, 0, 2, ACS_RTEE); */
-  mvwprintw(main_interface.m_results->c_window, 0, 3,  " Channel freq");
-  /* mvwaddch (main_interface.m_results->c_window, 0, 16, ACS_LTEE); */
+  /* mvwaddch (main_interface.m_channels->c_window, 0, 2, ACS_RTEE); */
+  mvwprintw(main_interface.m_channels->c_window, 0, 3,  " Channel freq");
+  /* mvwaddch (main_interface.m_channels->c_window, 0, 16, ACS_LTEE); */
 
-  /* mvwaddch (main_interface.m_results->c_window, 0, 18, ACS_RTEE); */
-  mvwprintw(main_interface.m_results->c_window, 0, 19, " Bandwidth");
-  /* mvwaddch (main_interface.m_results->c_window, 0, 29, ACS_LTEE); */
+  /* mvwaddch (main_interface.m_channels->c_window, 0, 18, ACS_RTEE); */
+  mvwprintw(main_interface.m_channels->c_window, 0, 19, " Bandwidth");
+  /* mvwaddch (main_interface.m_channels->c_window, 0, 29, ACS_LTEE); */
 
-  /* mvwaddch (main_interface.m_results->c_window, 0, 31, ACS_RTEE); */
-  mvwprintw(main_interface.m_results->c_window, 0, 32, "  SNR  ");
-  /* mvwaddch (main_interface.m_results->c_window, 0, 39, ACS_LTEE); */
+  /* mvwaddch (main_interface.m_channels->c_window, 0, 31, ACS_RTEE); */
+  mvwprintw(main_interface.m_channels->c_window, 0, 32, "  SNR  ");
+  /* mvwaddch (main_interface.m_channels->c_window, 0, 39, ACS_LTEE); */
 
-  /* mvwaddch (main_interface.m_results->c_window, 0, 41, ACS_RTEE); */
-  mvwprintw(main_interface.m_results->c_window, 0, 42, "   N0   ");
-  /* mvwaddch (main_interface.m_results->c_window, 0, 50, ACS_LTEE); */
+  /* mvwaddch (main_interface.m_channels->c_window, 0, 41, ACS_RTEE); */
+  mvwprintw(main_interface.m_channels->c_window, 0, 42, "   N0   ");
+  /* mvwaddch (main_interface.m_channels->c_window, 0, 50, ACS_LTEE); */
 
-  /* mvwaddch (main_interface.m_results->c_window, 0, 55, ACS_RTEE); */
-  mvwprintw(main_interface.m_results->c_window, 0, 56, "    Signal source   ");
-  /* mvwaddch (main_interface.m_results->c_window, 0, 77, ACS_LTEE); */
+  /* mvwaddch (main_interface.m_channels->c_window, 0, 55, ACS_RTEE); */
+  mvwprintw(main_interface.m_channels->c_window, 0, 56, "    Signal source   ");
+  /* mvwaddch (main_interface.m_channels->c_window, 0, 77, ACS_LTEE); */
 
-  /* wattroff(main_interface.m_results->c_window, A_REVERSE); */
+  /* wattroff(main_interface.m_channels->c_window, A_REVERSE); */
+}
+
+void
+suscan_redraw_source_status(const suscan_analyzer_t *analyzer)
+{
+  mvwprintw(
+      main_interface.w_status->c_window,
+      1,
+      1,
+      "%s",
+      analyzer->source.config->source->desc);
+
+  mvwprintw(
+      main_interface.w_status->c_window,
+      2,
+      1,
+      "Sample rate: %lg ksps",
+      (SUFLOAT) analyzer->source.detector->params.samp_rate / 1000.0);
+
+  mvwprintw(
+      main_interface.w_status->c_window,
+      3,
+      1,
+      "CPU: %5.1lf%%",
+      analyzer->cpu_usage * 100);
+
+  mvwprintw(
+      main_interface.w_status->c_window,
+      4,
+      1,
+      "State: %s",
+      analyzer->eos ? "halted " : "running");
 }
 
 SUBOOL
@@ -165,37 +197,37 @@ suscan_init_windows(void)
   SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_status, 0, 1));
   SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_status, 25, 10));
 
+  SUSCAN_MANDATORY(main_interface.w_channels = ctk_window_new("Channels"));
+  ctk_widget_set_attrs(main_interface.w_channels, COLOR_PAIR(24) | A_BOLD);
+
+  SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_channels, 0, 11));
+  SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_channels, COLS, LINES - 12));
+
   SUSCAN_MANDATORY(main_interface.w_results = ctk_window_new("Results"));
   ctk_widget_set_attrs(main_interface.w_results, COLOR_PAIR(24) | A_BOLD);
 
-  SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_results, 0, 11));
-  SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_results, COLS, LINES - 12));
+  SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_results, 25, 1));
+  SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_results, COLS - 25, 10));
 
-  SUSCAN_MANDATORY(main_interface.w_channel = ctk_window_new("Channel"));
-  ctk_widget_set_attrs(main_interface.w_channel, COLOR_PAIR(24) | A_BOLD);
-
-  SUSCAN_MANDATORY(ctk_widget_move(main_interface.w_channel, 25, 1));
-  SUSCAN_MANDATORY(ctk_widget_resize(main_interface.w_channel, COLS - 25, 10));
-
-  SUSCAN_MANDATORY(main_interface.m_results =
+  SUSCAN_MANDATORY(main_interface.m_channels =
       ctk_menu_new(
-          main_interface.w_results,
+          main_interface.w_channels,
           2,
           1));
 
-  ctk_widget_set_shadow(main_interface.m_results, CTK_FALSE);
-  ctk_menu_set_autoresize(main_interface.m_results, SU_FALSE);
+  ctk_widget_set_shadow(main_interface.m_channels, CTK_FALSE);
+  ctk_menu_set_autoresize(main_interface.m_channels, SU_FALSE);
 
   ctk_widget_resize(
-      main_interface.m_results,
-      main_interface.w_results->width - 4,
-      main_interface.w_results->height - 2);
+      main_interface.m_channels,
+      main_interface.w_channels->width - 4,
+      main_interface.w_channels->height - 2);
 
-  ctk_widget_show(main_interface.m_results);
-  suscan_redraw_results_header();
+  ctk_widget_show(main_interface.m_channels);
+  suscan_redraw_channels_header();
   ctk_widget_show(main_interface.w_status);
-  ctk_widget_show(main_interface.w_channel);
   ctk_widget_show(main_interface.w_results);
+  ctk_widget_show(main_interface.w_channels);
 
   return SU_TRUE;
 }
@@ -350,14 +382,14 @@ suscan_compare_channels(const struct ctk_item *a, const struct ctk_item *b)
 }
 
 SUPRIVATE void
-suscan_remove_analyzer(suscan_analyzer_t *analyzer)
+suscan_remove_analyzer(const suscan_analyzer_t *analyzer)
 {
   unsigned int i;
 
   for (i = 0; i < main_interface.analyzer_count; ++i)
     if (main_interface.analyzer_list[i] == analyzer) {
+      suscan_analyzer_destroy(main_interface.analyzer_list[i]);
       main_interface.analyzer_list[i] = NULL;
-      suscan_analyzer_destroy(analyzer);
       return;
     }
 
@@ -403,7 +435,7 @@ suscan_ui_loop(const char *a0)
       case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
         channels = (struct suscan_analyzer_channel_msg *) ptr;
 
-        ctk_menu_clear(main_interface.m_results);
+        ctk_menu_clear(main_interface.m_channels);
 
         for (i = 0; i < channels->channel_count; ++i) {
           if ((channel_line = strbuild(
@@ -414,7 +446,7 @@ suscan_ui_loop(const char *a0)
               channels->channel_list[i]->N0,
               channels->source->desc)) != NULL) {
             ctk_menu_add_item(
-                main_interface.m_results,
+                main_interface.m_channels,
                 channel_line,
                 "                                            ",
                 channels->channel_list[i]);
@@ -422,15 +454,20 @@ suscan_ui_loop(const char *a0)
           }
         }
 
-        ctk_menu_sort(main_interface.m_results, suscan_compare_channels);
+        ctk_menu_sort(main_interface.m_channels, suscan_compare_channels);
 
-        ctk_widget_redraw(main_interface.m_results);
+        ctk_widget_redraw(main_interface.m_channels);
 
-        suscan_redraw_results_header();
+        suscan_redraw_channels_header();
+        suscan_redraw_source_status(channels->sender);
+
+
         break;
 
       case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
         status = (struct suscan_analyzer_status_msg *) ptr;
+
+        suscan_redraw_source_status(status->sender);
 
         ctk_warning(
             "End of stream",

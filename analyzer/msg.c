@@ -100,6 +100,8 @@ suscan_analyzer_channel_msg_new(
 
   new->channel_count = len;
   new->source = analyzer->source.config->source;
+  new->sender = analyzer;
+
   for (i = 0; i < len; ++i)
     if (list[i] != NULL)
       if (SU_CHANNEL_IS_VALID(list[i])) {
