@@ -28,10 +28,12 @@
 
 struct suscan_interface {
   struct suscan_mq mq; /* Message queue */
+  struct timeval last_log; /* Last time we asked for log messages */
 
   /* Menu bar widgets */
   ctk_widget_t *menubar;
   ctk_widget_t *m_source;
+  ctk_widget_t *m_edit;
 
   ctk_widget_t *w_status;
   ctk_widget_t *w_results;
@@ -72,6 +74,29 @@ suscan_open_source(struct suscan_source_config *config)
   }
 
   return SU_TRUE;
+}
+
+void
+suscan_edit_submit_handler(ctk_widget_t *widget, struct ctk_item *item)
+{
+  struct suscan_source_config *config = NULL;
+  enum ctk_dialog_response resp;
+  suscan_analyzer_t *analyzer = NULL;
+  char *messages;
+
+  switch (CTK_ITEM_INDEX(item)) {
+    case 0:
+      if ((messages = suscan_log_get_last_messages(main_interface.last_log, 20))
+          == NULL) {
+        ctk_error("SUScan", "Failed to retrieve log messages");
+      } else {
+        if (strlen(messages) == 0)
+          ctk_info("Log messages", "Message ring is currently empty");
+        else
+          ctk_normal("Log messages", "%s", messages);
+        free(messages);
+      }
+  }
 }
 
 void
@@ -167,11 +192,10 @@ suscan_init_windows(void)
       main_interface.w_results->height - 2);
 
   ctk_widget_show(main_interface.m_results);
+  suscan_redraw_results_header();
   ctk_widget_show(main_interface.w_status);
   ctk_widget_show(main_interface.w_channel);
   ctk_widget_show(main_interface.w_results);
-
-  suscan_redraw_results_header();
 
   return SU_TRUE;
 }
@@ -184,6 +208,7 @@ suscan_init_menus(void)
 
   SUSCAN_MANDATORY(main_interface.menubar = ctk_menubar_new());
   SUSCAN_MANDATORY(main_interface.m_source = ctk_menu_new(NULL, 0, 0));
+  SUSCAN_MANDATORY(main_interface.m_edit = ctk_menu_new(NULL, 0, 0));
 
   /* Create source menu */
   SUSCAN_MANDATORY(
@@ -199,15 +224,34 @@ suscan_init_menus(void)
           "",
           NULL));
 
+  /* Create Edit menu */
+  SUSCAN_MANDATORY(
+      ctk_menu_add_item(
+          main_interface.m_edit,
+          "Messages",
+          "",
+          NULL));
+
+  /* Populate menubar */
   SUSCAN_MANDATORY(
       ctk_menubar_add_menu(
           main_interface.menubar,
           "Source",
           main_interface.m_source));
 
+  SUSCAN_MANDATORY(
+      ctk_menubar_add_menu(
+          main_interface.menubar,
+          "Edit",
+          main_interface.m_edit));
+
   ctk_widget_get_handlers(main_interface.m_source, &hnd);
   hnd.submit_handler = suscan_source_submit_handler;
   ctk_widget_set_handlers(main_interface.m_source, &hnd);
+
+  ctk_widget_get_handlers(main_interface.m_edit, &hnd);
+  hnd.submit_handler = suscan_edit_submit_handler;
+  ctk_widget_set_handlers(main_interface.m_edit, &hnd);
 
   /* Show menu bar */
   ctk_widget_show(main_interface.menubar);
@@ -384,6 +428,11 @@ main(int argc, char *argv[], char *envp[])
   int exit_code = EXIT_FAILURE;
   struct suscan_source_config *config = NULL;
   int n = 0;
+
+  if (!suscan_sigutils_init()) {
+    fprintf(stderr, "%s: failed to initialize sigutils library\n", argv[0]);
+    goto done;
+  }
 
   if (!suscan_init_sources()) {
     fprintf(stderr, "%s: failed to initialize sources\n", argv[0]);

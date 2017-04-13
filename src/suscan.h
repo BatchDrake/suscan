@@ -35,4 +35,8 @@
 enum ctk_dialog_response suscan_open_source_dialog(
     struct suscan_source_config **config);
 
+char *suscan_log_get_last_messages(struct timeval since, unsigned int max);
+
+SUBOOL suscan_sigutils_init(void);
+
 #endif /* _MAIN_INCLUDE_H */
