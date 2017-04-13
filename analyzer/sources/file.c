@@ -165,7 +165,7 @@ xsig_source_block_ctor(struct sigutils_block *block, void **private, va_list ap)
   params = va_arg(ap, const struct xsig_source_params *);
 
   if ((source = xsig_source_new(params)) == NULL) {
-    SU_ERROR("Failed to initialize signal source");
+    SU_ERROR("Failed to initialize signal source\n");
     goto done;
   }
 
