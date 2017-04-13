@@ -59,7 +59,6 @@ struct suscan_analyzer_source {
   su_channel_detector_t *detector; /* Channel detector */
   struct xsig_source *instance;
   SUSCOUNT samp_count;
-  SUSCOUNT samp_rate;
   uint64_t fc; /* Center frequency of source */
 };
 
