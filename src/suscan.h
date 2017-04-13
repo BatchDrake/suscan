@@ -32,11 +32,26 @@
 #define SUSCAN_SOURCE_TYPE_WAV_FILE ((void *) 4)
 #define SUSCAN_SOURCE_TYPE_ALSA     ((void *) 5)
 
+#define SUSCAN_MANDATORY(expr)          \
+  if (!(expr)) {                        \
+    fprintf(                            \
+      stderr,                           \
+      "%s: operation \"%s\" failed\r\n",\
+      __FUNCTION__,                     \
+      STRINGIFY(expr));                 \
+      return SU_FALSE;                  \
+  }
+
 enum ctk_dialog_response suscan_open_source_dialog(
     struct suscan_source_config **config);
 
 char *suscan_log_get_last_messages(struct timeval since, unsigned int max);
 
 SUBOOL suscan_sigutils_init(void);
+
+SUBOOL suscan_ctk_ui_start(
+    const char *argv0,
+    struct suscan_source_config **config_list,
+    unsigned int config_count);
 
 #endif /* _MAIN_INCLUDE_H */
