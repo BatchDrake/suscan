@@ -422,7 +422,7 @@ CTKBOOL ctk_msgboxf(
   ctk_msgboxf(CTK_DIALOG_WARNING, title, fmt, ##arg)
 
 #define ctk_info(title, fmt, arg...) \
-  ctk_info(CTK_DIALOG_INFO, title, fmt, ##arg)
+  ctk_msgboxf(CTK_DIALOG_INFO, title, fmt, ##arg)
 
 #define ctk_normal(title, fmt, arg...) \
   ctk_msgboxf(CTK_DIALOG_NORMAL, title, fmt, ##arg)
