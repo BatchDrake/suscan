@@ -188,14 +188,19 @@ fail:
 }
 
 SUBOOL
-suscan_sigutils_init(void)
+suscan_sigutils_init(enum suscan_mode mode)
 {
   struct sigutils_log_config config = sigutils_log_config_INITIALIZER;
+  struct sigutils_log_config *config_p = NULL;
 
-  config.exclusive = SU_FALSE; /* We handle concurrency manually */
-  config.log_func = suscan_log_func;
+  if (mode == SUSCAN_MODE_CTK_UI) {
+    config.exclusive = SU_FALSE; /* We handle concurrency manually */
+    config.log_func = suscan_log_func;
 
-  return su_lib_init_ex(&config);
+    config_p = &config;
+  }
+
+  return su_lib_init_ex(config_p);
 }
 
 

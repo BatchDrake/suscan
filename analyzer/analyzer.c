@@ -682,29 +682,40 @@ suscan_analyzer_new(
   unsigned int worker_count;
   unsigned int i;
 
-  if ((analyzer = calloc(1, sizeof (suscan_analyzer_t))) == NULL)
+  if ((analyzer = calloc(1, sizeof (suscan_analyzer_t))) == NULL) {
+    SU_ERROR("Cannot allocate analyzer\n");
     goto fail;
+  }
 
   /* Create input message queue */
-  if (!suscan_mq_init(&analyzer->mq_in))
+  if (!suscan_mq_init(&analyzer->mq_in)) {
+    SU_ERROR("Cannot allocate input MQ\n");
     goto fail;
+  }
 
   /* Initialize source */
-  if (!suscan_analyzer_source_init(&analyzer->source, config))
+  if (!suscan_analyzer_source_init(&analyzer->source, config)) {
+    SU_ERROR("Failed to initialize source\n");
     goto fail;
+  }
 
   /* Create source worker */
   if ((analyzer->source_wk = suscan_worker_new(&analyzer->mq_in, analyzer))
-      == NULL)
+      == NULL) {
+    SU_ERROR("Cannot create source worker thread\n");
     goto fail;
+  }
 
   /* Create consumer workers */
   worker_count = suscan_get_min_consumer_workers();
   for (i = 0; i < worker_count; ++i) {
-    if ((worker = suscan_worker_new(&analyzer->mq_in, analyzer)) == NULL)
+    if ((worker = suscan_worker_new(&analyzer->mq_in, analyzer)) == NULL) {
+      SU_ERROR("Cannot allocate per-CPU analyzer worker\n");
       goto fail;
+    }
 
     if (PTR_LIST_APPEND_CHECK(analyzer->consumer_wk, worker) == -1) {
+      SU_ERROR("Cannot append analyzer worker to list\n");
       suscan_worker_destroy(worker);
       goto fail;
     }
@@ -716,8 +727,10 @@ suscan_analyzer_new(
       &analyzer->thread,
       NULL,
       suscan_analyzer_thread,
-      analyzer) == -1)
+      analyzer) == -1) {
+    SU_ERROR("Cannot create main thread\n");
     goto fail;
+  }
 
   analyzer->running = SU_TRUE;
 

@@ -32,6 +32,7 @@ struct xsig_source_params {
   unsigned int samp_rate;
   const char *file;
   SUSCOUNT window_size;
+  uint64_t fc;
   void *private;
   void (*onacquire) (struct xsig_source *source, void *private);
 };
@@ -40,6 +41,7 @@ struct xsig_source {
   struct xsig_source_params params;
   SF_INFO info;
   uint64_t samp_rate;
+  uint64_t fc;
   SNDFILE *sf;
 
   union {

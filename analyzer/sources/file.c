@@ -101,6 +101,7 @@ xsig_source_new(const struct xsig_source_params *params)
   }
 
   new->samp_rate = new->info.samplerate;
+  new->fc = params->fc;
 
   if ((new->as_complex = malloc(params->window_size * sizeof(SUCOMPLEX)))
       == NULL) {
@@ -176,6 +177,12 @@ xsig_source_block_ctor(struct sigutils_block *block, void **private, va_list ap)
       SU_PROPERTY_TYPE_INTEGER,
       "samp_rate",
       &source->samp_rate);
+
+  ok = ok && su_block_set_property_ref(
+      block,
+      SU_PROPERTY_TYPE_INTEGER,
+      "fc",
+      &source->fc);
 
   ok = ok && su_block_set_property_ref(
       block,
@@ -299,8 +306,12 @@ suscan_wav_source_ctor(const struct suscan_source_config *config)
 
   if ((value = suscan_source_config_get_value(config, "path")) == NULL)
     return NULL;
-
   params.file = value->as_string;
+
+  if ((value = suscan_source_config_get_value(config, "fc")) == NULL)
+    return NULL;
+  params.fc = value->as_int; /* defaults to 0 */
+
   params.onacquire = NULL;
   params.private = NULL;
   params.window_size = 512;
@@ -329,6 +340,14 @@ suscan_wav_source_init(void)
       "File path"))
     return SU_FALSE;
 
+  if (!suscan_source_add_field(
+      source,
+      SUSCAN_FIELD_TYPE_INTEGER,
+      SU_TRUE,
+      "fc",
+      "Center frequency"))
+    return SU_FALSE;
+
   return SU_TRUE;
 }
 
@@ -345,6 +364,11 @@ suscan_iqfile_source_ctor(const struct suscan_source_config *config)
   if ((value = suscan_source_config_get_value(config, "fs")) == NULL)
     return NULL;
   params.samp_rate = value->as_int;
+
+  if ((value = suscan_source_config_get_value(config, "fc")) == NULL)
+    return NULL;
+  params.fc = value->as_int; /* defaults to 0 */
+
   params.onacquire = NULL;
   params.private = NULL;
   params.window_size = 512;
@@ -379,6 +403,14 @@ suscan_iqfile_source_init(void)
       SU_FALSE,
       "fs",
       "Sampling frequency"))
+    return SU_FALSE;
+
+  if (!suscan_source_add_field(
+      source,
+      SUSCAN_FIELD_TYPE_INTEGER,
+      SU_TRUE,
+      "fc",
+      "Center frequency"))
     return SU_FALSE;
 
   return SU_TRUE;

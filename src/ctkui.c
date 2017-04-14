@@ -375,17 +375,6 @@ suscan_clear_mq(void)
   suscan_mq_finalize(&main_interface.mq);
 }
 
-SUPRIVATE int
-suscan_compare_channels(const struct ctk_item *a, const struct ctk_item *b)
-{
-  const struct sigutils_channel *c_a =
-      (const struct sigutils_channel *) a->private;
-  const struct sigutils_channel *c_b =
-      (const struct sigutils_channel *) b->private;
-
-  return c_a->fc - c_b->fc;
-}
-
 SUPRIVATE void
 suscan_remove_analyzer(const suscan_analyzer_t *analyzer)
 {
@@ -399,20 +388,6 @@ suscan_remove_analyzer(const suscan_analyzer_t *analyzer)
     }
 
   ctk_error("SUScan", "Spurious EOS message received from unknown analyzer\n");
-}
-
-SUPRIVATE int
-suscan_channel_compare_cb(const void *a, const void *b)
-{
-  struct sigutils_channel **chan_a = (struct sigutils_channel **) a;
-  struct sigutils_channel **chan_b = (struct sigutils_channel **) b;
-
-  if (chan_a[0]->snr > chan_b[0]->snr)
-    return -1;
-  else if (chan_a[0]->snr < chan_b[0]->snr)
-    return 1;
-
-  return 0;
 }
 
 SUBOOL
@@ -454,34 +429,28 @@ suscan_ui_loop(const char *a0)
       case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
         channels = (struct suscan_analyzer_channel_msg *) ptr;
 
-        qsort(
+        suscan_channel_list_sort(
             channels->channel_list,
-            channels->channel_count,
-            sizeof(struct sigutils_channel *),
-            suscan_channel_compare_cb);
+            channels->channel_count);
 
         ctk_menu_clear(main_interface.m_channels);
 
         for (i = 0; i < channels->channel_count; ++i) {
-          /* Skip channel in DC component */
-          if (channels->channel_list[i]->f_lo <= 0
-              && channels->channel_list[i]->f_hi >= 0)
-            continue;
-
-          if ((channel_line = strbuild(
-              "%+12.2lf Hz   %7.2lf Hz   %4.1lf dB  %6.1lf dB      %s",
-              channels->channel_list[i]->fc,
-              channels->channel_list[i]->bw,
-              channels->channel_list[i]->snr,
-              channels->channel_list[i]->N0,
-              channels->source->desc)) != NULL) {
-            ctk_menu_add_item(
-                main_interface.m_channels,
-                channel_line,
-                "                                            ",
-                channels->channel_list[i]);
-            free(channel_line);
-          }
+          if (!suscan_channel_is_dc(channels->channel_list[i]))
+            if ((channel_line = strbuild(
+                "%+12.2lf Hz   %7.2lf Hz   %4.1lf dB  %6.1lf dB      %s",
+                channels->channel_list[i]->fc,
+                channels->channel_list[i]->bw,
+                channels->channel_list[i]->snr,
+                channels->channel_list[i]->N0,
+                channels->source->desc)) != NULL) {
+              ctk_menu_add_item(
+                  main_interface.m_channels,
+                  channel_line,
+                  "                                            ",
+                  channels->channel_list[i]);
+              free(channel_line);
+            }
         }
 
         ctk_widget_redraw(main_interface.m_channels);

@@ -27,4 +27,5 @@ suscan_LDADD = ../util/libutil.la \
 	@bladeRF_LIBS@									\
 	@GLOBAL_LDFLAGS@
 
-suscan_SOURCES = ctkui.c lib.c main.c source_dlg.c suscan.h
+suscan_SOURCES = common.c ctkui.c fingerprint.c lib.c main.c source_dlg.c \
+	suscan.h

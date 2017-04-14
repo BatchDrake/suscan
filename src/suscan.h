@@ -42,16 +42,40 @@
       return SU_FALSE;                  \
   }
 
+/* TODO: move to sigutils */
+#define SU_TRYCATCH(expr, action)       \
+  if (!(expr)) {                        \
+    fprintf(                            \
+      stderr,                           \
+      "%s: exception in \"%s\"\n",      \
+      __FUNCTION__,                     \
+      STRINGIFY(expr));                 \
+      action;                           \
+  }
+
+enum suscan_mode {
+  SUSCAN_MODE_CTK_UI,
+  SUSCAN_MODE_FINGERPRINT
+};
+
 enum ctk_dialog_response suscan_open_source_dialog(
     struct suscan_source_config **config);
 
+SUBOOL suscan_channel_is_dc(const struct sigutils_channel *ch);
+
+void suscan_channel_list_sort(
+    struct sigutils_channel **list,
+    unsigned int count);
+
 char *suscan_log_get_last_messages(struct timeval since, unsigned int max);
 
-SUBOOL suscan_sigutils_init(void);
+SUBOOL suscan_sigutils_init(enum suscan_mode mode);
 
 SUBOOL suscan_ctk_ui_start(
     const char *argv0,
     struct suscan_source_config **config_list,
     unsigned int config_count);
+
+SUBOOL suscan_perform_fingerprint(struct suscan_source_config *config);
 
 #endif /* _MAIN_INCLUDE_H */
