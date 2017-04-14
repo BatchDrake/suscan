@@ -43,7 +43,7 @@ suscan_perform_fingerprint(struct suscan_source_config *config)
   const struct suscan_analyzer_status_msg  *st_msg;
   unsigned int chskip = SUSCAN_SKIP_CHANNELS;
   unsigned int i;
-
+  unsigned int n = 0;
   SUBOOL running = SU_TRUE;
   SUBOOL ok = SU_FALSE;
 
@@ -63,11 +63,14 @@ suscan_perform_fingerprint(struct suscan_source_config *config)
         } else {
           suscan_channel_list_sort(ch_msg->channel_list, ch_msg->channel_count);
 
+          /*  1. | +1545374613.0 Hz |  1050.9 ( 2274.7) Hz |  21.2 dB */
+          printf(" id |   Channel freq.  |  Bandwidth (hi - lo) |    SNR\n");
+          printf("----+------------------+----------------------+---------\n");
           for (i = 0; i < ch_msg->channel_count; ++i)
             if (!suscan_channel_is_dc(ch_msg->channel_list[i]))
-              SU_INFO(
+              printf(
                   "%2d. | %+8.1lf Hz | %7.1lf (%7.1lf) Hz | %5.1lf dB\n",
-                  i + 1,
+                  ++n,
                   ch_msg->channel_list[i]->fc,
                   ch_msg->channel_list[i]->bw,
                   ch_msg->channel_list[i]->f_hi - ch_msg->channel_list[i]->f_lo,
