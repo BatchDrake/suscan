@@ -401,6 +401,20 @@ suscan_remove_analyzer(const suscan_analyzer_t *analyzer)
   ctk_error("SUScan", "Spurious EOS message received from unknown analyzer\n");
 }
 
+SUPRIVATE int
+suscan_channel_compare_cb(const void *a, const void *b)
+{
+  struct sigutils_channel **chan_a = (struct sigutils_channel **) a;
+  struct sigutils_channel **chan_b = (struct sigutils_channel **) b;
+
+  if (chan_a[0]->snr > chan_b[0]->snr)
+    return -1;
+  else if (chan_a[0]->snr < chan_b[0]->snr)
+    return 1;
+
+  return 0;
+}
+
 SUBOOL
 suscan_ui_loop(const char *a0)
 {
@@ -440,9 +454,20 @@ suscan_ui_loop(const char *a0)
       case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
         channels = (struct suscan_analyzer_channel_msg *) ptr;
 
+        qsort(
+            channels->channel_list,
+            channels->channel_count,
+            sizeof(struct sigutils_channel *),
+            suscan_channel_compare_cb);
+
         ctk_menu_clear(main_interface.m_channels);
 
         for (i = 0; i < channels->channel_count; ++i) {
+          /* Skip channel in DC component */
+          if (channels->channel_list[i]->f_lo <= 0
+              && channels->channel_list[i]->f_hi >= 0)
+            continue;
+
           if ((channel_line = strbuild(
               "%+12.2lf Hz   %7.2lf Hz   %4.1lf dB  %6.1lf dB      %s",
               channels->channel_list[i]->fc,
@@ -458,8 +483,6 @@ suscan_ui_loop(const char *a0)
             free(channel_line);
           }
         }
-
-        ctk_menu_sort(main_interface.m_channels, suscan_compare_channels);
 
         ctk_widget_redraw(main_interface.m_channels);
 

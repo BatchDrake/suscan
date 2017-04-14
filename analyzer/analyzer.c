@@ -168,6 +168,21 @@ done:
 }
 
 /************************ Source worker callback *****************************/
+SUPRIVATE void
+timespecsub(
+    struct timespec *a,
+    struct timespec *b,
+    struct timespec *sub)
+{
+  sub->tv_sec = a->tv_sec - b->tv_sec;
+  sub->tv_nsec = a->tv_nsec - b->tv_nsec;
+
+  if (sub->tv_nsec < 0) {
+    sub->tv_nsec += 1000000000;
+    --sub->tv_sec;
+  }
+}
+
 SUPRIVATE SUBOOL
 suscan_source_wk_cb(
     struct suscan_mq *mq_out,
@@ -178,27 +193,28 @@ suscan_source_wk_cb(
   struct suscan_analyzer_source *source =
       (struct suscan_analyzer_source *) cb_private;
   int ret;
-  struct timeval read_start;
-  struct timeval process_start;
-  struct timeval process_end;
-  struct timeval sub;
+  struct timespec read_start;
+  struct timespec process_start;
+  struct timespec process_end;
+  struct timespec sub;
   uint64_t total, cpu;
 
   SUCOMPLEX sample;
   SUBOOL restart = SU_FALSE;
 
-  gettimeofday(&read_start, NULL);
+  clock_gettime(CLOCK_MONOTONIC_RAW, &read_start);
+  /* TODO: perform bulk reads */
   if ((ret = su_block_port_read(&source->port, &sample, 1)) == 1) {
-    gettimeofday(&process_start, NULL);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &process_start);
     su_channel_detector_feed(source->detector, sample);
-    gettimeofday(&process_end, NULL);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &process_end);
 
     /* Compute CPU usage */
-    timersub(&process_end, &read_start, &sub);
-    total = sub.tv_sec * 1000000 + sub.tv_usec;
+    timespecsub(&process_end, &read_start, &sub);
+    total = sub.tv_sec * 1000000000 + sub.tv_nsec;
 
-    timersub(&process_end, &process_start, &sub);
-    cpu = sub.tv_sec * 1000000 + sub.tv_usec;
+    timespecsub(&process_end, &process_start, &sub);
+    cpu = sub.tv_sec * 1000000000 + sub.tv_nsec;
 
     if (total == 0)
       analyzer->cpu_usage = 1.;
