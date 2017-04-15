@@ -65,7 +65,6 @@ struct suscan_analyzer_source {
 struct suscan_analyzer {
   struct suscan_mq mq_in;   /* To-thread messages */
   struct suscan_mq *mq_out; /* From-thread messages */
-
   SUBOOL running;
   SUBOOL eos;
 
@@ -75,6 +74,8 @@ struct suscan_analyzer {
   /* Source worker objects */
   struct suscan_analyzer_source source;
   suscan_worker_t *source_wk; /* Used by one source only */
+  SUCOMPLEX *read_buf;
+  SUSCOUNT   read_size;
 
   /* Analyzer objects */
   PTR_LIST(suscan_channel_analyzer_t, chan_analyzer);

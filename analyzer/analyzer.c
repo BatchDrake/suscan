@@ -113,13 +113,17 @@ suscan_channel_analyzer_wk_cb(
 
   if (got > 0) {
     /* Got samples, forward them to baud detectors */
-    for (i = 0; i < got; ++i) {
-      if (!su_channel_detector_feed(chanal->fac_baud_det, chanal->read_buf[i]))
+    if (su_channel_detector_feed_bulk(
+        chanal->fac_baud_det,
+        chanal->read_buf,
+        got) < got)
         goto done;
 
-      if (!su_channel_detector_feed(chanal->nln_baud_det, chanal->read_buf[i]))
-        goto done;
-    }
+    if (su_channel_detector_feed_bulk(
+        chanal->nln_baud_det,
+        chanal->read_buf,
+        got) < got)
+      goto done;
   } else {
     /* Failed to get samples, figure out why */
     switch (got) {
@@ -192,21 +196,27 @@ suscan_source_wk_cb(
   suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
   struct suscan_analyzer_source *source =
       (struct suscan_analyzer_source *) cb_private;
-  int ret;
+  SUSDIFF got;
   struct timespec read_start;
   struct timespec process_start;
   struct timespec process_end;
   struct timespec sub;
   uint64_t total, cpu;
 
-  SUCOMPLEX sample;
   SUBOOL restart = SU_FALSE;
 
   clock_gettime(CLOCK_MONOTONIC_RAW, &read_start);
   /* TODO: perform bulk reads */
-  if ((ret = su_block_port_read(&source->port, &sample, 1)) == 1) {
+  if ((got = su_block_port_read(
+      &source->port,
+      analyzer->read_buf,
+      analyzer->read_size)) > 0) {
     clock_gettime(CLOCK_MONOTONIC_RAW, &process_start);
-    su_channel_detector_feed(source->detector, sample);
+    if (su_channel_detector_feed_bulk(
+        source->detector,
+        analyzer->read_buf,
+        got) < got)
+      goto done;
     clock_gettime(CLOCK_MONOTONIC_RAW, &process_end);
 
     /* Compute CPU usage */
@@ -221,7 +231,8 @@ suscan_source_wk_cb(
     else
       analyzer->cpu_usage = (SUFLOAT) cpu / (SUFLOAT) total;
 
-    if (source->samp_count++ >= .1 * source->detector->params.samp_rate) {
+    source->samp_count += got;
+    if (source->samp_count >= .1 * source->detector->params.samp_rate) {
       source->samp_count = 0;
 
       if (!suscan_analyzer_send_detector_channels(analyzer, source->detector))
@@ -231,12 +242,12 @@ suscan_source_wk_cb(
     analyzer->eos = SU_TRUE;
     analyzer->cpu_usage = 0;
 
-    switch (ret) {
+    switch (got) {
       case SU_BLOCK_PORT_READ_END_OF_STREAM:
         suscan_analyzer_send_status(
             analyzer,
             SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            ret,
+            got,
             "End of stream reached");
         break;
 
@@ -244,7 +255,7 @@ suscan_source_wk_cb(
         suscan_analyzer_send_status(
             analyzer,
             SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            ret,
+            got,
             "Port not initialized");
         break;
 
@@ -252,7 +263,7 @@ suscan_source_wk_cb(
         suscan_analyzer_send_status(
             analyzer,
             SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            ret,
+            got,
             "Acquire failed (source I/O error)");
         break;
 
@@ -260,7 +271,7 @@ suscan_source_wk_cb(
         suscan_analyzer_send_status(
             analyzer,
             SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            ret,
+            got,
             "Port desync");
         break;
 
@@ -268,8 +279,8 @@ suscan_source_wk_cb(
         suscan_analyzer_send_status(
             analyzer,
             SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            ret,
-            "Unexpected read result %d", ret);
+            got,
+            "Unexpected read result %d", got);
     }
 
     goto done;
@@ -600,6 +611,10 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   if (analyzer->consumer_wk_list != NULL)
     free(analyzer->consumer_wk_list);
 
+  /* Free read buffer */
+  if (analyzer->read_buf != NULL)
+    free(analyzer->read_buf);
+
   /* Remove all channel analyzers */
   for (i = 0; i < analyzer->chan_analyzer_count; ++i)
     if (analyzer->chan_analyzer_list[i] != NULL)
@@ -686,6 +701,14 @@ suscan_analyzer_new(
     SU_ERROR("Cannot allocate analyzer\n");
     goto fail;
   }
+
+  /* Allocate read buffer */
+  if ((analyzer->read_buf = malloc(4096 * sizeof(SUCOMPLEX))) == NULL) {
+    SU_ERROR("Failed to allocate read buffer\n");
+    goto fail;
+  }
+
+  analyzer->read_size = 4096;
 
   /* Create input message queue */
   if (!suscan_mq_init(&analyzer->mq_in)) {
