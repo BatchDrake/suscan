@@ -193,12 +193,6 @@ xsig_source_block_ctor(struct sigutils_block *block, void **private, va_list ap)
       "fc",
       &source->fc);
 
-  ok = ok && su_block_set_property_ref(
-      block,
-      SU_PROPERTY_TYPE_OBJECT,
-      "instance",
-      source);
-
 done:
   if (!ok) {
     if (source != NULL)

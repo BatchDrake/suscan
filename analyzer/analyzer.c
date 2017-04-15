@@ -350,30 +350,15 @@ suscan_analyzer_source_init_from_block_properties(
   const uint64_t *fc;
   const SUBOOL *real_time;
 
-  /* Retrieve sample rate */
-  if (strcmp(source->config->source->name, "wavfile") == 0
-      || strcmp(source->config->source->name, "iqfile") == 0) {
-    /* This source is special, and exposes an "instance" */
-    if ((source->instance = su_block_get_property_ref(
-        source->block,
-        SU_PROPERTY_TYPE_OBJECT,
-        "instance")) != NULL) {
-      params->samp_rate = source->instance->samp_rate;
-    } else {
-      SU_ERROR("Failed to get sample rate");
-      return SU_FALSE;
-    }
+  /* Retrieve sample rate. All source blocks must expose this property */
+  if ((samp_rate = su_block_get_property_ref(
+      source->block,
+      SU_PROPERTY_TYPE_INTEGER,
+      "samp_rate")) != NULL) {
+    params->samp_rate = *samp_rate;
   } else {
-    /* Other sources must populate samp_rate */
-    if ((samp_rate = su_block_get_property_ref(
-        source->block,
-        SU_PROPERTY_TYPE_INTEGER,
-        "samp_rate")) != NULL) {
-      params->samp_rate = *samp_rate;
-    } else {
-      SU_ERROR("Failed to get sample rate");
-      return SU_FALSE;
-    }
+    SU_ERROR("Failed to get sample rate");
+    return SU_FALSE;
   }
 
   /* Retrieve center frequency, if any */
