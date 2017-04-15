@@ -50,6 +50,7 @@ xsig_source_params_copy(
   dest->window_size = orig->window_size;
   dest->onacquire = orig->onacquire;
   dest->private = orig->private;
+  dest->loop = orig->loop;
 
   return SU_TRUE;
 
@@ -100,6 +101,7 @@ xsig_source_new(const struct xsig_source_params *params)
     goto fail;
   }
 
+  /* These are used to expose block properties */
   new->samp_rate = new->info.samplerate;
   new->fc = params->fc;
 
@@ -136,9 +138,16 @@ xsig_source_acquire(struct xsig_source *source)
 
   real_count = source->params.window_size * source->info.channels;
 
-  if ((got = XSIG_SNDFILE_READ(source->sf, source->as_real, real_count))
-      != real_count)
-    return SU_FALSE;
+  do {
+    got = XSIG_SNDFILE_READ(source->sf, source->as_real, real_count);
+
+    if (got == 0) {
+      if (!source->params.loop)
+        return SU_FALSE; /* End of file reached and looping disabled, stop */
+      else if (sf_seek(source->sf, 0, SEEK_SET) == -1)
+        return SU_FALSE; /* Seek failed, return */
+    }
+  } while (got == 0);
 
   /*
    * One channel only: convert everything to complex. Conversion
@@ -312,6 +321,10 @@ suscan_wav_source_ctor(const struct suscan_source_config *config)
     return NULL;
   params.fc = value->as_int; /* defaults to 0 */
 
+  if ((value = suscan_source_config_get_value(config, "loop")) == NULL)
+    return NULL;
+  params.loop = value->as_bool; /* defaults to false */
+
   params.onacquire = NULL;
   params.private = NULL;
   params.window_size = 512;
@@ -348,6 +361,14 @@ suscan_wav_source_init(void)
       "Center frequency"))
     return SU_FALSE;
 
+  if (!suscan_source_add_field(
+      source,
+      SUSCAN_FIELD_TYPE_BOOLEAN,
+      SU_TRUE,
+      "loop",
+      "Loop"))
+    return SU_FALSE;
+
   return SU_TRUE;
 }
 
@@ -368,6 +389,10 @@ suscan_iqfile_source_ctor(const struct suscan_source_config *config)
   if ((value = suscan_source_config_get_value(config, "fc")) == NULL)
     return NULL;
   params.fc = value->as_int; /* defaults to 0 */
+
+  if ((value = suscan_source_config_get_value(config, "loop")) == NULL)
+    return NULL;
+  params.loop = value->as_bool; /* defaults to false */
 
   params.onacquire = NULL;
   params.private = NULL;
@@ -411,6 +436,14 @@ suscan_iqfile_source_init(void)
       SU_TRUE,
       "fc",
       "Center frequency"))
+    return SU_FALSE;
+
+  if (!suscan_source_add_field(
+      source,
+      SUSCAN_FIELD_TYPE_BOOLEAN,
+      SU_TRUE,
+      "loop",
+      "Loop"))
     return SU_FALSE;
 
   return SU_TRUE;

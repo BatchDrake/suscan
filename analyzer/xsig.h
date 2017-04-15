@@ -29,6 +29,7 @@ struct xsig_source;
 
 struct xsig_source_params {
   SUBOOL raw_iq;
+  SUBOOL loop;
   unsigned int samp_rate;
   const char *file;
   SUSCOUNT window_size;
