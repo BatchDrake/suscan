@@ -60,6 +60,7 @@ struct suscan_analyzer_source {
   struct xsig_source *instance;
   SUSCOUNT samp_count;
   uint64_t fc; /* Center frequency of source */
+  SUBOOL real_time; /* Is it a real-time source? */
 };
 
 struct suscan_analyzer {

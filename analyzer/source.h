@@ -24,6 +24,8 @@
 #include <util.h> /* From util: Common utility library */
 #include <sigutils/sigutils.h>
 
+#define SUSCAN_SOURCE_DEFAULT_BUFSIZ 4096
+
 enum suscan_field_type {
   SUSCAN_FIELD_TYPE_STRING,
   SUSCAN_FIELD_TYPE_INTEGER,
@@ -63,6 +65,7 @@ struct suscan_source {
 struct suscan_source_config {
   const struct suscan_source *source;
   struct suscan_field_value **values;
+  SUSCOUNT bufsiz;
 };
 
 /**************************** Source API *************************************/

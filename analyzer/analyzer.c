@@ -64,7 +64,7 @@ suscan_channel_analyzer_new(const struct sigutils_channel *channel)
   /* Common channel parameters */
   su_channel_params_adjust_to_channel(&params, channel);
 
-  params.window_size = 4096;
+  params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
   params.alpha = 1e-3;
 
   if (params.decimation < 2)
@@ -342,28 +342,13 @@ suscan_analyzer_source_finalize(struct suscan_analyzer_source *source)
 }
 
 SUPRIVATE SUBOOL
-suscan_analyzer_source_init(
+suscan_analyzer_source_init_from_block_properties(
     struct suscan_analyzer_source *source,
-    struct suscan_source_config *config)
+    struct sigutils_channel_detector_params *params)
 {
-  SUBOOL ok;
   const uint64_t *samp_rate;
   const uint64_t *fc;
-
-  struct sigutils_channel_detector_params params =
-        sigutils_channel_detector_params_INITIALIZER;
-
-  source->config = config;
-
-  if ((source->block = (config->source->ctor)(config)) == NULL)
-    goto done;
-
-  /* Master/slave flow controller */
-  if (!su_block_set_flow_controller(
-      source->block,
-      0,
-      SU_FLOW_CONTROL_KIND_MASTER_SLAVE))
-    goto done;
+  const SUBOOL *real_time;
 
   /* Retrieve sample rate */
   if (strcmp(source->config->source->name, "wavfile") == 0
@@ -373,10 +358,10 @@ suscan_analyzer_source_init(
         source->block,
         SU_PROPERTY_TYPE_OBJECT,
         "instance")) != NULL) {
-      params.samp_rate = source->instance->samp_rate;
+      params->samp_rate = source->instance->samp_rate;
     } else {
       SU_ERROR("Failed to get sample rate");
-      goto done;
+      return SU_FALSE;
     }
   } else {
     /* Other sources must populate samp_rate */
@@ -384,10 +369,10 @@ suscan_analyzer_source_init(
         source->block,
         SU_PROPERTY_TYPE_INTEGER,
         "samp_rate")) != NULL) {
-      params.samp_rate = *samp_rate;
+      params->samp_rate = *samp_rate;
     } else {
       SU_ERROR("Failed to get sample rate");
-      goto done;
+      return SU_FALSE;
     }
   }
 
@@ -395,16 +380,44 @@ suscan_analyzer_source_init(
   if ((fc = su_block_get_property_ref(
       source->block,
       SU_PROPERTY_TYPE_INTEGER,
-      "fc")) != NULL) {
+      "fc")) != NULL)
     source->fc = *fc;
-  }
+
+  /* Guess whether this is a real-time source or not */
+  if ((real_time = su_block_get_property_ref(
+      source->block,
+      SU_PROPERTY_TYPE_BOOL,
+      "real_time")) != NULL)
+    source->real_time = *real_time;
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_source_init(
+    struct suscan_analyzer_source *source,
+    struct suscan_source_config *config)
+{
+  SUBOOL ok;
+  struct sigutils_channel_detector_params params =
+        sigutils_channel_detector_params_INITIALIZER;
 
   params.mode = SU_CHANNEL_DETECTOR_MODE_DISCOVERY;
-
   params.alpha = 1e-2;
-  params.window_size = 4096;
+  params.window_size = config->bufsiz;
 
+  source->config = config;
   source->samp_count = 0;
+
+  if ((source->block = (config->source->ctor)(config)) == NULL)
+    goto done;
+
+  /*
+   * Analyze block properties, and initialize source and detector
+   * parameters accordingly.
+   */
+  if (!suscan_analyzer_source_init_from_block_properties(source, &params))
+    goto done;
 
   if ((source->detector = su_channel_detector_new(&params)) == NULL)
     goto done;
@@ -412,12 +425,37 @@ suscan_analyzer_source_init(
   if (!su_block_port_plug(&source->port, source->block, 0))
     goto done;
 
-  /*
-   * This is the master port. Other readers must wait for this reader
-   * to complete before asking block for additional samples.
-   */
-  if (!su_block_set_master_port(source->block, 0, &source->port))
-    goto done;
+  if (source->real_time) {
+    /*
+     * With real time sources, we must use the master/slave flow controller.
+     * This way, we ensure that at least the channel detector works
+     * correctly.
+     */
+    if (!su_block_set_flow_controller(
+        source->block,
+        0,
+        SU_FLOW_CONTROL_KIND_MASTER_SLAVE))
+      goto done;
+
+    /*
+     * This is the master port. Other readers must wait for this reader
+     * to complete before asking block for additional samples.
+     */
+    if (!su_block_set_master_port(source->block, 0, &source->port))
+      goto done;
+  } else {
+    /*
+     * If source is not realtime (e.g. iqfile or wavfile) we can afford
+     * having a BARRIER flow controller here: samples will be available on
+     * demand, and it's safe to pause until all workers are ready to consume
+     * more samples
+     */
+    if (!su_block_set_flow_controller(
+        source->block,
+        0,
+        SU_FLOW_CONTROL_KIND_BARRIER))
+      goto done;
+  }
 
   ok = SU_TRUE;
 
@@ -703,12 +741,13 @@ suscan_analyzer_new(
   }
 
   /* Allocate read buffer */
-  if ((analyzer->read_buf = malloc(4096 * sizeof(SUCOMPLEX))) == NULL) {
+  if ((analyzer->read_buf = malloc(config->bufsiz * sizeof(SUCOMPLEX)))
+      == NULL) {
     SU_ERROR("Failed to allocate read buffer\n");
     goto fail;
   }
 
-  analyzer->read_size = 4096;
+  analyzer->read_size = config->bufsiz;
 
   /* Create input message queue */
   if (!suscan_mq_init(&analyzer->mq_in)) {
