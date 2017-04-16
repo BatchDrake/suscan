@@ -89,7 +89,6 @@ suscan_worker_thread(void *data)
   for (;;) {
     /* First read: blocking */
     cb = suscan_mq_read(&worker->mq_in, &type);
-
     do {
       if (type == SUSCAN_WORKER_MSG_TYPE_CALLBACK) {
         if (!(cb->func) (worker->mq_out, worker->private, cb->private)) {
@@ -101,8 +100,9 @@ suscan_worker_thread(void *data)
             goto done;
         }
       } else if (type == SUSCAN_WORKER_MSG_TYPE_HALT) {
-        suscan_worker_ack_halt(worker);
+        worker->state = SUSCAN_WORKER_STATE_HALTED;
         halt_acked = SU_TRUE;
+        suscan_worker_ack_halt(worker);
         goto done;
       }
 
@@ -111,11 +111,10 @@ suscan_worker_thread(void *data)
   }
 
 done:
+  worker->state = SUSCAN_WORKER_STATE_HALTED;
+
   if (!halt_acked)
     suscan_worker_wait_for_halt(worker);
-
-halt:
-  worker->state = SUSCAN_WORKER_STATE_HALTED;
 
   pthread_exit(NULL);
 

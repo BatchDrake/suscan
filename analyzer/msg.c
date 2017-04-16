@@ -109,6 +109,7 @@ suscan_analyzer_channel_msg_new(
           goto fail;
 
         new->channel_list[n]->fc += analyzer->source.fc;
+        new->channel_list[n]->ft = analyzer->source.fc;
         ++n;
       }
 
@@ -123,6 +124,29 @@ fail:
   return NULL;
 }
 
+struct suscan_analyzer_inspector_msg *
+suscan_analyzer_inspector_msg_new(
+    enum suscan_analyzer_inspector_msgkind kind,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_inspector_msg *new;
+
+  if ((new = calloc(1, sizeof (struct suscan_analyzer_inspector_msg))) == NULL)
+    return NULL;
+
+  new->kind = kind;
+  new->req_id = req_id;
+
+  return new;
+}
+
+void
+suscan_analyzer_inspector_msg_destroy(
+    struct suscan_analyzer_inspector_msg *msg)
+{
+  free(msg);
+}
+
 void
 suscan_analyzer_dispose_message(uint32_t type, void *ptr)
 {
@@ -134,6 +158,10 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
       suscan_analyzer_channel_msg_destroy(ptr);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR:
+      suscan_analyzer_inspector_msg_destroy(ptr);
       break;
   }
 }
@@ -224,3 +252,4 @@ done:
     suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL, msg);
   return ok;
 }
+

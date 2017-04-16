@@ -32,6 +32,7 @@
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_EOS           0x3
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL      0x4
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES_LOST  0x5
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR  0x6 /* Baudrate inspector */
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
@@ -50,18 +51,26 @@ struct suscan_analyzer_channel_msg {
   const suscan_analyzer_t *sender;
 };
 
-/* Channel analyzer command */
-enum suscan_analyzer_channel_analyzer_command {
-  SUSCAN_WORKER_CHANNEL_ANALYZER_COMMAND_START,
-  SUSCAN_WORKER_CHANNEL_ANALYZER_COMMAND_GET_INFO,
-  SUSCAN_WORKER_CHANNEL_ANALYZER_COMMAND_STOP
+/* Channel inspector command */
+enum suscan_analyzer_inspector_msgkind {
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND
 };
 
-struct suscan_analyzer_channel_analyzer_msg {
-  enum suscan_analyzer_channel_analyzer_command command;
+struct suscan_analyzer_inspector_msg {
+  enum suscan_analyzer_inspector_msgkind kind;
   uint32_t req_id;
-  uint32_t chanid;
+  uint32_t handle;
   int status;
+
+  union {
+    struct sigutils_channel channel;
+    struct suscan_baudrate_inspector_result baudrate;
+  };
 };
 
 /***************************** Sender methods ********************************/
@@ -80,6 +89,11 @@ SUBOOL suscan_analyzer_send_detector_channels(
     suscan_analyzer_t *analyzer,
     const su_channel_detector_t *detector);
 
+/************************* Message parsing methods ***************************/
+SUBOOL suscan_analyzer_parse_baud(
+    suscan_analyzer_t *analyzer,
+    struct suscan_analyzer_inspector_msg *msg);
+
 /* Message constructors and destructors */
 void suscan_analyzer_status_msg_destroy(struct suscan_analyzer_status_msg *status);
 struct suscan_analyzer_status_msg *suscan_analyzer_status_msg_new(
@@ -90,6 +104,12 @@ struct suscan_analyzer_channel_msg *suscan_analyzer_channel_msg_new(
     const suscan_analyzer_t *analyzer,
     struct sigutils_channel **list,
     unsigned int len);
+struct suscan_analyzer_inspector_msg *suscan_analyzer_inspector_msg_new(
+    enum suscan_analyzer_inspector_msgkind kind,
+    uint32_t req_id);
+void suscan_analyzer_inspector_msg_destroy(
+    struct suscan_analyzer_inspector_msg *msg);
+
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);
 
 #endif /* _MSG_H */

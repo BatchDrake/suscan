@@ -37,20 +37,10 @@ enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_HALTED
 };
 
-/* TODO: protect baudrate access with mutexes */
-struct suscan_channel_analyzer {
-  struct sigutils_channel channel;
-  su_block_port_t port;                /* Slave reading port */
-  su_channel_detector_t *fac_baud_det; /* FAC baud detector */
-  su_channel_detector_t *nln_baud_det; /* Non-linear baud detector */
-
-  SUCOMPLEX *read_buf;
-  SUSCOUNT   read_size;
-
-  enum suscan_aync_state state;        /* Used to remove analyzer from queue */
+struct suscan_baudrate_inspector_result {
+  SUFLOAT fac;
+  SUFLOAT nln;
 };
-
-typedef struct suscan_channel_analyzer suscan_channel_analyzer_t;
 
 struct suscan_analyzer_source {
   struct suscan_source_config *config;
@@ -62,6 +52,44 @@ struct suscan_analyzer_source {
   uint64_t fc; /* Center frequency of source */
   SUBOOL real_time; /* Is it a real-time source? */
 };
+
+struct suscan_analyzer;
+
+/* Per-worker object: used to centralize reads */
+struct suscan_consumer {
+  suscan_worker_t *worker;
+  struct suscan_analyzer *analyzer;
+  su_block_port_t port; /* Slave reading port */
+
+  SUCOMPLEX *buffer;
+  SUSCOUNT   buffer_size;
+  SUSCOUNT   buffer_pos;
+  SUSCOUNT   buffer_avail;
+
+  unsigned int tasks;
+  unsigned int pending;
+};
+
+typedef struct suscan_consumer suscan_consumer_t;
+
+struct suscan_consumer_task_state {
+  suscan_consumer_t *consumer;
+  SUSCOUNT read_pos;
+  SUSDIFF  wait_pos; /* Initially -1 */
+};
+
+/* TODO: protect baudrate access with mutexes */
+struct suscan_baudrate_inspector {
+  struct sigutils_channel channel;
+  su_channel_detector_t *fac_baud_det; /* FAC baud detector */
+  su_channel_detector_t *nln_baud_det; /* Non-linear baud detector */
+
+  struct suscan_consumer_task_state task_state;
+
+  enum suscan_aync_state state;        /* Used to remove analyzer from queue */
+};
+
+typedef struct suscan_baudrate_inspector suscan_baudrate_inspector_t;
 
 struct suscan_analyzer {
   struct suscan_mq mq_in;   /* To-thread messages */
@@ -78,11 +106,12 @@ struct suscan_analyzer {
   SUCOMPLEX *read_buf;
   SUSCOUNT   read_size;
 
-  /* Analyzer objects */
-  PTR_LIST(suscan_channel_analyzer_t, chan_analyzer);
+  /* Inspector objects */
+  PTR_LIST(suscan_baudrate_inspector_t, br_inspector);
 
   /* Consumer workers (initially idle) */
-  PTR_LIST(suscan_worker_t, consumer_wk);
+  PTR_LIST(suscan_consumer_t, consumer);
+
   unsigned int next_consumer; /* Next consumer worker to use */
 
   /* Analyzer thread */
@@ -91,25 +120,73 @@ struct suscan_analyzer {
 
 typedef struct suscan_analyzer suscan_analyzer_t;
 
+/************************* Baudrate inspector API ****************************/
+void suscan_baudrate_inspector_destroy(suscan_baudrate_inspector_t *chanal);
+suscan_baudrate_inspector_t *suscan_baudrate_inspector_new(
+    const suscan_analyzer_t *analyzer,
+    const struct sigutils_channel *channel);
 
-/************************** Channel Analyzer API ******************************/
-void suscan_channel_analyzer_destroy(suscan_channel_analyzer_t *chanal);
-suscan_channel_analyzer_t *
-suscan_channel_analyzer_new(const struct sigutils_channel *channel);
+/* Baud inspector operations */
+SUHANDLE suscan_baud_inspector_open(
+    suscan_analyzer_t *analyzer,
+    const struct sigutils_channel *channel);
+
+SUBOOL suscan_baud_inspector_close(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle);
+
+SUBOOL suscan_baud_inspector_get_info(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    struct suscan_baudrate_inspector_result *result);
+
+/****************************** Consumer API **********************************/
+SUBOOL suscan_consumer_task_state_assert_samples(
+    struct suscan_consumer_task_state *state,
+    SUCOMPLEX **samples,
+    SUSCOUNT *pavail);
+
+SUBOOL suscan_consumer_task_state_advance(
+    struct suscan_consumer_task_state *state,
+    SUSCOUNT samples);
+
+void suscan_consumer_task_state_init(
+    struct suscan_consumer_task_state *state,
+    suscan_consumer_t *consumer);
+
+SUBOOL suscan_consumer_destroy(suscan_consumer_t *cons);
+
+SUBOOL suscan_consumer_remove_task(suscan_consumer_t *consumer);
+
+SUBOOL suscan_consumer_push_task(
+    suscan_consumer_t *consumer,
+    SUBOOL (*func) (
+              struct suscan_mq *mq_out,
+              void *wk_private,
+              void *cb_private),
+    void *private);
+
+suscan_consumer_t *suscan_consumer_new(suscan_analyzer_t *analyzer);
 
 /****************************** Analyzer API **********************************/
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
+SUBOOL suscan_analyzer_write(
+    suscan_analyzer_t *analyzer,
+    uint32_t type,
+    void *priv);
+void suscan_analyzer_consume_mq(struct suscan_mq *mq);
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);
 void suscan_analyzer_destroy(suscan_analyzer_t *analyzer);
 suscan_analyzer_t *suscan_analyzer_new(
     struct suscan_source_config *config,
     struct suscan_mq *mq);
+SUBOOL suscan_analyzer_push_task(
+    suscan_analyzer_t *analyzer,
+    SUBOOL (*func) (
+          struct suscan_mq *mq_out,
+          void *wk_private,
+          void *cb_private),
+    void *private);
 
-SUHANDLE suscan_analyzer_register_channel_analyzer(
-    suscan_analyzer_t *analyzer,
-    suscan_channel_analyzer_t *chanal);
-SUBOOL suscan_analyzer_dispose_channel_analyzer_handle(
-    suscan_analyzer_t *analyzer,
-    SUHANDLE handle);
 
 #endif /* _ANALYZER_H */

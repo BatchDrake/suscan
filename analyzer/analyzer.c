@@ -29,147 +29,8 @@
 
 #include "mq.h"
 #include "source.h"
-#include "xsig.h"
 #include "analyzer.h"
 #include "msg.h"
-
-/************************* Channel analyzer API ******************************/
-void
-suscan_channel_analyzer_destroy(suscan_channel_analyzer_t *chanal)
-{
-  if (chanal->fac_baud_det != NULL)
-    su_channel_detector_destroy(chanal->fac_baud_det);
-
-  if (chanal->nln_baud_det != NULL)
-    su_channel_detector_destroy(chanal->nln_baud_det);
-
-  if (chanal->read_buf != NULL)
-    free(chanal->read_buf);
-
-  free(chanal);
-}
-
-suscan_channel_analyzer_t *
-suscan_channel_analyzer_new(const struct sigutils_channel *channel)
-{
-  suscan_channel_analyzer_t *new;
-  struct sigutils_channel_detector_params params =
-      sigutils_channel_detector_params_INITIALIZER;
-
-  if ((new = calloc(1, sizeof (suscan_channel_analyzer_t))) == NULL)
-    goto fail;
-
-  new->state = SUSCAN_ASYNC_STATE_CREATED;
-
-  /* Common channel parameters */
-  su_channel_params_adjust_to_channel(&params, channel);
-
-  params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
-  params.alpha = 1e-3;
-
-  if (params.decimation < 2)
-    params.decimation = 1;
-  else
-    params.decimation /= 2;
-
-  /* Create generic autocorrelation-based detector */
-  params.mode = SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION;
-  if ((new->fac_baud_det = su_channel_detector_new(&params)) == NULL)
-    goto fail;
-
-  /* Create non-linear baud rate detector */
-  params.mode = SU_CHANNEL_DETECTOR_MODE_NONLINEAR_DIFF;
-  if ((new->nln_baud_det = su_channel_detector_new(&params)) == NULL)
-    goto fail;
-
-  /* Create read window */
-  new->read_size = params.window_size;
-  if ((new->read_buf = malloc(sizeof(SUCOMPLEX) * new->read_size)) == NULL)
-    goto fail;
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_channel_analyzer_destroy(new);
-
-  return NULL;
-}
-/******************* Channel analyzer worker callback ************************/
-SUPRIVATE SUBOOL
-suscan_channel_analyzer_wk_cb(
-    struct suscan_mq *mq_out,
-    void *wk_private,
-    void *cb_private)
-{
-  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
-  suscan_channel_analyzer_t *chanal = (suscan_channel_analyzer_t *) cb_private;
-  unsigned int i;
-  SUSDIFF got;
-  SUCOMPLEX sample;
-  SUBOOL restart = SU_FALSE;
-
-  got = su_block_port_read(&chanal->port, chanal->read_buf, chanal->read_size);
-
-  if (got > 0) {
-    /* Got samples, forward them to baud detectors */
-    if (su_channel_detector_feed_bulk(
-        chanal->fac_baud_det,
-        chanal->read_buf,
-        got) < got)
-        goto done;
-
-    if (su_channel_detector_feed_bulk(
-        chanal->nln_baud_det,
-        chanal->read_buf,
-        got) < got)
-      goto done;
-  } else {
-    /* Failed to get samples, figure out why */
-    switch (got) {
-      case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
-        /*
-         * This is not necessarily an error: port desyncs happen
-         * naturally if the system is running tight on resources. We
-         * just silently resync the port
-         */
-        if (!su_block_port_resync(&chanal->port))
-          goto done;
-        break;
-
-      case SU_BLOCK_PORT_READ_END_OF_STREAM:
-        suscan_analyzer_send_status(
-            analyzer,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            got,
-            "End of stream reached");
-        goto done;
-
-      case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
-        suscan_analyzer_send_status(
-            analyzer,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            got,
-            "Acquire failed (source I/O error)");
-        goto done;
-
-      default:
-        suscan_analyzer_send_status(
-            analyzer,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            got,
-            "Unexpected read result %d", got);
-    }
-  }
-
-  restart = SU_TRUE;
-
-done:
-  if (!restart)
-    chanal->state = SUSCAN_ASYNC_STATE_HALTED;
-
-  return restart;
-}
 
 /************************ Source worker callback *****************************/
 SUPRIVATE void
@@ -202,11 +63,9 @@ suscan_source_wk_cb(
   struct timespec process_end;
   struct timespec sub;
   uint64_t total, cpu;
-
   SUBOOL restart = SU_FALSE;
 
   clock_gettime(CLOCK_MONOTONIC_RAW, &read_start);
-  /* TODO: perform bulk reads */
   if ((got = su_block_port_read(
       &source->port,
       analyzer->read_buf,
@@ -329,6 +188,366 @@ suscan_wait_for_halt(suscan_analyzer_t *analyzer)
   }
 }
 
+
+SUPRIVATE void *
+suscan_analyzer_thread(void *data)
+{
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) data;
+  void *private;
+  uint32_t type;
+  SUBOOL halt_acked = SU_FALSE;
+
+  if (!suscan_worker_push(
+      analyzer->source_wk,
+      suscan_source_wk_cb,
+      &analyzer->source)) {
+    suscan_analyzer_send_status(
+        analyzer,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
+        SUSCAN_ANALYZER_INIT_FAILURE,
+        "Failed to push async callback to worker");
+    goto done;
+  }
+
+  /* Signal initialization success */
+  suscan_analyzer_send_status(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
+      SUSCAN_ANALYZER_INIT_SUCCESS,
+      NULL);
+
+  /* Pop all messages from queue before reading from the source */
+  for (;;) {
+    /* First read: blocks */
+    private = suscan_mq_read(&analyzer->mq_in, &type);
+
+    do {
+      switch (type) {
+        case SUSCAN_WORKER_MSG_TYPE_HALT:
+          suscan_analyzer_ack_halt(analyzer);
+          halt_acked = SU_TRUE;
+          /* Nothing to dispose, safe to break the loop */
+          goto done;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR:
+          /* Baudrate inspector command. Handle separately */
+          if (!suscan_analyzer_parse_baud(analyzer, private)) {
+            suscan_analyzer_dispose_message(type, private);
+            goto done;
+          }
+
+          /*
+           * We don't dispose this message: it has been processed
+           * by the baud inspector API and forwarded it to the
+           * output mq
+           */
+          private = NULL;
+
+          break;
+
+        /* Forward these messages to output */
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
+          if (!suscan_mq_write(analyzer->mq_out, type, private))
+            goto done;
+
+          /* Not belonging to us anymore */
+          private = NULL;
+
+          break;
+      }
+
+      if (private != NULL)
+        suscan_analyzer_dispose_message(type, private);
+
+      /* Next reads: until message queue is empty */
+    } while (suscan_mq_poll(&analyzer->mq_in, &type, &private));
+  }
+
+done:
+  if (!halt_acked)
+    suscan_wait_for_halt(analyzer);
+
+  pthread_exit(NULL);
+
+  return NULL;
+}
+
+void *
+suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type)
+{
+  return suscan_mq_read(analyzer->mq_out, type);
+}
+
+SUBOOL
+suscan_analyzer_write(suscan_analyzer_t *analyzer, uint32_t type, void *priv)
+{
+  return suscan_mq_write(&analyzer->mq_in, type, priv);
+}
+
+void
+suscan_analyzer_consume_mq(struct suscan_mq *mq)
+{
+  void *private;
+  uint32_t type;
+
+  while (suscan_mq_poll(mq, &type, &private))
+    suscan_analyzer_dispose_message(type, private);
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_consume_mq_until_halt(struct suscan_mq *mq)
+{
+  void *private;
+  uint32_t type;
+
+  while (suscan_mq_poll(mq, &type, &private))
+    if (type == SUSCAN_WORKER_MSG_TYPE_HALT)
+      return SU_TRUE;
+    else
+      suscan_analyzer_dispose_message(type, private);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_halt_worker(suscan_worker_t *worker)
+{
+  while (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
+    suscan_worker_req_halt(worker);
+
+    while (!suscan_analyzer_consume_mq_until_halt(worker->mq_out))
+      suscan_mq_wait(worker->mq_out);
+  }
+
+  return suscan_worker_destroy(worker);
+}
+
+/************************ Suscan consumer API *********************************/
+
+/*
+ * Consumer objects keep a local copy of the last retrieved samples. When
+ * a task needs more data beyond its read_pos, it increments the consumer
+ * "pending" member and restarts.
+ *
+ * When "pending" == "tasks", data from the port is readed.
+ *
+ * We must provide a suscan_consumer_task_state_assert method, to ensure
+ * that task states are updated in an ordered way. This method must do:
+ *
+ * 1. Compare state.read_pos against consumer's buffer_avail and _pos.
+ * 2. If data is available, just return a pointer / size pair
+ * 3. If data is NOT available:
+ *   3.1 Check whether read_pos == wait_pos. If true, return 0.
+ *   3.2 Increment consumer's pending counter and set wait_pos to read_pos
+ *   3.3 If pending == tasks, perform read.
+ *   3.4 If read fails, and not because of a desync, send EOS, and halt
+ *       worker
+ *   3.5 Update consumer buffer, and return data
+ *
+ * Additionally, tasks must call suscan_consumer_task_state_advance to
+ * indicate how many samples they have consumed so far
+ */
+
+void
+suscan_consumer_task_state_init(
+    struct suscan_consumer_task_state *state,
+    suscan_consumer_t *consumer)
+{
+  state->consumer = consumer;
+  state->read_pos = consumer->buffer_pos;
+  state->wait_pos = -1;
+}
+
+SUBOOL
+suscan_consumer_task_state_assert_samples(
+    struct suscan_consumer_task_state *state,
+    SUCOMPLEX **samples,
+    SUSCOUNT *pavail)
+{
+  SUSDIFF avail;
+  SUSDIFF consumed;
+  SUSDIFF got;
+
+  if (state->read_pos < state->consumer->buffer_pos) {
+    SU_ERROR("Unexpected desync\n");
+    goto halt;
+  }
+
+  consumed = state->read_pos - state->consumer->buffer_pos;
+  avail = state->consumer->buffer_avail - consumed;
+
+  if (avail == 0) {
+    /* Samples *not* available */
+    if (state->read_pos != state->wait_pos) {
+      ++state->consumer->pending;
+      state->wait_pos = state->read_pos;
+
+      if (state->consumer->pending > state->consumer->tasks) {
+        SU_ERROR("pending > tasks? (%d > %d)\n", state->consumer->pending, state->consumer->tasks);
+        --state->consumer->pending;
+        goto halt;
+      }
+
+      if (state->consumer->pending == state->consumer->tasks) {
+        /* Barrier reached. Time to read */
+        while ((got = su_block_port_read(
+            &state->consumer->port,
+            state->consumer->buffer,
+            state->consumer->buffer_size)) < 1) {
+
+          if (got == SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC) {
+            SU_WARNING("Samples lost by consumer (normal in slow CPUs)\n");
+            su_block_port_resync(&state->consumer->port);
+            continue;
+          } else {
+            suscan_analyzer_send_status(
+                state->consumer->analyzer,
+                SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+                got,
+                "Consumer worker EOS");
+            --state->consumer->pending;
+            goto halt;
+          }
+        }
+
+        /* Data available */
+        state->consumer->buffer_pos += state->consumer->buffer_avail;
+        state->consumer->buffer_avail = got;
+
+        /* No one is waiting now */
+        state->consumer->pending = 0;
+
+        avail = got;
+        consumed = 0;
+      }
+    }
+  }
+
+  /* Samples available */
+  *pavail  = avail;
+  *samples = state->consumer->buffer + consumed;
+
+  return SU_TRUE;
+
+halt:
+  suscan_worker_req_halt(state->consumer->worker);
+
+  return SU_FALSE;
+}
+
+SUBOOL
+suscan_consumer_task_state_advance(
+    struct suscan_consumer_task_state *state,
+    SUSCOUNT samples)
+{
+  if (state->read_pos + samples > state->consumer->buffer_pos + state->consumer->buffer_avail) {
+    SU_ERROR("Attempt to consume more samples than available\n");
+    SU_ERROR("Pos %d, read pos %d, consume %d\n", state->consumer->buffer_pos, state->read_pos, samples);
+    return SU_FALSE;
+  }
+
+  state->read_pos += samples;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_consumer_push_task(
+    suscan_consumer_t *consumer,
+    SUBOOL (*func) (
+              struct suscan_mq *mq_out,
+              void *wk_private,
+              void *cb_private),
+    void *private)
+{
+  if (consumer->tasks == 0) {
+    if (!su_block_port_plug(
+        &consumer->port,
+        consumer->analyzer->source.block,
+        0)) {
+      SU_ERROR("Failed to push task: cannot plug port\n");
+      return SU_FALSE;
+    }
+  }
+
+  ++consumer->tasks;
+  if (!suscan_worker_push(consumer->worker,  func, private)) {
+    (void) suscan_consumer_remove_task(consumer);
+
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_consumer_remove_task(suscan_consumer_t *consumer)
+{
+  if (consumer->tasks == 0) {
+    SU_ERROR("Cannot remove tasks: task counter already 0\n");
+    return SU_FALSE;
+  }
+
+  --consumer->tasks;
+
+  /* Passing to idle state */
+  if (consumer->tasks == 0)
+    su_block_port_unplug(&consumer->port);
+
+  return SU_FALSE;
+}
+
+SUBOOL
+suscan_consumer_destroy(suscan_consumer_t *cons)
+{
+  if (cons->worker != NULL) {
+    if (!suscan_analyzer_halt_worker(cons->worker)) {
+      SU_ERROR("Consumer worker destruction failed, memory leak ahead\n");
+      return SU_FALSE;
+    }
+  }
+
+  su_block_port_unplug(&cons->port);
+
+  if (cons->buffer != NULL)
+    free(cons->buffer);
+
+  free(cons);
+
+  return SU_TRUE;
+}
+
+suscan_consumer_t *
+suscan_consumer_new(suscan_analyzer_t *analyzer)
+{
+  suscan_consumer_t *new = NULL;
+
+  if ((new = calloc(1, sizeof (suscan_consumer_t))) == NULL)
+    goto fail;
+
+  new->buffer_size = analyzer->read_size;
+
+  if ((new->buffer = malloc(new->buffer_size * sizeof(SUCOMPLEX))) == NULL)
+    goto fail;
+
+  new->analyzer = analyzer;
+
+  if ((new->worker = suscan_worker_new(&analyzer->mq_in, new)) == NULL) {
+    SU_ERROR("Cannot allocate per-CPU analyzer worker\n");
+    goto fail;
+  }
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_consumer_destroy(new);
+
+  return NULL;
+}
+
+/******************* Suscan analyzer source methods **************************/
 SUPRIVATE void
 suscan_analyzer_source_finalize(struct suscan_analyzer_source *source)
 {
@@ -448,112 +667,7 @@ done:
   return ok;
 }
 
-SUPRIVATE void *
-suscan_analyzer_thread(void *data)
-{
-  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) data;
-  void *private;
-  uint32_t type;
-  SUBOOL halt_acked = SU_FALSE;
-
-  if (!suscan_worker_push(
-      analyzer->source_wk,
-      suscan_source_wk_cb,
-      &analyzer->source)) {
-    suscan_analyzer_send_status(
-        analyzer,
-        SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
-        SUSCAN_ANALYZER_INIT_FAILURE,
-        "Failed to push async callback to worker");
-    goto done;
-  }
-
-  /* Signal initialization success */
-  suscan_analyzer_send_status(
-      analyzer,
-      SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
-      SUSCAN_ANALYZER_INIT_SUCCESS,
-      NULL);
-
-  /* Pop all messages from queue before reading from the source */
-  for (;;) {
-    /* First read: blocks */
-    private = suscan_mq_read(&analyzer->mq_in, &type);
-
-    do {
-      switch (type) {
-        case SUSCAN_WORKER_MSG_TYPE_HALT:
-          suscan_analyzer_ack_halt(analyzer);
-          halt_acked = SU_TRUE;
-          /* Nothing to dispose, safe to break the loop */
-          goto done;
-
-        /* Forward these messages to output */
-        case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
-        case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
-          if (!suscan_mq_write(analyzer->mq_out, type, private))
-            goto done;
-
-          /* Not belonging to us anymore */
-          private = NULL;
-
-          break;
-      }
-
-      if (private != NULL)
-        suscan_analyzer_dispose_message(type, private);
-
-      /* Next reads: until message queue is empty */
-    } while (suscan_mq_poll(&analyzer->mq_in, &type, &private));
-  }
-
-done:
-  if (!halt_acked)
-    suscan_wait_for_halt(analyzer);
-
-  /* TODO: finalize all workers */
-
-halt:
-  pthread_exit(NULL);
-
-  return NULL;
-}
-
-void *
-suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type)
-{
-  return suscan_mq_read(analyzer->mq_out, type);
-}
-
-
-SUPRIVATE SUBOOL
-suscan_analyzer_consume_mq_until_halt(struct suscan_mq *mq)
-{
-  void *private;
-  uint32_t type;
-
-  while (suscan_mq_poll(mq, &type, &private))
-    if (type == SUSCAN_WORKER_MSG_TYPE_HALT)
-      return SU_TRUE;
-    else
-      suscan_analyzer_dispose_message(type, private);
-
-  return SU_FALSE;
-}
-
-SUPRIVATE SUBOOL
-suscan_analyzer_halt_worker(suscan_worker_t *worker)
-{
-  if (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
-    suscan_worker_req_halt(worker);
-
-    while (!suscan_analyzer_consume_mq_until_halt(worker->mq_out))
-      suscan_mq_wait(worker->mq_out);
-  }
-
-  return suscan_worker_destroy(worker);
-}
-
+/********************** Suscan analyzer public API ***************************/
 SUPRIVATE unsigned int
 suscan_get_min_consumer_workers(void)
 {
@@ -565,8 +679,8 @@ suscan_get_min_consumer_workers(void)
   return count - 1;
 }
 
-SUPRIVATE SUBOOL
-suscan_analyzer_push_consumer(
+SUBOOL
+suscan_analyzer_push_task(
     suscan_analyzer_t *analyzer,
     SUBOOL (*func) (
           struct suscan_mq *mq_out,
@@ -574,20 +688,19 @@ suscan_analyzer_push_consumer(
           void *cb_private),
     void *private)
 {
-  if (!suscan_worker_push(
-      analyzer->consumer_wk_list[analyzer->next_consumer],
+  if (!suscan_consumer_push_task(
+      analyzer->consumer_list[analyzer->next_consumer],
       func,
       private))
     return SU_FALSE;
 
   /* Increment next consumer counter */
   analyzer->next_consumer =
-      (analyzer->next_consumer + 1) % analyzer->consumer_wk_count;
+      (analyzer->next_consumer + 1) % analyzer->consumer_count;
 
   return SU_TRUE;
 }
 
-/********************** Suscan analyzer public API ***************************/
 void
 suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 {
@@ -611,40 +724,41 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
     }
   }
 
+  /* We attempt to wakeup all threads by marking the source as EOS */
+  if (analyzer->source.block != NULL)
+    su_block_force_eos(analyzer->source.block, 0);
+
   if (analyzer->source_wk != NULL)
     if (!suscan_analyzer_halt_worker(analyzer->source_wk)) {
       SU_ERROR("Source worker destruction failed, memory leak ahead\n");
       return;
     }
 
-  for (i = 0; i < analyzer->consumer_wk_count; ++i)
-    if (analyzer->consumer_wk_list[i] != NULL)
-      if (!suscan_analyzer_halt_worker(analyzer->consumer_wk_list[i])) {
+  for (i = 0; i < analyzer->consumer_count; ++i)
+    if (analyzer->consumer_list[i] != NULL)
+      if (!suscan_consumer_destroy(analyzer->consumer_list[i])) {
         SU_ERROR("Consumer worker destruction failed, memory leak ahead\n");
         return;
       }
 
-  if (suscan_analyzer_consume_mq_until_halt(&analyzer->mq_in)) {
-    SU_ERROR("Unexpected HALT message! Leaking memory just in case...\n");
-    return;
-  }
-
+  /* Consume any pending messages */
+  suscan_analyzer_consume_mq(&analyzer->mq_in);
 
   /* All workers destroyed, it's safe now to delete the worker list */
-  if (analyzer->consumer_wk_list != NULL)
-    free(analyzer->consumer_wk_list);
+  if (analyzer->consumer_list != NULL)
+    free(analyzer->consumer_list);
 
   /* Free read buffer */
   if (analyzer->read_buf != NULL)
     free(analyzer->read_buf);
 
   /* Remove all channel analyzers */
-  for (i = 0; i < analyzer->chan_analyzer_count; ++i)
-    if (analyzer->chan_analyzer_list[i] != NULL)
-      suscan_channel_analyzer_destroy(analyzer->chan_analyzer_list[i]);
+  for (i = 0; i < analyzer->br_inspector_count; ++i)
+    if (analyzer->br_inspector_list[i] != NULL)
+      suscan_baudrate_inspector_destroy(analyzer->br_inspector_list[i]);
 
-  if (analyzer->chan_analyzer_list != NULL)
-    free(analyzer->chan_analyzer_list);
+  if (analyzer->br_inspector_list != NULL)
+    free(analyzer->br_inspector_list);
 
   /* Delete source information */
   suscan_analyzer_source_finalize(&analyzer->source);
@@ -654,69 +768,13 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   free(analyzer);
 }
 
-SUBOOL
-suscan_analyzer_dispose_channel_analyzer_handle(
-    suscan_analyzer_t *analyzer,
-    SUHANDLE handle)
-{
-  if (handle < 0 || handle >= analyzer->chan_analyzer_count)
-    return SU_FALSE;
-
-  if (analyzer->chan_analyzer_list[handle] == NULL)
-    return SU_FALSE;
-
-  analyzer->chan_analyzer_list[handle] = NULL;
-
-  return SU_TRUE;
-}
-
-SUHANDLE
-suscan_analyzer_register_channel_analyzer(
-    suscan_analyzer_t *analyzer,
-    suscan_channel_analyzer_t *chanal)
-{
-  SUHANDLE hnd;
-
-  if (chanal->state != SUSCAN_ASYNC_STATE_CREATED)
-    return SU_FALSE;
-
-  /*
-   * Plug to source. Since we are using master/slave flow control,
-   * this will not block all consumers until actual read takes place
-   * at worker context
-   */
-  if (!su_block_port_plug(&chanal->port, analyzer->source.block, 0))
-    return -1;
-
-  /* Plugged. Append handle to list */
-  if ((hnd = PTR_LIST_APPEND_CHECK(analyzer->chan_analyzer, chanal)) == -1) {
-    su_block_port_unplug(&chanal->port);
-    return -1;
-  }
-
-  /* Mark it as running and push to worker */
-  chanal->state = SUSCAN_ASYNC_STATE_RUNNING;
-
-  if (!suscan_analyzer_push_consumer(
-      analyzer,
-      suscan_channel_analyzer_wk_cb,
-      chanal)) {
-    chanal->state = SUSCAN_ASYNC_STATE_CREATED;
-    suscan_analyzer_dispose_channel_analyzer_handle(analyzer, hnd);
-    su_block_port_unplug(&chanal->port);
-    return -1;
-  }
-
-  return hnd;
-}
-
 suscan_analyzer_t *
 suscan_analyzer_new(
     struct suscan_source_config *config,
     struct suscan_mq *mq)
 {
   suscan_analyzer_t *analyzer = NULL;
-  suscan_worker_t *worker;
+  suscan_consumer_t *consumer;
   unsigned int worker_count;
   unsigned int i;
 
@@ -756,14 +814,14 @@ suscan_analyzer_new(
   /* Create consumer workers */
   worker_count = suscan_get_min_consumer_workers();
   for (i = 0; i < worker_count; ++i) {
-    if ((worker = suscan_worker_new(&analyzer->mq_in, analyzer)) == NULL) {
-      SU_ERROR("Cannot allocate per-CPU analyzer worker\n");
+    if ((consumer = suscan_consumer_new(analyzer)) == NULL) {
+      SU_ERROR("Failed to create consumer object\n");
       goto fail;
     }
 
-    if (PTR_LIST_APPEND_CHECK(analyzer->consumer_wk, worker) == -1) {
-      SU_ERROR("Cannot append analyzer worker to list\n");
-      suscan_worker_destroy(worker);
+    if (PTR_LIST_APPEND_CHECK(analyzer->consumer, consumer) == -1) {
+      SU_ERROR("Cannot append consumer to list\n");
+      suscan_consumer_destroy(consumer);
       goto fail;
     }
   }
