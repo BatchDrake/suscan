@@ -71,6 +71,7 @@ bladeRF_state_new(const struct bladeRF_params *params)
   struct bladerf_devinfo dev_info;
   unsigned int actual_samp_rate;
   unsigned int actual_fc;
+  unsigned int actual_bw;
 
   bladerf_xb300_amplifier amp;
   int status;
@@ -143,6 +144,20 @@ bladeRF_state_new(const struct bladeRF_params *params)
       SU_ERROR("Cannot enable RX module: %s\n", bladerf_strerror(status));
       goto fail;
     }
+  }
+
+  /* Configure bandwidth according to actual sample rate */
+  if ((actual_bw = round(actual_samp_rate * .75)) < BLADERF_BANDWIDTH_MIN)
+    actual_bw = BLADERF_BANDWIDTH_MIN;
+
+  status = bladerf_set_bandwidth(
+      new->dev,
+      BLADERF_MODULE_RX,
+      actual_bw,
+      &actual_bw);
+  if (status != 0) {
+    SU_ERROR("Failed to set bandwidth: %s\n", bladerf_strerror(status));
+    goto fail;
   }
 
   /* Enable XB-300, if present */
