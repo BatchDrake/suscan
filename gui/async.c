@@ -21,37 +21,39 @@
 #include "gui.h"
 
 /* Asynchronous thread: take messages from analyzer and parse them */
-struct suscan_channel_update_data {
+struct suscan_gui_msg_envelope {
   struct suscan_gui *gui;
-  struct suscan_analyzer_channel_msg *msg;
-  SUFLOAT cpu;
+  uint32_t type;
+  void *private;
 };
 
 void
-suscan_channel_update_data_destroy(struct suscan_channel_update_data *data)
+suscan_gui_msg_envelope_destroy(struct suscan_gui_msg_envelope *data)
 {
   suscan_analyzer_dispose_message(
-      SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL,
-      data->msg);
+      data->type,
+      data->private);
 
   free(data);
 }
 
-struct suscan_channel_update_data *
-suscan_channel_update_data_new(
+struct suscan_gui_msg_envelope *
+suscan_gui_msg_envelope_new(
     struct suscan_gui *gui,
-    struct suscan_analyzer_channel_msg *msg)
+    uint32_t type,
+    void *private)
 {
-  struct suscan_channel_update_data *data;
+  struct suscan_gui_msg_envelope *new;
 
   SU_TRYCATCH(
-      data = malloc(sizeof (struct suscan_channel_update_data)),
+      new = malloc(sizeof (struct suscan_gui_msg_envelope)),
       return NULL);
 
-  data->gui = gui;
-  data->msg = msg;
+  new->gui = gui;
+  new->private = private;
+  new->type = type;
 
-  return data;
+  return new;
 }
 
 /************************** Update GUI state *********************************/
@@ -143,38 +145,68 @@ suscan_async_stopped_cb(gpointer user_data)
 SUPRIVATE gboolean
 suscan_async_update_channels_cb(gpointer user_data)
 {
-  struct suscan_channel_update_data *data;
-  char cpu[10];
+  struct suscan_gui_msg_envelope *envelope;
+  const struct suscan_analyzer_channel_msg *msg;
+  SUFLOAT cpu;
+  char cpu_str[10];
   unsigned int i;
   GtkTreeIter new_element;
 
-  if (user_data != NULL) {
-    data = (struct suscan_channel_update_data *) user_data;
+  envelope = (struct suscan_gui_msg_envelope *) user_data;
 
-    snprintf(cpu, sizeof(cpu), "%.1lf%%", data->cpu * 100);
+  cpu = envelope->gui->analyzer->cpu_usage;
 
-    gtk_label_set_text(data->gui->cpuLabel, cpu);
-    gtk_level_bar_set_value(data->gui->cpuLevelBar, data->cpu);
+  snprintf(cpu_str, sizeof(cpu_str), "%.1lf%%", cpu * 100);
 
-    /* Update channel list */
-    gtk_list_store_clear(data->gui->channelListStore);
-    for (i = 0; i < data->msg->channel_count; ++i) {
-      gtk_list_store_append(
-          data->gui->channelListStore,
-          &new_element);
-      gtk_list_store_set(
-          data->gui->channelListStore,
-          &new_element,
-          0, data->msg->channel_list[i]->fc,
-          1, data->msg->channel_list[i]->snr,
-          2, data->msg->channel_list[i]->S0,
-          3, data->msg->channel_list[i]->N0,
-          4, data->msg->channel_list[i]->bw,
-          -1);
-    }
+  gtk_label_set_text(envelope->gui->cpuLabel, cpu_str);
+  gtk_level_bar_set_value(envelope->gui->cpuLevelBar, cpu);
 
-    suscan_channel_update_data_destroy(data);
+  /* Update channel list */
+  msg = (const struct suscan_analyzer_channel_msg *) envelope->private;
+  gtk_list_store_clear(envelope->gui->channelListStore);
+  for (i = 0; i < msg->channel_count; ++i) {
+    gtk_list_store_append(
+        envelope->gui->channelListStore,
+        &new_element);
+    gtk_list_store_set(
+        envelope->gui->channelListStore,
+        &new_element,
+        0, msg->channel_list[i]->fc,
+        1, msg->channel_list[i]->snr,
+        2, msg->channel_list[i]->S0,
+        3, msg->channel_list[i]->N0,
+        4, msg->channel_list[i]->bw,
+        -1);
   }
+
+  suscan_gui_msg_envelope_destroy(envelope);
+
+  return G_SOURCE_REMOVE;
+}
+
+SUPRIVATE gboolean
+suscan_async_update_main_spectrum_cb(gpointer user_data)
+{
+  struct suscan_gui_msg_envelope *envelope;
+  struct suscan_analyzer_psd_msg *msg;
+  char N0_str[20];
+
+  envelope = (struct suscan_gui_msg_envelope *) user_data;
+
+  msg = (struct suscan_analyzer_psd_msg *) envelope->private;
+
+  snprintf(N0_str, sizeof(N0_str), "%.1lf dBFS", SU_POWER_DB(msg->N0));
+
+  gtk_label_set_text(envelope->gui->n0Label, N0_str);
+  gtk_level_bar_set_value(
+      envelope->gui->n0LevelBar,
+      1e-2 * (SU_POWER_DB(msg->N0) + 100));
+
+  suscan_gui_spectrum_update(
+      &envelope->gui->main_spectrum,
+      msg);
+
+  suscan_gui_msg_envelope_destroy(envelope);
 
   return G_SOURCE_REMOVE;
 }
@@ -183,7 +215,7 @@ SUPRIVATE gpointer
 suscan_gui_async_thread(gpointer data)
 {
   struct suscan_gui *gui = (struct suscan_gui *) data;
-  struct suscan_channel_update_data *chdata;
+  struct suscan_gui_msg_envelope *envelope;
   void *private;
   uint32_t type;
 
@@ -197,14 +229,27 @@ suscan_gui_async_thread(gpointer data)
         goto done;
 
       case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
-        if ((chdata = suscan_channel_update_data_new(gui, private)) == NULL) {
+        if ((envelope = suscan_gui_msg_envelope_new(
+            gui,
+            type,
+            private)) == NULL) {
           suscan_analyzer_dispose_message(type, private);
           break;
         }
 
-        chdata->cpu = gui->analyzer->cpu_usage;
+        g_idle_add(suscan_async_update_channels_cb, envelope);
+        break;
 
-        g_idle_add(suscan_async_update_channels_cb, chdata);
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+        if ((envelope = suscan_gui_msg_envelope_new(
+            gui,
+            type,
+            private)) == NULL) {
+          suscan_analyzer_dispose_message(type, private);
+          break;
+        }
+
+        g_idle_add(suscan_async_update_main_spectrum_cb, envelope);
         break;
 
       case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS: /* End of stream */
@@ -213,7 +258,6 @@ suscan_gui_async_thread(gpointer data)
         goto done;
 
       default:
-        g_print("Unknown message %d\n", type);
         suscan_analyzer_dispose_message(type, private);
     }
   }

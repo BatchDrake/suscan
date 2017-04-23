@@ -335,7 +335,7 @@
                                 <property name="can_focus">False</property>
                                 <property name="valign">start</property>
                                 <child>
-                                  <object class="GtkLevelBar">
+                                  <object class="GtkLevelBar" id="lbN0">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                     <property name="hexpand">True</property>
@@ -358,10 +358,15 @@
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkLabel">
+                                  <object class="GtkLabel" id="lN0">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="label" translatable="yes">-59 dBFS</property>
+                                    <property name="halign">start</property>
+                                    <property name="hexpand">True</property>
+                                    <property name="label" translatable="yes">dBFS</property>
+                                    <attributes>
+                                      <attribute name="font-desc" value="Inconsolata 10"/>
+                                    </attributes>
                                   </object>
                                   <packing>
                                     <property name="left_attach">7</property>
@@ -395,7 +400,12 @@
                                   <object class="GtkLabel" id="lCpu">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="label" translatable="yes">50%</property>
+                                    <property name="halign">start</property>
+                                    <property name="hexpand">True</property>
+                                    <property name="label" translatable="yes">0%</property>
+                                    <attributes>
+                                      <attribute name="font-desc" value="Inconsolata 10"/>
+                                    </attributes>
                                   </object>
                                   <packing>
                                     <property name="left_attach">7</property>
@@ -518,6 +528,8 @@
                       <object class="GtkDrawingArea" id="daMainViewsSpectrum">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <signal name="configure-event" handler="suscan_spectrum_on_configure_event" swapped="no"/>
+                        <signal name="draw" handler="suscan_spectrum_on_draw" swapped="no"/>
                       </object>
                       <packing>
                         <property name="position">1</property>

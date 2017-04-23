@@ -551,6 +551,20 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
+      gui->n0Label =
+          GTK_LABEL(gtk_builder_get_object(
+              gui->builder,
+              "lN0")),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->n0LevelBar =
+          GTK_LEVEL_BAR(gtk_builder_get_object(
+              gui->builder,
+              "lbN0")),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
       gui->channelListStore =
           GTK_LIST_STORE(gtk_builder_get_object(
               gui->builder,
@@ -659,6 +673,8 @@ suscan_gui_new(int argc, char **argv)
   gtk_builder_connect_signals(gui->builder, gui);
 
   SU_TRYCATCH(suscan_gui_load_all_widgets(gui), goto fail);
+
+  gui->main_spectrum.db_per_div = 10;
 
   g_signal_connect(
       GTK_WIDGET(gui->main),

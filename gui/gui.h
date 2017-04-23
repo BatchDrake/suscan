@@ -25,6 +25,35 @@
 #include <suscan.h>
 #include <gtk/gtk.h>
 
+#define SUSCAN_GUI_HORIZONTAL_DIVS 20
+#define SUSCAN_GUI_VERTICAL_DIVS   10
+
+#define SUSCAN_GUI_SPECTRUM_DX (1. / SUSCAN_GUI_HORIZONTAL_DIVS)
+#define SUSCAN_GUI_SPECTRUM_DY (1. / SUSCAN_GUI_VERTICAL_DIVS)
+
+#define SUSCAN_GUI_SPECTRUM_LEFT_PADDING 30
+#define SUSCAN_GUI_SPECTRUM_TOP_PADDING 5
+
+#define SUSCAN_GUI_SPECTRUM_RIGHT_PADDING 5
+#define SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING 30
+
+#define SUSCAN_SPECTRUM_TO_SCR_X(s, x)          \
+  (((s)->width                                  \
+      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING        \
+      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING)      \
+    * (x)                                       \
+      + SUSCAN_GUI_SPECTRUM_LEFT_PADDING)
+
+#define SUSCAN_SPECTRUM_TO_SCR_Y(s, y)          \
+  (((s)->height                                 \
+      - SUSCAN_GUI_SPECTRUM_TOP_PADDING         \
+      - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING)     \
+    * (y)                                       \
+      + SUSCAN_GUI_SPECTRUM_TOP_PADDING)
+
+#define SUSCAN_SPECTRUM_TO_SCR(s, x, y)         \
+  SUSCAN_SPECTRUM_TO_SCR_X(s, x), SUSCAN_SPECTRUM_TO_SCR_Y(s, y)
+
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
 #endif
@@ -40,6 +69,19 @@ enum suscan_gui_state {
   SUSCAN_GUI_STATE_STOPPED,
   SUSCAN_GUI_STATE_RUNNING,
   SUSCAN_GUI_STATE_STOPPING
+};
+
+struct suscan_gui_spectrum {
+  SUFLOAT db_per_div;
+  cairo_surface_t *surface;
+  unsigned width;
+  unsigned height;
+
+  uint64_t fc;
+  SUFLOAT *psd_data;
+  SUSCOUNT psd_size;
+  SUSCOUNT samp_rate;
+  SUFLOAT  N0;
 };
 
 struct suscan_gui {
@@ -69,9 +111,13 @@ struct suscan_gui {
   GtkCellRendererText *noiseLevelCellRenderer;
   GtkCellRendererText *bandwidthCellRenderer;
 
-
   GtkLevelBar *cpuLevelBar;
   GtkLabel *cpuLabel;
+
+  GtkLevelBar *n0LevelBar;
+  GtkLabel *n0Label;
+
+  GtkDrawingArea *spectrumArea;
 
   struct suscan_gui_source_config *selected_config;
 
@@ -82,6 +128,9 @@ struct suscan_gui {
   suscan_analyzer_t *analyzer;
   struct suscan_mq mq_out;
   GThread *async_thread;
+
+  /* Main spectrum */
+  struct suscan_gui_spectrum main_spectrum;
 };
 
 struct suscan_gui *suscan_gui_new(int argc, char **argv);
@@ -113,6 +162,10 @@ void suscan_gui_update_state(
 
 SUBOOL suscan_gui_connect(struct suscan_gui *gui);
 void suscan_gui_disconnect(struct suscan_gui *gui);
+
+void suscan_gui_spectrum_update(
+    struct suscan_gui_spectrum *spectrum,
+    struct suscan_analyzer_psd_msg *msg);
 
 #define suscan_error(gui, title, fmt, arg...) \
     suscan_gui_msgbox(gui, GTK_MESSAGE_ERROR, title, fmt, ##arg)
