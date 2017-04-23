@@ -415,7 +415,7 @@ suscan_bladeRF_source_init(void)
 
   if (!suscan_source_add_field(
       source,
-      SUSCAN_FIELD_TYPE_FILE,
+      SUSCAN_FIELD_TYPE_STRING,
       SU_TRUE,
       "serial",
       "Serial number"))
