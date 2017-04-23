@@ -147,6 +147,47 @@ suscan_analyzer_inspector_msg_destroy(
   free(msg);
 }
 
+struct suscan_analyzer_psd_msg *
+suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
+{
+  struct suscan_analyzer_psd_msg *new;
+
+  if ((new = malloc(sizeof(struct suscan_analyzer_psd_msg))) == NULL)
+    return NULL;
+
+  new->psd_size = cd->params.window_size;
+  new->samp_rate = cd->params.samp_rate;
+  new->fc = 0;
+
+  if ((new->psd_data = malloc(sizeof(SUFLOAT) * new->psd_size)) == NULL) {
+    free(new);
+    return NULL;
+  }
+
+  memcpy(new->psd_data, cd->spect, sizeof(SUFLOAT) * new->psd_size);
+
+  return new;
+}
+
+SUFLOAT *
+suscan_analyzer_psd_msg_take_psd(struct suscan_analyzer_psd_msg *msg)
+{
+  SUFLOAT *result = msg->psd_data;
+
+  msg->psd_data = NULL;
+
+  return result;
+}
+
+void
+suscan_analyzer_psd_msg_destroy(struct suscan_analyzer_psd_msg *msg)
+{
+  if (msg->psd_data != NULL)
+    free(msg->psd_data);
+
+  free(msg);
+}
+
 void
 suscan_analyzer_dispose_message(uint32_t type, void *ptr)
 {
@@ -162,6 +203,10 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR:
       suscan_analyzer_inspector_msg_destroy(ptr);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+      suscan_analyzer_psd_msg_destroy(ptr);
       break;
   }
 }
@@ -250,6 +295,52 @@ suscan_analyzer_send_detector_channels(
 done:
   if (msg != NULL)
     suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL, msg);
+  return ok;
+}
+
+SUBOOL
+suscan_analyzer_send_psd(
+    suscan_analyzer_t *analyzer,
+    const su_channel_detector_t *detector)
+{
+  struct suscan_analyzer_psd_msg *msg = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  if ((msg = suscan_analyzer_psd_msg_new(detector)) == NULL) {
+    suscan_analyzer_send_status(
+        analyzer,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
+        -1,
+        "Cannot create message: %s",
+        strerror(errno));
+    goto done;
+  }
+
+  msg->fc = analyzer->source.fc;
+  msg->N0 = detector->N0;
+
+  if (!suscan_mq_write(
+      analyzer->mq_out,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_PSD,
+      msg)) {
+    suscan_analyzer_send_status(
+        analyzer,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
+        -1,
+        "Cannot write message: %s",
+        strerror(errno));
+    goto done;
+  }
+
+  /* Message queued, forget about it */
+  msg = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_PSD, msg);
+
   return ok;
 }
 

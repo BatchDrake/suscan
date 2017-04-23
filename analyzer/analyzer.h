@@ -48,7 +48,12 @@ struct suscan_analyzer_source {
   su_block_port_t port; /* Master reading port */
   su_channel_detector_t *detector; /* Channel detector */
   struct xsig_source *instance;
-  SUSCOUNT samp_count;
+
+  SUFLOAT interval_channels;
+  SUFLOAT interval_psd;
+
+  SUSCOUNT per_cnt_channels;
+  SUSCOUNT per_cnt_psd;
   uint64_t fc; /* Center frequency of source */
   SUBOOL real_time; /* Is it a real-time source? */
 };

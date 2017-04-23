@@ -33,6 +33,7 @@
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL      0x4
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES_LOST  0x5
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR  0x6 /* Baudrate inspector */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_PSD           0x7
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
@@ -49,6 +50,15 @@ struct suscan_analyzer_channel_msg {
   const struct suscan_source *source;
   PTR_LIST(struct sigutils_channel, channel);
   const suscan_analyzer_t *sender;
+};
+
+/* Channel spectrum message */
+struct suscan_analyzer_psd_msg {
+  uint64_t fc;
+  SUSCOUNT samp_rate;
+  SUSCOUNT psd_size;
+  SUFLOAT *psd_data;
+  SUFLOAT  N0;
 };
 
 /* Channel inspector command */
@@ -89,27 +99,43 @@ SUBOOL suscan_analyzer_send_detector_channels(
     suscan_analyzer_t *analyzer,
     const su_channel_detector_t *detector);
 
+SUBOOL suscan_analyzer_send_psd(
+    suscan_analyzer_t *analyzer,
+    const su_channel_detector_t *detector);
+
 /************************* Message parsing methods ***************************/
 SUBOOL suscan_analyzer_parse_baud(
     suscan_analyzer_t *analyzer,
     struct suscan_analyzer_inspector_msg *msg);
 
-/* Message constructors and destructors */
-void suscan_analyzer_status_msg_destroy(struct suscan_analyzer_status_msg *status);
+/***************** Message constructors and destructors **********************/
+/* Status message */
 struct suscan_analyzer_status_msg *suscan_analyzer_status_msg_new(
     uint32_t code,
     const char *msg);
-void suscan_analyzer_channel_msg_destroy(struct suscan_analyzer_channel_msg *msg);
+void suscan_analyzer_status_msg_destroy(struct suscan_analyzer_status_msg *status);
+
+/* Channel list update */
 struct suscan_analyzer_channel_msg *suscan_analyzer_channel_msg_new(
     const suscan_analyzer_t *analyzer,
     struct sigutils_channel **list,
     unsigned int len);
+void suscan_analyzer_channel_msg_destroy(struct suscan_analyzer_channel_msg *msg);
+
+/* Channel inspector commands */
 struct suscan_analyzer_inspector_msg *suscan_analyzer_inspector_msg_new(
     enum suscan_analyzer_inspector_msgkind kind,
     uint32_t req_id);
 void suscan_analyzer_inspector_msg_destroy(
     struct suscan_analyzer_inspector_msg *msg);
 
+/* Spectrum update message */
+struct suscan_analyzer_psd_msg *suscan_analyzer_psd_msg_new(
+    const su_channel_detector_t *cd);
+SUFLOAT *suscan_analyzer_psd_msg_take_psd(struct suscan_analyzer_psd_msg *msg);
+void suscan_analyzer_psd_msg_destroy(struct suscan_analyzer_psd_msg *msg);
+
+/* Generic message disposer */
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);
 
 #endif /* _MSG_H */

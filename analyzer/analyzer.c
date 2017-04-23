@@ -90,13 +90,33 @@ suscan_source_wk_cb(
     else
       analyzer->cpu_usage = (SUFLOAT) cpu / (SUFLOAT) total;
 
-    source->samp_count += got;
-    if (source->samp_count >= .1 * source->detector->params.samp_rate) {
-      source->samp_count = 0;
+    source->per_cnt_channels += got;
+    source->per_cnt_psd += got;
 
-      if (!suscan_analyzer_send_detector_channels(analyzer, source->detector))
-        goto done;
+    /* Check channel update */
+    if (source->interval_channels > 0) {
+      if (source->per_cnt_channels
+          >= source->interval_channels * source->detector->params.samp_rate) {
+        source->per_cnt_channels = 0;
+
+        if (!suscan_analyzer_send_detector_channels(analyzer, source->detector))
+          goto done;
+      }
+    } else {
+      printf("Nope: %lg\n", source->interval_channels);
     }
+
+    /* Check spectrum update */
+    if (source->interval_psd > 0) {
+      if (source->per_cnt_psd
+          >= source->interval_psd * source->detector->params.samp_rate) {
+        source->per_cnt_psd = 0;
+
+        if (!suscan_analyzer_send_psd(analyzer, source->detector))
+          goto done;
+      }
+    }
+
   } else {
     analyzer->eos = SU_TRUE;
     analyzer->cpu_usage = 0;
@@ -604,7 +624,7 @@ suscan_analyzer_source_init(
     struct suscan_analyzer_source *source,
     struct suscan_source_config *config)
 {
-  SUBOOL ok;
+  SUBOOL ok = SU_FALSE;
   struct sigutils_channel_detector_params params =
         sigutils_channel_detector_params_INITIALIZER;
 
@@ -613,7 +633,13 @@ suscan_analyzer_source_init(
   params.window_size = config->bufsiz;
 
   source->config = config;
-  source->samp_count = 0;
+
+
+  source->per_cnt_channels  = 0;
+  source->per_cnt_psd       = 0;
+
+  source->interval_channels = .1;
+  source->interval_psd      = .1;
 
   if ((source->block = (config->source->ctor)(config)) == NULL)
     goto done;
