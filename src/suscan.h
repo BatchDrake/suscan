@@ -16,8 +16,6 @@
 
 #include <analyzer/msg.h>    /* Suscan-specific messages */
 
-#include "ctk.h"
-
 #define SUSCAN_SOURCE_DIALOG_MAX_WIDGET_WIDTH 15
 #define SUSCAN_SOURCE_DIALOG_MAX_BASENAME     SUSCAN_SOURCE_DIALOG_MAX_WIDGET_WIDTH
 #define SUSCAN_SOURCE_DIALOG_X_PADDING        5
@@ -54,12 +52,9 @@
   }
 
 enum suscan_mode {
-  SUSCAN_MODE_CTK_UI,
+  SUSCAN_MODE_GTK_UI,
   SUSCAN_MODE_FINGERPRINT
 };
-
-enum ctk_dialog_response suscan_open_source_dialog(
-    struct suscan_source_config **config);
 
 SUBOOL suscan_channel_is_dc(const struct sigutils_channel *ch);
 
@@ -71,8 +66,9 @@ char *suscan_log_get_last_messages(struct timeval since, unsigned int max);
 
 SUBOOL suscan_sigutils_init(enum suscan_mode mode);
 
-SUBOOL suscan_ctk_ui_start(
-    const char *argv0,
+SUBOOL suscan_gui_start(
+    int argc,
+    char **argv,
     struct suscan_source_config **config_list,
     unsigned int config_count);
 

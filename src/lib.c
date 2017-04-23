@@ -193,7 +193,7 @@ suscan_sigutils_init(enum suscan_mode mode)
   struct sigutils_log_config config = sigutils_log_config_INITIALIZER;
   struct sigutils_log_config *config_p = NULL;
 
-  if (mode == SUSCAN_MODE_CTK_UI) {
+  if (mode != SUSCAN_MODE_FINGERPRINT) {
     config.exclusive = SU_FALSE; /* We handle concurrency manually */
     config.log_func = suscan_log_func;
 

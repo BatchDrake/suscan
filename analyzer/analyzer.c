@@ -153,9 +153,11 @@ done:
 
 
 /************************* Main analyzer thread *******************************/
-SUPRIVATE void
+void
 suscan_analyzer_req_halt(suscan_analyzer_t *analyzer)
 {
+  analyzer->halt_requested = SU_TRUE;
+
   suscan_mq_write_urgent(
       &analyzer->mq_in,
       SUSCAN_WORKER_MSG_TYPE_HALT,
@@ -710,14 +712,17 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   void *private;
 
   if (analyzer->running) {
-    suscan_analyzer_req_halt(analyzer);
+    if (!analyzer->halt_requested) {
+      suscan_analyzer_req_halt(analyzer);
 
-    /*
-     * TODO: this cannot wait forever. Add suscan_mq_read_with_timeout
-     */
-    while (!suscan_analyzer_consume_mq_until_halt(analyzer->mq_out))
-      suscan_mq_wait(analyzer->mq_out);
+      /*
+       * TODO: this cannot wait forever. Add suscan_mq_read_with_timeout
+       */
+      while (!suscan_analyzer_consume_mq_until_halt(analyzer->mq_out))
+        suscan_mq_wait(analyzer->mq_out);
+    }
 
+    /* TODO: add a timeout here too */
     if (pthread_join(analyzer->thread, NULL) == -1) {
       SU_ERROR("Thread failed to join, memory leak ahead\n");
       return;

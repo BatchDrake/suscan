@@ -7,25 +7,21 @@ suscan_CFLAGS = -I. -I../util -I../ctk -I.. -g -O0 \
 	@fftw3_CFLAGS@     					\
 	@sndfile_CFLAGS@						\
 	@asoundlib_CFLAGS@					\
-	@ncurses_CFLAGS@						\
-	@panel_CFLAGS@							\
-	@menu_CFLAGS@								\
+	@gtk3_CFLAGS@								\
 	@GLOBAL_CFLAGS@
 	
-suscan_LDFLAGS = @GLOBAL_LDFLAGS@
+suscan_LDFLAGS = @GLOBAL_LDFLAGS@ -Wl,--whole-archive \
+	-Wl,--allow-multiple-definition
 
 suscan_LDADD = ../util/libutil.la \
-	../ctk/libctk.la						    \
+	../gui/libgui.la								\
 	../analyzer/libanalyzer.la	    \
 	@sigutils_LIBS@		 							\
 	@fftw3_LIBS@     								\
 	@sndfile_LIBS@									\
 	@asoundlib_LIBS@								\
-	@ncurses_LIBS@									\
-	@panel_LIBS@										\
-	@menu_LIBS@											\
 	@bladeRF_LIBS@									\
+	@gtk3_LIBS@											\
 	@GLOBAL_LDFLAGS@
 
-suscan_SOURCES = common.c ctkui.c fingerprint.c lib.c main.c source_dlg.c \
-	suscan.h
+suscan_SOURCES = common.c fingerprint.c lib.c main.c suscan.h

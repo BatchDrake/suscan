@@ -200,9 +200,11 @@ suscan_source_config_new(const struct suscan_source *source)
   new->bufsiz = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
 
   /* Allocate space for all fields */
-  for (i = 0; i < source->field_count; ++i)
+  for (i = 0; i < source->field_count; ++i) {
     if ((new->values[i] = calloc(1, sizeof(struct suscan_field_value))) == NULL)
       goto fail;
+    new->values[i]->field = source->field_list[i];
+  }
 
   return new;
 

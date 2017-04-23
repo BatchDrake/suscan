@@ -65,17 +65,10 @@ PKG_CHECK_MODULES([asoundlib], [ alsa >= 1.0.25 ], , [AC_MSG_ERROR([Couldn't fin
 AC_SUBST(asoundlib_CFLAGS)
 AC_SUBST(asoundlib_LIBS)
 
-PKG_CHECK_MODULES([ncurses], [ ncurses >= 6.0.0 ], , [AC_MSG_ERROR([Couldn't find ncurses])])
-AC_SUBST(ncurses_CFLAGS)
-AC_SUBST(ncurses_LIBS)
+PKG_CHECK_MODULES([gtk3], [ gtk+-3.0 >= 0.28 ], , [AC_MSG_ERROR([Couldn't find GTK3])])
+AC_SUBST(gtk3_CFLAGS)
+AC_SUBST(gtk3_LIBS)
 
-PKG_CHECK_MODULES([panel], [ panel >= 6.0.0 ], , [AC_MSG_ERROR([Couldn't find ncurses' panel library])])
-AC_SUBST(panel_CFLAGS)
-AC_SUBST(panel_LIBS)
-
-PKG_CHECK_MODULES([menu], [ menu >= 6.0.0 ], , [AC_MSG_ERROR([Couldn't find ncurses' menu library])])
-AC_SUBST(menu_CFLAGS)
-AC_SUBST(menu_LIBS)
 
 PKG_CHECK_MODULES(bladeRF, libbladeRF >= 0.28, ac_cv_bladeRF=yes)
 
@@ -96,4 +89,5 @@ AC_OUTPUT([
   util/Makefile
   analyzer/Makefile
   ctk/Makefile
+  gui/Makefile
 ])

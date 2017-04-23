@@ -34,8 +34,11 @@ enum suscan_field_type {
   SUSCAN_FIELD_TYPE_BOOLEAN
 };
 
+struct suscan_field;
+
 struct suscan_field_value {
   SUBOOL set;
+  const struct suscan_field *field;
   union {
     uint64_t as_int;
     SUBOOL   as_bool;

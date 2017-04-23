@@ -43,7 +43,7 @@ main(int argc, char *argv[], char *envp[])
 {
   struct suscan_source_config *config = NULL;
   PTR_LIST_LOCAL(struct suscan_source_config, config);
-  enum suscan_mode mode = SUSCAN_MODE_CTK_UI;
+  enum suscan_mode mode = SUSCAN_MODE_GTK_UI;
   int exit_code = EXIT_FAILURE;
   unsigned int i;
   int c;
@@ -97,8 +97,8 @@ main(int argc, char *argv[], char *envp[])
   }
 
   switch (mode) {
-    case SUSCAN_MODE_CTK_UI:
-      if (suscan_ctk_ui_start(argv[0], config_list, config_count))
+    case SUSCAN_MODE_GTK_UI:
+      if (suscan_gui_start(argc, argv, config_list, config_count))
         exit_code = EXIT_SUCCESS;
       break;
 

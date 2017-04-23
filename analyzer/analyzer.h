@@ -95,6 +95,7 @@ struct suscan_analyzer {
   struct suscan_mq mq_in;   /* To-thread messages */
   struct suscan_mq *mq_out; /* From-thread messages */
   SUBOOL running;
+  SUBOOL halt_requested;
   SUBOOL eos;
 
   /* Usage statistics (CPU, etc) */
@@ -177,6 +178,7 @@ SUBOOL suscan_analyzer_write(
 void suscan_analyzer_consume_mq(struct suscan_mq *mq);
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);
 void suscan_analyzer_destroy(suscan_analyzer_t *analyzer);
+void suscan_analyzer_req_halt(suscan_analyzer_t *analyzer);
 suscan_analyzer_t *suscan_analyzer_new(
     struct suscan_source_config *config,
     struct suscan_mq *mq);
