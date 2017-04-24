@@ -146,6 +146,7 @@ suscan_gui_spectrum_redraw(
 {
   static const double axis_pattern[] = {5.0, 5.0};
   int i;
+  int step;
   SUFLOAT x, x_prev;
   SUFLOAT hy;
 
@@ -258,7 +259,10 @@ suscan_gui_spectrum_redraw(
 
     /* Draw spectrum */
     cairo_set_source_rgb(cr, 1., 1., 0);
-    for (i = 1; i < spectrum->psd_size; ++i) {
+    if ((step = spectrum->psd_size / spectrum->width) < 1)
+      step = 1;
+
+    for (i = step; i < spectrum->psd_size; i += step) {
       if ((x = .5 + i / (SUFLOAT) spectrum->psd_size) > 1)
         x -= 1;
 
@@ -270,7 +274,7 @@ suscan_gui_spectrum_redraw(
           SUSCAN_SPECTRUM_TO_SCR(
               spectrum,
               x_prev,
-              -SU_POWER_DB(spectrum->psd_data[i - 1]) * hy));
+              -SU_POWER_DB(spectrum->psd_data[i - step]) * hy));
       cairo_line_to(
           cr,
           SUSCAN_SPECTRUM_TO_SCR(
