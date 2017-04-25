@@ -445,6 +445,11 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
+      gui->aboutDialog = GTK_DIALOG(
+          gtk_builder_get_object(gui->builder, "dlAbout")),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
       gui->sourceCombo = GTK_COMBO_BOX(
           gtk_builder_get_object(gui->builder, "cmSourceSelect")),
       return SU_FALSE);

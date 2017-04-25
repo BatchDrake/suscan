@@ -34,6 +34,16 @@ suscan_settings_dialog_run(struct suscan_gui *gui)
 }
 
 void
+suscan_on_about(GtkWidget *widget, gpointer *data)
+{
+  struct suscan_gui *gui = (struct suscan_gui *) data;
+
+  (void) gtk_dialog_run(gui->aboutDialog);
+  gtk_widget_hide(GTK_WIDGET(gui->aboutDialog));
+}
+
+
+void
 suscan_on_settings(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui *gui = (struct suscan_gui *) data;
