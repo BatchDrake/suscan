@@ -42,6 +42,7 @@ suscan_analyzer_status_msg_destroy(struct suscan_analyzer_status_msg *status)
   free(status);
 }
 
+/* Channel list */
 struct suscan_analyzer_status_msg *
 suscan_analyzer_status_msg_new(uint32_t code, const char *msg)
 {
@@ -64,7 +65,19 @@ suscan_analyzer_status_msg_new(uint32_t code, const char *msg)
   return new;
 }
 
-/* Channel list */
+void
+suscan_analyzer_channel_msg_take_channels(
+    struct suscan_analyzer_channel_msg *msg,
+    struct sigutils_channel ***pchannel_list,
+    unsigned int *pchannel_count)
+{
+  *pchannel_list = msg->channel_list;
+  *pchannel_count = msg->channel_count;
+
+  msg->channel_list = NULL;
+  msg->channel_count = 0;
+}
+
 void
 suscan_analyzer_channel_msg_destroy(struct suscan_analyzer_channel_msg *msg)
 {

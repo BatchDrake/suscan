@@ -82,6 +82,9 @@ struct suscan_gui_spectrum {
   SUSCOUNT psd_size;
   SUSCOUNT samp_rate;
   SUFLOAT  N0;
+
+  /* Current channel list */
+  PTR_LIST(struct sigutils_channel, channel);
 };
 
 struct suscan_gui {
@@ -134,6 +137,7 @@ struct suscan_gui {
 };
 
 struct suscan_gui *suscan_gui_new(int argc, char **argv);
+
 SUBOOL suscan_gui_start(
     int argc,
     char **argv,
@@ -166,6 +170,11 @@ void suscan_gui_disconnect(struct suscan_gui *gui);
 void suscan_gui_spectrum_update(
     struct suscan_gui_spectrum *spectrum,
     struct suscan_analyzer_psd_msg *msg);
+
+void suscan_gui_spectrum_update_channels(
+    struct suscan_gui_spectrum *spectrum,
+    struct sigutils_channel **channel_list,
+    unsigned int channel_count);
 
 #define suscan_error(gui, title, fmt, arg...) \
     suscan_gui_msgbox(gui, GTK_MESSAGE_ERROR, title, fmt, ##arg)

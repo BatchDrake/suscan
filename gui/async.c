@@ -146,7 +146,7 @@ SUPRIVATE gboolean
 suscan_async_update_channels_cb(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
-  const struct suscan_analyzer_channel_msg *msg;
+  PTR_LIST(struct sigutils_channel, channel);
   SUFLOAT cpu;
   char cpu_str[10];
   unsigned int i;
@@ -161,21 +161,30 @@ suscan_async_update_channels_cb(gpointer user_data)
   gtk_label_set_text(envelope->gui->cpuLabel, cpu_str);
   gtk_level_bar_set_value(envelope->gui->cpuLevelBar, cpu);
 
+  /* Move channel list to GUI */
+  suscan_analyzer_channel_msg_take_channels(
+      (struct suscan_analyzer_channel_msg *) envelope->private,
+      &channel_list,
+      &channel_count);
+  suscan_gui_spectrum_update_channels(
+      &envelope->gui->main_spectrum,
+      channel_list,
+      channel_count);
+
   /* Update channel list */
-  msg = (const struct suscan_analyzer_channel_msg *) envelope->private;
   gtk_list_store_clear(envelope->gui->channelListStore);
-  for (i = 0; i < msg->channel_count; ++i) {
+  for (i = 0; i < channel_count; ++i) {
     gtk_list_store_append(
         envelope->gui->channelListStore,
         &new_element);
     gtk_list_store_set(
         envelope->gui->channelListStore,
         &new_element,
-        0, msg->channel_list[i]->fc,
-        1, msg->channel_list[i]->snr,
-        2, msg->channel_list[i]->S0,
-        3, msg->channel_list[i]->N0,
-        4, msg->channel_list[i]->bw,
+        0, channel_list[i]->fc,
+        1, channel_list[i]->snr,
+        2, channel_list[i]->S0,
+        3, channel_list[i]->N0,
+        4, channel_list[i]->bw,
         -1);
   }
 

@@ -120,6 +120,10 @@ struct suscan_analyzer_channel_msg *suscan_analyzer_channel_msg_new(
     const suscan_analyzer_t *analyzer,
     struct sigutils_channel **list,
     unsigned int len);
+void suscan_analyzer_channel_msg_take_channels(
+    struct suscan_analyzer_channel_msg *msg,
+    struct sigutils_channel ***pchannel_list,
+    unsigned int *pchannel_count);
 void suscan_analyzer_channel_msg_destroy(struct suscan_analyzer_channel_msg *msg);
 
 /* Channel inspector commands */
