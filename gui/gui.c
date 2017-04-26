@@ -646,6 +646,27 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
               "crBandwidth")),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->scaleRange =
+          GTK_RANGE(gtk_builder_get_object(
+              gui->builder,
+              "sFreqScale")),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->offsetRange =
+          GTK_RANGE(gtk_builder_get_object(
+              gui->builder,
+              "sFreqOffset")),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->dbRange =
+          GTK_RANGE(gtk_builder_get_object(
+              gui->builder,
+              "sDbs")),
+      return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
@@ -679,7 +700,7 @@ suscan_gui_new(int argc, char **argv)
 
   SU_TRYCATCH(suscan_gui_load_all_widgets(gui), goto fail);
 
-  gui->main_spectrum.db_per_div = 10;
+  suscan_gui_spectrum_init(&gui->main_spectrum);
 
   g_signal_connect(
       GTK_WIDGET(gui->main),

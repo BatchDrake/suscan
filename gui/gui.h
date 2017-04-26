@@ -31,6 +31,8 @@
 #define SUSCAN_GUI_SPECTRUM_DX (1. / SUSCAN_GUI_HORIZONTAL_DIVS)
 #define SUSCAN_GUI_SPECTRUM_DY (1. / SUSCAN_GUI_VERTICAL_DIVS)
 
+#define SUSCAN_GUI_SPECTRUM_SCALE_DELTA .1
+
 #define SUSCAN_GUI_SPECTRUM_LEFT_PADDING 30
 #define SUSCAN_GUI_SPECTRUM_TOP_PADDING 5
 
@@ -54,6 +56,15 @@
 #define SUSCAN_SPECTRUM_TO_SCR(s, x, y)         \
   SUSCAN_SPECTRUM_TO_SCR_X(s, x), SUSCAN_SPECTRUM_TO_SCR_Y(s, y)
 
+#define SUSCAN_GUI_SPECTRUM_ADJUST_X(s, x)      \
+    ((x) + (s)->freq_offset) * (s)->freq_scale
+#define SUSCAN_GUI_SPECTRUM_ADJUST_X_INV(s, x)      \
+    ((x) / (s)->freq_scale - (s)->freq_offset)
+
+#define SUSCAN_GUI_SPECTRUM_ADJUST_Y(s, y)      \
+    (y) / ((s)->dbs_per_div * SUSCAN_GUI_VERTICAL_DIVS)
+
+
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
 #endif
@@ -71,8 +82,11 @@ enum suscan_gui_state {
   SUSCAN_GUI_STATE_STOPPING
 };
 
+#define SUSCAN_GUI_SPECTRUM_FREQ_OFFSET_DEFAULT 0
+#define SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT  1
+#define SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT 10
+
 struct suscan_gui_spectrum {
-  SUFLOAT db_per_div;
   cairo_surface_t *surface;
   unsigned width;
   unsigned height;
@@ -82,6 +96,11 @@ struct suscan_gui_spectrum {
   SUSCOUNT psd_size;
   SUSCOUNT samp_rate;
   SUFLOAT  N0;
+
+  /* Representation properties */
+  SUFLOAT freq_offset; /* Defaults to 0 */
+  SUFLOAT freq_scale;  /* Defaults to 1 */
+  SUFLOAT dbs_per_div; /* Defaults to 10 */
 
   /* Current channel list */
   PTR_LIST(struct sigutils_channel, channel);
@@ -122,6 +141,10 @@ struct suscan_gui {
   GtkLabel *n0Label;
 
   GtkDrawingArea *spectrumArea;
+
+  GtkRange *scaleRange;
+  GtkRange *offsetRange;
+  GtkRange *dbRange;
 
   struct suscan_gui_source_config *selected_config;
 
@@ -167,6 +190,8 @@ void suscan_gui_update_state(
 
 SUBOOL suscan_gui_connect(struct suscan_gui *gui);
 void suscan_gui_disconnect(struct suscan_gui *gui);
+
+void suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum);
 
 void suscan_gui_spectrum_update(
     struct suscan_gui_spectrum *spectrum,
