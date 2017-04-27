@@ -647,25 +647,46 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->scaleRange =
-          GTK_RANGE(gtk_builder_get_object(
+      gui->spectrumSampleRate =
+          GTK_LABEL(gtk_builder_get_object(
               gui->builder,
-              "sFreqScale")),
+              "lSpectrumSampleRate")),
       return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->offsetRange =
-          GTK_RANGE(gtk_builder_get_object(
+      gui->spectrumDbsPerDivLabel =
+          GTK_LABEL(gtk_builder_get_object(
               gui->builder,
-              "sFreqOffset")),
+              "lSpectrumDbsPerDiv")),
       return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->dbRange =
-          GTK_RANGE(gtk_builder_get_object(
+      gui->spectrumRefLevelLabel =
+          GTK_LABEL(gtk_builder_get_object(
               gui->builder,
-              "sDbs")),
-      return SU_FALSE);
+              "lSpectrumRefLevel")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->spectrumFreqScaleLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              gui->builder,
+              "lSpectrumFreqScale")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->spectrumFreqOffsetLabel =
+          GTK_LABEL(gtk_builder_get_object(
+            gui->builder,
+            "lSpectrumFreqOffset")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->spectrumShowChannelsCheck =
+          GTK_CHECK_BUTTON(gtk_builder_get_object(
+            gui->builder,
+            "chShowChannels")),
+          return SU_FALSE);
 
   suscan_gui_populate_source_list(gui);
 

@@ -46,6 +46,12 @@
     * (x)                                       \
       + SUSCAN_GUI_SPECTRUM_LEFT_PADDING)
 
+#define SUSCAN_SPECTRUM_FROM_SCR_X(s, x)        \
+  (((x) - SUSCAN_GUI_SPECTRUM_LEFT_PADDING) /   \
+  ((s)->width                                   \
+      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING        \
+      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING))     \
+
 #define SUSCAN_SPECTRUM_TO_SCR_Y(s, y)          \
   (((s)->height                                 \
       - SUSCAN_GUI_SPECTRUM_TOP_PADDING         \
@@ -53,17 +59,25 @@
     * (y)                                       \
       + SUSCAN_GUI_SPECTRUM_TOP_PADDING)
 
+#define SUSCAN_SPECTRUM_FROM_SCR_Y(s, y)        \
+  (((y) - SUSCAN_GUI_SPECTRUM_TOP_PADDING) /    \
+  ((s)->height                                  \
+      - SUSCAN_GUI_SPECTRUM_TOP_PADDING         \
+      - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING))    \
+
+
 #define SUSCAN_SPECTRUM_TO_SCR(s, x, y)         \
   SUSCAN_SPECTRUM_TO_SCR_X(s, x), SUSCAN_SPECTRUM_TO_SCR_Y(s, y)
 
 #define SUSCAN_GUI_SPECTRUM_ADJUST_X(s, x)      \
-    ((x) + (s)->freq_offset) * (s)->freq_scale
-#define SUSCAN_GUI_SPECTRUM_ADJUST_X_INV(s, x)      \
-    ((x) / (s)->freq_scale - (s)->freq_offset)
+    (((x) - (s)->freq_offset) * (s)->freq_scale)
+#define SUSCAN_GUI_SPECTRUM_ADJUST_X_INV(s, x)  \
+    ((x) / (s)->freq_scale + (s)->freq_offset)
 
 #define SUSCAN_GUI_SPECTRUM_ADJUST_Y(s, y)      \
-    (y) / ((s)->dbs_per_div * SUSCAN_GUI_VERTICAL_DIVS)
-
+    (((y) - (s)->ref_level) / ((s)->dbs_per_div * SUSCAN_GUI_VERTICAL_DIVS))
+#define SUSCAN_GUI_SPECTRUM_ADJUST_Y_INV(s, y)  \
+    ((y) * (s)->dbs_per_div * SUSCAN_GUI_VERTICAL_DIVS + (s)->ref_level)
 
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
@@ -85,6 +99,14 @@ enum suscan_gui_state {
 #define SUSCAN_GUI_SPECTRUM_FREQ_OFFSET_DEFAULT 0
 #define SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT  1
 #define SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT 10
+#define SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT   0
+
+enum suscan_gui_spectrum_param {
+  SUSCAN_GUI_SPECTRUM_PARAM_FREQ_OFFSET,
+  SUSCAN_GUI_SPECTRUM_PARAM_FREQ_SCALE,
+  SUSCAN_GUI_SPECTRUM_PARAM_REF_LEVEL,
+  SUSCAN_GUI_SPECTRUM_PARAM_DBS_PER_DIV,
+};
 
 struct suscan_gui_spectrum {
   cairo_surface_t *surface;
@@ -98,9 +120,11 @@ struct suscan_gui_spectrum {
   SUFLOAT  N0;
 
   /* Representation properties */
+  SUBOOL  show_channels; /* Defaults to TRUE */
   SUFLOAT freq_offset; /* Defaults to 0 */
   SUFLOAT freq_scale;  /* Defaults to 1 */
   SUFLOAT dbs_per_div; /* Defaults to 10 */
+  SUFLOAT ref_level;   /* Defaults to 0 */
 
   /* Current channel list */
   PTR_LIST(struct sigutils_channel, channel);
@@ -142,9 +166,12 @@ struct suscan_gui {
 
   GtkDrawingArea *spectrumArea;
 
-  GtkRange *scaleRange;
-  GtkRange *offsetRange;
-  GtkRange *dbRange;
+  GtkCheckButton *spectrumShowChannelsCheck;
+  GtkLabel *spectrumSampleRate;
+  GtkLabel *spectrumDbsPerDivLabel;
+  GtkLabel *spectrumRefLevelLabel;
+  GtkLabel *spectrumFreqScaleLabel;
+  GtkLabel *spectrumFreqOffsetLabel;
 
   struct suscan_gui_source_config *selected_config;
 
@@ -157,6 +184,14 @@ struct suscan_gui {
   GThread *async_thread;
 
   /* Main spectrum */
+  gdouble last_x;
+  gdouble last_y;
+
+  SUBOOL   dragging;
+  SUSCOUNT current_samp_rate;
+  SUFLOAT  original_freq_offset;
+  SUFLOAT  original_ref_level;
+
   struct suscan_gui_spectrum main_spectrum;
 };
 

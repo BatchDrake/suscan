@@ -42,8 +42,11 @@ suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum)
 {
   memset(spectrum, 0, sizeof (struct suscan_gui_spectrum));
 
+  spectrum->show_channels = SU_TRUE;
+
   spectrum->freq_offset = SUSCAN_GUI_SPECTRUM_FREQ_OFFSET_DEFAULT;
   spectrum->freq_scale  = SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT;
+  spectrum->ref_level   = SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT;
   spectrum->dbs_per_div = SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT;
 }
 
@@ -65,6 +68,41 @@ suscan_gui_spectrum_configure(
       spectrum->height);
 
   suscan_gui_spectrum_clear(spectrum);
+}
+
+void
+suscan_gui_spectrum_apply_delta(
+    struct suscan_gui_spectrum *spectrum,
+    enum suscan_gui_spectrum_param param,
+    SUFLOAT delta)
+{
+  switch (param) {
+    case SUSCAN_GUI_SPECTRUM_PARAM_FREQ_OFFSET:
+      /* Multiplied by freq_scale to keep proportion */
+      spectrum->ref_level -=
+          SUSCAN_GUI_SPECTRUM_SCALE_DELTA * delta * spectrum->freq_scale;
+      break;
+
+    case SUSCAN_GUI_SPECTRUM_PARAM_FREQ_SCALE:
+      /* Multiplied by freq_scale to keep proportion */
+      spectrum->freq_scale -=
+          SUSCAN_GUI_SPECTRUM_SCALE_DELTA * delta * spectrum->freq_scale;
+      if (spectrum->freq_scale < 1)
+        spectrum->freq_scale = 1;
+      break;
+
+    case SUSCAN_GUI_SPECTRUM_PARAM_REF_LEVEL:
+      /* Multiplied by dbs_per_div to keep proportion */
+      spectrum->ref_level -=
+          SUSCAN_GUI_SPECTRUM_SCALE_DELTA * delta * spectrum->dbs_per_div;
+      break;
+
+    case SUSCAN_GUI_SPECTRUM_PARAM_DBS_PER_DIV:
+      /* Multiplied by dbs_per_div to keep proportion */
+      spectrum->dbs_per_div -=
+          SUSCAN_GUI_SPECTRUM_SCALE_DELTA * delta * spectrum->dbs_per_div;
+      break;
+  }
 }
 
 void
@@ -205,7 +243,13 @@ suscan_gui_spectrum_draw_levels(
   cairo_set_source_rgba(cr, 1, 1, 1, 1);
 
   for (i = 1; i < SUSCAN_GUI_VERTICAL_DIVS; ++i) {
-    snprintf(text, sizeof(text), "-%d", (int) round(i * spectrum->dbs_per_div));
+    snprintf(
+        text,
+        sizeof(text),
+        "%d",
+        -(int) (SUSCAN_GUI_SPECTRUM_ADJUST_Y_INV(
+            spectrum,
+            (SUFLOAT) i / SUSCAN_GUI_VERTICAL_DIVS)));
 
     cairo_move_to(
         cr,
@@ -346,7 +390,9 @@ suscan_gui_spectrum_redraw(
       SUSCAN_SPECTRUM_TO_SCR(spectrum, 1, 0));
   cairo_stroke(cr);
 
-  suscan_gui_spectrum_draw_channels(spectrum, cr);
+  /* Draw channels, if enabled */
+  if (spectrum->show_channels)
+    suscan_gui_spectrum_draw_channels(spectrum, cr);
 
   /* Draw spectrum */
   if (spectrum->psd_data != NULL) {
@@ -425,6 +471,7 @@ suscan_gui_spectrum_redraw(
   }
 }
 
+/******************* This callbacks belong to the GUI API ********************/
 
 gboolean
 suscan_spectrum_on_configure_event(
@@ -439,16 +486,22 @@ suscan_spectrum_on_configure_event(
   return TRUE;
 }
 
-
 gboolean
 suscan_spectrum_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
   struct suscan_gui *gui = (struct suscan_gui *) data;
 
-  /* Retrieve spectrum parameters */
-  gui->main_spectrum.freq_scale  = gtk_range_get_value(gui->scaleRange);
-  gui->main_spectrum.freq_offset = gtk_range_get_value(gui->offsetRange);
-  gui->main_spectrum.dbs_per_div = gtk_range_get_value(gui->dbRange);
+  char text[32];
+
+  if (gui->current_samp_rate != gui->main_spectrum.samp_rate) {
+    gui->current_samp_rate = gui->main_spectrum.samp_rate;
+    snprintf(text, sizeof(text), "%li", gui->current_samp_rate);
+    gtk_label_set_text(gui->spectrumSampleRate, text);
+  }
+
+  gui->main_spectrum.show_channels =
+      gtk_toggle_button_get_active(
+          GTK_TOGGLE_BUTTON(gui->spectrumShowChannelsCheck));
 
   suscan_gui_spectrum_redraw(&gui->main_spectrum, cr);
 
@@ -458,17 +511,88 @@ suscan_spectrum_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 void
 suscan_spectrum_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpointer data)
 {
+  char text[32];
+
   struct suscan_gui *gui = (struct suscan_gui *) data;
   switch (ev->direction) {
     case GDK_SCROLL_SMOOTH:
-      gui->main_spectrum.freq_scale
-        -=
-            SUSCAN_GUI_SPECTRUM_SCALE_DELTA
-            * ev->delta_y
-            * gui->main_spectrum.freq_scale;
-      gtk_range_set_value(gui->scaleRange, gui->main_spectrum.freq_scale);
+      if (ev->state & GDK_SHIFT_MASK) {
+        suscan_gui_spectrum_apply_delta(
+            &gui->main_spectrum,
+            SUSCAN_GUI_SPECTRUM_PARAM_DBS_PER_DIV,
+            -ev->delta_y);
+        snprintf(text, sizeof(text), "%.2lg dB", gui->main_spectrum.dbs_per_div);
+        gtk_label_set_text(gui->spectrumDbsPerDivLabel, text);
+      } else {
+        suscan_gui_spectrum_apply_delta(
+            &gui->main_spectrum,
+            SUSCAN_GUI_SPECTRUM_PARAM_FREQ_SCALE,
+            ev->delta_y);
+        snprintf(text, sizeof(text), "%.2lgx", gui->main_spectrum.freq_scale);
+        gtk_label_set_text(gui->spectrumFreqScaleLabel, text);
+      }
       break;
   }
 }
 
+void
+suscan_spectrum_on_motion(GtkWidget *widget, GdkEventMotion *ev, gpointer data)
+{
+  char text[32];
+  SUFLOAT  x,  y;
+  SUFLOAT lx, ly;
+  SUFLOAT dx, dy;
+  struct suscan_gui *gui = (struct suscan_gui *) data;
+
+  if (ev->state & GDK_BUTTON1_MASK) {
+    if (!gui->dragging) {
+      gui->original_ref_level = gui->main_spectrum.ref_level;
+      gui->original_freq_offset = gui->main_spectrum.freq_offset;
+      gui->dragging = SU_TRUE;
+    }
+
+    /* Change reference level */
+    y = SUSCAN_GUI_SPECTRUM_ADJUST_Y_INV(
+        &gui->main_spectrum,
+        SUSCAN_SPECTRUM_FROM_SCR_Y(&gui->main_spectrum, ev->y));
+
+    ly = SUSCAN_GUI_SPECTRUM_ADJUST_Y_INV(
+        &gui->main_spectrum,
+        SUSCAN_SPECTRUM_FROM_SCR_Y(&gui->main_spectrum, gui->last_y));
+
+    gui->main_spectrum.ref_level = gui->original_ref_level + ly - y;
+    snprintf(
+        text,
+        sizeof(text),
+        "%.2lg dB",
+        gui->main_spectrum.ref_level);
+    gtk_label_set_text(gui->spectrumRefLevelLabel, text);
+
+    /* Change frequency offset only if sample rate has been defined */
+    if (gui->main_spectrum.samp_rate != 0) {
+      x = SUSCAN_GUI_SPECTRUM_ADJUST_X_INV(
+            &gui->main_spectrum,
+            SUSCAN_SPECTRUM_FROM_SCR_X(&gui->main_spectrum, ev->x));
+
+
+      lx = SUSCAN_GUI_SPECTRUM_ADJUST_X_INV(
+            &gui->main_spectrum,
+            SUSCAN_SPECTRUM_FROM_SCR_X(&gui->main_spectrum, gui->last_x));
+
+      gui->main_spectrum.freq_offset = gui->original_freq_offset + lx - x;
+      snprintf(
+          text,
+          sizeof(text),
+          "%.2lg Hz",
+          gui->main_spectrum.samp_rate * gui->main_spectrum.freq_offset);
+      gtk_label_set_text(gui->spectrumFreqOffsetLabel, text);
+    }
+  } else {
+    if (gui->dragging)
+      gui->dragging = SU_FALSE;
+
+    gui->last_x = ev->x;
+    gui->last_y = ev->y;
+  }
+}
 
