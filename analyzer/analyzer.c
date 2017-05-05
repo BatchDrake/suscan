@@ -102,8 +102,6 @@ suscan_source_wk_cb(
         if (!suscan_analyzer_send_detector_channels(analyzer, source->detector))
           goto done;
       }
-    } else {
-      printf("Nope: %lg\n", source->interval_channels);
     }
 
     /* Check spectrum update */
@@ -412,7 +410,7 @@ suscan_consumer_task_state_assert_samples(
       }
 
       if (state->consumer->pending == state->consumer->tasks) {
-        /* Barrier reached. Time to read */
+        /* Barrier reached. TODO: flip buffers */
         while ((got = su_block_port_read(
             &state->consumer->port,
             state->consumer->buffer,
