@@ -37,7 +37,7 @@ enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_HALTED
 };
 
-struct suscan_baudrate_inspector_result {
+struct suscan_inspector_result {
   SUFLOAT fac;
   SUFLOAT nln;
 };
@@ -66,7 +66,7 @@ struct suscan_consumer {
   struct suscan_analyzer *analyzer;
   su_block_port_t port; /* Slave reading port */
 
-  SUCOMPLEX *buffer;
+  SUCOMPLEX *buffer; /* TODO: make int const. Don't own this buffer */
   SUSCOUNT   buffer_size;
   SUSCOUNT   buffer_pos;
   SUSCOUNT   buffer_avail;
@@ -84,7 +84,7 @@ struct suscan_consumer_task_state {
 };
 
 /* TODO: protect baudrate access with mutexes */
-struct suscan_baudrate_inspector {
+struct suscan_inspector {
   struct sigutils_channel channel;
   su_channel_detector_t *fac_baud_det; /* FAC baud detector */
   su_channel_detector_t *nln_baud_det; /* Non-linear baud detector */
@@ -94,7 +94,7 @@ struct suscan_baudrate_inspector {
   enum suscan_aync_state state;        /* Used to remove analyzer from queue */
 };
 
-typedef struct suscan_baudrate_inspector suscan_baudrate_inspector_t;
+typedef struct suscan_inspector suscan_inspector_t;
 
 struct suscan_analyzer {
   struct suscan_mq mq_in;   /* To-thread messages */
@@ -113,7 +113,7 @@ struct suscan_analyzer {
   SUSCOUNT   read_size;
 
   /* Inspector objects */
-  PTR_LIST(suscan_baudrate_inspector_t, br_inspector);
+  PTR_LIST(suscan_inspector_t, inspector);
 
   /* Consumer workers (initially idle) */
   PTR_LIST(suscan_consumer_t, consumer);
@@ -126,25 +126,25 @@ struct suscan_analyzer {
 
 typedef struct suscan_analyzer suscan_analyzer_t;
 
-/************************* Baudrate inspector API ****************************/
-void suscan_baudrate_inspector_destroy(suscan_baudrate_inspector_t *chanal);
-suscan_baudrate_inspector_t *suscan_baudrate_inspector_new(
+/***************************** Inspector API *********************************/
+void suscan_inspector_destroy(suscan_inspector_t *chanal);
+suscan_inspector_t *suscan_inspector_new(
     const suscan_analyzer_t *analyzer,
     const struct sigutils_channel *channel);
 
 /* Baud inspector operations */
-SUHANDLE suscan_baud_inspector_open(
+SUHANDLE suscan_inspector_open(
     suscan_analyzer_t *analyzer,
     const struct sigutils_channel *channel);
 
-SUBOOL suscan_baud_inspector_close(
+SUBOOL suscan_inspector_close(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle);
 
-SUBOOL suscan_baud_inspector_get_info(
+SUBOOL suscan_inspector_get_info(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
-    struct suscan_baudrate_inspector_result *result);
+    struct suscan_inspector_result *result);
 
 /****************************** Consumer API **********************************/
 SUBOOL suscan_consumer_task_state_assert_samples(

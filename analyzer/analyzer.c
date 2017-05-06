@@ -782,12 +782,12 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
     free(analyzer->read_buf);
 
   /* Remove all channel analyzers */
-  for (i = 0; i < analyzer->br_inspector_count; ++i)
-    if (analyzer->br_inspector_list[i] != NULL)
-      suscan_baudrate_inspector_destroy(analyzer->br_inspector_list[i]);
+  for (i = 0; i < analyzer->inspector_count; ++i)
+    if (analyzer->inspector_list[i] != NULL)
+      suscan_inspector_destroy(analyzer->inspector_list[i]);
 
-  if (analyzer->br_inspector_list != NULL)
-    free(analyzer->br_inspector_list);
+  if (analyzer->inspector_list != NULL)
+    free(analyzer->inspector_list);
 
   /* Delete source information */
   suscan_analyzer_source_finalize(&analyzer->source);

@@ -121,8 +121,10 @@ suscan_analyzer_channel_msg_new(
         if ((new->channel_list[n] = su_channel_dup(list[i])) == NULL)
           goto fail;
 
-        new->channel_list[n]->fc += analyzer->source.fc;
-        new->channel_list[n]->ft = analyzer->source.fc;
+        new->channel_list[n]->fc   += analyzer->source.fc;
+        new->channel_list[n]->f_hi += analyzer->source.fc;
+        new->channel_list[n]->f_lo += analyzer->source.fc;
+        new->channel_list[n]->ft    = analyzer->source.fc;
         ++n;
       }
 

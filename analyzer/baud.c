@@ -31,7 +31,7 @@
 #include "msg.h"
 
 void
-suscan_baudrate_inspector_destroy(suscan_baudrate_inspector_t *brinsp)
+suscan_inspector_destroy(suscan_inspector_t *brinsp)
 {
   if (brinsp->fac_baud_det != NULL)
     su_channel_detector_destroy(brinsp->fac_baud_det);
@@ -42,16 +42,16 @@ suscan_baudrate_inspector_destroy(suscan_baudrate_inspector_t *brinsp)
   free(brinsp);
 }
 
-suscan_baudrate_inspector_t *
-suscan_baudrate_inspector_new(
+suscan_inspector_t *
+suscan_inspector_new(
     const suscan_analyzer_t *analyzer,
     const struct sigutils_channel *channel)
 {
-  suscan_baudrate_inspector_t *new;
+  suscan_inspector_t *new;
   struct sigutils_channel_detector_params params =
       sigutils_channel_detector_params_INITIALIZER;
 
-  if ((new = calloc(1, sizeof (suscan_baudrate_inspector_t))) == NULL)
+  if ((new = calloc(1, sizeof (suscan_inspector_t))) == NULL)
     goto fail;
 
   new->state = SUSCAN_ASYNC_STATE_CREATED;
@@ -78,7 +78,7 @@ suscan_baudrate_inspector_new(
 
 fail:
   if (new != NULL)
-    suscan_baudrate_inspector_destroy(new);
+    suscan_inspector_destroy(new);
 
   return NULL;
 }
@@ -88,14 +88,14 @@ fail:
  * consumers have finished with their buffer.
  */
 SUPRIVATE SUBOOL
-suscan_baudrate_inspector_wk_cb(
+suscan_inspector_wk_cb(
     struct suscan_mq *mq_out,
     void *wk_private,
     void *cb_private)
 {
   suscan_consumer_t *consumer = (suscan_consumer_t *) wk_private;
-  suscan_baudrate_inspector_t *brinsp =
-      (suscan_baudrate_inspector_t *) cb_private;
+  suscan_inspector_t *brinsp =
+      (suscan_inspector_t *) cb_private;
   unsigned int i;
   SUSCOUNT got;
   SUCOMPLEX *samp;
@@ -135,17 +135,17 @@ done:
   return restart;
 }
 
-SUINLINE suscan_baudrate_inspector_t *
-suscan_analyzer_get_baudrate_inspector(
+SUINLINE suscan_inspector_t *
+suscan_analyzer_get_inspector(
     const suscan_analyzer_t *analyzer,
     SUHANDLE handle)
 {
-  suscan_baudrate_inspector_t *brinsp;
+  suscan_inspector_t *brinsp;
 
-  if (handle < 0 || handle >= analyzer->br_inspector_count)
+  if (handle < 0 || handle >= analyzer->inspector_count)
     return NULL;
 
-  brinsp = analyzer->br_inspector_list[handle];
+  brinsp = analyzer->inspector_list[handle];
 
   if (brinsp != NULL && brinsp->state != SUSCAN_ASYNC_STATE_RUNNING)
     return NULL;
@@ -154,25 +154,25 @@ suscan_analyzer_get_baudrate_inspector(
 }
 
 SUPRIVATE SUBOOL
-suscan_analyzer_dispose_baudrate_inspector_handle(
+suscan_analyzer_dispose_inspector_handle(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle)
 {
-  if (handle < 0 || handle >= analyzer->br_inspector_count)
+  if (handle < 0 || handle >= analyzer->inspector_count)
     return SU_FALSE;
 
-  if (analyzer->br_inspector_list[handle] == NULL)
+  if (analyzer->inspector_list[handle] == NULL)
     return SU_FALSE;
 
-  analyzer->br_inspector_list[handle] = NULL;
+  analyzer->inspector_list[handle] = NULL;
 
   return SU_TRUE;
 }
 
 SUPRIVATE SUHANDLE
-suscan_analyzer_register_baudrate_inspector(
+suscan_analyzer_register_inspector(
     suscan_analyzer_t *analyzer,
-    suscan_baudrate_inspector_t *brinsp)
+    suscan_inspector_t *brinsp)
 {
   SUHANDLE hnd;
 
@@ -181,7 +181,7 @@ suscan_analyzer_register_baudrate_inspector(
 
   /* Plugged. Append handle to list */
   /* TODO: Find inspectors in HALTED state, and free them */
-  if ((hnd = PTR_LIST_APPEND_CHECK(analyzer->br_inspector, brinsp)) == -1)
+  if ((hnd = PTR_LIST_APPEND_CHECK(analyzer->inspector, brinsp)) == -1)
     return -1;
 
   /* Mark it as running and push to worker */
@@ -189,9 +189,9 @@ suscan_analyzer_register_baudrate_inspector(
 
   if (!suscan_analyzer_push_task(
       analyzer,
-      suscan_baudrate_inspector_wk_cb,
+      suscan_inspector_wk_cb,
       brinsp)) {
-    suscan_analyzer_dispose_baudrate_inspector_handle(analyzer, hnd);
+    suscan_analyzer_dispose_inspector_handle(analyzer, hnd);
     return -1;
   }
 
@@ -204,19 +204,19 @@ suscan_analyzer_parse_baud(
     suscan_analyzer_t *analyzer,
     struct suscan_analyzer_inspector_msg *msg)
 {
-  suscan_baudrate_inspector_t *new = NULL;
-  suscan_baudrate_inspector_t *brinsp;
+  suscan_inspector_t *new = NULL;
+  suscan_inspector_t *brinsp;
   SUHANDLE handle = -1;
   SUBOOL ok = SU_FALSE;
 
   switch (msg->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
-      if ((new = suscan_baudrate_inspector_new(
+      if ((new = suscan_inspector_new(
           analyzer,
           &msg->channel)) == NULL)
         goto done;
 
-      handle = suscan_analyzer_register_baudrate_inspector(analyzer, new);
+      handle = suscan_analyzer_register_inspector(analyzer, new);
       if (handle == -1)
         goto done;
       new = NULL;
@@ -226,7 +226,7 @@ suscan_analyzer_parse_baud(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO:
-      if ((brinsp = suscan_analyzer_get_baudrate_inspector(
+      if ((brinsp = suscan_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
@@ -240,7 +240,7 @@ suscan_analyzer_parse_baud(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
-      if ((brinsp = suscan_analyzer_get_baudrate_inspector(
+      if ((brinsp = suscan_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
@@ -250,10 +250,10 @@ suscan_analyzer_parse_baud(
            * Inspector has been halted. It's safe to dispose the handle
            * and free the object.
            */
-          (void) suscan_analyzer_dispose_baudrate_inspector_handle(
+          (void) suscan_analyzer_dispose_inspector_handle(
               analyzer,
               msg->handle);
-          suscan_baudrate_inspector_destroy(brinsp);
+          suscan_inspector_destroy(brinsp);
         } else {
           /*
            * Inspector is still running. Mark it as halting, so it will not
@@ -280,14 +280,14 @@ suscan_analyzer_parse_baud(
 
 done:
   if (new != NULL)
-    suscan_baudrate_inspector_destroy(new);
+    suscan_inspector_destroy(new);
 
   return ok;
 }
 
 /************************* Baudrate inspector API ****************************/
 SUHANDLE
-suscan_baud_inspector_open(
+suscan_inspector_open(
     suscan_analyzer_t *analyzer,
     const struct sigutils_channel *channel)
 {
@@ -355,7 +355,7 @@ done:
 }
 
 SUBOOL
-suscan_baud_inspector_close(
+suscan_inspector_close(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle)
 {
@@ -423,10 +423,10 @@ done:
 }
 
 SUBOOL
-suscan_baud_inspector_get_info(
+suscan_inspector_get_info(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
-    struct suscan_baudrate_inspector_result *result)
+    struct suscan_inspector_result *result)
 {
   struct suscan_analyzer_inspector_msg *req = NULL;
   struct suscan_analyzer_inspector_msg *resp = NULL;

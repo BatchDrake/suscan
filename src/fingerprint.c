@@ -36,7 +36,7 @@
 struct suscan_fingerprint_chresult {
   struct sigutils_channel channel;
   SUHANDLE br_handle; /* Baudrate inspector handle */
-  struct suscan_baudrate_inspector_result baudrate;
+  struct suscan_inspector_result baudrate;
 };
 
 struct suscan_fingerprint_report {
@@ -96,7 +96,7 @@ suscan_open_all_channels(
   SUHANDLE handle;
 
   for (i = 0; i < report->result_count; ++i) {
-    handle = suscan_baud_inspector_open(
+    handle = suscan_inspector_open(
         analyzer,
         &report->results[i].channel);
     if (handle == -1) {
@@ -120,7 +120,7 @@ suscan_close_all_channels(
 
   for (i = 0; i < report->result_count; ++i)
     if (report->results[i].br_handle >= 0)
-      (void) suscan_baud_inspector_close(
+      (void) suscan_inspector_close(
           analyzer,
           report->results[i].br_handle);
 }
@@ -134,7 +134,7 @@ suscan_get_all_baudrates(
   SUHANDLE handle;
 
   for (i = 0; i < report->result_count; ++i) {
-    if (!suscan_baud_inspector_get_info(
+    if (!suscan_inspector_get_info(
         analyzer,
         report->results[i].br_handle,
         &report->results[i].baudrate)) {

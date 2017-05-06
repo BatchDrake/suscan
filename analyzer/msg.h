@@ -79,7 +79,7 @@ struct suscan_analyzer_inspector_msg {
 
   union {
     struct sigutils_channel channel;
-    struct suscan_baudrate_inspector_result baudrate;
+    struct suscan_inspector_result baudrate;
   };
 };
 
