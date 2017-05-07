@@ -121,41 +121,99 @@ suscan_mq_pop(struct suscan_mq *mq)
   return msg;
 }
 
-void *
-suscan_mq_read(struct suscan_mq *mq, uint32_t *type)
+SUPRIVATE struct suscan_msg *
+suscan_mq_pop_w_type(struct suscan_mq *mq, uint32_t type)
+{
+  struct suscan_msg *this, *prev;
+
+  prev = NULL;
+  this = mq->head;
+
+  while (this != NULL) {
+    if (this->type == type)
+      break;
+    prev = this;
+    this = this->next;
+  }
+
+  if (this != NULL) {
+    if (prev == NULL)
+      mq->head = this->next;
+    else
+      prev->next = this->next;
+
+    if (this == mq->tail)
+      mq->tail = prev;
+  }
+  return this;
+}
+
+SUPRIVATE void *
+suscan_mq_read_internal(
+    struct suscan_mq *mq,
+    uint32_t *ptype,
+    uint32_t type)
 {
   struct suscan_msg *msg;
   void *private;
 
   suscan_mq_enter(mq);
 
-  while ((msg = suscan_mq_pop(mq)) == NULL)
-    suscan_mq_wait_unsafe(mq);
+  if (ptype != NULL)
+    while ((msg = suscan_mq_pop(mq)) == NULL)
+      suscan_mq_wait_unsafe(mq);
+  else
+    while ((msg = suscan_mq_pop_w_type(mq, type)) == NULL)
+      suscan_mq_wait_unsafe(mq);
 
   suscan_mq_leave(mq);
 
   private = msg->private;
-  *type = msg->type;
+
+  if (ptype != NULL)
+    *ptype = msg->type;
 
   suscan_msg_destroy(msg);
 
   return private;
 }
 
-SUBOOL
-suscan_mq_poll(struct suscan_mq *mq, uint32_t *type, void **private)
+
+void *
+suscan_mq_read(struct suscan_mq *mq, uint32_t *type)
+{
+  return suscan_mq_read_internal(mq, type, 0);
+}
+
+void *
+suscan_mq_read_w_type(struct suscan_mq *mq, uint32_t type)
+{
+  return suscan_mq_read_internal(mq, NULL, type);
+}
+
+SUPRIVATE SUBOOL
+suscan_mq_poll_internal(
+    struct suscan_mq *mq,
+    uint32_t *ptype,
+    void **private,
+    uint32_t type)
 {
   struct suscan_msg *msg;
 
   suscan_mq_enter(mq);
 
-  msg = suscan_mq_pop(mq);
+  if (ptype != NULL)
+    msg = suscan_mq_pop(mq);
+  else
+    msg = suscan_mq_pop_w_type(mq, type);
 
   suscan_mq_leave(mq);
 
   if (msg != NULL) {
     *private = msg->private;
-    *type = msg->type;
+
+    if (ptype != NULL)
+      *ptype = msg->type;
 
     suscan_msg_destroy(msg);
 
@@ -163,6 +221,18 @@ suscan_mq_poll(struct suscan_mq *mq, uint32_t *type, void **private)
   }
 
   return SU_FALSE;
+}
+
+SUBOOL
+suscan_mq_poll(struct suscan_mq *mq, uint32_t *type, void **private)
+{
+  return suscan_mq_poll_internal(mq, type, private, 0);
+}
+
+SUBOOL
+suscan_mq_poll_w_type(struct suscan_mq *mq, uint32_t type, void **private)
+{
+  return suscan_mq_poll_internal(mq, NULL, private, type);
 }
 
 SUBOOL
@@ -177,8 +247,7 @@ suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *private)
 
   suscan_mq_push(mq, msg);
 
-  if (mq->head == mq->tail)
-    suscan_mq_notify(mq);
+  suscan_mq_notify(mq); /* We notify the queue always */
 
   suscan_mq_leave(mq);
 
@@ -197,8 +266,7 @@ suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *private)
 
   suscan_mq_push_front(mq, msg);
 
-  if (mq->head == mq->tail)
-    suscan_mq_notify(mq);
+  suscan_mq_notify(mq);
 
   suscan_mq_leave(mq);
 

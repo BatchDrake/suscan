@@ -42,7 +42,9 @@ struct suscan_mq {
 SUBOOL suscan_mq_init(struct suscan_mq *mq);
 void   suscan_mq_finalize(struct suscan_mq *mq);
 void  *suscan_mq_read(struct suscan_mq *mq, uint32_t *type);
+void  *suscan_mq_read_w_type(struct suscan_mq *mq, uint32_t type);
 SUBOOL suscan_mq_poll(struct suscan_mq *mq, uint32_t *type, void **private);
+SUBOOL suscan_mq_poll_w_type(struct suscan_mq *mq, uint32_t type, void **private);
 SUBOOL suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *private);
 void   suscan_mq_wait(struct suscan_mq *mq);
 SUBOOL suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *private);
