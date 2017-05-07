@@ -8,5 +8,5 @@ ACLOCAL_AMFLAGS = -I m4
 EXTRA_DIST = AUTHORS ChangeLog NEWS README
 
 guidir=$(pkgdatadir)/gui
-gui_DATA=rsrc/main.glade
+gui_DATA=rsrc/main.glade rsrc/channel-inspector.glade
 

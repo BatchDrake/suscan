@@ -688,6 +688,20 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
             "chShowChannels")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->channelMenu =
+          GTK_MENU(gtk_builder_get_object(
+            gui->builder,
+            "mChannel")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->channelHeaderMenuItem =
+          GTK_MENU_ITEM(gtk_builder_get_object(
+            gui->builder,
+            "miChannelHeader")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);

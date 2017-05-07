@@ -39,31 +39,31 @@
 #define SUSCAN_GUI_SPECTRUM_RIGHT_PADDING 5
 #define SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING 30
 
-#define SUSCAN_SPECTRUM_TO_SCR_X(s, x)          \
-  (((s)->width                                  \
-      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING        \
-      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING)      \
-    * (x)                                       \
+#define SUSCAN_SPECTRUM_TO_SCR_X(s, x)            \
+  (((s)->width                                    \
+      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING          \
+      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING)        \
+    * (x + .5)                                    \
       + SUSCAN_GUI_SPECTRUM_LEFT_PADDING)
 
-#define SUSCAN_SPECTRUM_FROM_SCR_X(s, x)        \
-  (((x) - SUSCAN_GUI_SPECTRUM_LEFT_PADDING) /   \
-  ((s)->width                                   \
-      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING        \
-      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING))     \
+#define SUSCAN_SPECTRUM_FROM_SCR_X(s, x)          \
+  ((((x) - SUSCAN_GUI_SPECTRUM_LEFT_PADDING) /    \
+  ((s)->width                                     \
+      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING          \
+      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING)) - .5) \
 
-#define SUSCAN_SPECTRUM_TO_SCR_Y(s, y)          \
-  (((s)->height                                 \
-      - SUSCAN_GUI_SPECTRUM_TOP_PADDING         \
-      - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING)     \
-    * (y)                                       \
+#define SUSCAN_SPECTRUM_TO_SCR_Y(s, y)            \
+  (((s)->height                                   \
+      - SUSCAN_GUI_SPECTRUM_TOP_PADDING           \
+      - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING)       \
+    * (y)                                         \
       + SUSCAN_GUI_SPECTRUM_TOP_PADDING)
 
-#define SUSCAN_SPECTRUM_FROM_SCR_Y(s, y)        \
-  (((y) - SUSCAN_GUI_SPECTRUM_TOP_PADDING) /    \
-  ((s)->height                                  \
-      - SUSCAN_GUI_SPECTRUM_TOP_PADDING         \
-      - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING))    \
+#define SUSCAN_SPECTRUM_FROM_SCR_Y(s, y)          \
+  (((y) - SUSCAN_GUI_SPECTRUM_TOP_PADDING) /      \
+  ((s)->height                                    \
+      - SUSCAN_GUI_SPECTRUM_TOP_PADDING           \
+      - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING))      \
 
 
 #define SUSCAN_SPECTRUM_TO_SCR(s, x, y)         \
@@ -130,6 +130,8 @@ struct suscan_gui_spectrum {
   PTR_LIST(struct sigutils_channel, channel);
 };
 
+struct suscan_gui_inspector;
+
 struct suscan_gui {
   /* Widgets */
   GtkBuilder *builder;
@@ -173,6 +175,9 @@ struct suscan_gui {
   GtkLabel *spectrumFreqScaleLabel;
   GtkLabel *spectrumFreqOffsetLabel;
 
+  GtkMenu *channelMenu;
+  GtkMenuItem *channelHeaderMenuItem;
+
   struct suscan_gui_source_config *selected_config;
 
   /* GUI state */
@@ -193,7 +198,19 @@ struct suscan_gui {
   SUFLOAT  original_ref_level;
 
   struct suscan_gui_spectrum main_spectrum;
+
+  /* Keep list of inspector tabs */
+  PTR_LIST(struct suscan_gui_inspector, inspector);
 };
+
+struct suscan_gui_inspector {
+  /* Widgets */
+  struct suscan_gui *gui;
+  GtkBuilder *builder;
+
+  GtkGrid *channelInspectorGrid;
+};
+
 
 struct suscan_gui *suscan_gui_new(int argc, char **argv);
 

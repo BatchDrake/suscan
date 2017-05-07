@@ -622,8 +622,9 @@
                               <object class="GtkDrawingArea" id="daMainViewsSpectrum">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="events">GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON1_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_STRUCTURE_MASK | GDK_SMOOTH_SCROLL_MASK</property>
+                                <property name="events">GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON1_MOTION_MASK | GDK_BUTTON3_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_STRUCTURE_MASK | GDK_SMOOTH_SCROLL_MASK</property>
                                 <property name="hexpand">True</property>
+                                <signal name="button-press-event" handler="suscan_spectrum_on_button_press" swapped="no"/>
                                 <signal name="configure-event" handler="suscan_spectrum_on_configure_event" swapped="no"/>
                                 <signal name="draw" handler="suscan_spectrum_on_draw" swapped="no"/>
                                 <signal name="motion-notify-event" handler="suscan_spectrum_on_motion" swapped="no"/>
@@ -653,6 +654,7 @@
                                 <property name="hexpand">True</property>
                                 <property name="vexpand">True</property>
                                 <property name="model">lsMainChannelListStore</property>
+                                <property name="reorderable">True</property>
                                 <property name="enable_grid_lines">both</property>
                                 <child internal-child="selection">
                                   <object class="GtkTreeSelection"/>
@@ -661,6 +663,8 @@
                                   <object class="GtkTreeViewColumn" id="cCenterFrequency">
                                     <property name="resizable">True</property>
                                     <property name="title" translatable="yes">Center frequency (Hz)</property>
+                                    <property name="reorderable">True</property>
+                                    <property name="sort_indicator">True</property>
                                     <child>
                                       <object class="GtkCellRendererText" id="crCenterFrequency"/>
                                       <attributes>
@@ -673,6 +677,8 @@
                                   <object class="GtkTreeViewColumn" id="cSNR">
                                     <property name="resizable">True</property>
                                     <property name="title" translatable="yes">SNR</property>
+                                    <property name="reorderable">True</property>
+                                    <property name="sort_indicator">True</property>
                                     <child>
                                       <object class="GtkCellRendererText" id="crSNR"/>
                                       <attributes>
@@ -685,6 +691,8 @@
                                   <object class="GtkTreeViewColumn" id="cSignalLevel">
                                     <property name="resizable">True</property>
                                     <property name="title" translatable="yes">Signal level</property>
+                                    <property name="reorderable">True</property>
+                                    <property name="sort_indicator">True</property>
                                     <child>
                                       <object class="GtkCellRendererText" id="crSignalLevel"/>
                                       <attributes>
@@ -697,6 +705,8 @@
                                   <object class="GtkTreeViewColumn" id="cNoiseLevel">
                                     <property name="resizable">True</property>
                                     <property name="title" translatable="yes">Noise level</property>
+                                    <property name="reorderable">True</property>
+                                    <property name="sort_indicator">True</property>
                                     <child>
                                       <object class="GtkCellRendererText" id="crNoiseLevel"/>
                                       <attributes>
@@ -709,6 +719,8 @@
                                   <object class="GtkTreeViewColumn" id="cBandwidth">
                                     <property name="resizable">True</property>
                                     <property name="title" translatable="yes">Bandwidth</property>
+                                    <property name="reorderable">True</property>
+                                    <property name="sort_indicator">True</property>
                                     <child>
                                       <object class="GtkCellRendererText" id="crBandwidth"/>
                                       <attributes>
@@ -1471,6 +1483,33 @@
       <action-widget response="0">button1</action-widget>
       <action-widget response="1">button2</action-widget>
     </action-widgets>
+  </object>
+  <object class="GtkMenu" id="mChannel">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <child>
+      <object class="GtkMenuItem" id="miChannelHeader">
+        <property name="visible">True</property>
+        <property name="sensitive">False</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Channel @ 0 Hz</property>
+        <property name="use_underline">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkSeparatorMenuItem">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Open inspector</property>
+        <property name="use_underline">True</property>
+      </object>
+    </child>
   </object>
   <object class="GtkMenu" id="mHeader">
     <property name="visible">True</property>

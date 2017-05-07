@@ -50,6 +50,22 @@ suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum)
   spectrum->dbs_per_div = SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT;
 }
 
+const struct sigutils_channel *
+suscan_gui_spectrum_lookup_channel(
+    const struct suscan_gui_spectrum *spectrum,
+    SUFLOAT fc)
+{
+  unsigned int i;
+
+  for (i = 0; i < spectrum->channel_count; ++i)
+    if (spectrum->channel_list[i] != NULL)
+      if (SU_ABS(spectrum->channel_list[i]->fc - fc)
+          < .5 * SU_ABS(spectrum->channel_list[i]->bw))
+        return spectrum->channel_list[i];
+
+  return NULL;
+}
+
 void
 suscan_gui_spectrum_configure(
     struct suscan_gui_spectrum *spectrum,
@@ -160,8 +176,7 @@ suscan_gui_spectrum_draw_channels(
           - spectrum->fc)
               / (SUFLOAT) spectrum->samp_rate;
 
-      /* Correct negative frequencies */
-      if (x1 > .5) {
+      if (x2 > .5) {
         x1 -= 1;
         x2 -= 1;
       }
@@ -172,8 +187,8 @@ suscan_gui_spectrum_draw_channels(
 
       /* Draw channel if and only if it fits */
       if (x1 < .5 && x2 > -.5) {
-        xscr1 = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x1 + .5);
-        xscr2 = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x2 + .5);
+        xscr1 = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x1);
+        xscr2 = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x2);
 
         y1 = SUSCAN_GUI_SPECTRUM_ADJUST_Y(
             spectrum,
@@ -202,16 +217,11 @@ suscan_gui_spectrum_draw_channels(
             - spectrum->fc)
                 / (SUFLOAT) spectrum->samp_rate;
 
-        if (x1 > .5) {
-          x1 -= 1;
-          x2 -= 1;
-        }
-
         x1 = SUSCAN_GUI_SPECTRUM_ADJUST_X(spectrum, x1);
         x2 = SUSCAN_GUI_SPECTRUM_ADJUST_X(spectrum, x2);
 
-        xscr1 = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x1 + .5);
-        xscr2 = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x2 + .5);
+        xscr1 = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x1);
+        xscr2 = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x2);
 
         cairo_rectangle(cr, xscr1, yscr1, xscr2 - xscr1, yscr2 - yscr1);
         cairo_stroke_preserve(cr);
@@ -270,7 +280,7 @@ suscan_gui_spectrum_draw_levels(
         i < SUSCAN_GUI_HORIZONTAL_DIVS / 2;
         ++i) {
       x = i / (SUFLOAT) SUSCAN_GUI_HORIZONTAL_DIVS;
-      xscr = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x + .5);
+      xscr = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x);
 
       snprintf(
           text,
@@ -335,10 +345,10 @@ suscan_gui_spectrum_redraw(
 
     cairo_move_to(
         cr,
-        SUSCAN_SPECTRUM_TO_SCR(spectrum, .5 + i * SUSCAN_GUI_SPECTRUM_DX, 0));
+        SUSCAN_SPECTRUM_TO_SCR(spectrum, i * SUSCAN_GUI_SPECTRUM_DX, 0));
     cairo_line_to(
         cr,
-        SUSCAN_SPECTRUM_TO_SCR(spectrum, .5 + i * SUSCAN_GUI_SPECTRUM_DX, 1));
+        SUSCAN_SPECTRUM_TO_SCR(spectrum, i * SUSCAN_GUI_SPECTRUM_DX, 1));
 
     cairo_stroke(cr);
   }
@@ -346,10 +356,10 @@ suscan_gui_spectrum_redraw(
   for (i = 1; i < SUSCAN_GUI_VERTICAL_DIVS; ++i) {
     cairo_move_to(
         cr,
-        SUSCAN_SPECTRUM_TO_SCR(spectrum, 0, i * SUSCAN_GUI_SPECTRUM_DY));
+        SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, i * SUSCAN_GUI_SPECTRUM_DY));
     cairo_line_to(
         cr,
-        SUSCAN_SPECTRUM_TO_SCR(spectrum, 1, i * SUSCAN_GUI_SPECTRUM_DY));
+        SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, i * SUSCAN_GUI_SPECTRUM_DY));
 
     cairo_stroke(cr);
   }
@@ -358,36 +368,36 @@ suscan_gui_spectrum_redraw(
   cairo_set_dash(cr, NULL, 0, 0);
   cairo_move_to(
       cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, 0, 0));
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 0));
   cairo_line_to(
       cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, 0, 1));
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 1));
   cairo_stroke(cr);
 
   cairo_move_to(
       cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, 0, 0));
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 0));
 
   cairo_line_to(
       cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, 1, 0));
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 0));
   cairo_stroke(cr);
 
   cairo_move_to(
       cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, 1, 1));
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 1));
   cairo_line_to(
       cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, 0, 1));
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 1));
   cairo_stroke(cr);
 
   cairo_move_to(
       cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, 1, 1));
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 1));
 
   cairo_line_to(
       cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, 1, 0));
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 0));
   cairo_stroke(cr);
 
   /* Draw channels, if enabled */
@@ -407,7 +417,7 @@ suscan_gui_spectrum_redraw(
           cr,
           SUSCAN_SPECTRUM_TO_SCR(
               spectrum,
-              0,
+              -.5,
               SUSCAN_GUI_SPECTRUM_ADJUST_Y(
                   spectrum,
                   -SU_POWER_DB(spectrum->N0))));
@@ -416,7 +426,7 @@ suscan_gui_spectrum_redraw(
           cr,
           SUSCAN_SPECTRUM_TO_SCR(
               spectrum,
-              1,
+              .5,
               SUSCAN_GUI_SPECTRUM_ADJUST_Y(
                   spectrum,
                   -SU_POWER_DB(spectrum->N0))));
@@ -432,6 +442,7 @@ suscan_gui_spectrum_redraw(
     if (step < 1)
       step = 1;
 
+    /* Draw PSD */
     x_prev = 0;
     for (i = step; i < spectrum->psd_size; i += step) {
       if ((x = i / (SUFLOAT) spectrum->psd_size) > .5) {
@@ -441,10 +452,10 @@ suscan_gui_spectrum_redraw(
           x_prev -= 1;
       }
 
-      x_adj = SUSCAN_GUI_SPECTRUM_ADJUST_X(spectrum, x) + .5;
+      x_adj = SUSCAN_GUI_SPECTRUM_ADJUST_X(spectrum, x);
 
-      if (x_adj >= 0 && x_adj < 1) {
-        x_prev_adj = SUSCAN_GUI_SPECTRUM_ADJUST_X(spectrum, x_prev) + .5;
+      if (x_adj >= -.5 && x_adj < .5) {
+        x_prev_adj = SUSCAN_GUI_SPECTRUM_ADJUST_X(spectrum, x_prev);
 
         cairo_move_to(
             cr,
@@ -594,5 +605,50 @@ suscan_spectrum_on_motion(GtkWidget *widget, GdkEventMotion *ev, gpointer data)
     gui->last_x = ev->x;
     gui->last_y = ev->y;
   }
+}
+
+gboolean
+suscan_spectrum_on_button_press(
+    GtkWidget *widget,
+    GdkEventButton *ev,
+    gpointer data)
+{
+  SUFLOAT x;
+  SUFLOAT freq;
+  char header[64];
+  const struct sigutils_channel *channel;
+  struct suscan_gui *gui = (struct suscan_gui *) data;
+
+  if (ev->type == GDK_BUTTON_PRESS && ev->button == 3) {
+    x = SUSCAN_GUI_SPECTRUM_ADJUST_X_INV(
+        &gui->main_spectrum,
+        SUSCAN_SPECTRUM_FROM_SCR_X(&gui->main_spectrum, ev->x));
+    freq = x * gui->main_spectrum.samp_rate + gui->main_spectrum.fc;
+
+    /* Lookup channel */
+    if ((channel = suscan_gui_spectrum_lookup_channel(
+        &gui->main_spectrum,
+        freq)) != NULL) {
+      snprintf(
+          header,
+          sizeof(header),
+          "Channel @ %lld Hz",
+          (uint64_t) round(channel->fc));
+
+      gtk_menu_item_set_label(
+          gui->channelHeaderMenuItem,
+          header);
+
+      gtk_widget_show_all(gui->channelMenu);
+
+      gtk_menu_popup_at_pointer(gui->channelMenu, (GdkEvent *) ev);
+
+      return TRUE;
+    } else {
+      printf("No channel @ %lld (%lg)\n", (uint64_t) round(freq), x);
+    }
+  }
+
+  return FALSE;
 }
 
