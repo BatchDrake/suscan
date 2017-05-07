@@ -216,7 +216,7 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
       suscan_analyzer_channel_msg_destroy(ptr);
       break;
 
-    case SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR:
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
       suscan_analyzer_inspector_msg_destroy(ptr);
       break;
 

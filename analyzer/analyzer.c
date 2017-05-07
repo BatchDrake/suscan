@@ -249,7 +249,7 @@ suscan_analyzer_thread(void *data)
           /* Nothing to dispose, safe to break the loop */
           goto done;
 
-        case SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR:
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
           /* Baudrate inspector command. Handle separately */
           if (!suscan_analyzer_parse_baud(analyzer, private)) {
             suscan_analyzer_dispose_message(type, private);
@@ -297,6 +297,15 @@ void *
 suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type)
 {
   return suscan_mq_read(analyzer->mq_out, type);
+}
+
+struct suscan_analyzer_inspector_msg *
+suscan_analyzer_read_inspector_msg(suscan_analyzer_t *analyzer)
+{
+  /* TODO: use poll and wait to wait for EOS and inspector messages */
+  return suscan_mq_read_w_type(
+      analyzer->mq_out,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR);
 }
 
 SUBOOL

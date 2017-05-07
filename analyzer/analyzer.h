@@ -22,6 +22,7 @@
 #define _ANALYZER_H
 
 #include <sigutils/sigutils.h>
+#include <sigutils/agc.h>
 #include <sigutils/detect.h>
 
 #include "worker.h"
@@ -40,6 +41,11 @@ enum suscan_aync_state {
 struct suscan_inspector_result {
   SUFLOAT fac;
   SUFLOAT nln;
+};
+
+struct suscan_inspector_params {
+  SUFLOAT fc;
+  SUFLOAT baud;
 };
 
 struct suscan_analyzer_source {
@@ -88,8 +94,13 @@ struct suscan_inspector {
   struct sigutils_channel channel;
   su_channel_detector_t *fac_baud_det; /* FAC baud detector */
   su_channel_detector_t *nln_baud_det; /* Non-linear baud detector */
+  su_agc_t              *agc; /* AGC, for sampler */
 
   struct suscan_consumer_task_state task_state;
+
+  SUFLOAT sym_phase;      /* Current sampling phase, in samples */
+  SUFLOAT sym_period;     /* In samples */
+  SUFLOAT sym_samp_phase; /* Relative sampling phase, [0, 1) */
 
   enum suscan_aync_state state;        /* Used to remove analyzer from queue */
 };
@@ -176,6 +187,8 @@ suscan_consumer_t *suscan_consumer_new(suscan_analyzer_t *analyzer);
 
 /****************************** Analyzer API **********************************/
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
+struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg(
+    suscan_analyzer_t *analyzer);
 SUBOOL suscan_analyzer_write(
     suscan_analyzer_t *analyzer,
     uint32_t type,

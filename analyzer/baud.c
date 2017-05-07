@@ -24,6 +24,8 @@
 #include <pthread.h>
 #include <stdint.h>
 
+#define SU_LOG_DOMAIN "suscan-baud"
+
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
 
@@ -114,12 +116,20 @@ suscan_inspector_wk_cb(
     goto done;
 
   if (got > 0) {
-    /* Got samples, forward them to baud detectors */
+    /*
+     * Got samples, forward them to baud detectors. TODO: add flag
+     * to enable and disable them
+     */
     if (su_channel_detector_feed_bulk(brinsp->fac_baud_det, samp, got) < got)
-        goto done;
+      goto done;
 
     if (su_channel_detector_feed_bulk(brinsp->nln_baud_det, samp, got) < got)
       goto done;
+
+    /*
+     * If the inspector's sampler is enabled, increment counters and
+     * forward samples with low priority to the analyzer
+     */
   }
 
   suscan_consumer_task_state_advance(&brinsp->task_state, got);
@@ -198,7 +208,10 @@ suscan_analyzer_register_inspector(
   return hnd;
 }
 
-/* We have ownership on msg */
+/*
+ * We have ownership on msg, this messages are urgent: they are placed
+ * in the beginning of the queue
+ */
 SUBOOL
 suscan_analyzer_parse_baud(
     suscan_analyzer_t *analyzer,
@@ -222,7 +235,6 @@ suscan_analyzer_parse_baud(
       new = NULL;
 
       msg->handle = handle;
-
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO:
@@ -234,8 +246,8 @@ suscan_analyzer_parse_baud(
       } else {
         /* Retrieve current esimate for message kind */
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO;
-        msg->baudrate.fac = brinsp->fac_baud_det->baud;
-        msg->baudrate.nln = brinsp->nln_baud_det->baud;
+        msg->result.fac = brinsp->fac_baud_det->baud;
+        msg->result.nln = brinsp->nln_baud_det->baud;
       }
       break;
 
@@ -272,7 +284,7 @@ suscan_analyzer_parse_baud(
 
   if (!suscan_mq_write(
       analyzer->mq_out,
-      SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
       msg))
     goto done;
 
@@ -309,38 +321,24 @@ suscan_inspector_open(
 
   if (!suscan_analyzer_write(
       analyzer,
-      SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
       req)) {
     SU_ERROR("Failed to send open command\n");
     goto done;
   }
 
   req = NULL;
-
-  for (;;) {
-    resp = suscan_analyzer_read(analyzer, &type);
-    if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_EOS) {
-      SU_ERROR("Unexpected end of stream while opening baud inspector\n");
-      goto done;
-    }
-
-    if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR)
-      break;
-
-    /* Not the message we were looking for */
-    suscan_analyzer_dispose_message(type, (void *) resp);
-  };
+  SU_TRYCATCH(
+      resp = suscan_analyzer_read_inspector_msg(analyzer),
+      goto done);
 
   if (resp->req_id != req_id) {
     SU_ERROR("Unmatched response received\n");
     goto done;
-  }
-
-  if (resp->kind != SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
+  } else if (resp->kind != SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
     SU_ERROR("Unexpected message kind\n");
     goto done;
   }
-
 
   handle = resp->handle;
 
@@ -375,27 +373,16 @@ suscan_inspector_close(
 
   if (!suscan_analyzer_write(
       analyzer,
-      SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
       req)) {
     SU_ERROR("Failed to send close command\n");
     goto done;
   }
 
   req = NULL;
-
-  for (;;) {
-    resp = suscan_analyzer_read(analyzer, &type);
-    if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_EOS) {
-      SU_ERROR("Unexpected end of stream while closing baud inspector\n");
-      goto done;
-    }
-
-    if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR)
-      break;
-
-    /* Not the message we were looking for */
-    suscan_analyzer_dispose_message(type, (void *) resp);
-  }
+  SU_TRYCATCH(
+      resp = suscan_analyzer_read_inspector_msg(analyzer),
+      goto done);
 
   if (resp->req_id != req_id) {
     SU_ERROR("Unmatched response received\n");
@@ -444,27 +431,16 @@ suscan_inspector_get_info(
 
   if (!suscan_analyzer_write(
       analyzer,
-      SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
       req)) {
     SU_ERROR("Failed to send get_info command\n");
     goto done;
   }
 
   req = NULL;
-
-  for (;;) {
-    resp = suscan_analyzer_read(analyzer, &type);
-    if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_EOS) {
-      SU_ERROR("Unexpected end of stream while asking for info\n");
-      goto done;
-    }
-
-    if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR)
-      break;
-
-    /* Not the message we were looking for */
-    suscan_analyzer_dispose_message(type, (void *) resp);
-  };
+  SU_TRYCATCH(
+      resp = suscan_analyzer_read_inspector_msg(analyzer),
+      goto done);
 
   if (resp->req_id != req_id) {
     SU_ERROR("Unmatched response received\n");
@@ -479,7 +455,7 @@ suscan_inspector_get_info(
     goto done;
   }
 
-  *result = resp->baudrate;
+  *result = resp->result;
 
   ok = SU_TRUE;
 

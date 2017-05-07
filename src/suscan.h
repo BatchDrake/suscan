@@ -40,17 +40,6 @@
       return SU_FALSE;                  \
   }
 
-/* TODO: move to sigutils */
-#define SU_TRYCATCH(expr, action)       \
-  if (!(expr)) {                        \
-    fprintf(                            \
-      stderr,                           \
-      "%s: exception in \"%s\"\n",      \
-      __FUNCTION__,                     \
-      STRINGIFY(expr));                 \
-      action;                           \
-  }
-
 enum suscan_mode {
   SUSCAN_MODE_GTK_UI,
   SUSCAN_MODE_FINGERPRINT

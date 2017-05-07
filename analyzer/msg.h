@@ -32,8 +32,9 @@
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_EOS           0x3
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL      0x4
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES_LOST  0x5
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_BR_INSPECTOR  0x6 /* Baudrate inspector */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR     0x6 /* Channel inspector */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PSD           0x7
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLE        0x8
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
@@ -61,12 +62,23 @@ struct suscan_analyzer_psd_msg {
   SUFLOAT  N0;
 };
 
-/* Channel inspector command */
+/* Channel sample */
+struct suscan_analyzer_sample_msg {
+  uint32_t handle;
+  SUCOMPLEX sample;
+};
+
+/*
+ * Channel inspector command. This is request-response: sample
+ * updates are treated separately
+ */
 enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_PARAMS,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_PARAMS,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND
 };
@@ -79,7 +91,7 @@ struct suscan_analyzer_inspector_msg {
 
   union {
     struct sigutils_channel channel;
-    struct suscan_inspector_result baudrate;
+    struct suscan_inspector_result result;
   };
 };
 
