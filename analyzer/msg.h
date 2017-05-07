@@ -116,7 +116,7 @@ SUBOOL suscan_analyzer_send_psd(
     const su_channel_detector_t *detector);
 
 /************************* Message parsing methods ***************************/
-SUBOOL suscan_analyzer_parse_baud(
+SUBOOL suscan_analyzer_parse_inspector_msg(
     suscan_analyzer_t *analyzer,
     struct suscan_analyzer_inspector_msg *msg);
 

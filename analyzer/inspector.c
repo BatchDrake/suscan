@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#define SU_LOG_DOMAIN "suscan-baud"
+#define SU_LOG_DOMAIN "suscan-inspector"
 
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
@@ -213,7 +213,7 @@ suscan_analyzer_register_inspector(
  * in the beginning of the queue
  */
 SUBOOL
-suscan_analyzer_parse_baud(
+suscan_analyzer_parse_inspector_msg(
     suscan_analyzer_t *analyzer,
     struct suscan_analyzer_inspector_msg *msg)
 {

@@ -251,7 +251,7 @@ suscan_analyzer_thread(void *data)
 
         case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
           /* Baudrate inspector command. Handle separately */
-          if (!suscan_analyzer_parse_baud(analyzer, private)) {
+          if (!suscan_analyzer_parse_inspector_msg(analyzer, private)) {
             suscan_analyzer_dispose_message(type, private);
             goto done;
           }
