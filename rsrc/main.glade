@@ -436,6 +436,7 @@
                   <object class="GtkNotebook" id="nbAnalyzerViews">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="scrollable">True</property>
                     <child>
                       <object class="GtkPaned">
                         <property name="visible">True</property>

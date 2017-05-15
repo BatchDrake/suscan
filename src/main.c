@@ -104,22 +104,10 @@ main(int argc, char *argv[], char *envp[])
       if (suscan_gui_start(argc, argv, config_list, config_count)) {
         exit_code = EXIT_SUCCESS;
       } else {
-        if ((msgs = suscan_log_get_last_messages(tv, 20)) != NULL) {
-          fprintf(
-              stderr,
-              "%s: Gtk GUI failed to start, last error messages were:\n",
-              argv[0]);
-
-          fprintf(stderr, "---------8<-------------------------------------\n");
-          fprintf(stderr, "%s", msgs);
-          fprintf(stderr, "---------8<-------------------------------------\n");
-        } else {
-          fprintf(
-              stderr,
-              "%s: Gtk GUI failed to start, memory error?\n",
-              argv[0]);
-        }
-
+        fprintf(
+            stderr,
+            "%s: Gtk GUI failed to start, last error messages were:\n",
+            argv[0]);
       }
       break;
 
@@ -149,6 +137,13 @@ main(int argc, char *argv[], char *envp[])
   }
 
 done:
+  if ((msgs = suscan_log_get_last_messages(tv, 20)) != NULL && *msgs) {
+    fprintf(stderr, "---------8<-------------------------------------\n");
+    fprintf(stderr, "%s", msgs);
+    fprintf(stderr, "---------8<-------------------------------------\n");
+    free(msgs);
+  }
+
   for (i = 0; i < config_count; ++i)
     suscan_source_config_destroy(config_list[i]);
 

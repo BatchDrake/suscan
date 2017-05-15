@@ -733,15 +733,25 @@ suscan_gui_remove_inspector(
 {
   unsigned int i;
 
-  if (insp->index < 0 || insp->index >= gui->inspector_count) {
-    SU_TRYCATCH(gui->inspector_list[insp->index] == insp, return SU_FALSE);
-    gui->inspector_list[insp->index] = NULL;
-    insp->index = -1;
-    insp->gui = NULL;
-    return SU_TRUE;
-  }
+  if (insp->index < 0 || insp->index >= gui->inspector_count)
+    return SU_FALSE;
 
-  return SU_FALSE;
+  SU_TRYCATCH(gui->inspector_list[insp->index] == insp, return SU_FALSE);
+  gtk_notebook_remove_page(gui->analyzerViewsNotebook, insp->page);
+  /*
+   * Substract one from all pages greater than insp->page. We do this
+   * because GTK sucks at handling notebook pages
+   */
+  for (i = 0; i < gui->inspector_count; ++i)
+    if (gui->inspector_list[i] != NULL)
+      if (gui->inspector_list[i]->page > insp->page)
+        --gui->inspector_list[i]->page;
+
+  gui->inspector_list[insp->index] = NULL;
+  insp->index = -1;
+  insp->page = -1;
+  insp->gui = NULL;
+  return SU_TRUE;
 }
 
 SUBOOL
@@ -762,7 +772,7 @@ suscan_gui_add_inspector(
       (insp->page = gtk_notebook_append_page_menu(
           gui->analyzerViewsNotebook,
           GTK_WIDGET(insp->channelInspectorGrid),
-          GTK_WIDGET(insp->pageLabel),
+          GTK_WIDGET(insp->pageLabelEventBox),
           NULL)) >= 0,
       goto fail);
 

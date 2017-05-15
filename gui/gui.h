@@ -174,18 +174,19 @@ struct suscan_gui_inspector {
   struct suscan_inspector_params params; /* Inspector params */
 
   /* Widgets */
-  GtkBuilder *builder;
-  GtkLabel   *pageLabel;
-  GtkGrid    *channelInspectorGrid;
-  GtkEntry   *carrierOffsetEntry;
-  GtkScale   *fineTuneScale;
-  GtkScale   *phaseScale;
-  GtkEntry   *baudRateEntry;
-  GtkButton  *setBaudRateButton;
-  GtkButton  *detectBaudRateFACButton;
-  GtkButton  *detectBaudRateNLNButton;
-  GtkScale   *fineBaudScale;
-  GtkScale   *symbolPhaseScale;
+  GtkBuilder  *builder;
+  GtkEventBox *pageLabelEventBox;
+  GtkLabel    *pageLabel;
+  GtkGrid     *channelInspectorGrid;
+  GtkEntry    *carrierOffsetEntry;
+  GtkScale    *fineTuneScale;
+  GtkScale    *phaseScale;
+  GtkEntry    *baudRateEntry;
+  GtkButton   *setBaudRateButton;
+  GtkButton   *detectBaudRateFACButton;
+  GtkButton   *detectBaudRateNLNButton;
+  GtkScale    *fineBaudScale;
+  GtkScale    *symbolPhaseScale;
 
   GtkRadioButton *costas2RadioButton;
   GtkRadioButton *costas4RadioButton;
