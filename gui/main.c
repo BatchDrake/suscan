@@ -34,7 +34,7 @@ suscan_settings_dialog_run(struct suscan_gui *gui)
 }
 
 void
-suscan_on_about(GtkWidget *widget, gpointer *data)
+suscan_on_about(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui *gui = (struct suscan_gui *) data;
 
@@ -44,7 +44,7 @@ suscan_on_about(GtkWidget *widget, gpointer *data)
 
 
 void
-suscan_on_settings(GtkWidget *widget, gpointer *data)
+suscan_on_settings(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui *gui = (struct suscan_gui *) data;
   struct suscan_gui_source_config *config;
@@ -72,7 +72,7 @@ suscan_on_settings(GtkWidget *widget, gpointer *data)
 }
 
 void
-suscan_on_toggle_connect(GtkWidget *widget, gpointer *data)
+suscan_on_toggle_connect(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui *gui = (struct suscan_gui *) data;
 
@@ -94,6 +94,20 @@ suscan_on_toggle_connect(GtkWidget *widget, gpointer *data)
     default:
       suscan_error(gui, "Error", "Impossiburu!");
   }
+}
+
+void
+suscan_on_open_inspector(GtkWidget *widget, gpointer data)
+{
+  struct suscan_gui *gui = (struct suscan_gui *) data;
+
+  /* Send open message. We will open new tab on response */
+  SU_TRYCATCH(
+      suscan_inspector_open_async(
+          gui->analyzer,
+          &gui->selected_channel,
+          rand()),
+      return);
 }
 
 struct suscan_gui_source_config *

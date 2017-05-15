@@ -156,7 +156,7 @@ suscan_log_get_last_messages(struct timeval since, unsigned int max)
     if (message_ring[id] != NULL)
       if (message_ring[id]->time.tv_sec > since.tv_sec
           || (message_ring[id]->time.tv_sec == since.tv_sec
-              && message_ring[id]->time.tv_usec == since.tv_usec)) {
+              && message_ring[id]->time.tv_usec > since.tv_usec)) {
         if ((tmp = strbuild(
             "%s(%c) %s",
             result,

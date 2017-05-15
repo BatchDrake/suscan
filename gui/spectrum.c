@@ -23,6 +23,60 @@
 #include <string.h>
 #include <sigutils/sampling.h>
 
+#define SUSCAN_GUI_HORIZONTAL_DIVS 20
+#define SUSCAN_GUI_VERTICAL_DIVS   10
+
+#define SUSCAN_GUI_SPECTRUM_DX (1. / SUSCAN_GUI_HORIZONTAL_DIVS)
+#define SUSCAN_GUI_SPECTRUM_DY (1. / SUSCAN_GUI_VERTICAL_DIVS)
+
+#define SUSCAN_GUI_SPECTRUM_SCALE_DELTA .1
+
+#define SUSCAN_GUI_SPECTRUM_LEFT_PADDING 30
+#define SUSCAN_GUI_SPECTRUM_TOP_PADDING 5
+
+#define SUSCAN_GUI_SPECTRUM_RIGHT_PADDING 5
+#define SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING 30
+
+#define SUSCAN_SPECTRUM_TO_SCR_X(s, x)            \
+  (((s)->width                                    \
+      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING          \
+      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING)        \
+    * (x + .5)                                    \
+      + SUSCAN_GUI_SPECTRUM_LEFT_PADDING)
+
+#define SUSCAN_SPECTRUM_FROM_SCR_X(s, x)          \
+  ((((x) - SUSCAN_GUI_SPECTRUM_LEFT_PADDING) /    \
+  ((s)->width                                     \
+      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING          \
+      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING)) - .5) \
+
+#define SUSCAN_SPECTRUM_TO_SCR_Y(s, y)            \
+  (((s)->height                                   \
+      - SUSCAN_GUI_SPECTRUM_TOP_PADDING           \
+      - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING)       \
+    * (y)                                         \
+      + SUSCAN_GUI_SPECTRUM_TOP_PADDING)
+
+#define SUSCAN_SPECTRUM_FROM_SCR_Y(s, y)          \
+  (((y) - SUSCAN_GUI_SPECTRUM_TOP_PADDING) /      \
+  ((s)->height                                    \
+      - SUSCAN_GUI_SPECTRUM_TOP_PADDING           \
+      - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING))      \
+
+
+#define SUSCAN_SPECTRUM_TO_SCR(s, x, y)         \
+  SUSCAN_SPECTRUM_TO_SCR_X(s, x), SUSCAN_SPECTRUM_TO_SCR_Y(s, y)
+
+#define SUSCAN_GUI_SPECTRUM_ADJUST_X(s, x)      \
+    (((x) - (s)->freq_offset) * (s)->freq_scale)
+#define SUSCAN_GUI_SPECTRUM_ADJUST_X_INV(s, x)  \
+    ((x) / (s)->freq_scale + (s)->freq_offset)
+
+#define SUSCAN_GUI_SPECTRUM_ADJUST_Y(s, y)      \
+    (((y) - (s)->ref_level) / ((s)->dbs_per_div * SUSCAN_GUI_VERTICAL_DIVS))
+#define SUSCAN_GUI_SPECTRUM_ADJUST_Y_INV(s, y)  \
+    ((y) * (s)->dbs_per_div * SUSCAN_GUI_VERTICAL_DIVS + (s)->ref_level)
+
 void
 suscan_gui_spectrum_clear(struct suscan_gui_spectrum *spectrum)
 {
@@ -482,8 +536,7 @@ suscan_gui_spectrum_redraw(
   }
 }
 
-/******************* This callbacks belong to the GUI API ********************/
-
+/******************* These callbacks belong to the GUI API ********************/
 gboolean
 suscan_spectrum_on_configure_event(
     GtkWidget *widget,
@@ -629,6 +682,8 @@ suscan_spectrum_on_button_press(
     if ((channel = suscan_gui_spectrum_lookup_channel(
         &gui->main_spectrum,
         freq)) != NULL) {
+      gui->selected_channel = *channel;
+
       snprintf(
           header,
           sizeof(header),
@@ -639,7 +694,7 @@ suscan_spectrum_on_button_press(
           gui->channelHeaderMenuItem,
           header);
 
-      gtk_widget_show_all(gui->channelMenu);
+      gtk_widget_show_all(GTK_WIDGET(gui->channelMenu));
 
       gtk_menu_popup_at_pointer(gui->channelMenu, (GdkEvent *) ev);
 

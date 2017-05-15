@@ -23,6 +23,7 @@
 
 #include <sigutils/sigutils.h>
 #include <sigutils/agc.h>
+#include <sigutils/pll.h>
 #include <sigutils/detect.h>
 
 #include "worker.h"
@@ -38,14 +39,9 @@ enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_HALTED
 };
 
-struct suscan_inspector_result {
+struct suscan_baud_det_result {
   SUFLOAT fac;
   SUFLOAT nln;
-};
-
-struct suscan_inspector_params {
-  SUFLOAT fc;
-  SUFLOAT baud;
 };
 
 struct suscan_analyzer_source {
@@ -89,20 +85,44 @@ struct suscan_consumer_task_state {
   SUSDIFF  wait_pos; /* Initially -1 */
 };
 
+enum suscan_inspector_carrier_control {
+  SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL,
+  SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2,
+  SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4
+};
+
+struct suscan_inspector_params {
+  enum suscan_inspector_carrier_control fc_ctrl; /* Carrier control */
+  SUFLOAT fc_off;    /* Offset frequency */
+  SUFLOAT fc_phi;    /* Carrier phase */
+  SUFLOAT sym_phase; /* Symbol phase */
+  SUFLOAT baud;      /* Baudrate */
+  uint32_t inspector_id;
+};
+
+#define suscan_inspector_params_INITIALIZER {0, 0, 0, 0, 0}
+
 /* TODO: protect baudrate access with mutexes */
 struct suscan_inspector {
   struct sigutils_channel channel;
   su_channel_detector_t *fac_baud_det; /* FAC baud detector */
   su_channel_detector_t *nln_baud_det; /* Non-linear baud detector */
-  su_agc_t              *agc; /* AGC, for sampler */
-
+  su_agc_t               agc;      /* AGC, for sampler */
+  su_costas_t            costas_2; /* 2nd order Costas loop */
+  su_costas_t            costas_4; /* 4th order Costas loop */
+  su_ncqo_t              lo;       /* Oscillator for manual carrier offset */
+  SUCOMPLEX              phase;    /* Local oscillator phase */
   struct suscan_consumer_task_state task_state;
 
-  SUFLOAT sym_phase;      /* Current sampling phase, in samples */
-  SUFLOAT sym_period;     /* In samples */
-  SUFLOAT sym_samp_phase; /* Relative sampling phase, [0, 1) */
+  /* Inspector parameters */
+  struct suscan_inspector_params params;
+  SUBOOL    sym_new_sample;     /* New sample flag */
+  SUCOMPLEX sym_last_sample;    /* Last sample fed to inspector */
+  SUCOMPLEX sym_sampler_output; /* Sampler output */
+  SUFLOAT   sym_phase;          /* Current sampling phase, in samples */
+  SUFLOAT   sym_period;         /* In samples */
 
-  enum suscan_aync_state state;        /* Used to remove analyzer from queue */
+  enum suscan_aync_state state; /* Used to remove analyzer from queue */
 };
 
 typedef struct suscan_inspector suscan_inspector_t;
@@ -144,18 +164,39 @@ suscan_inspector_t *suscan_inspector_new(
     const struct sigutils_channel *channel);
 
 /* Baud inspector operations */
+SUBOOL suscan_inspector_open_async(
+    suscan_analyzer_t *analyzer,
+    const struct sigutils_channel *channel,
+    uint32_t req_id);
+
 SUHANDLE suscan_inspector_open(
     suscan_analyzer_t *analyzer,
     const struct sigutils_channel *channel);
+
+SUBOOL suscan_inspector_close_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    uint32_t req_id);
 
 SUBOOL suscan_inspector_close(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle);
 
+SUBOOL suscan_inspector_get_info_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    uint32_t req_id);
+
 SUBOOL suscan_inspector_get_info(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
-    struct suscan_inspector_result *result);
+    struct suscan_baud_det_result *result);
+
+SUBOOL suscan_inspector_set_params_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    const struct suscan_inspector_params *params,
+    uint32_t req_id);
 
 /****************************** Consumer API **********************************/
 SUBOOL suscan_consumer_task_state_assert_samples(

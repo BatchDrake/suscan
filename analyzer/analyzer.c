@@ -114,7 +114,6 @@ suscan_source_wk_cb(
           goto done;
       }
     }
-
   } else {
     analyzer->eos = SU_TRUE;
     analyzer->cpu_usage = 0;

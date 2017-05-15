@@ -25,60 +25,6 @@
 #include <suscan.h>
 #include <gtk/gtk.h>
 
-#define SUSCAN_GUI_HORIZONTAL_DIVS 20
-#define SUSCAN_GUI_VERTICAL_DIVS   10
-
-#define SUSCAN_GUI_SPECTRUM_DX (1. / SUSCAN_GUI_HORIZONTAL_DIVS)
-#define SUSCAN_GUI_SPECTRUM_DY (1. / SUSCAN_GUI_VERTICAL_DIVS)
-
-#define SUSCAN_GUI_SPECTRUM_SCALE_DELTA .1
-
-#define SUSCAN_GUI_SPECTRUM_LEFT_PADDING 30
-#define SUSCAN_GUI_SPECTRUM_TOP_PADDING 5
-
-#define SUSCAN_GUI_SPECTRUM_RIGHT_PADDING 5
-#define SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING 30
-
-#define SUSCAN_SPECTRUM_TO_SCR_X(s, x)            \
-  (((s)->width                                    \
-      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING          \
-      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING)        \
-    * (x + .5)                                    \
-      + SUSCAN_GUI_SPECTRUM_LEFT_PADDING)
-
-#define SUSCAN_SPECTRUM_FROM_SCR_X(s, x)          \
-  ((((x) - SUSCAN_GUI_SPECTRUM_LEFT_PADDING) /    \
-  ((s)->width                                     \
-      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING          \
-      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING)) - .5) \
-
-#define SUSCAN_SPECTRUM_TO_SCR_Y(s, y)            \
-  (((s)->height                                   \
-      - SUSCAN_GUI_SPECTRUM_TOP_PADDING           \
-      - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING)       \
-    * (y)                                         \
-      + SUSCAN_GUI_SPECTRUM_TOP_PADDING)
-
-#define SUSCAN_SPECTRUM_FROM_SCR_Y(s, y)          \
-  (((y) - SUSCAN_GUI_SPECTRUM_TOP_PADDING) /      \
-  ((s)->height                                    \
-      - SUSCAN_GUI_SPECTRUM_TOP_PADDING           \
-      - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING))      \
-
-
-#define SUSCAN_SPECTRUM_TO_SCR(s, x, y)         \
-  SUSCAN_SPECTRUM_TO_SCR_X(s, x), SUSCAN_SPECTRUM_TO_SCR_Y(s, y)
-
-#define SUSCAN_GUI_SPECTRUM_ADJUST_X(s, x)      \
-    (((x) - (s)->freq_offset) * (s)->freq_scale)
-#define SUSCAN_GUI_SPECTRUM_ADJUST_X_INV(s, x)  \
-    ((x) / (s)->freq_scale + (s)->freq_offset)
-
-#define SUSCAN_GUI_SPECTRUM_ADJUST_Y(s, y)      \
-    (((y) - (s)->ref_level) / ((s)->dbs_per_div * SUSCAN_GUI_VERTICAL_DIVS))
-#define SUSCAN_GUI_SPECTRUM_ADJUST_Y_INV(s, y)  \
-    ((y) * (s)->dbs_per_div * SUSCAN_GUI_VERTICAL_DIVS + (s)->ref_level)
-
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
 #endif
@@ -177,6 +123,9 @@ struct suscan_gui {
 
   GtkMenu *channelMenu;
   GtkMenuItem *channelHeaderMenuItem;
+  GtkMenuItem *openInspectorMenuItem;
+
+  GtkNotebook *analyzerViewsNotebook;
 
   struct suscan_gui_source_config *selected_config;
 
@@ -196,6 +145,7 @@ struct suscan_gui {
   SUSCOUNT current_samp_rate;
   SUFLOAT  original_freq_offset;
   SUFLOAT  original_ref_level;
+  struct sigutils_channel selected_channel;
 
   struct suscan_gui_spectrum main_spectrum;
 
@@ -203,14 +153,46 @@ struct suscan_gui {
   PTR_LIST(struct suscan_gui_inspector, inspector);
 };
 
-struct suscan_gui_inspector {
-  /* Widgets */
-  struct suscan_gui *gui;
-  GtkBuilder *builder;
+#define SUSCAN_GUI_CONSTELLATION_HISTORY 200
 
-  GtkGrid *channelInspectorGrid;
+struct suscan_gui_constellation {
+  cairo_surface_t *surface;
+  unsigned width;
+  unsigned height;
+
+  SUCOMPLEX phase;
+  SUCOMPLEX history[SUSCAN_GUI_CONSTELLATION_HISTORY];
+  unsigned int p;
 };
 
+struct suscan_gui_inspector {
+  int index; /* Back reference */
+  gint page; /* Page number */
+  SUHANDLE inshnd; /* Inspector handle (relative to current analyzer) */
+  struct suscan_gui *gui; /* Parent GUI */
+  struct suscan_gui_constellation constellation; /* Constellation graph */
+  struct suscan_inspector_params params; /* Inspector params */
+
+  /* Widgets */
+  GtkBuilder *builder;
+  GtkLabel   *pageLabel;
+  GtkGrid    *channelInspectorGrid;
+  GtkEntry   *carrierOffsetEntry;
+  GtkScale   *fineTuneScale;
+  GtkScale   *phaseScale;
+  GtkEntry   *baudRateEntry;
+  GtkButton  *setBaudRateButton;
+  GtkButton  *detectBaudRateFACButton;
+  GtkButton  *detectBaudRateNLNButton;
+  GtkScale   *fineBaudScale;
+  GtkScale   *symbolPhaseScale;
+
+  GtkRadioButton *costas2RadioButton;
+  GtkRadioButton *costas4RadioButton;
+  GtkRadioButton *manualRadioButton;
+
+  struct sigutils_channel channel;
+};
 
 struct suscan_gui *suscan_gui_new(int argc, char **argv);
 
@@ -240,9 +222,12 @@ void suscan_gui_update_state(
     struct suscan_gui *gui,
     enum suscan_gui_state state);
 
+void suscan_gui_disable_all_inspectors(struct suscan_gui *gui);
+
 SUBOOL suscan_gui_connect(struct suscan_gui *gui);
 void suscan_gui_disconnect(struct suscan_gui *gui);
 
+/* Spectrum API */
 void suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum);
 
 void suscan_gui_spectrum_update(
@@ -254,10 +239,52 @@ void suscan_gui_spectrum_update_channels(
     struct sigutils_channel **channel_list,
     unsigned int channel_count);
 
+/* Constellation API */
+void suscan_gui_constellation_init(
+    struct suscan_gui_constellation *constellation);
+
+void suscan_gui_constellation_clear(
+    struct suscan_gui_constellation *constellation);
+
+void suscan_gui_constellation_push_sample(
+    struct suscan_gui_constellation *constellation,
+    SUCOMPLEX sample);
+
+/* Some message dialogs */
 #define suscan_error(gui, title, fmt, arg...) \
     suscan_gui_msgbox(gui, GTK_MESSAGE_ERROR, title, fmt, ##arg)
 
 #define suscan_warning(gui, title, fmt, arg...) \
     suscan_gui_msgbox(gui, GTK_MESSAGE_WARNING, title, fmt, ##arg)
+
+/* Main GUI inspector list handling methods */
+SUBOOL suscan_gui_remove_inspector(
+    struct suscan_gui *gui,
+    struct suscan_gui_inspector *insp);
+
+SUBOOL suscan_gui_add_inspector(
+    struct suscan_gui *gui,
+    struct suscan_gui_inspector *insp);
+
+struct suscan_gui_inspector *suscan_gui_get_inspector(
+    const struct suscan_gui *gui,
+    uint32_t inspector_id);
+
+/* Inspector GUI functions */
+void suscan_gui_inspector_feed_w_batch(
+    struct suscan_gui_inspector *inspector,
+    const struct suscan_analyzer_sample_batch_msg *msg);
+
+struct suscan_gui_inspector *suscan_gui_inspector_new(
+    const struct sigutils_channel *channel,
+    SUHANDLE handle);
+
+SUBOOL suscan_gui_inspector_enable(
+    struct suscan_gui_inspector *insp,
+    const struct suscan_inspector_params *params);
+
+void suscan_gui_inspector_disable(struct suscan_gui_inspector *insp);
+
+void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
 
 #endif /* _GUI_GUI_H */

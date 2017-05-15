@@ -162,26 +162,41 @@ suscan_analyzer_inspector_msg_destroy(
   free(msg);
 }
 
+void
+suscan_analyzer_psd_msg_destroy(struct suscan_analyzer_psd_msg *msg)
+{
+  if (msg->psd_data != NULL)
+    free(msg->psd_data);
+
+  free(msg);
+}
+
 struct suscan_analyzer_psd_msg *
 suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
 {
-  struct suscan_analyzer_psd_msg *new;
+  struct suscan_analyzer_psd_msg *new = NULL;
 
-  if ((new = malloc(sizeof(struct suscan_analyzer_psd_msg))) == NULL)
-    return NULL;
+  SU_TRYCATCH(
+      new = calloc(1, sizeof(struct suscan_analyzer_psd_msg)),
+      goto fail);
 
   new->psd_size = cd->params.window_size;
   new->samp_rate = cd->params.samp_rate;
   new->fc = 0;
 
-  if ((new->psd_data = malloc(sizeof(SUFLOAT) * new->psd_size)) == NULL) {
-    free(new);
-    return NULL;
-  }
+  SU_TRYCATCH(
+      new->psd_data = malloc(sizeof(SUFLOAT) * new->psd_size),
+      goto fail);
 
   memcpy(new->psd_data, cd->spect, sizeof(SUFLOAT) * new->psd_size);
 
   return new;
+
+fail:
+  if (new != NULL)
+    suscan_analyzer_psd_msg_destroy(new);
+
+  return NULL;
 }
 
 SUFLOAT *
@@ -194,11 +209,52 @@ suscan_analyzer_psd_msg_take_psd(struct suscan_analyzer_psd_msg *msg)
   return result;
 }
 
-void
-suscan_analyzer_psd_msg_destroy(struct suscan_analyzer_psd_msg *msg)
+struct suscan_analyzer_sample_batch_msg *
+suscan_analyzer_sample_batch_msg_new(uint32_t inspector_id)
 {
-  if (msg->psd_data != NULL)
-    free(msg->psd_data);
+  struct suscan_analyzer_sample_batch_msg *new = NULL;
+
+  SU_TRYCATCH(
+      new = calloc(1, sizeof(struct suscan_analyzer_sample_batch_msg)),
+      return NULL);
+
+  new->inspector_id = inspector_id;
+
+  return new;
+}
+
+SUBOOL
+suscan_analyzer_sample_batch_msg_append_sample(
+    struct suscan_analyzer_sample_batch_msg *msg,
+    SUCOMPLEX sample)
+{
+  unsigned int storage = msg->sample_storage;
+  void *new;
+
+  if (storage == 0)
+    storage = 1;
+  else if (msg->sample_count == storage)
+    storage <<= 1;
+
+  if (storage != msg->sample_storage) {
+    SU_TRYCATCH(
+        new = realloc(msg->samples, sizeof(SUCOMPLEX) * storage),
+        return SU_FALSE);
+    msg->samples = new;
+    msg->sample_storage = storage;
+  }
+
+  msg->samples[msg->sample_count++] = sample;
+
+  return SU_TRUE;
+}
+
+void
+suscan_analyzer_sample_batch_msg_destroy(
+    struct suscan_analyzer_sample_batch_msg *msg)
+{
+  if (msg->samples != NULL)
+    free(msg->samples);
 
   free(msg);
 }
@@ -222,6 +278,10 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
       suscan_analyzer_psd_msg_destroy(ptr);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
+      suscan_analyzer_sample_batch_msg_destroy(ptr);
       break;
   }
 }
@@ -358,4 +418,5 @@ done:
 
   return ok;
 }
+
 

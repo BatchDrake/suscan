@@ -702,6 +702,20 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
             "miChannelHeader")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->openInspectorMenuItem =
+          GTK_MENU_ITEM(gtk_builder_get_object(
+            gui->builder,
+            "miOpenInspector")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->analyzerViewsNotebook =
+          GTK_NOTEBOOK(gtk_builder_get_object(
+            gui->builder,
+            "nbAnalyzerViews")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
@@ -709,6 +723,83 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
   gtk_combo_box_set_active(gui->sourceCombo, 0);
 
   return SU_TRUE;
+}
+
+/************************ Inspector handling methods *************************/
+SUBOOL
+suscan_gui_remove_inspector(
+    struct suscan_gui *gui,
+    struct suscan_gui_inspector *insp)
+{
+  unsigned int i;
+
+  if (insp->index < 0 || insp->index >= gui->inspector_count) {
+    SU_TRYCATCH(gui->inspector_list[insp->index] == insp, return SU_FALSE);
+    gui->inspector_list[insp->index] = NULL;
+    insp->index = -1;
+    insp->gui = NULL;
+    return SU_TRUE;
+  }
+
+  return SU_FALSE;
+}
+
+SUBOOL
+suscan_gui_add_inspector(
+    struct suscan_gui *gui,
+    struct suscan_gui_inspector *insp)
+{
+  struct suscan_inspector_params params = suscan_inspector_params_INITIALIZER;
+  SUBOOL inspector_added = SU_FALSE;
+
+  SU_TRYCATCH(
+      (insp->index = PTR_LIST_APPEND_CHECK(gui->inspector, insp)) != -1,
+      goto fail);
+
+  inspector_added = SU_TRUE;
+
+  SU_TRYCATCH(
+      (insp->page = gtk_notebook_append_page_menu(
+          gui->analyzerViewsNotebook,
+          GTK_WIDGET(insp->channelInspectorGrid),
+          GTK_WIDGET(insp->pageLabel),
+          NULL)) >= 0,
+      goto fail);
+
+  insp->gui = gui;
+  gtk_notebook_set_current_page(gui->analyzerViewsNotebook, insp->page);
+
+  /*
+   * Page added. Set initial params. Interface will be unlocked as soon
+   * as we received the response of this message
+   */
+  params.inspector_id = insp->index;
+  insp->params = params;
+
+  SU_TRYCATCH(
+      suscan_inspector_set_params_async(
+          gui->analyzer,
+          insp->inshnd,
+          &params,
+          rand()),
+      goto fail);
+
+  return TRUE;
+
+fail:
+  if (inspector_added)
+    (void) suscan_gui_remove_inspector(gui, insp);
+
+  return FALSE;
+}
+
+struct suscan_gui_inspector *
+suscan_gui_get_inspector(const struct suscan_gui *gui, uint32_t inspector_id)
+{
+  if (inspector_id >= gui->inspector_count)
+    return NULL;
+
+  return gui->inspector_list[inspector_id];
 }
 
 SUPRIVATE void
@@ -795,6 +886,16 @@ suscan_gui_set_config(
         suscan_gui_set_freq(gui, val->as_float);
     }
   }
+}
+
+void
+suscan_gui_disable_all_inspectors(struct suscan_gui *gui)
+{
+  unsigned int i;
+
+  for (i = 0; i < gui->inspector_count; ++i)
+    if (gui->inspector_list[i] != NULL)
+      suscan_gui_inspector_disable(gui->inspector_list[i]);
 }
 
 SUBOOL

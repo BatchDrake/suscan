@@ -43,8 +43,10 @@ main(int argc, char *argv[], char *envp[])
 {
   struct suscan_source_config *config = NULL;
   PTR_LIST_LOCAL(struct suscan_source_config, config);
+  struct timeval tv;
   enum suscan_mode mode = SUSCAN_MODE_GTK_UI;
   int exit_code = EXIT_FAILURE;
+  char *msgs;
   unsigned int i;
   int c;
   int index;
@@ -98,8 +100,27 @@ main(int argc, char *argv[], char *envp[])
 
   switch (mode) {
     case SUSCAN_MODE_GTK_UI:
-      if (suscan_gui_start(argc, argv, config_list, config_count))
+      gettimeofday(&tv, NULL);
+      if (suscan_gui_start(argc, argv, config_list, config_count)) {
         exit_code = EXIT_SUCCESS;
+      } else {
+        if ((msgs = suscan_log_get_last_messages(tv, 20)) != NULL) {
+          fprintf(
+              stderr,
+              "%s: Gtk GUI failed to start, last error messages were:\n",
+              argv[0]);
+
+          fprintf(stderr, "---------8<-------------------------------------\n");
+          fprintf(stderr, "%s", msgs);
+          fprintf(stderr, "---------8<-------------------------------------\n");
+        } else {
+          fprintf(
+              stderr,
+              "%s: Gtk GUI failed to start, memory error?\n",
+              argv[0]);
+        }
+
+      }
       break;
 
     case SUSCAN_MODE_FINGERPRINT:

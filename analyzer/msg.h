@@ -34,7 +34,7 @@
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES_LOST  0x5
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR     0x6 /* Channel inspector */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PSD           0x7
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLE        0x8
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES       0x8 /* Sample batch */
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
@@ -62,10 +62,12 @@ struct suscan_analyzer_psd_msg {
   SUFLOAT  N0;
 };
 
-/* Channel sample */
-struct suscan_analyzer_sample_msg {
-  uint32_t handle;
-  SUCOMPLEX sample;
+/* Channel sample batch */
+struct suscan_analyzer_sample_batch_msg {
+  uint32_t     inspector_id;
+  SUCOMPLEX   *samples;
+  unsigned int sample_count;
+  unsigned int sample_storage;
 };
 
 /*
@@ -85,13 +87,15 @@ enum suscan_analyzer_inspector_msgkind {
 
 struct suscan_analyzer_inspector_msg {
   enum suscan_analyzer_inspector_msgkind kind;
-  uint32_t req_id;
-  uint32_t handle;
+  uint32_t inspector_id; /* Per-inspector identifier */
+  uint32_t req_id;       /* Per-request identifier */
+  uint32_t handle;       /* Handle */
   int status;
 
   union {
     struct sigutils_channel channel;
-    struct suscan_inspector_result result;
+    struct suscan_baud_det_result baud;
+    struct suscan_inspector_params params;
   };
 };
 
@@ -150,6 +154,17 @@ struct suscan_analyzer_psd_msg *suscan_analyzer_psd_msg_new(
     const su_channel_detector_t *cd);
 SUFLOAT *suscan_analyzer_psd_msg_take_psd(struct suscan_analyzer_psd_msg *msg);
 void suscan_analyzer_psd_msg_destroy(struct suscan_analyzer_psd_msg *msg);
+
+/* Sample batch message */
+struct suscan_analyzer_sample_batch_msg *suscan_analyzer_sample_batch_msg_new(
+    uint32_t inspector_id);
+
+SUBOOL suscan_analyzer_sample_batch_msg_append_sample(
+    struct suscan_analyzer_sample_batch_msg *msg,
+    SUCOMPLEX sample);
+
+void suscan_analyzer_sample_batch_msg_destroy(
+    struct suscan_analyzer_sample_batch_msg *msg);
 
 /* Generic message disposer */
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);

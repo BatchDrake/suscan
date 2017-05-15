@@ -90,6 +90,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
           "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       break;
 
     case SUSCAN_GUI_STATE_RUNNING:
@@ -99,6 +100,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
           "media-playback-stop-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), TRUE);
       break;
 
     case SUSCAN_GUI_STATE_STOPPING:
@@ -108,6 +110,8 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
           "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
+      suscan_gui_disable_all_inspectors(gui);
       break;
   }
 
@@ -125,9 +129,15 @@ SUPRIVATE gboolean
 suscan_async_stopped_cb(gpointer user_data)
 {
   struct suscan_gui *gui = (struct suscan_gui *) user_data;
+  unsigned int i;
 
   g_thread_join(gui->async_thread);
   gui->async_thread = NULL;
+
+  /* Destroy all inspectors */
+  for (i = 0; i < gui->inspector_count; ++i)
+    if (gui->inspector_list[i] != NULL)
+      gui->inspector_list[i]->inshnd = -1;
 
   /* Destroy analyzer object */
   suscan_analyzer_destroy(gui->analyzer);
@@ -220,6 +230,128 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
   return G_SOURCE_REMOVE;
 }
 
+SUPRIVATE gboolean
+suscan_async_parse_sample_batch_msg(gpointer user_data)
+{
+  struct suscan_gui_msg_envelope *envelope;
+  struct suscan_analyzer_sample_batch_msg *msg;
+  struct suscan_gui_inspector *insp = NULL;
+
+  envelope = (struct suscan_gui_msg_envelope *) user_data;
+  msg = (struct suscan_analyzer_sample_batch_msg *) envelope->private;
+
+  SU_TRYCATCH(
+      insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
+      goto done);
+
+  /* Append all these samples to the inspector GUI */
+  suscan_gui_inspector_feed_w_batch(insp, msg);
+
+done:
+  suscan_gui_msg_envelope_destroy(envelope);
+
+  return G_SOURCE_REMOVE;
+}
+
+SUPRIVATE gboolean
+suscan_async_parse_inspector_msg(gpointer user_data)
+{
+  struct suscan_gui_msg_envelope *envelope;
+  struct suscan_analyzer_inspector_msg *msg;
+  struct suscan_gui_inspector *new_insp = NULL;
+  struct suscan_gui_inspector *insp = NULL;
+  char text[64];
+  envelope = (struct suscan_gui_msg_envelope *) user_data;
+  msg = (struct suscan_analyzer_inspector_msg *) envelope->private;
+
+  /* Analyze inspector message type */
+  switch (msg->kind) {
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
+      /* Create new inspector and append to tab */
+      SU_TRYCATCH(
+          new_insp = suscan_gui_inspector_new(
+              &msg->channel,
+              msg->handle),
+          goto done);
+
+      SU_TRYCATCH(
+          suscan_gui_add_inspector(
+              envelope->gui,
+              new_insp),
+          goto done);
+
+      /* TODO: Set params */
+      new_insp = NULL;
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO:
+      SU_TRYCATCH(
+          insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
+          goto done);
+
+      if (msg->req_id == 0) {
+        /* Update from FAC */
+        snprintf(text, sizeof(text), "%lg", msg->baud.fac);
+        gtk_entry_set_text(insp->baudRateEntry, text);
+      } else {
+        /* Update from non-linear */
+        snprintf(text, sizeof(text), "%lg", msg->baud.nln);
+        gtk_entry_set_text(insp->baudRateEntry, text);
+      }
+
+      gtk_widget_set_sensitive(GTK_WIDGET(insp->baudRateEntry), TRUE);
+
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_PARAMS:
+      /* TODO: update GUI according to params */
+      SU_TRYCATCH(
+          insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
+          goto done);
+      SU_TRYCATCH(
+          suscan_gui_inspector_enable(insp, &msg->params),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
+      SU_TRYCATCH(
+          insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
+          goto done);
+      SU_TRYCATCH(
+          suscan_gui_remove_inspector(envelope->gui, insp),
+          goto done);
+
+      new_insp = insp; /* To be deleted at cleanup */
+
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE:
+      suscan_error(
+          envelope->gui,
+          "Suscan inspector",
+          "Invalid inspector handle passed");
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
+      suscan_error(
+          envelope->gui,
+          "Suscan inspector",
+          "Invalid command passed to inspector");
+      break;
+
+    default:
+      SU_WARNING("Ignored inspector message %d\n", msg->kind);
+  }
+
+done:
+  if (new_insp != NULL)
+    suscan_gui_inspector_destroy(new_insp);
+
+  suscan_gui_msg_envelope_destroy(envelope);
+
+  return G_SOURCE_REMOVE;
+}
+
 SUPRIVATE gpointer
 suscan_gui_async_thread(gpointer data)
 {
@@ -261,6 +393,30 @@ suscan_gui_async_thread(gpointer data)
         g_idle_add(suscan_async_update_main_spectrum_cb, envelope);
         break;
 
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
+        if ((envelope = suscan_gui_msg_envelope_new(
+            gui,
+            type,
+            private)) == NULL) {
+          suscan_analyzer_dispose_message(type, private);
+          break;
+        }
+
+        g_idle_add(suscan_async_parse_inspector_msg, envelope);
+        break;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
+        if ((envelope = suscan_gui_msg_envelope_new(
+            gui,
+            type,
+            private)) == NULL) {
+          suscan_analyzer_dispose_message(type, private);
+          break;
+        }
+
+        g_idle_add(suscan_async_parse_sample_batch_msg, envelope);
+        break;
+
       case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS: /* End of stream */
         g_idle_add(suscan_async_stopped_cb, gui);
         suscan_analyzer_dispose_message(type, private);
@@ -279,9 +435,21 @@ done:
 SUBOOL
 suscan_gui_connect(struct suscan_gui *gui)
 {
+  unsigned int i;
+
   assert(gui->state == SUSCAN_GUI_STATE_STOPPED);
   assert(gui->analyzer == NULL);
   assert(gui->selected_config != NULL);
+
+  for (i = 0; i < gui->inspector_count; ++i)
+    if (gui->inspector_list[i] != NULL)
+      break;
+
+  if (i < gui->inspector_count)
+    suscan_warning(
+        gui,
+        "Existing inspectors",
+        "The opened inspector tabs will remain in idle state");
 
   if ((gui->analyzer = suscan_analyzer_new(
       gui->selected_config->config,

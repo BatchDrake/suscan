@@ -36,7 +36,7 @@
 struct suscan_fingerprint_chresult {
   struct sigutils_channel channel;
   SUHANDLE br_handle; /* Baudrate inspector handle */
-  struct suscan_inspector_result baudrate;
+  struct suscan_baud_det_result baudrate;
 };
 
 struct suscan_fingerprint_report {
