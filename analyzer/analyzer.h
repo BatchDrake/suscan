@@ -32,6 +32,8 @@
 
 #define SUHANDLE int32_t
 
+#define SUSCAN_CONSUMER_IDLE_COUNTER 30
+
 enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_CREATED,
   SUSCAN_ASYNC_STATE_RUNNING,
@@ -64,6 +66,7 @@ struct suscan_analyzer;
 
 /* Per-worker object: used to centralize reads */
 struct suscan_consumer {
+  pthread_mutex_t lock; /* Must be recursive */
   suscan_worker_t *worker;
   struct suscan_analyzer *analyzer;
   su_block_port_t port; /* Slave reading port */
@@ -71,19 +74,15 @@ struct suscan_consumer {
   SUCOMPLEX *buffer; /* TODO: make int const. Don't own this buffer */
   SUSCOUNT   buffer_size;
   SUSCOUNT   buffer_pos;
-  SUSCOUNT   buffer_avail;
 
   unsigned int tasks;
-  unsigned int pending;
+  unsigned int idle_counter; /* Turns left on tasks == 0 before stop consuming */
+
+  SUBOOL consuming; /* Whether we should be reading */
+  SUBOOL failed;    /* Whether the consumer callback failed somehow */
 };
 
 typedef struct suscan_consumer suscan_consumer_t;
-
-struct suscan_consumer_task_state {
-  suscan_consumer_t *consumer;
-  SUSCOUNT read_pos;
-  SUSDIFF  wait_pos; /* Initially -1 */
-};
 
 enum suscan_inspector_carrier_control {
   SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL,
@@ -112,7 +111,6 @@ struct suscan_inspector {
   su_costas_t            costas_4; /* 4th order Costas loop */
   su_ncqo_t              lo;       /* Oscillator for manual carrier offset */
   SUCOMPLEX              phase;    /* Local oscillator phase */
-  struct suscan_consumer_task_state task_state;
 
   /* Inspector parameters */
   struct suscan_inspector_params params;
@@ -199,22 +197,15 @@ SUBOOL suscan_inspector_set_params_async(
     uint32_t req_id);
 
 /****************************** Consumer API **********************************/
-SUBOOL suscan_consumer_task_state_assert_samples(
-    struct suscan_consumer_task_state *state,
-    SUCOMPLEX **samples,
-    SUSCOUNT *pavail);
-
-SUBOOL suscan_consumer_task_state_advance(
-    struct suscan_consumer_task_state *state,
-    SUSCOUNT samples);
-
-void suscan_consumer_task_state_init(
-    struct suscan_consumer_task_state *state,
-    suscan_consumer_t *consumer);
-
 SUBOOL suscan_consumer_destroy(suscan_consumer_t *cons);
 
 SUBOOL suscan_consumer_remove_task(suscan_consumer_t *consumer);
+
+const SUCOMPLEX *suscan_consumer_get_buffer(const suscan_consumer_t *consumer);
+
+SUSCOUNT suscan_consumer_get_buffer_size(const suscan_consumer_t *consumer);
+
+SUSCOUNT suscan_consumer_get_buffer_pos(const suscan_consumer_t *consumer);
 
 SUBOOL suscan_consumer_push_task(
     suscan_consumer_t *consumer,

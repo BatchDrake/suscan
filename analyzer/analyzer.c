@@ -354,130 +354,107 @@ suscan_analyzer_halt_worker(suscan_worker_t *worker)
 /************************ Suscan consumer API *********************************/
 
 /*
- * Consumer objects keep a local copy of the last retrieved samples. When
- * a task needs more data beyond its read_pos, it increments the consumer
- * "pending" member and restarts.
- *
- * When "pending" == "tasks", data from the port is readed.
- *
- * We must provide a suscan_consumer_task_state_assert method, to ensure
- * that task states are updated in an ordered way. This method must do:
- *
- * 1. Compare state.read_pos against consumer's buffer_avail and _pos.
- * 2. If data is available, just return a pointer / size pair
- * 3. If data is NOT available:
- *   3.1 Check whether read_pos == wait_pos. If true, return 0.
- *   3.2 Increment consumer's pending counter and set wait_pos to read_pos
- *   3.3 If pending == tasks, perform read.
- *   3.4 If read fails, and not because of a desync, send EOS, and halt
- *       worker
- *   3.5 Update consumer buffer, and return data
- *
- * Additionally, tasks must call suscan_consumer_task_state_advance to
- * indicate how many samples they have consumed so far
+ * Consumer objects keep a local copy of the last retrieved samples. A consumer
+ * is enabled as soon as its task counter becomes to non-zero. Then, it pushes
+ * a persistent callback that reads from the consumer's slave port in
+ * each run, populating its buffer. Consumer tasks will use this buffer to read
+ * directly.
  */
 
-void
-suscan_consumer_task_state_init(
-    struct suscan_consumer_task_state *state,
-    suscan_consumer_t *consumer)
+SUPRIVATE SUBOOL
+suscan_consumer_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
 {
-  state->consumer = consumer;
-  state->read_pos = consumer->buffer_pos;
-  state->wait_pos = -1;
-}
+  suscan_consumer_t *consumer = (suscan_consumer_t *) wk_private;
+  SUSCOUNT got;
+  SUSCOUNT p = 0;
+  SUSCOUNT size = consumer->buffer_size;
+  SUBOOL mutex_acquired = SU_FALSE;
 
-SUBOOL
-suscan_consumer_task_state_assert_samples(
-    struct suscan_consumer_task_state *state,
-    SUCOMPLEX **samples,
-    SUSCOUNT *pavail)
-{
-  SUSDIFF avail;
-  SUSDIFF consumed;
-  SUSDIFF got;
+  /*
+   * This mutex protects the consumer against push() and remove()
+   * operations from different threads. This mutex will not sleep
+   * most of the time.
+   */
+  SU_TRYCATCH(pthread_mutex_lock(&consumer->lock) != -1, goto fail);
 
-  if (state->read_pos < state->consumer->buffer_pos) {
-    SU_ERROR("Unexpected desync\n");
-    goto halt;
+  mutex_acquired = SU_TRUE;
+
+  if (consumer->tasks == 0) {
+    if (consumer->idle_counter == 0) {
+      SU_INFO("Consumer %p passed to idle state\n", consumer);
+      consumer->consuming = SU_FALSE;
+
+      su_block_port_unplug(&consumer->port);
+
+      pthread_mutex_unlock(&consumer->lock);
+
+      return SU_FALSE; /* Remove consumer callback */
+    } else {
+      --consumer->idle_counter;
+    }
   }
 
-  consumed = state->read_pos - state->consumer->buffer_pos;
-  avail = state->consumer->buffer_avail - consumed;
+  while (size > 0) {
+    got = su_block_port_read(&consumer->port, consumer->buffer + p, size);
 
-  if (avail == 0) {
-    /* Samples *not* available */
-    if (state->read_pos != state->wait_pos) {
-      ++state->consumer->pending;
-      state->wait_pos = state->read_pos;
+    /* Normal read */
+    if (got > 0) {
+      p += got;
+      size -= got;
+    } else {
+      switch (got) {
+        case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
+          SU_WARNING("Samples lost by consumer (normal in slow CPUs)\n");
+          su_block_port_resync(&consumer->port);
+          break;
 
-      if (state->consumer->pending > state->consumer->tasks) {
-        SU_ERROR("pending > tasks? (%d > %d)\n", state->consumer->pending, state->consumer->tasks);
-        --state->consumer->pending;
-        goto halt;
-      }
-
-      if (state->consumer->pending == state->consumer->tasks) {
-        /* Barrier reached. TODO: flip buffers */
-        while ((got = su_block_port_read(
-            &state->consumer->port,
-            state->consumer->buffer,
-            state->consumer->buffer_size)) < 1) {
-
-          if (got == SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC) {
-            SU_WARNING("Samples lost by consumer (normal in slow CPUs)\n");
-            su_block_port_resync(&state->consumer->port);
-            continue;
-          } else {
-            suscan_analyzer_send_status(
-                state->consumer->analyzer,
-                SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-                got,
-                "Consumer worker EOS");
-            --state->consumer->pending;
-            goto halt;
-          }
-        }
-
-        /* Data available */
-        state->consumer->buffer_pos += state->consumer->buffer_avail;
-        state->consumer->buffer_avail = got;
-
-        /* No one is waiting now */
-        state->consumer->pending = 0;
-
-        avail = got;
-        consumed = 0;
+        default:
+          suscan_analyzer_send_status(
+              consumer->analyzer,
+              SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+              got,
+              "Consumer worker EOS");
+          goto fail;
       }
     }
   }
 
-  /* Samples available */
-  *pavail  = avail;
-  *samples = state->consumer->buffer + consumed;
+  consumer->buffer_pos += p;
+
+  SU_TRYCATCH(pthread_mutex_unlock(&consumer->lock) != -1, goto fail);
 
   return SU_TRUE;
 
-halt:
-  suscan_worker_req_halt(state->consumer->worker);
+fail:
+  consumer->failed = SU_TRUE;
+
+  if (mutex_acquired)
+    pthread_mutex_unlock(&consumer->lock);
+
+  suscan_worker_req_halt(consumer->worker);
 
   return SU_FALSE;
 }
 
-SUBOOL
-suscan_consumer_task_state_advance(
-    struct suscan_consumer_task_state *state,
-    SUSCOUNT samples)
+const SUCOMPLEX *
+suscan_consumer_get_buffer(const suscan_consumer_t *consumer)
 {
-  if (state->read_pos + samples > state->consumer->buffer_pos + state->consumer->buffer_avail) {
-    SU_ERROR("Attempt to consume more samples than available\n");
-    SU_ERROR("Pos %d, read pos %d, consume %d\n", state->consumer->buffer_pos, state->read_pos, samples);
-    return SU_FALSE;
-  }
+  return consumer->buffer;
+}
 
-  state->read_pos += samples;
+SUSCOUNT
+suscan_consumer_get_buffer_size(const suscan_consumer_t *consumer)
+{
+  return consumer->buffer_size;
+}
 
-  return SU_TRUE;
+SUSCOUNT
+suscan_consumer_get_buffer_pos(const suscan_consumer_t *consumer)
+{
+  return consumer->buffer_pos;
 }
 
 SUBOOL
@@ -489,41 +466,84 @@ suscan_consumer_push_task(
               void *cb_private),
     void *private)
 {
-  if (consumer->tasks == 0) {
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&consumer->lock) != -1, goto done);
+
+  mutex_acquired = SU_TRUE;
+
+  if (!consumer->consuming) {
     if (!su_block_port_plug(
         &consumer->port,
         consumer->analyzer->source.block,
         0)) {
       SU_ERROR("Failed to push task: cannot plug port\n");
-      return SU_FALSE;
+      goto done;
     }
+
+    /*
+     * Worker thread will block as suscan_consumer_cb will try to acquire
+     * consumer->lock
+     */
+    if (!suscan_worker_push(consumer->worker, suscan_consumer_cb, NULL)) {
+      SU_ERROR("Failed to push consumer callback\n");
+
+      su_block_port_unplug(&consumer->port);
+
+      goto done;
+    }
+
+    consumer->consuming = SU_TRUE;
   }
 
-  ++consumer->tasks;
-  if (!suscan_worker_push(consumer->worker,  func, private)) {
+  /* Restart consumer counter */
+  if (consumer->tasks++ == 0)
+    consumer->idle_counter = SUSCAN_CONSUMER_IDLE_COUNTER;
+
+  /* This task will be executed after suscan_consumer_cb */
+  if (!suscan_worker_push(consumer->worker, func, private)) {
     (void) suscan_consumer_remove_task(consumer);
 
-    return SU_FALSE;
+    goto done;
   }
 
-  return SU_TRUE;
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    SU_TRYCATCH(pthread_mutex_unlock(&consumer->lock) != -1, goto done);
+
+  return ok;
 }
 
 SUBOOL
 suscan_consumer_remove_task(suscan_consumer_t *consumer)
 {
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&consumer->lock) != -1, goto done);
+
+  mutex_acquired = SU_TRUE;
+
   if (consumer->tasks == 0) {
     SU_ERROR("Cannot remove tasks: task counter already 0\n");
-    return SU_FALSE;
+    goto done;
   }
 
+  SU_TRYCATCH(!consumer->failed, goto done);
+
+  /* suscan_consumer_cb will handle 0 tasks on its own */
   --consumer->tasks;
 
-  /* Passing to idle state */
-  if (consumer->tasks == 0)
-    su_block_port_unplug(&consumer->port);
+  ok = SU_TRUE;
 
-  return SU_FALSE;
+done:
+  if (mutex_acquired)
+    SU_TRYCATCH(pthread_mutex_unlock(&consumer->lock) != -1, goto done);
+
+  return ok;
 }
 
 SUBOOL
@@ -538,6 +558,8 @@ suscan_consumer_destroy(suscan_consumer_t *cons)
 
   su_block_port_unplug(&cons->port);
 
+  pthread_mutex_destroy(&cons->lock);
+
   if (cons->buffer != NULL)
     free(cons->buffer);
 
@@ -550,25 +572,45 @@ suscan_consumer_t *
 suscan_consumer_new(suscan_analyzer_t *analyzer)
 {
   suscan_consumer_t *new = NULL;
+  pthread_mutexattr_t attr;
+  SUBOOL attr_init = SU_FALSE;
 
-  if ((new = calloc(1, sizeof (suscan_consumer_t))) == NULL)
-    goto fail;
+  SU_TRYCATCH(new = calloc(1, sizeof (suscan_consumer_t)), goto fail);
+
+  SU_TRYCATCH(pthread_mutexattr_init(&attr) != -1, goto fail);
+
+  attr_init = SU_TRUE;
+
+  SU_TRYCATCH(
+      pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) != -1,
+      goto fail);
+
+  SU_TRYCATCH(
+      pthread_mutex_init(&new->lock, &attr) != -1,
+      goto fail);
+
+  pthread_mutexattr_destroy(&attr);
+
+  attr_init = SU_FALSE;
 
   new->buffer_size = analyzer->read_size;
 
-  if ((new->buffer = malloc(new->buffer_size * sizeof(SUCOMPLEX))) == NULL)
-    goto fail;
+  SU_TRYCATCH(
+      new->buffer = malloc(new->buffer_size * sizeof(SUCOMPLEX)),
+      goto fail);
 
   new->analyzer = analyzer;
 
-  if ((new->worker = suscan_worker_new(&analyzer->mq_in, new)) == NULL) {
-    SU_ERROR("Cannot allocate per-CPU analyzer worker\n");
-    goto fail;
-  }
+  SU_TRYCATCH(
+      new->worker = suscan_worker_new(&analyzer->mq_in, new),
+      goto fail);
 
   return new;
 
 fail:
+  if (!attr_init)
+    pthread_mutexattr_destroy(&attr);
+
   if (new != NULL)
     suscan_consumer_destroy(new);
 

@@ -108,6 +108,7 @@ suscan_inspector_new(
   agc_params.slow_fall_t = tau * SUSCAN_INSPECTOR_SLOW_FALL_FRAC;
   agc_params.hang_max    = tau * SUSCAN_INSPECTOR_HANG_MAX_FRAC;
 
+  /* TODO: Check whether these sizes are too big */
   agc_params.delay_line_size  = tau * SUSCAN_INSPECTOR_DELAY_LINE_FRAC;
   agc_params.mag_history_size = tau * SUSCAN_INSPECTOR_MAG_HISTORY_FRAC;
 
@@ -237,26 +238,17 @@ suscan_inspector_wk_cb(
   suscan_inspector_t *insp = (suscan_inspector_t *) cb_private;
   unsigned int i;
   int fed;
-  SUSCOUNT got;
-  SUCOMPLEX *samp;
+  SUSCOUNT samp_count;
+  const SUCOMPLEX *samp_buf;
   struct suscan_analyzer_sample_batch_msg *batch_msg = NULL;
   SUBOOL restart = SU_FALSE;
 
-  if (insp->task_state.consumer == NULL)
-    suscan_consumer_task_state_init(&insp->task_state, consumer);
+  samp_buf   = suscan_consumer_get_buffer(consumer);
+  samp_count = suscan_consumer_get_buffer_size(consumer);
 
-  if (insp->state == SUSCAN_ASYNC_STATE_HALTING)
-    goto done;
-
-  if (!suscan_consumer_task_state_assert_samples(
-      &insp->task_state,
-      &samp,
-      &got))
-    goto done;
-
-  while (got > 0) {
+  while (samp_count > 0) {
     SU_TRYCATCH(
-        (fed = suscan_inspector_feed_bulk(insp, samp, got)) >= 0,
+        (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
         goto done);
 
     if (insp->sym_new_sample) {
@@ -275,11 +267,8 @@ suscan_inspector_wk_cb(
 
     }
 
-    /* Consume all these */
-    suscan_consumer_task_state_advance(&insp->task_state, fed);
-
-    samp += fed;
-    got  -= fed;
+    samp_buf   += fed;
+    samp_count -= fed;
   }
 
   /* Got samples, send message batch */
@@ -293,12 +282,12 @@ suscan_inspector_wk_cb(
     batch_msg = NULL;
   }
 
-  restart = SU_TRUE;
+  restart = insp->state == SUSCAN_ASYNC_STATE_RUNNING;
 
 done:
   if (!restart) {
     insp->state = SUSCAN_ASYNC_STATE_HALTED;
-    suscan_consumer_remove_task(insp->task_state.consumer);
+    suscan_consumer_remove_task(consumer);
   }
 
   if (batch_msg != NULL)
