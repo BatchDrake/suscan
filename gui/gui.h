@@ -192,6 +192,10 @@ struct suscan_gui_inspector {
   GtkRadioButton *costas4RadioButton;
   GtkRadioButton *manualRadioButton;
 
+  GtkRadioButton *clockGardnerRadioButton;
+  GtkRadioButton *clockManualRadioButton;
+  GtkRadioButton *clockDisableButton;
+
   struct sigutils_channel channel;
 };
 

@@ -24,6 +24,7 @@
 #include <sigutils/sigutils.h>
 #include <sigutils/agc.h>
 #include <sigutils/pll.h>
+#include <sigutils/clock.h>
 #include <sigutils/detect.h>
 
 #include "worker.h"
@@ -90,8 +91,15 @@ enum suscan_inspector_carrier_control {
   SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4
 };
 
+enum suscan_inspector_baudrate_control {
+  SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL,
+  SUSCAN_INSPECTOR_BAUDRATE_CONTROL_GARDNER
+};
+
+
 struct suscan_inspector_params {
   enum suscan_inspector_carrier_control fc_ctrl; /* Carrier control */
+  enum suscan_inspector_baudrate_control br_ctrl; /* Baudrate control */
   SUFLOAT fc_off;    /* Offset frequency */
   SUFLOAT fc_phi;    /* Carrier phase */
   SUFLOAT sym_phase; /* Symbol phase */
@@ -109,6 +117,7 @@ struct suscan_inspector {
   su_agc_t               agc;      /* AGC, for sampler */
   su_costas_t            costas_2; /* 2nd order Costas loop */
   su_costas_t            costas_4; /* 4th order Costas loop */
+  su_clock_detector_t    cd;       /* Clock detector */
   su_ncqo_t              lo;       /* Oscillator for manual carrier offset */
   SUCOMPLEX              phase;    /* Local oscillator phase */
 

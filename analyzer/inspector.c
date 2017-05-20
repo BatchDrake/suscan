@@ -50,6 +50,8 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
 
   su_costas_finalize(&insp->costas_4);
 
+  su_clock_detector_finalize(&insp->cd);
+
   free(insp);
 }
 
@@ -73,8 +75,7 @@ suscan_inspector_new(
   struct su_agc_params agc_params = su_agc_params_INITIALIZER;
   SUFLOAT tau;
 
-  if ((new = calloc(1, sizeof (suscan_inspector_t))) == NULL)
-    goto fail;
+  SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
 
   new->state = SUSCAN_ASYNC_STATE_CREATED;
 
@@ -87,13 +88,22 @@ suscan_inspector_new(
 
   /* Create generic autocorrelation-based detector */
   params.mode = SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION;
-  if ((new->fac_baud_det = su_channel_detector_new(&params)) == NULL)
-    goto fail;
+  SU_TRYCATCH(new->fac_baud_det = su_channel_detector_new(&params), goto fail);
 
   /* Create non-linear baud rate detector */
   params.mode = SU_CHANNEL_DETECTOR_MODE_NONLINEAR_DIFF;
-  if ((new->nln_baud_det = su_channel_detector_new(&params)) == NULL)
-    goto fail;
+  SU_TRYCATCH(new->nln_baud_det = su_channel_detector_new(&params), goto fail);
+
+  /* Create clock detector */
+  SU_TRYCATCH(
+      su_clock_detector_init(
+          &new->cd,
+          1.,
+          .5 * SU_ABS2NORM_BAUD(params.samp_rate, params.bw),
+          32),
+      goto fail);
+
+  new->cd.beta *= 1e-2;
 
   /* Initialize local oscillator */
   su_ncqo_init(&new->lo, 0);
@@ -197,25 +207,34 @@ suscan_inspector_feed_bulk(
         break;
     }
 
+
     /* Check if channel sampler is enabled */
-    if (insp->sym_period >= 1.) {
-      insp->sym_phase += 1.;
-      if (insp->sym_phase >= insp->sym_period)
-        insp->sym_phase -= insp->sym_period;
+    if (insp->params.br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL) {
+      if (insp->sym_period >= 1.) {
+        insp->sym_phase += 1.;
+        if (insp->sym_phase >= insp->sym_period)
+          insp->sym_phase -= insp->sym_period;
 
-      insp->sym_new_sample =
-          (int) SU_FLOOR(insp->sym_phase - samp_phase_samples) == 0;
+        insp->sym_new_sample =
+            (int) SU_FLOOR(insp->sym_phase - samp_phase_samples) == 0;
 
-      if (insp->sym_new_sample) {
-        alpha = insp->sym_phase - SU_FLOOR(insp->sym_phase);
+        if (insp->sym_new_sample) {
+          alpha = insp->sym_phase - SU_FLOOR(insp->sym_phase);
 
-        insp->sym_sampler_output =
-            .5 * ((1 - alpha) * insp->sym_last_sample + alpha * sample);
+          insp->sym_sampler_output =
+              .5 * ((1 - alpha) * insp->sym_last_sample + alpha * sample);
 
+        }
       }
-    }
+      insp->sym_last_sample = sample;
+    } else {
+      /* Automatic baudrate control enabled */
+      su_clock_detector_feed(&insp->cd, sample);
 
-    insp->sym_last_sample = sample;
+      insp->sym_new_sample = su_clock_detector_read(&insp->cd, &sample, 1) == 1;
+      if (insp->sym_new_sample)
+        insp->sym_sampler_output = .5 * sample;
+    }
   }
 
   ok = SU_TRUE;
@@ -363,6 +382,11 @@ suscan_analyzer_register_inspector(
  * We have ownership on msg, this messages are urgent: they are placed
  * in the beginning of the queue
  */
+
+/*
+ * TODO: Protect access to inspector object!
+ */
+
 SUBOOL
 suscan_analyzer_parse_inspector_msg(
     suscan_analyzer_t *analyzer,
@@ -373,6 +397,7 @@ suscan_analyzer_parse_inspector_msg(
   SUSCOUNT fs;
   SUHANDLE handle = -1;
   SUBOOL ok = SU_FALSE;
+  SUBOOL update_baud;
 
   switch (msg->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
@@ -437,6 +462,11 @@ suscan_analyzer_parse_inspector_msg(
             &insp->lo,
             SU_ABS2NORM_FREQ(fs, msg->params.fc_off));
         insp->phase = SU_C_EXP(I * msg->params.fc_phi);
+
+        /* Update baudrate */
+        su_clock_detector_set_baud(
+            &insp->cd,
+            SU_ABS2NORM_BAUD(fs, msg->params.baud));
       }
       break;
 
