@@ -98,10 +98,13 @@ enum suscan_inspector_baudrate_control {
 
 
 struct suscan_inspector_params {
-  enum suscan_inspector_carrier_control fc_ctrl; /* Carrier control */
   enum suscan_inspector_baudrate_control br_ctrl; /* Baudrate control */
+  SUFLOAT br_beta;   /* Baudrate control beta */
+
+  enum suscan_inspector_carrier_control fc_ctrl; /* Carrier control */
   SUFLOAT fc_off;    /* Offset frequency */
   SUFLOAT fc_phi;    /* Carrier phase */
+
   SUFLOAT sym_phase; /* Symbol phase */
   SUFLOAT baud;      /* Baudrate */
   uint32_t inspector_id;

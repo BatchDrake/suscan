@@ -196,6 +196,13 @@ struct suscan_gui_inspector {
   GtkRadioButton *clockManualRadioButton;
   GtkRadioButton *clockDisableButton;
 
+  GtkAlignment *clockGardnerAlignment;
+  GtkAlignment *clockManualAlignment;
+  GtkAlignment *carrierManualAlignment;
+
+  GtkCheckButton *gardnerEnableBetaCheckButton;
+  GtkEntry       *gardnerBetaEntry;
+
   struct sigutils_channel channel;
 };
 
@@ -284,7 +291,7 @@ struct suscan_gui_inspector *suscan_gui_inspector_new(
     const struct sigutils_channel *channel,
     SUHANDLE handle);
 
-SUBOOL suscan_gui_inspector_enable(
+SUBOOL suscan_gui_inspector_update_sensitiveness(
     struct suscan_gui_inspector *insp,
     const struct suscan_inspector_params *params);
 

@@ -309,7 +309,7 @@ suscan_async_parse_inspector_msg(gpointer user_data)
           insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
           goto done);
       SU_TRYCATCH(
-          suscan_gui_inspector_enable(insp, &msg->params),
+          suscan_gui_inspector_update_sensitiveness(insp, &msg->params),
           goto done);
       break;
 

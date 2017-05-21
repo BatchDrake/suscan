@@ -103,8 +103,6 @@ suscan_inspector_new(
           32),
       goto fail);
 
-  new->cd.beta *= 1e-2;
-
   /* Initialize local oscillator */
   su_ncqo_init(&new->lo, 0);
   new->phase = 1.;
@@ -467,6 +465,8 @@ suscan_analyzer_parse_inspector_msg(
         su_clock_detector_set_baud(
             &insp->cd,
             SU_ABS2NORM_BAUD(fs, msg->params.baud));
+
+        insp->cd.beta = msg->params.br_beta;
       }
       break;
 

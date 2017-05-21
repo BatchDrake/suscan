@@ -767,6 +767,7 @@ suscan_gui_add_inspector(
       goto fail);
 
   inspector_added = SU_TRUE;
+  insp->gui = gui;
 
   SU_TRYCATCH(
       (insp->page = gtk_notebook_append_page_menu(
@@ -776,7 +777,6 @@ suscan_gui_add_inspector(
           NULL)) >= 0,
       goto fail);
 
-  insp->gui = gui;
   gtk_notebook_set_current_page(gui->analyzerViewsNotebook, insp->page);
 
   /*
