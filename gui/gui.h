@@ -135,6 +135,9 @@ struct suscan_gui {
 
   GtkNotebook *analyzerViewsNotebook;
 
+  GtkTreeView *logMessagesTreeView;
+  GtkListStore *logMessagesListStore;
+
   struct suscan_gui_source_config *selected_config;
 
   /* GUI state */
@@ -226,6 +229,8 @@ void suscan_gui_msgbox(
     const char *title,
     const char *fmt,
     ...);
+
+void suscan_gui_setup_logging(struct suscan_gui *gui);
 
 struct suscan_gui_source_config *suscan_gui_get_selected_source(
     struct suscan_gui *gui);

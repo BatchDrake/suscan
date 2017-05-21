@@ -740,7 +740,7 @@ suscan_spectrum_on_button_press(
 
       return TRUE;
     } else {
-      printf("No channel @ %lld (%lg)\n", (uint64_t) round(freq), x);
+      SU_WARNING("No channel @ %lld (%lg)\n", (uint64_t) round(freq), x);
     }
   }
 

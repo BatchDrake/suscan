@@ -716,6 +716,22 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
             "nbAnalyzerViews")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->logMessagesListStore =
+          GTK_LIST_STORE(gtk_builder_get_object(
+            gui->builder,
+            "lsLogMessages")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->logMessagesTreeView =
+          GTK_TREE_VIEW(gtk_builder_get_object(
+              gui->builder,
+              "tvLogMessages")),
+          return SU_FALSE);
+
+
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
@@ -922,6 +938,11 @@ suscan_gui_start(
   gtk_widget_show(GTK_WIDGET(gui->main));
 
   gtk_window_set_title(gui->main, "SUScan by BatchDrake");
+
+  suscan_gui_setup_logging(gui);
+
+  SU_INFO("SUScan GTK interface initialized\n");
+
   gtk_main();
 
   return SU_TRUE;

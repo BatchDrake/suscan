@@ -56,6 +56,18 @@
       </object>
     </child>
   </object>
+  <object class="GtkListStore" id="lsLogMessages">
+    <columns>
+      <!-- column-name time -->
+      <column type="gchararray"/>
+      <!-- column-name severity -->
+      <column type="GdkPixbuf"/>
+      <!-- column-name category -->
+      <column type="gchararray"/>
+      <!-- column-name message -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
   <object class="GtkListStore" id="lsMainChannelListStore">
     <columns>
       <!-- column-name fc -->
@@ -73,8 +85,8 @@
   <object class="GtkWindow" id="wMain">
     <property name="can_focus">False</property>
     <property name="window_position">center</property>
-    <property name="default_width">800</property>
-    <property name="default_height">600</property>
+    <property name="default_width">1050</property>
+    <property name="default_height">700</property>
     <child>
       <object class="GtkBox">
         <property name="visible">True</property>
@@ -768,9 +780,97 @@
               <object class="GtkLabel" id="tMainViewsSummary">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Summary</property>
+                <property name="label" translatable="yes">Scanner</property>
               </object>
               <packing>
+                <property name="tab_fill">False</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkGrid">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkScrolledWindow">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <property name="vscrollbar_policy">always</property>
+                    <property name="shadow_type">in</property>
+                    <property name="overlay_scrolling">False</property>
+                    <child>
+                      <object class="GtkTreeView" id="tvLogMessages">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="model">lsLogMessages</property>
+                        <child internal-child="selection">
+                          <object class="GtkTreeSelection"/>
+                        </child>
+                        <child>
+                          <object class="GtkTreeViewColumn" id="cTime">
+                            <property name="title" translatable="yes">Time</property>
+                            <child>
+                              <object class="GtkCellRendererText" id="crTime"/>
+                              <attributes>
+                                <attribute name="text">0</attribute>
+                              </attributes>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkTreeViewColumn" id="cSeverity">
+                            <child>
+                              <object class="GtkCellRendererPixbuf" id="crSeverity"/>
+                              <attributes>
+                                <attribute name="pixbuf">1</attribute>
+                              </attributes>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkTreeViewColumn" id="cCategory">
+                            <property name="title" translatable="yes">Category</property>
+                            <child>
+                              <object class="GtkCellRendererText" id="crCategory"/>
+                              <attributes>
+                                <attribute name="text">2</attribute>
+                              </attributes>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkTreeViewColumn" id="cMessage">
+                            <property name="title" translatable="yes">Message</property>
+                            <child>
+                              <object class="GtkCellRendererText" id="crMessage"/>
+                              <attributes>
+                                <attribute name="text">3</attribute>
+                              </attributes>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">0</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Log messages</property>
+              </object>
+              <packing>
+                <property name="position">1</property>
                 <property name="tab_fill">False</property>
               </packing>
             </child>
