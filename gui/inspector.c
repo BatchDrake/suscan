@@ -42,6 +42,7 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
   if (inspector->pageLabelEventBox != NULL)
     gtk_widget_destroy(GTK_WIDGET(inspector->pageLabelEventBox));
 
+  suscan_gui_spectrum_init(&inspector->spectrum);
 
   free(inspector);
 }
@@ -269,6 +270,28 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
               "eGardnerBeta")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->powerSpectrumRadioButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "rbPowerSpectrum")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->cycloSpectrumRadioButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "rbCycloSpectrum")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->noSpectrumRadioButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "rbNoSpectrum")),
+          return SU_FALSE);
+
+
   /* Somehow Glade fails to set these default values */
   gtk_toggle_button_set_active(
       GTK_TOGGLE_BUTTON(inspector->manualRadioButton),
@@ -276,6 +299,10 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
 
   gtk_toggle_button_set_active(
       GTK_TOGGLE_BUTTON(inspector->clockManualRadioButton),
+      TRUE);
+
+  gtk_toggle_button_set_active(
+      GTK_TOGGLE_BUTTON(inspector->noSpectrumRadioButton),
       TRUE);
 
   return SU_TRUE;
@@ -296,6 +323,7 @@ suscan_gui_inspector_new(
   new->inshnd = handle;
 
   suscan_gui_constellation_init(&new->constellation);
+  suscan_gui_spectrum_init(&new->spectrum);
 
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(
@@ -431,6 +459,16 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
       insp->params.sym_phase += 1.0;
   }
 
+  /* Configure spectrum */
+  if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(insp->powerSpectrumRadioButton)))
+    insp->params.psd_source = SUSCAN_INSPECTOR_PSD_SOURCE_FAC;
+  else if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(insp->cycloSpectrumRadioButton)))
+    insp->params.psd_source = SUSCAN_INSPECTOR_PSD_SOURCE_NLN;
+  else if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(insp->noSpectrumRadioButton)))
+    insp->params.psd_source = SUSCAN_INSPECTOR_PSD_SOURCE_NONE;
   suscan_gui_inspector_update_sensitiveness(insp, &insp->params);
 
   SU_TRYCATCH(
@@ -483,5 +521,45 @@ suscan_on_close_inspector_tab(GtkWidget *widget, gpointer data)
 
     insp->inshnd = -1;
   }
-
 }
+
+gboolean
+suscan_inspector_spectrum_on_configure_event(
+    GtkWidget *widget,
+    GdkEventConfigure *event,
+    gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+
+  suscan_gui_spectrum_configure(&insp->spectrum, widget);
+
+  return TRUE;
+}
+
+
+gboolean
+suscan_inspector_spectrum_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+
+  suscan_gui_spectrum_redraw(&insp->spectrum, cr);
+
+  return FALSE;
+}
+
+void
+suscan_inspector_spectrum_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+
+  suscan_gui_spectrum_parse_scroll(&insp->spectrum, widget, ev);
+}
+
+void
+suscan_inspector_spectrum_on_motion(GtkWidget *widget, GdkEventMotion *ev, gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+
+  suscan_gui_spectrum_parse_motion(&insp->spectrum, widget, ev);
+}
+

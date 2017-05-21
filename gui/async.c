@@ -231,6 +231,30 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
 }
 
 SUPRIVATE gboolean
+suscan_async_update_inspector_spectrum_cb(gpointer user_data)
+{
+  struct suscan_gui_msg_envelope *envelope;
+  struct suscan_analyzer_psd_msg *msg;
+  struct suscan_gui_inspector *insp = NULL;
+
+  envelope = (struct suscan_gui_msg_envelope *) user_data;
+  msg = (struct suscan_analyzer_psd_msg *) envelope->private;
+
+  SU_TRYCATCH(
+      insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
+      goto done);
+
+  suscan_gui_spectrum_update(
+      &insp->spectrum,
+      msg);
+
+done:
+  suscan_gui_msg_envelope_destroy(envelope);
+
+  return G_SOURCE_REMOVE;
+}
+
+SUPRIVATE gboolean
 suscan_async_parse_sample_batch_msg(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
@@ -415,6 +439,18 @@ suscan_gui_async_thread(gpointer data)
         }
 
         g_idle_add(suscan_async_parse_sample_batch_msg, envelope);
+        break;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD:
+        if ((envelope = suscan_gui_msg_envelope_new(
+            gui,
+            type,
+            private)) == NULL) {
+          suscan_analyzer_dispose_message(type, private);
+          break;
+        }
+
+        g_idle_add(suscan_async_update_inspector_spectrum_cb, envelope);
         break;
 
       case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS: /* End of stream */

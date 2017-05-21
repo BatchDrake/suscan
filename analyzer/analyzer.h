@@ -96,6 +96,11 @@ enum suscan_inspector_baudrate_control {
   SUSCAN_INSPECTOR_BAUDRATE_CONTROL_GARDNER
 };
 
+enum suscan_inspector_psd_source {
+  SUSCAN_INSPECTOR_PSD_SOURCE_NONE,
+  SUSCAN_INSPECTOR_PSD_SOURCE_FAC,
+  SUSCAN_INSPECTOR_PSD_SOURCE_NLN
+};
 
 struct suscan_inspector_params {
   enum suscan_inspector_baudrate_control br_ctrl; /* Baudrate control */
@@ -104,6 +109,8 @@ struct suscan_inspector_params {
   enum suscan_inspector_carrier_control fc_ctrl; /* Carrier control */
   SUFLOAT fc_off;    /* Offset frequency */
   SUFLOAT fc_phi;    /* Carrier phase */
+
+  enum suscan_inspector_psd_source psd_source; /* Spectrum source */
 
   SUFLOAT sym_phase; /* Symbol phase */
   SUFLOAT baud;      /* Baudrate */
@@ -123,6 +130,10 @@ struct suscan_inspector {
   su_clock_detector_t    cd;       /* Clock detector */
   su_ncqo_t              lo;       /* Oscillator for manual carrier offset */
   SUCOMPLEX              phase;    /* Local oscillator phase */
+
+  /* Spectrum state */
+  SUFLOAT                interval_psd;
+  SUSCOUNT               per_cnt_psd;
 
   /* Inspector parameters */
   struct suscan_inspector_params params;

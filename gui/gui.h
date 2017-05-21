@@ -72,6 +72,14 @@ struct suscan_gui_spectrum {
   SUFLOAT dbs_per_div; /* Defaults to 10 */
   SUFLOAT ref_level;   /* Defaults to 0 */
 
+  /* Scroll and motion state */
+  gdouble last_x;
+  gdouble last_y;
+
+  SUBOOL   dragging;
+  SUFLOAT  original_freq_offset;
+  SUFLOAT  original_ref_level;
+
   /* Current channel list */
   PTR_LIST(struct sigutils_channel, channel);
 };
@@ -138,15 +146,8 @@ struct suscan_gui {
   GThread *async_thread;
 
   /* Main spectrum */
-  gdouble last_x;
-  gdouble last_y;
-
-  SUBOOL   dragging;
   SUSCOUNT current_samp_rate;
-  SUFLOAT  original_freq_offset;
-  SUFLOAT  original_ref_level;
   struct sigutils_channel selected_channel;
-
   struct suscan_gui_spectrum main_spectrum;
 
   /* Keep list of inspector tabs */
@@ -171,6 +172,7 @@ struct suscan_gui_inspector {
   SUHANDLE inshnd; /* Inspector handle (relative to current analyzer) */
   struct suscan_gui *gui; /* Parent GUI */
   struct suscan_gui_constellation constellation; /* Constellation graph */
+  struct suscan_gui_spectrum spectrum; /* Spectrum graph */
   struct suscan_inspector_params params; /* Inspector params */
 
   /* Widgets */
@@ -202,6 +204,10 @@ struct suscan_gui_inspector {
 
   GtkCheckButton *gardnerEnableBetaCheckButton;
   GtkEntry       *gardnerBetaEntry;
+
+  GtkRadioButton *powerSpectrumRadioButton;
+  GtkRadioButton *cycloSpectrumRadioButton;
+  GtkRadioButton *noSpectrumRadioButton;
 
   struct sigutils_channel channel;
 };
@@ -242,6 +248,8 @@ void suscan_gui_disconnect(struct suscan_gui *gui);
 /* Spectrum API */
 void suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum);
 
+void suscan_spectrum_finalize(struct suscan_gui_spectrum *spectrum);
+
 void suscan_gui_spectrum_update(
     struct suscan_gui_spectrum *spectrum,
     struct suscan_analyzer_psd_msg *msg);
@@ -250,6 +258,24 @@ void suscan_gui_spectrum_update_channels(
     struct suscan_gui_spectrum *spectrum,
     struct sigutils_channel **channel_list,
     unsigned int channel_count);
+
+void suscan_gui_spectrum_configure(
+    struct suscan_gui_spectrum *spectrum,
+    GtkWidget *widget);
+
+void suscan_gui_spectrum_redraw(
+    struct suscan_gui_spectrum *spectrum,
+    cairo_t *cr);
+
+void suscan_gui_spectrum_parse_scroll(
+    struct suscan_gui_spectrum *spectrum,
+    GtkWidget *widget,
+    GdkEventScroll *ev);
+
+void suscan_gui_spectrum_parse_motion(
+    struct suscan_gui_spectrum *spectrum,
+    GtkWidget *widget,
+    GdkEventMotion *ev);
 
 /* Constellation API */
 void suscan_gui_constellation_init(

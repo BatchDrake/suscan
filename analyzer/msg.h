@@ -33,8 +33,9 @@
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL      0x4
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES_LOST  0x5
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR     0x6 /* Channel inspector */
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_PSD           0x7
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_PSD           0x7 /* Main spectrum */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES       0x8 /* Sample batch */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD      0x9 /* Inspector spectrum */
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
@@ -56,7 +57,8 @@ struct suscan_analyzer_channel_msg {
 /* Channel spectrum message */
 struct suscan_analyzer_psd_msg {
   uint64_t fc;
-  SUSCOUNT samp_rate;
+  uint32_t inspector_id;
+  SUFLOAT  samp_rate;
   SUSCOUNT psd_size;
   SUFLOAT *psd_data;
   SUFLOAT  N0;
@@ -117,6 +119,11 @@ SUBOOL suscan_analyzer_send_detector_channels(
 
 SUBOOL suscan_analyzer_send_psd(
     suscan_analyzer_t *analyzer,
+    const su_channel_detector_t *detector);
+
+SUBOOL suscan_inspector_send_psd(
+    suscan_inspector_t *insp,
+    const suscan_consumer_t *consumer,
     const su_channel_detector_t *detector);
 
 /************************* Message parsing methods ***************************/

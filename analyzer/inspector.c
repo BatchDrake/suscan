@@ -86,6 +86,9 @@ suscan_inspector_new(
   params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
   params.alpha = 1e-4;
 
+  /* Initialize spectrum parameters */
+  new->interval_psd = .1;
+
   /* Create generic autocorrelation-based detector */
   params.mode = SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION;
   SU_TRYCATCH(new->fac_baud_det = su_channel_detector_new(&params), goto fail);
@@ -263,6 +266,8 @@ suscan_inspector_wk_cb(
   samp_buf   = suscan_consumer_get_buffer(consumer);
   samp_count = suscan_consumer_get_buffer_size(consumer);
 
+  insp->per_cnt_psd += samp_count;
+
   while (samp_count > 0) {
     SU_TRYCATCH(
         (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
@@ -287,6 +292,29 @@ suscan_inspector_wk_cb(
     samp_buf   += fed;
     samp_count -= fed;
   }
+
+  /* Check spectrum update */
+  if (insp->interval_psd > 0)
+    if (insp->per_cnt_psd
+        >= insp->interval_psd * insp->fac_baud_det->params.samp_rate) {
+      insp->per_cnt_psd = 0;
+
+      switch (insp->params.psd_source) {
+        case SUSCAN_INSPECTOR_PSD_SOURCE_FAC:
+          if (!suscan_inspector_send_psd(insp, consumer, insp->fac_baud_det))
+            goto done;
+          break;
+
+        case SUSCAN_INSPECTOR_PSD_SOURCE_NLN:
+          if (!suscan_inspector_send_psd(insp, consumer, insp->nln_baud_det))
+            goto done;
+          break;
+
+        default:
+          /* Prevent warnings */
+          break;
+      }
+    }
 
   /* Got samples, send message batch */
   if (batch_msg != NULL) {

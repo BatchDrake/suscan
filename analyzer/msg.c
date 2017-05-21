@@ -182,6 +182,10 @@ suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
 
   new->psd_size = cd->params.window_size;
   new->samp_rate = cd->params.samp_rate;
+
+  if (cd->params.decimation > 1)
+    new->samp_rate /= cd->params.decimation;
+
   new->fc = 0;
 
   SU_TRYCATCH(
@@ -277,6 +281,7 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD:
       suscan_analyzer_psd_msg_destroy(ptr);
       break;
 
@@ -419,4 +424,50 @@ done:
   return ok;
 }
 
+SUBOOL
+suscan_inspector_send_psd(
+    suscan_inspector_t *insp,
+    const suscan_consumer_t *consumer,
+    const su_channel_detector_t *detector)
+{
+  struct suscan_analyzer_psd_msg *msg = NULL;
+  SUBOOL ok = SU_FALSE;
 
+  if ((msg = suscan_analyzer_psd_msg_new(detector)) == NULL) {
+    suscan_analyzer_send_status(
+        consumer->analyzer,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
+        -1,
+        "Cannot create message: %s",
+        strerror(errno));
+    goto done;
+  }
+
+  msg->fc = consumer->analyzer->source.fc;
+  msg->N0 = detector->N0;
+  msg->inspector_id = insp->params.inspector_id;
+
+  if (!suscan_mq_write(
+      consumer->analyzer->mq_out,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD,
+      msg)) {
+    suscan_analyzer_send_status(
+        consumer->analyzer,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
+        -1,
+        "Cannot write message: %s",
+        strerror(errno));
+    goto done;
+  }
+
+  /* Message queued, forget about it */
+  msg = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD, msg);
+
+  return ok;
+}
