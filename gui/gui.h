@@ -183,31 +183,48 @@ struct suscan_gui_inspector {
   GtkEventBox *pageLabelEventBox;
   GtkLabel    *pageLabel;
   GtkGrid     *channelInspectorGrid;
-  GtkEntry    *carrierOffsetEntry;
-  GtkScale    *fineTuneScale;
-  GtkScale    *phaseScale;
-  GtkEntry    *baudRateEntry;
-  GtkButton   *setBaudRateButton;
-  GtkButton   *detectBaudRateFACButton;
-  GtkButton   *detectBaudRateNLNButton;
-  GtkScale    *fineBaudScale;
-  GtkScale    *symbolPhaseScale;
 
+
+
+  /* Gain control widgets */
+  GtkRadioButton *automaticGainRadioButton;
+  GtkRadioButton *manualGainRadioButton;
+  GtkAlignment   *gainManualAlignment;
+  GtkEntry       *gainEntry;
+  GtkScale       *gainFineTuneScale;
+
+  /* Carrier control alignment */
   GtkRadioButton *costas2RadioButton;
   GtkRadioButton *costas4RadioButton;
   GtkRadioButton *manualRadioButton;
+  GtkAlignment   *carrierManualAlignment;
+  GtkEntry       *carrierOffsetEntry;
+  GtkScale       *fineTuneScale;
+  GtkScale       *phaseScale;
 
+  /* Clock control widgets */
   GtkRadioButton *clockGardnerRadioButton;
   GtkRadioButton *clockManualRadioButton;
   GtkRadioButton *clockDisableButton;
-
-  GtkAlignment *clockGardnerAlignment;
-  GtkAlignment *clockManualAlignment;
-  GtkAlignment *carrierManualAlignment;
-
+  GtkAlignment   *clockGardnerAlignment;
+  GtkEntry       *gardnerAlphaEntry;
   GtkCheckButton *gardnerEnableBetaCheckButton;
   GtkEntry       *gardnerBetaEntry;
+  GtkAlignment   *clockManualAlignment;
+  GtkEntry       *baudRateEntry;
+  GtkScale       *symbolPhaseScale;
+  GtkButton      *setBaudRateButton;
+  GtkButton      *detectBaudRateFACButton;
+  GtkButton      *detectBaudRateNLNButton;
+  GtkScale       *fineBaudScale;
 
+  /* Matched filter widgets */
+  GtkRadioButton *matchedFilterBypassRadioButton;
+  GtkRadioButton *matchedFilterRRCRadioButton;
+  GtkAlignment   *rootRaisedCosineAlignment;
+  GtkScale       *rollOffScale;
+
+  /* Spectrum source widgets */
   GtkRadioButton *powerSpectrumRadioButton;
   GtkRadioButton *cycloSpectrumRadioButton;
   GtkRadioButton *noSpectrumRadioButton;

@@ -257,6 +257,12 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
           return SU_FALSE);
 
   SU_TRYCATCH(
+      inspector->gardnerAlphaEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              inspector->builder,
+              "eGardnerAlpha")),
+          return SU_FALSE);
+  SU_TRYCATCH(
       inspector->gardnerEnableBetaCheckButton =
           GTK_CHECK_BUTTON(gtk_builder_get_object(
               inspector->builder,
@@ -291,6 +297,69 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
               "rbNoSpectrum")),
           return SU_FALSE);
 
+
+  SU_TRYCATCH(
+      inspector->automaticGainRadioButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "rbGainControlAuto")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->manualGainRadioButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "rbGainControlAuto")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->gainManualAlignment =
+          GTK_ALIGNMENT(gtk_builder_get_object(
+              inspector->builder,
+              "alManualGainControl")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->gainEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              inspector->builder,
+              "eGain")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->gainFineTuneScale =
+          GTK_SCALE(gtk_builder_get_object(
+              inspector->builder,
+              "sGainFineTune")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->matchedFilterBypassRadioButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "rbMatchedFilterBypass")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->matchedFilterRRCRadioButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "rbMatchedFilterRRC")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->rootRaisedCosineAlignment =
+          GTK_ALIGNMENT(gtk_builder_get_object(
+              inspector->builder,
+              "alRootRaisedCosine")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->rollOffScale =
+          GTK_SCALE(gtk_builder_get_object(
+              inspector->builder,
+              "sRollOff")),
+          return SU_FALSE);
 
   /* Somehow Glade fails to set these default values */
   gtk_toggle_button_set_active(

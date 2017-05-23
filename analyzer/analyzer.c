@@ -368,9 +368,9 @@ suscan_consumer_cb(
     void *cb_private)
 {
   suscan_consumer_t *consumer = (suscan_consumer_t *) wk_private;
-  SUSCOUNT got;
+  SUSDIFF got;
   SUSCOUNT p = 0;
-  SUSCOUNT size = consumer->buffer_size;
+  SUSDIFF size = consumer->buffer_size;
   SUBOOL mutex_acquired = SU_FALSE;
 
   /*

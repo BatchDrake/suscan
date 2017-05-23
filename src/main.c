@@ -51,6 +51,10 @@ main(int argc, char *argv[], char *envp[])
   int c;
   int index;
 
+#ifdef DEBUG_WITH_MTRACE
+  mtrace();
+#endif
+
   while ((c = getopt_long(argc, argv, "fh", long_options, &index)) != -1) {
     switch (c) {
       case 'f':
@@ -137,15 +141,21 @@ main(int argc, char *argv[], char *envp[])
   }
 
 done:
-  if ((msgs = suscan_log_get_last_messages(tv, 20)) != NULL && *msgs) {
-    fprintf(stderr, "---------8<-------------------------------------\n");
-    fprintf(stderr, "%s", msgs);
-    fprintf(stderr, "---------8<-------------------------------------\n");
+  if ((msgs = suscan_log_get_last_messages(tv, 20)) != NULL) {
+    if (*msgs) {
+      fprintf(stderr, "---------8<-------------------------------------\n");
+      fprintf(stderr, "%s", msgs);
+      fprintf(stderr, "---------8<-------------------------------------\n");
+    }
     free(msgs);
   }
 
   for (i = 0; i < config_count; ++i)
     suscan_source_config_destroy(config_list[i]);
+
+#ifdef DEBUG_WITH_MTRACE
+  muntrace();
+#endif
 
   exit(exit_code);
 }

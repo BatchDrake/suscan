@@ -85,10 +85,20 @@ struct suscan_consumer {
 
 typedef struct suscan_consumer suscan_consumer_t;
 
+enum suscan_inspector_gain_control {
+  SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL,
+  SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC
+};
+
 enum suscan_inspector_carrier_control {
   SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL,
   SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2,
   SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4
+};
+
+enum suscan_inspector_matched_filter {
+  SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS,
+  SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL
 };
 
 enum suscan_inspector_baudrate_control {
@@ -103,18 +113,31 @@ enum suscan_inspector_psd_source {
 };
 
 struct suscan_inspector_params {
-  enum suscan_inspector_baudrate_control br_ctrl; /* Baudrate control */
-  SUFLOAT br_beta;   /* Baudrate control beta */
-
-  enum suscan_inspector_carrier_control fc_ctrl; /* Carrier control */
-  SUFLOAT fc_off;    /* Offset frequency */
-  SUFLOAT fc_phi;    /* Carrier phase */
-
-  enum suscan_inspector_psd_source psd_source; /* Spectrum source */
-
-  SUFLOAT sym_phase; /* Symbol phase */
-  SUFLOAT baud;      /* Baudrate */
   uint32_t inspector_id;
+
+  /* Gain control parameters */
+  enum suscan_inspector_gain_control gc_ctrl;
+  SUFLOAT gc_gain;    /* Positive gain (linear) */
+
+  /* Frequency control parameters */
+  enum suscan_inspector_carrier_control fc_ctrl;
+  SUFLOAT fc_off;     /* Offset frequency */
+  SUFLOAT fc_phi;     /* Carrier phase */
+
+  /* Matched filter parameters */
+  enum suscan_inspector_matched_filter mf_conf;
+  SUFLOAT mf_rolloff; /* Roll-off factor */
+
+  /* Baudrate control parameters */
+  enum suscan_inspector_baudrate_control br_ctrl;
+  SUFLOAT br_alpha;   /* Baudrate control alpha (linear) */
+  SUFLOAT br_beta;    /* Baudrate control beta (linear) */
+
+  /* Spectrum source configuration */
+  enum suscan_inspector_psd_source psd_source; /* Spectrum source */
+  SUFLOAT sym_phase;  /* Symbol phase */
+  SUFLOAT baud;       /* Baudrate */
+
 };
 
 #define suscan_inspector_params_INITIALIZER {0, 0, 0, 0, 0}
