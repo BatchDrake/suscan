@@ -446,41 +446,86 @@ suscan_on_get_baudrate_nln(GtkWidget *widget, gpointer data)
   suscan_inspector_get_info_async(insp->gui->analyzer, insp->inshnd, 1);
 }
 
+SUPRIVATE void
+suscan_attempt_to_read_entry(GtkEntry *entry, SUFLOAT *result)
+{
+  const gchar *text;
+  char number[32];
+  SUFLOAT value;
+
+  text = gtk_entry_get_text(entry);
+  if (sscanf(text, SUFLOAT_FMT, &value) < 1) {
+    snprintf(number, sizeof(number), SUFLOAT_FMT, *result);
+    gtk_entry_set_text(entry, number);
+  } else {
+    *result = value;
+  }
+}
+
 void
 suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
-  const gchar *text;
+
   SUFLOAT freq;
   SUFLOAT baud;
+  SUFLOAT gain;
+  SUFLOAT alpha;
   SUFLOAT beta;
 
-  text = gtk_entry_get_text(insp->carrierOffsetEntry);
-  if (sscanf(text, SUFLOAT_FMT, &freq) < 1) {
-    suscan_error(
-        insp->gui,
-        "Set carrier offset", "Invalid carrier offset string `%s'",
-        text);
-    return;
-  }
+  /* Block callback while we check values */
+  g_signal_handlers_block_matched(
+      G_OBJECT(widget),
+      G_SIGNAL_MATCH_FUNC,
+      0,
+      0,
+      NULL,
+      suscan_on_change_inspector_params,
+      NULL);
 
-  text = gtk_entry_get_text(insp->baudRateEntry);
-  if (sscanf(text, SUFLOAT_FMT, &baud) < 1) {
-    suscan_error(
-        insp->gui,
-        "Set baudrate", "Invalid baudrate string `%s'",
-        text);
-    return;
-  }
+  gain = round(SU_DB_RAW(insp->params.gc_gain));
+  suscan_attempt_to_read_entry(insp->gainEntry, &gain);
+  gain += gtk_range_get_value(GTK_RANGE(insp->gainFineTuneScale));
 
-  text = gtk_entry_get_text(insp->gardnerBetaEntry);
-  if (sscanf(text, SUFLOAT_FMT, &beta) < 1) {
-    suscan_error(
-        insp->gui,
-        "Frequency correction", "Invalid loop gain `%s'",
-        text);
-    return;
-  }
+  freq = insp->params.fc_off;
+  suscan_attempt_to_read_entry(insp->carrierOffsetEntry, &freq);
+
+  baud = insp->params.baud;
+  suscan_attempt_to_read_entry(insp->baudRateEntry, &baud);
+
+  alpha = round(SU_DB_RAW(insp->params.br_alpha));
+  suscan_attempt_to_read_entry(insp->gardnerAlphaEntry, &alpha);
+
+  beta = round(SU_DB_RAW(insp->params.br_beta));
+  suscan_attempt_to_read_entry(insp->gardnerAlphaEntry, &beta);
+
+  /* Our work is done here */
+  g_signal_handlers_unblock_matched(
+       G_OBJECT(widget),
+       G_SIGNAL_MATCH_FUNC,
+       0,
+       0,
+       NULL,
+       suscan_on_change_inspector_params,
+       NULL);
+
+  /* Set matched filter */
+  if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(insp->matchedFilterBypassRadioButton)))
+    insp->params.mf_conf = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
+  else
+    insp->params.mf_conf = SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL;
+
+  insp->params.mf_rolloff = gtk_range_get_value(GTK_RANGE(insp->rollOffScale));
+
+  /* Set gain control */
+  if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(insp->automaticGainRadioButton)))
+    insp->params.gc_ctrl = SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC;
+  else
+    insp->params.gc_ctrl = SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL;
+
+  insp->params.gc_gain = SU_MAG_RAW(gain);
 
   /* Set carrier control */
   if (gtk_toggle_button_get_active(
@@ -509,6 +554,7 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
         GTK_TOGGLE_BUTTON(insp->clockGardnerRadioButton))) {
       insp->params.br_ctrl = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_GARDNER;
 
+      insp->params.br_alpha = SU_MAG_RAW(alpha);
       insp->params.br_beta = gtk_toggle_button_get_active(
           GTK_TOGGLE_BUTTON(insp->gardnerEnableBetaCheckButton))
               ? SU_MAG_RAW(beta)
@@ -630,5 +676,14 @@ suscan_inspector_spectrum_on_motion(GtkWidget *widget, GdkEventMotion *ev, gpoin
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
   suscan_gui_spectrum_parse_motion(&insp->spectrum, widget, ev);
+}
+
+void
+suscan_on_change_inspector_params_event(
+    GtkWidget *widget,
+    GdkEvent *event,
+    gpointer data)
+{
+  suscan_on_change_inspector_params(widget, data);
 }
 

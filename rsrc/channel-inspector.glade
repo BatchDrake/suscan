@@ -267,6 +267,7 @@
                                         <property name="text" translatable="yes">0</property>
                                         <property name="xalign">1</property>
                                         <property name="input_purpose">digits</property>
+                                        <signal name="focus-out-event" handler="suscan_on_change_inspector_params_event" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="left_attach">1</property>
@@ -619,7 +620,7 @@
                                         <property name="text" translatable="yes">-78</property>
                                         <property name="xalign">1</property>
                                         <property name="input_purpose">number</property>
-                                        <signal name="editing-done" handler="suscan_on_change_inspector_params" swapped="no"/>
+                                        <signal name="focus-out-event" handler="suscan_on_change_inspector_params_event" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="left_attach">1</property>
@@ -669,6 +670,7 @@
                                         <property name="text" translatable="yes">-14</property>
                                         <property name="xalign">1</property>
                                         <property name="input_purpose">number</property>
+                                        <signal name="focus-out-event" handler="suscan_on_change_inspector_params_event" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="left_attach">1</property>
@@ -1017,6 +1019,7 @@
                             <property name="margin_bottom">3</property>
                             <property name="active">True</property>
                             <property name="draw_indicator">True</property>
+                            <signal name="toggled" handler="suscan_on_change_inspector_params" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
@@ -1075,6 +1078,7 @@
                                         <property name="text" translatable="yes">0</property>
                                         <property name="xalign">1</property>
                                         <property name="input_purpose">number</property>
+                                        <signal name="focus-out-event" handler="suscan_on_change_inspector_params_event" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="left_attach">1</property>
@@ -1124,6 +1128,7 @@
                                         <property name="round_digits">1</property>
                                         <property name="digits">3</property>
                                         <property name="value_pos">right</property>
+                                        <signal name="value-changed" handler="suscan_on_change_inspector_params" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="left_attach">1</property>
@@ -1158,6 +1163,7 @@
                                 <property name="active">True</property>
                                 <property name="draw_indicator">True</property>
                                 <property name="group">rbGainControlAuto</property>
+                                <signal name="toggled" handler="suscan_on_change_inspector_params" swapped="no"/>
                               </object>
                             </child>
                           </object>
@@ -1224,6 +1230,7 @@
                             <property name="margin_bottom">3</property>
                             <property name="active">True</property>
                             <property name="draw_indicator">True</property>
+                            <signal name="toggled" handler="suscan_on_change_inspector_params" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
@@ -1280,6 +1287,7 @@
                                         <property name="round_digits">1</property>
                                         <property name="digits">3</property>
                                         <property name="value_pos">right</property>
+                                        <signal name="value-changed" handler="suscan_on_change_inspector_params" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="left_attach">1</property>
@@ -1299,6 +1307,7 @@
                                 <property name="active">True</property>
                                 <property name="draw_indicator">True</property>
                                 <property name="group">rbMatchedFilterBypass</property>
+                                <signal name="toggled" handler="suscan_on_change_inspector_params" swapped="no"/>
                               </object>
                             </child>
                           </object>

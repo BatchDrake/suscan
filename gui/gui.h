@@ -184,8 +184,6 @@ struct suscan_gui_inspector {
   GtkLabel    *pageLabel;
   GtkGrid     *channelInspectorGrid;
 
-
-
   /* Gain control widgets */
   GtkRadioButton *automaticGainRadioButton;
   GtkRadioButton *manualGainRadioButton;
