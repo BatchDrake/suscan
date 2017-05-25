@@ -140,8 +140,6 @@ struct suscan_inspector_params {
 
 };
 
-#define suscan_inspector_params_INITIALIZER {0, 0, 0, 0, 0}
-
 /* TODO: protect baudrate access with mutexes */
 struct suscan_inspector {
   struct sigutils_channel channel;
@@ -203,9 +201,11 @@ typedef struct suscan_analyzer suscan_analyzer_t;
 
 /***************************** Inspector API *********************************/
 void suscan_inspector_destroy(suscan_inspector_t *chanal);
+
 suscan_inspector_t *suscan_inspector_new(
     const suscan_analyzer_t *analyzer,
     const struct sigutils_channel *channel);
+
 
 /* Baud inspector operations */
 SUBOOL suscan_inspector_open_async(
@@ -241,6 +241,9 @@ SUBOOL suscan_inspector_set_params_async(
     SUHANDLE handle,
     const struct suscan_inspector_params *params,
     uint32_t req_id);
+
+void suscan_inspector_params_initialize(
+    struct suscan_inspector_params *params);
 
 /****************************** Consumer API **********************************/
 SUBOOL suscan_consumer_destroy(suscan_consumer_t *cons);

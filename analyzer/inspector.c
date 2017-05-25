@@ -68,6 +68,24 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
 #define SUSCAN_INSPECTOR_DELAY_LINE_FRAC  (SUSCAN_INSPECTOR_FAST_RISE_FRAC * 10)
 #define SUSCAN_INSPECTOR_MAG_HISTORY_FRAC (SUSCAN_INSPECTOR_FAST_RISE_FRAC * 10)
 
+void
+suscan_inspector_params_initialize(struct suscan_inspector_params *params)
+{
+  memset(params, 0, sizeof (struct suscan_inspector_params));
+
+  params->gc_ctrl = SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC;
+  params->gc_gain = 1;
+
+  params->br_ctrl = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
+  params->br_alpha = SU_PREFERED_CLOCK_ALPHA;
+  params->br_beta  = SU_PREFERED_CLOCK_BETA;
+
+  params->fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
+
+  params->mf_conf = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
+  params->mf_rolloff = 0.35;
+}
+
 suscan_inspector_t *
 suscan_inspector_new(
     const suscan_analyzer_t *analyzer,
@@ -82,6 +100,9 @@ suscan_inspector_new(
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
 
   new->state = SUSCAN_ASYNC_STATE_CREATED;
+
+  /* Initialize inspector parameters */
+  suscan_inspector_params_initialize(&new->params);
 
   /* Common channel parameters */
   su_channel_params_adjust_to_channel(&params, channel);

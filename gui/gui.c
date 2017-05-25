@@ -775,8 +775,11 @@ suscan_gui_add_inspector(
     struct suscan_gui *gui,
     struct suscan_gui_inspector *insp)
 {
-  struct suscan_inspector_params params = suscan_inspector_params_INITIALIZER;
+  struct suscan_inspector_params params;
   SUBOOL inspector_added = SU_FALSE;
+
+  /* Local copy of parameters */
+  suscan_inspector_params_initialize(&params);
 
   SU_TRYCATCH(
       (insp->index = PTR_LIST_APPEND_CHECK(gui->inspector, insp)) != -1,
