@@ -264,9 +264,11 @@
                                         <property name="can_focus">True</property>
                                         <property name="margin_top">3</property>
                                         <property name="margin_bottom">3</property>
+                                        <property name="activates_default">True</property>
                                         <property name="text" translatable="yes">0</property>
                                         <property name="xalign">1</property>
                                         <property name="input_purpose">digits</property>
+                                        <signal name="activate" handler="suscan_on_change_inspector_params" swapped="no"/>
                                         <signal name="focus-out-event" handler="suscan_on_change_inspector_params_event" swapped="no"/>
                                       </object>
                                       <packing>
@@ -617,9 +619,11 @@
                                         <property name="margin_right">3</property>
                                         <property name="margin_top">3</property>
                                         <property name="margin_bottom">3</property>
+                                        <property name="activates_default">True</property>
                                         <property name="text" translatable="yes">-78</property>
                                         <property name="xalign">1</property>
                                         <property name="input_purpose">number</property>
+                                        <signal name="activate" handler="suscan_on_change_inspector_params" swapped="no"/>
                                         <signal name="focus-out-event" handler="suscan_on_change_inspector_params_event" swapped="no"/>
                                       </object>
                                       <packing>
@@ -667,9 +671,11 @@
                                         <property name="margin_right">3</property>
                                         <property name="margin_top">3</property>
                                         <property name="margin_bottom">3</property>
+                                        <property name="activates_default">True</property>
                                         <property name="text" translatable="yes">-14</property>
                                         <property name="xalign">1</property>
                                         <property name="input_purpose">number</property>
+                                        <signal name="activate" handler="suscan_on_change_inspector_params" swapped="no"/>
                                         <signal name="focus-out-event" handler="suscan_on_change_inspector_params_event" swapped="no"/>
                                       </object>
                                       <packing>
@@ -1075,9 +1081,11 @@
                                         <property name="margin_right">3</property>
                                         <property name="margin_top">3</property>
                                         <property name="margin_bottom">3</property>
+                                        <property name="activates_default">True</property>
                                         <property name="text" translatable="yes">0</property>
                                         <property name="xalign">1</property>
                                         <property name="input_purpose">number</property>
+                                        <signal name="activate" handler="suscan_on_change_inspector_params" swapped="no"/>
                                         <signal name="focus-out-event" handler="suscan_on_change_inspector_params_event" swapped="no"/>
                                       </object>
                                       <packing>
