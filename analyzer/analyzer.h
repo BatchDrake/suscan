@@ -137,27 +137,29 @@ struct suscan_inspector_params {
   enum suscan_inspector_psd_source psd_source; /* Spectrum source */
   SUFLOAT sym_phase;  /* Symbol phase */
   SUFLOAT baud;       /* Baudrate */
-
 };
 
 /* TODO: protect baudrate access with mutexes */
 struct suscan_inspector {
   struct sigutils_channel channel;
-  su_channel_detector_t *fac_baud_det; /* FAC baud detector */
-  su_channel_detector_t *nln_baud_det; /* Non-linear baud detector */
-  su_agc_t               agc;      /* AGC, for sampler */
-  su_costas_t            costas_2; /* 2nd order Costas loop */
-  su_costas_t            costas_4; /* 4th order Costas loop */
-  su_clock_detector_t    cd;       /* Clock detector */
-  su_ncqo_t              lo;       /* Oscillator for manual carrier offset */
-  SUCOMPLEX              phase;    /* Local oscillator phase */
+  su_channel_detector_t  *fac_baud_det; /* FAC baud detector */
+  su_channel_detector_t  *nln_baud_det; /* Non-linear baud detector */
+  su_agc_t                agc;      /* AGC, for sampler */
+  su_costas_t             costas_2; /* 2nd order Costas loop */
+  su_costas_t             costas_4; /* 4th order Costas loop */
+  su_clock_detector_t     cd;       /* Clock detector */
+  su_ncqo_t               lo;       /* Oscillator for manual carrier offset */
+  SUCOMPLEX               phase;    /* Local oscillator phase */
 
   /* Spectrum state */
-  SUFLOAT                interval_psd;
-  SUSCOUNT               per_cnt_psd;
+  SUFLOAT                 interval_psd;
+  SUSCOUNT                per_cnt_psd;
 
   /* Inspector parameters */
+  pthread_mutex_t params_mutex;
   struct suscan_inspector_params params;
+  struct suscan_inspector_params params_request;
+  SUBOOL    params_requested;
   SUBOOL    sym_new_sample;     /* New sample flag */
   SUCOMPLEX sym_last_sample;    /* Last sample fed to inspector */
   SUCOMPLEX sym_sampler_output; /* Sampler output */

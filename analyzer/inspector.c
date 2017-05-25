@@ -35,9 +35,74 @@
 
 #define SUSCAN_INSPECTOR_BETA .35
 
+SUPRIVATE void
+suscan_inspector_params_lock(suscan_inspector_t *insp)
+{
+  (void) pthread_mutex_lock(&insp->params_mutex);
+}
+
+SUPRIVATE void
+suscan_inspector_params_unlock(suscan_inspector_t *insp)
+{
+  (void) pthread_mutex_unlock(&insp->params_mutex);
+}
+
+SUPRIVATE void
+suscan_inspector_request_params(
+    suscan_inspector_t *insp,
+    struct suscan_inspector_params *params_request)
+{
+  suscan_inspector_params_lock(insp);
+
+  insp->params_request = *params_request;
+
+  insp->params_requested = SU_TRUE;
+
+  suscan_inspector_params_unlock(insp);
+}
+
+SUPRIVATE void
+suscan_inspector_assert_params(suscan_inspector_t *insp)
+{
+  SUSCOUNT fs;
+
+  if (insp->params_requested) {
+    suscan_inspector_params_lock(insp);
+
+    insp->params = insp->params_request;
+
+    fs = insp->fac_baud_det->params.samp_rate;
+
+    /* Update inspector according to params */
+    if (insp->params.baud > 0)
+      insp->sym_period = 1. / SU_ABS2NORM_BAUD(fs, insp->params.baud);
+    else
+      insp->sym_period = 0;
+
+    /* Update local oscillator frequency and phase */
+    su_ncqo_set_freq(
+        &insp->lo,
+        SU_ABS2NORM_FREQ(fs, insp->params.fc_off));
+    insp->phase = SU_C_EXP(I * insp->params.fc_phi);
+
+    /* Update baudrate */
+    su_clock_detector_set_baud(
+        &insp->cd,
+        SU_ABS2NORM_BAUD(fs, insp->params.baud));
+
+    insp->cd.beta = insp->params.br_beta;
+
+    insp->params_requested = SU_FALSE;
+
+    suscan_inspector_params_unlock(insp);
+  }
+}
+
 void
 suscan_inspector_destroy(suscan_inspector_t *insp)
 {
+  pthread_mutex_destroy(&insp->params_mutex);
+
   if (insp->fac_baud_det != NULL)
     su_channel_detector_destroy(insp->fac_baud_det);
 
@@ -102,6 +167,8 @@ suscan_inspector_new(
   new->state = SUSCAN_ASYNC_STATE_CREATED;
 
   /* Initialize inspector parameters */
+  SU_TRYCATCH(pthread_mutex_init(&new->params_mutex, NULL) != -1, goto fail);
+
   suscan_inspector_params_initialize(&new->params);
 
   /* Common channel parameters */
@@ -299,6 +366,9 @@ suscan_inspector_wk_cb(
   insp->per_cnt_psd += samp_count;
 
   while (samp_count > 0) {
+    /* Ensure the current inspector parameters are up-to-date */
+    suscan_inspector_assert_params(insp);
+
     SU_TRYCATCH(
         (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
         goto done);
@@ -450,7 +520,6 @@ suscan_analyzer_parse_inspector_msg(
 {
   suscan_inspector_t *new = NULL;
   suscan_inspector_t *insp = NULL;
-  SUSCOUNT fs;
   SUHANDLE handle = -1;
   SUBOOL ok = SU_FALSE;
   SUBOOL update_baud;
@@ -504,27 +573,8 @@ suscan_analyzer_parse_inspector_msg(
         /* No such handle */
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
-        insp->params = msg->params;
-        fs = insp->fac_baud_det->params.samp_rate;
-
-        /* Update inspector according to params */
-        if (msg->params.baud > 0)
-          insp->sym_period = 1. / SU_ABS2NORM_BAUD(fs, insp->params.baud);
-        else
-          insp->sym_period = 0;
-
-        /* Update local oscillator frequency and phase */
-        su_ncqo_set_freq(
-            &insp->lo,
-            SU_ABS2NORM_FREQ(fs, msg->params.fc_off));
-        insp->phase = SU_C_EXP(I * msg->params.fc_phi);
-
-        /* Update baudrate */
-        su_clock_detector_set_baud(
-            &insp->cd,
-            SU_ABS2NORM_BAUD(fs, msg->params.baud));
-
-        insp->cd.beta = msg->params.br_beta;
+        /* Store the parameter update request */
+        suscan_inspector_request_params(insp, &msg->params);
       }
       break;
 
