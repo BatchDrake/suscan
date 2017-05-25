@@ -90,6 +90,7 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
         &insp->cd,
         SU_ABS2NORM_BAUD(fs, insp->params.baud));
 
+    insp->cd.alpha = insp->params.br_alpha;
     insp->cd.beta = insp->params.br_beta;
 
     insp->params_requested = SU_FALSE;

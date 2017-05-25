@@ -497,7 +497,7 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
   suscan_attempt_to_read_entry(insp->gardnerAlphaEntry, &alpha);
 
   beta = round(SU_DB_RAW(insp->params.br_beta));
-  suscan_attempt_to_read_entry(insp->gardnerAlphaEntry, &beta);
+  suscan_attempt_to_read_entry(insp->gardnerBetaEntry, &beta);
 
   /* Our work is done here */
   g_signal_handlers_unblock_matched(
