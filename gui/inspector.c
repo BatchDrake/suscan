@@ -71,6 +71,11 @@ suscan_gui_inspector_update_sensitiveness(
       gtk_toggle_button_get_active(
           GTK_TOGGLE_BUTTON(insp->gardnerEnableBetaCheckButton)));
 
+  gtk_widget_set_sensitive(
+      GTK_WIDGET(insp->gainManualAlignment),
+      gtk_toggle_button_get_active(
+          GTK_TOGGLE_BUTTON(insp->manualGainRadioButton)));
+
   gtk_widget_set_sensitive(GTK_WIDGET(insp->baudRateEntry), TRUE);
   gtk_widget_set_sensitive(GTK_WIDGET(insp->setBaudRateButton), TRUE);
   gtk_widget_set_sensitive(GTK_WIDGET(insp->detectBaudRateFACButton), TRUE);
@@ -309,7 +314,7 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
       inspector->manualGainRadioButton =
           GTK_RADIO_BUTTON(gtk_builder_get_object(
               inspector->builder,
-              "rbGainControlAuto")),
+              "rbGainControlManual")),
           return SU_FALSE);
 
   SU_TRYCATCH(
