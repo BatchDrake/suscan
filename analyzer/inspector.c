@@ -55,14 +55,18 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
   free(insp);
 }
 
-/* Spike durations measured in symbol times */
-#define SUSCAN_INSPECTOR_FAST_RISE_FRAC   3.9062e-1
+/*
+ * Spike durations measured in symbol times
+ * SUSCAN_INSPECTOR_FAST_RISE_FRAC has been doubled to reduce phase noise
+ * induced by the non-linearity of the AGC
+ */
+#define SUSCAN_INSPECTOR_FAST_RISE_FRAC   (2 * 3.9062e-1)
 #define SUSCAN_INSPECTOR_FAST_FALL_FRAC   (2 * SUSCAN_INSPECTOR_FAST_RISE_FRAC)
 #define SUSCAN_INSPECTOR_SLOW_RISE_FRAC   (10 * SUSCAN_INSPECTOR_FAST_RISE_FRAC)
 #define SUSCAN_INSPECTOR_SLOW_FALL_FRAC   (10 * SUSCAN_INSPECTOR_FAST_FALL_FRAC)
-#define SUSCAN_INSPECTOR_HANG_MAX_FRAC    0.19531
-#define SUSCAN_INSPECTOR_DELAY_LINE_FRAC  0.39072
-#define SUSCAN_INSPECTOR_MAG_HISTORY_FRAC 0.39072
+#define SUSCAN_INSPECTOR_HANG_MAX_FRAC    (SUSCAN_INSPECTOR_FAST_RISE_FRAC * 5)
+#define SUSCAN_INSPECTOR_DELAY_LINE_FRAC  (SUSCAN_INSPECTOR_FAST_RISE_FRAC * 10)
+#define SUSCAN_INSPECTOR_MAG_HISTORY_FRAC (SUSCAN_INSPECTOR_FAST_RISE_FRAC * 10)
 
 suscan_inspector_t *
 suscan_inspector_new(
@@ -181,17 +185,23 @@ suscan_inspector_feed_bulk(
         su_channel_detector_feed(insp->nln_baud_det, x[i]),
         goto done);
 
-    /*
-     * Feed AGC. We use the last windowed sample from one of the
-     * channel detectors
-     */
-
     det_x = insp->fac_baud_det->last_window_sample;
 
-    /* Perform carrier control */
+    /* Re-center carrier */
     det_x *= SU_C_CONJ(su_ncqo_read(&insp->lo)) * insp->phase;
-    det_x  = 2 * su_agc_feed(&insp->agc, det_x) * 1.4142;
 
+    /* Perform gain control */
+    switch (insp->params.gc_ctrl) {
+      case SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL:
+        det_x *= 2 * insp->params.gc_gain;
+        break;
+
+      case SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC:
+        det_x  = 2 * su_agc_feed(&insp->agc, det_x) * 1.4142;
+        break;
+    }
+
+    /* Perform frequency correction */
     switch (insp->params.fc_ctrl) {
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL:
         sample = det_x;
@@ -207,7 +217,6 @@ suscan_inspector_feed_bulk(
         sample = insp->costas_4.y;
         break;
     }
-
 
     /* Check if channel sampler is enabled */
     if (insp->params.br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL) {
