@@ -33,7 +33,21 @@
 #include "mq.h"
 #include "msg.h"
 
-#define SUSCAN_INSPECTOR_BETA .35
+#define SUSCAN_INSPECTOR_DEFAULT_ROLL_OFF .35
+#define SUSCAN_INSPECTOR_MAX_MF_SPAN      1024
+
+SUPRIVATE SUSCOUNT
+suscan_inspector_mf_span(SUSCOUNT span)
+{
+  if (span > SUSCAN_INSPECTOR_MAX_MF_SPAN) {
+    SU_WARNING(
+        "Matched filter sample span too big (%d), truncating to %d\n",
+        span, SUSCAN_INSPECTOR_MAX_MF_SPAN);
+    span = SUSCAN_INSPECTOR_MAX_MF_SPAN;
+  }
+
+  return span;
+}
 
 SUPRIVATE void
 suscan_inspector_params_lock(suscan_inspector_t *insp)
@@ -65,10 +79,15 @@ SUPRIVATE void
 suscan_inspector_assert_params(suscan_inspector_t *insp)
 {
   SUSCOUNT fs;
+  SUBOOL mf_changed;
+  su_iir_filt_t mf = su_iir_filt_INITIALIZER;
 
   if (insp->params_requested) {
     suscan_inspector_params_lock(insp);
 
+    mf_changed =
+        (insp->params.baud != insp->params_request.baud)
+        || (insp->params.mf_rolloff != insp->params_request.mf_rolloff);
     insp->params = insp->params_request;
 
     fs = insp->fac_baud_det->params.samp_rate;
@@ -92,6 +111,20 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
 
     insp->cd.alpha = insp->params.br_alpha;
     insp->cd.beta = insp->params.br_beta;
+
+    /* Update matched filter */
+    if (mf_changed) {
+      if (!su_iir_rrc_init(
+          &mf,
+          suscan_inspector_mf_span(6 * insp->sym_period),
+          insp->sym_period,
+          insp->params.mf_rolloff)) {
+        SU_ERROR("No memory left to update matched filter!\n");
+      } else {
+        su_iir_filt_finalize(&insp->mf);
+        insp->mf = mf;
+      }
+    }
 
     insp->params_requested = SU_FALSE;
 
@@ -149,7 +182,7 @@ suscan_inspector_params_initialize(struct suscan_inspector_params *params)
   params->fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
 
   params->mf_conf = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
-  params->mf_rolloff = 0.35;
+  params->mf_rolloff = SUSCAN_INSPECTOR_DEFAULT_ROLL_OFF;
 }
 
 suscan_inspector_t *
@@ -217,6 +250,15 @@ suscan_inspector_new(
   agc_params.mag_history_size = tau * SUSCAN_INSPECTOR_MAG_HISTORY_FRAC;
 
   SU_TRYCATCH(su_agc_init(&new->agc, &agc_params), goto fail);
+
+  /* Initialize matched filter, with T = tau */
+  SU_TRYCATCH(
+      su_iir_rrc_init(
+          &new->mf,
+          suscan_inspector_mf_span(6 * tau),
+          tau,
+          new->params.mf_rolloff),
+      goto fail);
 
   /* Initialize PLLs */
   SU_TRYCATCH(
@@ -306,6 +348,10 @@ suscan_inspector_feed_bulk(
         sample = insp->costas_4.y;
         break;
     }
+
+    /* Add matched filter, if enabled */
+    if (insp->params.mf_conf == SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL)
+      sample = su_iir_filt_feed(&insp->mf, sample);
 
     /* Check if channel sampler is enabled */
     if (insp->params.br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL) {
