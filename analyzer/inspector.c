@@ -90,7 +90,7 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
         || (insp->params.mf_rolloff != insp->params_request.mf_rolloff);
     insp->params = insp->params_request;
 
-    fs = insp->fac_baud_det->params.samp_rate;
+    fs = su_channel_detector_get_fs(insp->fac_baud_det);
 
     /* Update inspector according to params */
     if (insp->params.baud > 0)
@@ -208,7 +208,7 @@ suscan_inspector_new(
   /* Common channel parameters */
   su_channel_params_adjust_to_channel(&params, channel);
 
-  params.samp_rate = analyzer->source.detector->params.samp_rate;
+  params.samp_rate = su_channel_detector_get_fs(analyzer->source.detector);
   params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
   params.alpha = 1e-4;
 
@@ -307,7 +307,8 @@ suscan_inspector_feed_bulk(
 
   for (i = 0; i < count && !insp->sym_new_sample; ++i) {
     /*
-     * Feed channel detectors. TODO: use last_window_sample with nln_baud_det
+     * Feed channel detectors. TODO: use su_channel_detector_get_last_sample
+     * with nln_baud_det.
      */
     SU_TRYCATCH(
         su_channel_detector_feed(insp->fac_baud_det, x[i]),
@@ -316,7 +317,7 @@ suscan_inspector_feed_bulk(
         su_channel_detector_feed(insp->nln_baud_det, x[i]),
         goto done);
 
-    det_x = insp->fac_baud_det->last_window_sample;
+    det_x = su_channel_detector_get_last_sample(insp->fac_baud_det);
 
     /* Re-center carrier */
     det_x *= SU_C_CONJ(su_ncqo_read(&insp->lo)) * insp->phase;
@@ -443,7 +444,8 @@ suscan_inspector_wk_cb(
   /* Check spectrum update */
   if (insp->interval_psd > 0)
     if (insp->per_cnt_psd
-        >= insp->interval_psd * insp->fac_baud_det->params.samp_rate) {
+        >= insp->interval_psd
+        * su_channel_detector_get_fs(insp->fac_baud_det)) {
       insp->per_cnt_psd = 0;
 
       switch (insp->params.psd_source) {
