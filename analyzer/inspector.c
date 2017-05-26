@@ -78,7 +78,7 @@ suscan_inspector_request_params(
 SUPRIVATE void
 suscan_inspector_assert_params(suscan_inspector_t *insp)
 {
-  SUSCOUNT fs;
+  SUFLOAT fs;
   SUBOOL mf_changed;
   su_iir_filt_t mf = su_iir_filt_INITIALIZER;
 
@@ -90,7 +90,7 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
         || (insp->params.mf_rolloff != insp->params_request.mf_rolloff);
     insp->params = insp->params_request;
 
-    fs = su_channel_detector_get_fs(insp->fac_baud_det);
+    fs = insp->equiv_fs; /* Use equivalent sample rate after dectimation */
 
     /* Update inspector according to params */
     if (insp->params.baud > 0)
@@ -212,6 +212,8 @@ suscan_inspector_new(
   params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
   params.alpha = 1e-4;
 
+  new->equiv_fs = (SUFLOAT) params.samp_rate / params.decimation;
+
   /* Initialize spectrum parameters */
   new->interval_psd = .1;
 
@@ -228,7 +230,7 @@ suscan_inspector_new(
       su_clock_detector_init(
           &new->cd,
           1.,
-          .5 * SU_ABS2NORM_BAUD(params.samp_rate, params.bw),
+          .5 * SU_ABS2NORM_BAUD(new->equiv_fs, params.bw),
           32),
       goto fail);
 
@@ -237,7 +239,7 @@ suscan_inspector_new(
   new->phase = 1.;
 
   /* Initialize AGC */
-  tau = params.samp_rate / params.bw; /* Samples per symbol */
+  tau = new->equiv_fs / params.bw; /* Samples per symbol */
 
   agc_params.fast_rise_t = tau * SUSCAN_INSPECTOR_FAST_RISE_FRAC;
   agc_params.fast_fall_t = tau * SUSCAN_INSPECTOR_FAST_FALL_FRAC;
@@ -266,9 +268,9 @@ suscan_inspector_new(
           &new->costas_2,
           SU_COSTAS_KIND_BPSK,
           0,
-          SU_ABS2NORM_FREQ(params.samp_rate, params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(params.samp_rate, params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, params.bw)),
       goto fail);
 
   SU_TRYCATCH(
@@ -276,9 +278,9 @@ suscan_inspector_new(
           &new->costas_4,
           SU_COSTAS_KIND_QPSK,
           0,
-          SU_ABS2NORM_FREQ(params.samp_rate, params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(params.samp_rate, params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, params.bw)),
       goto fail);
 
   return new;
@@ -316,6 +318,13 @@ suscan_inspector_feed_bulk(
     SU_TRYCATCH(
         su_channel_detector_feed(insp->nln_baud_det, x[i]),
         goto done);
+
+    /*
+     * Verify the detector signal. Skip sample if it was not consumed
+     * due to decimator.
+     */
+    if (!su_channel_detector_sample_was_consumed(insp->fac_baud_det))
+      continue;
 
     det_x = su_channel_detector_get_last_sample(insp->fac_baud_det);
 

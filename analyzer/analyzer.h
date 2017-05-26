@@ -142,6 +142,7 @@ struct suscan_inspector_params {
 /* TODO: protect baudrate access with mutexes */
 struct suscan_inspector {
   struct sigutils_channel channel;
+  SUFLOAT                 equiv_fs; /* Equivalent sample rate */
   su_channel_detector_t  *fac_baud_det; /* FAC baud detector */
   su_channel_detector_t  *nln_baud_det; /* Non-linear baud detector */
   su_agc_t                agc;      /* AGC, for sampler */
