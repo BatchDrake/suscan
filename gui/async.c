@@ -244,6 +244,8 @@ suscan_async_update_inspector_spectrum_cb(gpointer user_data)
       insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
       goto done);
 
+  msg->fc = 0; /* Frequency reference is wrt channel's carrier */
+
   suscan_gui_spectrum_update(
       &insp->spectrum,
       msg);
