@@ -148,6 +148,9 @@ suscan_log_new_message_cb(gpointer user_data)
       0.0);
 
 done:
+  if (path != NULL)
+    gtk_tree_path_free(path);
+
   if (msg_dup != NULL)
     free(msg_dup);
 

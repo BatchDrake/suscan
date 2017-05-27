@@ -143,6 +143,8 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
   if (insp->nln_baud_det != NULL)
     su_channel_detector_destroy(insp->nln_baud_det);
 
+  su_iir_filt_finalize(&insp->mf);
+
   su_agc_finalize(&insp->agc);
 
   su_costas_finalize(&insp->costas_2);
