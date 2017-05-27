@@ -173,10 +173,13 @@ struct suscan_gui_inspector {
   int index; /* Back reference */
   gint page; /* Page number */
   SUHANDLE inshnd; /* Inspector handle (relative to current analyzer) */
+  SUBOOL recording; /* Symbol recorder enabled */
   struct suscan_gui *gui; /* Parent GUI */
   struct suscan_gui_constellation constellation; /* Constellation graph */
   struct suscan_gui_spectrum spectrum; /* Spectrum graph */
   struct suscan_inspector_params params; /* Inspector params */
+  char *symbol_text_buffer;
+  size_t symbol_text_buffer_size;
 
   /* Widgets */
   GtkBuilder  *builder;
@@ -226,6 +229,10 @@ struct suscan_gui_inspector {
   GtkRadioButton *powerSpectrumRadioButton;
   GtkRadioButton *cycloSpectrumRadioButton;
   GtkRadioButton *noSpectrumRadioButton;
+
+  /* Symbol recorder widgets */
+  GtkTextView    *symbolTextView;
+  GtkTextBuffer  *symbolTextBuffer;
 
   struct sigutils_channel channel;
 };

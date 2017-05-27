@@ -20,6 +20,8 @@
 
 #include "gui.h"
 #include <sigutils/agc.h>
+#include <time.h>
+#include <string.h>
 
 void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
@@ -29,6 +31,9 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
         inspector->gui->analyzer,
         inspector->inshnd,
         rand());
+
+  if (inspector->symbol_text_buffer != NULL)
+    free(inspector->symbol_text_buffer);
 
   if (inspector->channelInspectorGrid != NULL)
     gtk_widget_destroy(GTK_WIDGET(inspector->channelInspectorGrid));
@@ -88,23 +93,149 @@ suscan_gui_inspector_disable(struct suscan_gui_inspector *insp)
   gtk_widget_set_sensitive(GTK_WIDGET(insp->channelInspectorGrid), FALSE);
 }
 
+SUSYMBOL
+suscan_gui_inspector_decide(
+    const struct suscan_gui_inspector *inspector,
+    SUCOMPLEX sample)
+{
+  SUFLOAT arg = SU_C_ARG(sample);
+  char sym_ndx;
+
+  switch (inspector->params.fc_ctrl) {
+    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2:
+      /* BPSK decision */
+      sym_ndx = arg > 0;
+      break;
+
+    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4:
+      /* QPSK decision */
+      if (0 < arg && arg <= .5 * M_PI)
+        sym_ndx = 0;
+      else if (.5 * M_PI < arg && arg <= M_PI)
+        sym_ndx = 1;
+      else if (-M_PI < arg && arg <= -.5 * M_PI)
+        sym_ndx = 2;
+      else
+        sym_ndx = 3;
+      break;
+
+    default:
+      return SU_NOSYMBOL;
+  }
+
+  return '0' + sym_ndx;
+}
+
 void
 suscan_gui_inspector_feed_w_batch(
     struct suscan_gui_inspector *inspector,
     const struct suscan_analyzer_sample_batch_msg *msg)
 {
-  unsigned sample_count;
+  unsigned int sample_count, full_samp_count;
   unsigned int i;
+  GtkTextIter iter;
+  GtkTextMark *mark;
+  char *new_buffer;
+  char sym;
+
   /*
    * Push, at most, the last SUSCAN_GUI_CONSTELLATION_HISTORY. We do this
    * because the previous ones will never be shown
    */
-  sample_count = MIN(msg->sample_count, SUSCAN_GUI_CONSTELLATION_HISTORY);
+  full_samp_count = msg->sample_count;
+  sample_count = MIN(full_samp_count, SUSCAN_GUI_CONSTELLATION_HISTORY);
+
+  /* Check if recording is enabled to assert the symbol buffer */
+  if (inspector->recording) {
+    mark = gtk_text_buffer_get_insert(inspector->symbolTextBuffer);
+
+    if (full_samp_count + 1 > inspector->symbol_text_buffer_size) {
+      if ((new_buffer = realloc(
+          inspector->symbol_text_buffer,
+          full_samp_count + 1)) == NULL) {
+        SU_ERROR(
+            "Failed to allocate symbol buffer of %d bytes\n",
+            full_samp_count + 1);
+        return;
+      }
+
+      inspector->symbol_text_buffer = new_buffer;
+      inspector->symbol_text_buffer_size = full_samp_count + 1;
+    }
+
+    inspector->symbol_text_buffer[full_samp_count] = '\0';
+
+    for (i = 0; i < full_samp_count; ++i) {
+      if ((sym = suscan_gui_inspector_decide(inspector, msg->samples[i]))
+          == SU_NOSYMBOL)
+        inspector->symbol_text_buffer[i] = '?';
+      else
+        inspector->symbol_text_buffer[i] = sym;
+    }
+
+    /* Append text to buffer */
+    gtk_text_buffer_get_end_iter(inspector->symbolTextBuffer, &iter);
+    gtk_text_buffer_move_mark(inspector->symbolTextBuffer, mark, &iter);
+    gtk_text_buffer_insert_at_cursor(
+        inspector->symbolTextBuffer,
+        inspector->symbol_text_buffer,
+        full_samp_count);
+    gtk_text_view_scroll_to_mark(
+        inspector->symbolTextView,
+        mark,
+        0.0,  /* within_margin */
+        TRUE, /* use_align */
+        0.5,  /* xalign */
+        1);   /* yalign */
+  }
 
   for (i = 0; i < sample_count; ++i)
     suscan_gui_constellation_push_sample(
         &inspector->constellation,
         msg->samples[msg->sample_count - sample_count + i]);
+
+}
+
+char *
+suscan_gui_inspector_to_filename(
+    const struct suscan_gui_inspector *inspector,
+    const char *prefix,
+    const char *suffix)
+{
+  time_t now;
+  struct tm *tm;
+  const char *demod;
+
+  time(&now);
+  tm = localtime(&now);
+
+  switch (inspector->params.fc_ctrl) {
+    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2:
+      demod = "bpsk";
+      break;
+
+    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4:
+      demod = "qpsk";
+      break;
+
+    default:
+      demod = "manual";
+  }
+
+  return strbuild(
+      "%s%+lldHz-%s-%ubaud-%02d%02d%02d-%02d%02d%04d%s",
+      prefix,
+      (long long int) round(inspector->channel.fc),
+      demod,
+      (unsigned int) round(inspector->params.baud),
+      tm->tm_hour,
+      tm->tm_min,
+      tm->tm_sec,
+      tm->tm_mday,
+      tm->tm_mon,
+      tm->tm_year + 1900,
+      suffix);
+
 }
 
 SUPRIVATE SUBOOL
@@ -361,6 +492,16 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
               inspector->builder,
               "sRollOff")),
           return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->symbolTextView =
+          GTK_TEXT_VIEW(gtk_builder_get_object(
+              inspector->builder,
+              "txSymbols")),
+          return SU_FALSE);
+
+  inspector->symbolTextBuffer =
+      gtk_text_view_get_buffer(inspector->symbolTextView);
 
   /* Somehow Glade fails to set these default values */
   gtk_toggle_button_set_active(
@@ -654,7 +795,10 @@ suscan_inspector_spectrum_on_configure_event(
 
 
 gboolean
-suscan_inspector_spectrum_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+suscan_inspector_spectrum_on_draw(
+    GtkWidget *widget,
+    cairo_t *cr,
+    gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
@@ -664,7 +808,10 @@ suscan_inspector_spectrum_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 }
 
 void
-suscan_inspector_spectrum_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpointer data)
+suscan_inspector_spectrum_on_scroll(
+    GtkWidget *widget,
+    GdkEventScroll *ev,
+    gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
@@ -672,7 +819,10 @@ suscan_inspector_spectrum_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpoin
 }
 
 void
-suscan_inspector_spectrum_on_motion(GtkWidget *widget, GdkEventMotion *ev, gpointer data)
+suscan_inspector_spectrum_on_motion(
+    GtkWidget *widget,
+    GdkEventMotion *ev,
+    gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
@@ -688,3 +838,110 @@ suscan_on_change_inspector_params_event(
   suscan_on_change_inspector_params(widget, data);
 }
 
+void
+suscan_inspector_on_save(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  GtkWidget *dialog;
+  GtkFileChooser *chooser;
+  gint res;
+  char *new_fname = NULL;
+  gchar *filename = NULL;
+  gchar *text = NULL;
+  GtkTextIter istart, iend;
+  FILE *fp = NULL;
+
+  SU_TRYCATCH(
+      new_fname = suscan_gui_inspector_to_filename(insp, "symbols", "log"),
+      goto done);
+
+  SU_TRYCATCH(
+      dialog = gtk_file_chooser_dialog_new(
+          "Save symbol record",
+          insp->gui->main,
+          GTK_FILE_CHOOSER_ACTION_SAVE,
+          "_Cancel",
+          GTK_RESPONSE_CANCEL,
+          "_Save",
+          GTK_RESPONSE_ACCEPT,
+          NULL),
+      goto done);
+
+  chooser = GTK_FILE_CHOOSER(dialog);
+
+  gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
+
+  gtk_file_chooser_set_current_name(chooser, new_fname);
+
+  if (gtk_dialog_run(GTK_DIALOG (dialog)) == GTK_RESPONSE_ACCEPT) {
+    SU_TRYCATCH(
+        filename = gtk_file_chooser_get_filename (chooser),
+        goto done);
+    if ((fp = fopen(filename, "wb")) == NULL) {
+      suscan_error(
+          insp->gui,
+          "Save failed",
+          "Cannot save symbols to file: %s",
+          strerror(errno));
+      goto done;
+    }
+
+    gtk_text_buffer_get_start_iter(insp->symbolTextBuffer, &istart);
+    gtk_text_buffer_get_end_iter(insp->symbolTextBuffer, &iend);
+
+    SU_TRYCATCH(
+        text = gtk_text_buffer_get_text(
+            insp->symbolTextBuffer,
+            &istart,
+            &iend,
+            FALSE),
+        goto done);
+
+    if (fwrite(text, strlen(text), 1, fp) < 1) {
+      suscan_error(
+          insp->gui,
+          "Write failed",
+          "Failed to write symbol recording to disk: %s",
+          strerror(errno));
+      goto done;
+    }
+  }
+
+done:
+  if (text != NULL)
+    g_free(text);
+
+  if (fp != NULL)
+    fclose(fp);
+
+  if (filename != NULL)
+    g_free (filename);
+
+  if (dialog != NULL)
+    gtk_widget_destroy(dialog);
+
+  if (new_fname != NULL)
+    free(new_fname);
+}
+
+void
+suscan_inspector_on_toggle_record(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+
+  insp->recording = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+
+void
+suscan_inspector_on_clear(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+
+  gtk_text_buffer_set_text(insp->symbolTextBuffer, "", -1);
+}
