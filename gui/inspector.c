@@ -24,18 +24,12 @@
 void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 {
-  /*
-   * There are no GTK methods to destroy a GtkBuilder. Actual release
-   * happens after performing destroy on all top-level widgets.
-   */
-
   if (inspector->inshnd != -1)
     suscan_inspector_close_async(
         inspector->gui->analyzer,
         inspector->inshnd,
         rand());
 
-  /* TODO: gtk_widget_destroy on all toplevels */
   if (inspector->channelInspectorGrid != NULL)
     gtk_widget_destroy(GTK_WIDGET(inspector->channelInspectorGrid));
 
@@ -43,6 +37,8 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
     gtk_widget_destroy(GTK_WIDGET(inspector->pageLabelEventBox));
 
   suscan_gui_spectrum_init(&inspector->spectrum);
+
+  g_object_unref(G_OBJECT(inspector->builder));
 
   free(inspector);
 }

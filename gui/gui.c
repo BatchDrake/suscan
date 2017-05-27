@@ -60,6 +60,25 @@ suscan_gui_msgbox(
 void
 suscan_gui_destroy(struct suscan_gui *gui)
 {
+  unsigned int i;
+
+  for (i = 0; i < gui->inspector_count; ++i)
+    if (gui->inspector_list[i] != NULL)
+      suscan_gui_inspector_destroy(gui->inspector_list[i]);
+
+  if (gui->inspector_list != NULL)
+    free(gui->inspector_list);
+
+  if (gui->builder != NULL)
+    g_object_unref(gui->builder);
+
+  if (gui->analyzer != NULL)
+    suscan_analyzer_destroy(gui->analyzer);
+
+  suscan_spectrum_finalize(&gui->main_spectrum);
+
+  suscan_mq_finalize(&gui->mq_out);
+
   free(gui);
 }
 
