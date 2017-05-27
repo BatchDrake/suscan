@@ -173,6 +173,7 @@ struct suscan_gui_inspector {
   int index; /* Back reference */
   SUHANDLE inshnd; /* Inspector handle (relative to current analyzer) */
   SUBOOL recording; /* Symbol recorder enabled */
+  SUBOOL dead; /* Owner analyzer has been destroyed */
   struct suscan_gui *gui; /* Parent GUI */
   struct suscan_gui_constellation constellation; /* Constellation graph */
   struct suscan_gui_spectrum spectrum; /* Spectrum graph */
@@ -266,7 +267,7 @@ void suscan_gui_update_state(
     struct suscan_gui *gui,
     enum suscan_gui_state state);
 
-void suscan_gui_disable_all_inspectors(struct suscan_gui *gui);
+void suscan_gui_detach_all_inspectors(struct suscan_gui *gui);
 
 SUBOOL suscan_gui_connect(struct suscan_gui *gui);
 void suscan_gui_disconnect(struct suscan_gui *gui);
@@ -347,7 +348,9 @@ SUBOOL suscan_gui_inspector_update_sensitiveness(
     struct suscan_gui_inspector *insp,
     const struct suscan_inspector_params *params);
 
-void suscan_gui_inspector_disable(struct suscan_gui_inspector *insp);
+void suscan_gui_inspector_detach(struct suscan_gui_inspector *insp);
+
+void suscan_gui_inspector_close(struct suscan_gui_inspector *insp);
 
 void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
 

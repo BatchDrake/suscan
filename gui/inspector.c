@@ -87,9 +87,27 @@ suscan_gui_inspector_update_sensitiveness(
   return SU_TRUE;
 }
 
+/* Just marks it as detached: it doesn not refer to any existing inspector */
 void
-suscan_gui_inspector_disable(struct suscan_gui_inspector *insp)
+suscan_gui_inspector_detach(struct suscan_gui_inspector *insp)
 {
+  insp->dead = SU_TRUE;
+  insp->inshnd = -1;
+  gtk_widget_set_sensitive(GTK_WIDGET(insp->channelInspectorGrid), FALSE);
+}
+
+/* Sends a close signal to the analyzer */
+void
+suscan_gui_inspector_close(struct suscan_gui_inspector *insp)
+{
+  SUHANDLE handle = insp->inshnd;
+
+  if (handle != -1) {
+    /* Send close message */
+    insp->inshnd = -1;
+    suscan_inspector_close_async(insp->gui->analyzer, handle, rand());
+  }
+
   gtk_widget_set_sensitive(GTK_WIDGET(insp->channelInspectorGrid), FALSE);
 }
 
@@ -770,13 +788,18 @@ suscan_on_close_inspector_tab(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
-  if (insp->inshnd != -1) {
-    suscan_gui_inspector_disable(insp);
-
-    /* Send close message */
-    suscan_inspector_close_async(insp->gui->analyzer, insp->inshnd, rand());
-
-    insp->inshnd = -1;
+  if (!insp->dead) {
+    /*
+     * Inspector is not dead: send a close signal and wait for analyzer
+     * response to close it
+     */
+    suscan_gui_inspector_close(insp);
+  } else {
+    /*
+     * Inspector is dead (because its analyzer has disappeared). Just
+     * remove the page and free allocated memory
+     */
+    suscan_gui_remove_inspector(insp->gui, insp);
   }
 }
 

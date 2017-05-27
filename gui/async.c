@@ -111,7 +111,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
-      suscan_gui_disable_all_inspectors(gui);
+      suscan_gui_detach_all_inspectors(gui);
       break;
   }
 

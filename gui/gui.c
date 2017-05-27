@@ -768,11 +768,11 @@ suscan_gui_remove_inspector(
     struct suscan_gui_inspector *insp)
 {
   gint num;
-
-  if (insp->index < 0 || insp->index >= gui->inspector_count)
+  int index = insp->index;
+  if (index < 0 || index >= gui->inspector_count)
     return SU_FALSE;
 
-  SU_TRYCATCH(gui->inspector_list[insp->index] == insp, return SU_FALSE);
+  SU_TRYCATCH(gui->inspector_list[index] == insp, return SU_FALSE);
 
   SU_TRYCATCH(
       (num = gtk_notebook_page_num(
@@ -782,7 +782,9 @@ suscan_gui_remove_inspector(
 
   gtk_notebook_remove_page(gui->analyzerViewsNotebook, num);
 
-  gui->inspector_list[insp->index] = NULL;
+  suscan_gui_inspector_destroy(insp);
+
+  gui->inspector_list[index] = NULL;
 
   return SU_TRUE;
 }
@@ -941,13 +943,13 @@ suscan_gui_set_config(
 }
 
 void
-suscan_gui_disable_all_inspectors(struct suscan_gui *gui)
+suscan_gui_detach_all_inspectors(struct suscan_gui *gui)
 {
   unsigned int i;
 
   for (i = 0; i < gui->inspector_count; ++i)
     if (gui->inspector_list[i] != NULL)
-      suscan_gui_inspector_disable(gui->inspector_list[i]);
+      suscan_gui_inspector_detach(gui->inspector_list[i]);
 }
 
 SUBOOL
