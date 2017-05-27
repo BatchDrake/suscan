@@ -754,6 +754,7 @@
                       </object>
                       <packing>
                         <property name="position">1</property>
+                        <property name="reorderable">True</property>
                       </packing>
                     </child>
                     <child type="tab">
