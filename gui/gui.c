@@ -767,26 +767,23 @@ suscan_gui_remove_inspector(
     struct suscan_gui *gui,
     struct suscan_gui_inspector *insp)
 {
-  unsigned int i;
+  gint num;
 
   if (insp->index < 0 || insp->index >= gui->inspector_count)
     return SU_FALSE;
 
   SU_TRYCATCH(gui->inspector_list[insp->index] == insp, return SU_FALSE);
-  gtk_notebook_remove_page(gui->analyzerViewsNotebook, insp->page);
-  /*
-   * Substract one from all pages greater than insp->page. We do this
-   * because GTK sucks at handling notebook pages
-   */
-  for (i = 0; i < gui->inspector_count; ++i)
-    if (gui->inspector_list[i] != NULL)
-      if (gui->inspector_list[i]->page > insp->page)
-        --gui->inspector_list[i]->page;
+
+  SU_TRYCATCH(
+      (num = gtk_notebook_page_num(
+          gui->analyzerViewsNotebook,
+          GTK_WIDGET(insp->channelInspectorGrid))) != -1,
+      return SU_FALSE);
+
+  gtk_notebook_remove_page(gui->analyzerViewsNotebook, num);
 
   gui->inspector_list[insp->index] = NULL;
-  insp->index = -1;
-  insp->page = -1;
-  insp->gui = NULL;
+
   return SU_TRUE;
 }
 
@@ -796,6 +793,7 @@ suscan_gui_add_inspector(
     struct suscan_gui_inspector *insp)
 {
   struct suscan_inspector_params params;
+  gint page;
   SUBOOL inspector_added = SU_FALSE;
 
   /* Local copy of parameters */
@@ -809,14 +807,19 @@ suscan_gui_add_inspector(
   insp->gui = gui;
 
   SU_TRYCATCH(
-      (insp->page = gtk_notebook_append_page_menu(
+      (page = gtk_notebook_append_page_menu(
           gui->analyzerViewsNotebook,
           GTK_WIDGET(insp->channelInspectorGrid),
           GTK_WIDGET(insp->pageLabelEventBox),
           NULL)) >= 0,
       goto fail);
 
-  gtk_notebook_set_current_page(gui->analyzerViewsNotebook, insp->page);
+  gtk_notebook_set_tab_reorderable(
+      gui->analyzerViewsNotebook,
+      GTK_WIDGET(insp->pageLabelEventBox),
+      TRUE);
+
+  gtk_notebook_set_current_page(gui->analyzerViewsNotebook, page);
 
   /*
    * Page added. Set initial params. Interface will be unlocked as soon

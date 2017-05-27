@@ -171,7 +171,6 @@ struct suscan_gui_constellation {
 
 struct suscan_gui_inspector {
   int index; /* Back reference */
-  gint page; /* Page number */
   SUHANDLE inshnd; /* Inspector handle (relative to current analyzer) */
   SUBOOL recording; /* Symbol recorder enabled */
   struct suscan_gui *gui; /* Parent GUI */
