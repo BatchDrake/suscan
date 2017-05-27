@@ -38,12 +38,13 @@ suscan_gui_msgbox(
   va_start(ap, fmt);
 
   if ((message = vstrbuild(fmt, ap)) != NULL) {
-    dialog = gtk_message_dialog_new (gui->main,
-                                     GTK_DIALOG_DESTROY_WITH_PARENT,
-                                     type,
-                                     GTK_BUTTONS_CLOSE,
-                                     "%s",
-                                     message);
+    dialog = gtk_message_dialog_new(
+        gui->main,
+        GTK_DIALOG_DESTROY_WITH_PARENT,
+        type,
+        GTK_BUTTONS_CLOSE,
+        "%s",
+        message);
 
     gtk_window_set_title(GTK_WINDOW(dialog), title);
 
