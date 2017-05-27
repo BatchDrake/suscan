@@ -168,6 +168,7 @@ suscan_gui_retrieve_recent(struct suscan_gui *gui)
 {
   struct suscan_gui_recent *recent = NULL;
   gchar **confs;
+  char *dup = NULL;
   unsigned int i = 0;
 
   SU_TRYCATCH(
@@ -175,9 +176,11 @@ suscan_gui_retrieve_recent(struct suscan_gui *gui)
       return);
 
   while (confs[i] != NULL) {
+    SU_TRYCATCH(dup = strdup(confs[i]), goto done);
     SU_TRYCATCH(
-        recent = suscan_gui_recent_new(gui, confs[i]),
+        recent = suscan_gui_recent_new(gui, dup),
         goto done);
+    dup = NULL;
     SU_TRYCATCH(
         PTR_LIST_APPEND_CHECK(gui->recent, recent) != -1,
         goto done);
@@ -191,6 +194,9 @@ suscan_gui_retrieve_recent(struct suscan_gui *gui)
 done:
   if (recent != NULL)
     suscan_gui_recent_destroy(recent);
+
+  if (dup != NULL)
+    free(dup);
 
   g_strfreev(confs);
 }
