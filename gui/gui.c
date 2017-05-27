@@ -70,6 +70,13 @@ suscan_gui_destroy(struct suscan_gui *gui)
   if (gui->inspector_list != NULL)
     free(gui->inspector_list);
 
+  for (i = 0; i < gui->recent_count; ++i)
+    if (gui->recent_list[i] != NULL)
+      suscan_gui_recent_destroy(gui->recent_list[i]);
+
+  if (gui->recent_list != NULL)
+    free(gui->recent_list);
+
   if (gui->builder != NULL)
     g_object_unref(gui->builder);
 
@@ -750,7 +757,19 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
               "tvLogMessages")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->recentMenu =
+          GTK_MENU(gtk_builder_get_object(
+              gui->builder,
+              "mRecents")),
+          return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->emptyMenuItem =
+          GTK_MENU_ITEM(gtk_builder_get_object(
+              gui->builder,
+              "miEmpty")),
+          return SU_FALSE);
 
   suscan_gui_populate_source_list(gui);
 

@@ -91,6 +91,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
       break;
 
     case SUSCAN_GUI_STATE_RUNNING:
@@ -101,6 +102,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), TRUE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
       break;
 
     case SUSCAN_GUI_STATE_STOPPING:
@@ -111,6 +113,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
       suscan_gui_detach_all_inspectors(gui);
       break;
   }
@@ -501,6 +504,9 @@ suscan_gui_connect(struct suscan_gui *gui)
           suscan_gui_async_thread,
           gui),
       goto fail);
+
+  /* Append recent. Not critical */
+  (void) suscan_gui_append_recent(gui, gui->selected_config->config);
 
   /* Change state and succeed */
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RUNNING);

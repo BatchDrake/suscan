@@ -138,6 +138,8 @@
     if ((this = where->name ## _list[                \
       JOIN (_idx_, __LINE__)]) != NULL)
 
+#define GROW_BUF_STRCAT(gbuf, str) grow_buf_append((gbuf), (str), strlen(str))
+
 # define __UNITS(x, wrdsiz) ((((x) + (wrdsiz - 1)) / wrdsiz))
 # define __ALIGN(x, wrdsiz) (__UNITS(x, wrdsiz) * wrdsiz)
 

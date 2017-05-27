@@ -122,6 +122,8 @@ struct suscan_field_value *suscan_source_config_get_value(
 
 struct suscan_source_config *suscan_source_string_to_config(const char *string);
 
+char *suscan_source_config_to_string(const struct suscan_source_config *config);
+
 SUBOOL suscan_init_sources(void);
 
 #endif /* _SOURCE_H */

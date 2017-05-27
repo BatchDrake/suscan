@@ -30,7 +30,7 @@
 #endif
 
 struct suscan_gui_source_config {
-  struct suscan_source *source;
+  const struct suscan_source *source;
   struct suscan_source_config *config;
   PTR_LIST(GtkWidget, widget);
   GtkGrid *grid;
@@ -86,6 +86,13 @@ struct suscan_gui_spectrum {
 
 struct suscan_gui_inspector;
 
+struct suscan_gui_recent {
+  struct suscan_gui *gui;
+  char *conf_string;
+  struct suscan_source_config *config;
+  struct suscan_gui_source_config as_gui_config;
+};
+
 struct suscan_gui {
   /* Widgets */
   GtkBuilder *builder;
@@ -101,6 +108,8 @@ struct suscan_gui {
   GtkMenuBar *menuBar;
   GtkLabel *freqLabels[10];
   GObject *sourceAlignment;
+  GtkMenu *recentMenu;
+  GtkMenuItem *emptyMenuItem;
 
   GtkTreeViewColumn *centerFrequencyCol;
   GtkTreeViewColumn *snrCol;
@@ -138,6 +147,7 @@ struct suscan_gui {
   GtkTreeView *logMessagesTreeView;
   GtkListStore *logMessagesListStore;
 
+  /* FIXME: this should be suscan_source_config, not suscan_gui_source_config */
   struct suscan_gui_source_config *selected_config;
 
   /* GUI state */
@@ -155,6 +165,9 @@ struct suscan_gui {
 
   /* Keep list of inspector tabs */
   PTR_LIST(struct suscan_gui_inspector, inspector);
+
+  /* Keep a list of the last configurations used */
+  PTR_LIST(struct suscan_gui_recent, recent);
 };
 
 #define SUSCAN_GUI_CONSTELLATION_HISTORY 200
@@ -353,5 +366,16 @@ void suscan_gui_inspector_detach(struct suscan_gui_inspector *insp);
 void suscan_gui_inspector_close(struct suscan_gui_inspector *insp);
 
 void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
+
+/* Recent source configuration management */
+SUBOOL suscan_gui_append_recent(
+    struct suscan_gui *gui,
+    const struct suscan_source_config *config);
+
+struct suscan_gui_recent *suscan_gui_recent_new(
+    struct suscan_gui *gui,
+    char *conf_string);
+
+void suscan_gui_recent_destroy(struct suscan_gui_recent *recent);
 
 #endif /* _GUI_GUI_H */

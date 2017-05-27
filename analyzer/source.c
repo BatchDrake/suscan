@@ -497,7 +497,7 @@ suscan_source_string_to_config(const char *string)
             strcasecmp(val, "0")          == 0)
           bool_val = SU_FALSE;
         else {
-          SU_ERROR("Invalid boolean value for parameter `%s'\n", key);
+          SU_ERROR("Invalid boolean value for parameter `%s': %s\n", key, val);
           goto done;
         }
 
@@ -527,6 +527,72 @@ done:
     free_al(al);
 
   return config;
+}
+
+char *
+suscan_source_config_to_string(const struct suscan_source_config *config)
+{
+  char *result = NULL;
+  grow_buf_t gbuf = grow_buf_INITIALIZER;
+  const struct suscan_field *field = NULL;
+  const struct suscan_field_value *value = NULL;
+  char *terminator;
+  char num_buffer[32];
+  unsigned int i;
+
+  /* Source strings start with the source name */
+  SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, config->source->name) != -1, goto fail);
+
+  /* Convert all parameters */
+  for (i = 0; i < config->source->field_count; ++i) {
+    value = config->values[i];
+    field = value->field;
+    SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, ",") != -1, goto fail);
+
+    SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, field->name) != -1, goto fail);
+
+    SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, "=") != -1, goto fail);
+
+    /* FIXME: escape commas! */
+    switch (field->type) {
+      case SUSCAN_FIELD_TYPE_FILE:
+      case SUSCAN_FIELD_TYPE_STRING:
+        SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, value->as_string) != -1, goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_INTEGER:
+        snprintf(
+            num_buffer,
+            sizeof(num_buffer),
+            "%lli",
+            (long long int) value->as_int);
+        SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, num_buffer) != -1, goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FLOAT:
+        snprintf(num_buffer, sizeof(num_buffer), SUFLOAT_FMT, value->as_float);
+        SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, num_buffer) != -1, goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_BOOLEAN:
+        SU_TRYCATCH(
+            GROW_BUF_STRCAT(&gbuf, value->as_bool ? "yes" : "no") != -1,
+            goto fail);
+        break;
+
+      default:
+        SU_ERROR("Cannot serialize field type %d\n", field->type);
+    }
+  }
+
+  SU_TRYCATCH(grow_buf_append(&gbuf, "", 1) != -1, goto fail);
+
+  return (char *) grow_buf_get_buffer(&gbuf);
+
+fail:
+  grow_buf_finalize(&gbuf);
+
+  return NULL;
 }
 
 SUBOOL
