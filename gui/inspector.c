@@ -854,7 +854,7 @@ suscan_inspector_on_save(
   FILE *fp = NULL;
 
   SU_TRYCATCH(
-      new_fname = suscan_gui_inspector_to_filename(insp, "symbols", "log"),
+      new_fname = suscan_gui_inspector_to_filename(insp, "symbols", ".log"),
       goto done);
 
   SU_TRYCATCH(
