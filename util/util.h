@@ -156,11 +156,27 @@ typedef struct _al
 }
 arg_list_t;
 
+struct grow_buf {
+  size_t size;
+  size_t alloc;
+  void  *buffer;
+};
+
+typedef struct grow_buf grow_buf_t;
+
+#define grow_buf_INITIALIZER {0, 0, NULL}
+
 void  al_append_argument (arg_list_t *, const char*);
 void  free_al (arg_list_t *);
 
 arg_list_t *csv_split_line (const char *);
 arg_list_t *split_line (const char *);
+
+void *grow_buf_alloc(grow_buf_t *buf, size_t size);
+int grow_buf_append(grow_buf_t *buf, const void *data, size_t size);
+void *grow_buf_get_buffer(const grow_buf_t *buf);
+size_t grow_buf_get_size(const grow_buf_t *buf);
+void grow_buf_finalize(grow_buf_t *buf);
 
 void *xmalloc (size_t siz);
 void *xrealloc (void *p, size_t siz);

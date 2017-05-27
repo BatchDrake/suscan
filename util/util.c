@@ -24,6 +24,7 @@
 #include <string.h> // strsep()
 #include <unistd.h>
 #include <time.h>
+#include <ctype.h>
 
 #include "util.h"
 
@@ -690,4 +691,64 @@ get_curr_ctime (void)
   
   return text;
 }
+
+void *
+grow_buf_alloc(grow_buf_t *buf, size_t size)
+{
+  size_t alloc = buf->alloc;
+  size_t total_size = buf->size + size;
+  void *tmp;
+
+  if (alloc == 0)
+    alloc = 1;
+
+  while (alloc < total_size)
+    alloc <<= 1;
+
+  if (alloc != buf->alloc) {
+    if ((tmp = realloc(buf->buffer, alloc)) == NULL)
+      return NULL;
+
+    buf->buffer = tmp;
+    buf->alloc = alloc;
+  }
+
+  tmp = (char *) buf->buffer + buf->size;
+  buf->size = total_size;
+
+  return tmp;
+}
+
+int
+grow_buf_append(grow_buf_t *buf, const void *data, size_t size)
+{
+  void *buffer;
+
+  if ((buffer = grow_buf_alloc(buf, size)) == NULL)
+    return -1;
+
+  memcpy(buffer, data, size);
+
+  return 0;
+}
+
+void *
+grow_buf_get_buffer(const grow_buf_t *buf)
+{
+  return buf->buffer;
+}
+
+size_t
+grow_buf_get_size(const grow_buf_t *buf)
+{
+  return buf->size;
+}
+
+void grow_buf_finalize(grow_buf_t *buf)
+{
+  if (buf->buffer != NULL)
+    free(buf->buffer);
+}
+
+
 
