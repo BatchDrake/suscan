@@ -162,3 +162,58 @@ done:
 
   return ok;
 }
+
+void
+suscan_gui_retrieve_recent(struct suscan_gui *gui)
+{
+  struct suscan_gui_recent *recent = NULL;
+  gchar **confs;
+  unsigned int i = 0;
+
+  SU_TRYCATCH(
+      confs = g_settings_get_strv(gui->settings, "recent-sources"),
+      return);
+
+  while (confs[i] != NULL) {
+    SU_TRYCATCH(
+        recent = suscan_gui_recent_new(gui, confs[i]),
+        goto done);
+    SU_TRYCATCH(
+        PTR_LIST_APPEND_CHECK(gui->recent, recent) != -1,
+        goto done);
+    recent = NULL;
+    ++i;
+  }
+
+  /* Update menu items */
+  suscan_gui_update_recent_menu(gui);
+
+done:
+  if (recent != NULL)
+    suscan_gui_recent_destroy(recent);
+
+  g_strfreev(confs);
+}
+
+void
+suscan_gui_store_recent(struct suscan_gui *gui)
+{
+  const gchar **confs = NULL;
+  unsigned int i;
+
+  if (gui->recent_count > 0) {
+    SU_TRYCATCH(
+        confs = malloc((gui->recent_count + 1) * (sizeof (gchar *))),
+        return);
+
+    for (i = 0; i < gui->recent_count; ++i)
+      confs[i] = (gchar *) gui->recent_list[i]->conf_string;
+    confs[i] = NULL;
+
+    g_settings_set_strv(gui->settings, "recent-sources", confs);
+
+    free(confs);
+
+    g_settings_sync();
+  }
+}

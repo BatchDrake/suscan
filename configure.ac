@@ -20,7 +20,7 @@ fi
 AC_PROG_CC
 AM_PROG_CC_C_O
 AM_PROG_AS
-
+GLIB_GSETTINGS
 AC_PROG_LIBTOOL
 AC_PROG_INSTALL
 dnl the following needs to come after the expansion of AC_PROG_CC
@@ -68,7 +68,6 @@ AC_SUBST(asoundlib_LIBS)
 PKG_CHECK_MODULES([gtk3], [ gtk+-3.0 >= 0.28 ], , [AC_MSG_ERROR([Couldn't find GTK3])])
 AC_SUBST(gtk3_CFLAGS)
 AC_SUBST(gtk3_LIBS)
-
 
 PKG_CHECK_MODULES(bladeRF, libbladeRF >= 0.28, ac_cv_bladeRF=yes)
 

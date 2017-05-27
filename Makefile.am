@@ -10,3 +10,6 @@ EXTRA_DIST = AUTHORS ChangeLog NEWS README
 guidir=$(pkgdatadir)/gui
 gui_DATA=rsrc/main.glade rsrc/channel-inspector.glade
 
+gsettings_SCHEMAS = rsrc/org.actinid.SUScan.gschema.xml
+
+@GSETTINGS_RULES@

@@ -29,6 +29,8 @@
 #define PKGDATADIR "/usr"
 #endif
 
+#define SUSCAN_GUI_SETTINGS_ID "org.actinid.SUScan"
+
 struct suscan_gui_source_config {
   const struct suscan_source *source;
   struct suscan_source_config *config;
@@ -94,6 +96,9 @@ struct suscan_gui_recent {
 };
 
 struct suscan_gui {
+  /* Application settings */
+  GSettings *settings;
+
   /* Widgets */
   GtkBuilder *builder;
   GtkWindow *main;
@@ -377,5 +382,9 @@ struct suscan_gui_recent *suscan_gui_recent_new(
     char *conf_string);
 
 void suscan_gui_recent_destroy(struct suscan_gui_recent *recent);
+
+void suscan_gui_retrieve_recent(struct suscan_gui *gui);
+
+void suscan_gui_store_recent(struct suscan_gui *gui);
 
 #endif /* _GUI_GUI_H */

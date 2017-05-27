@@ -876,9 +876,15 @@ suscan_gui_get_inspector(const struct suscan_gui *gui, uint32_t inspector_id)
 }
 
 SUPRIVATE void
-suscan_quit_cb(GtkWidget *obj, gpointer u_data)
+suscan_quit_cb(GtkWidget *obj, gpointer data)
 {
+  struct suscan_gui *gui = (struct suscan_gui *) data;
+
   gtk_main_quit();
+
+  suscan_gui_store_recent(gui);
+
+  suscan_gui_destroy(gui);
 }
 
 struct suscan_gui *
@@ -890,6 +896,10 @@ suscan_gui_new(int argc, char **argv)
   gtk_init(&argc, &argv);
 
   SU_TRYCATCH(gui = calloc(1, sizeof(struct suscan_gui)), goto fail);
+
+  SU_TRYCATCH(
+      gui->settings = g_settings_new(SUSCAN_GUI_SETTINGS_ID),
+      goto fail);
 
   SU_TRYCATCH(
       gui->builder = gtk_builder_new_from_file(PKGDATADIR "/gui/main.glade"),
@@ -905,7 +915,9 @@ suscan_gui_new(int argc, char **argv)
       GTK_WIDGET(gui->main),
       "destroy",
       G_CALLBACK(suscan_quit_cb),
-      NULL);
+      gui);
+
+  suscan_gui_retrieve_recent(gui);
 
   return gui;
 
