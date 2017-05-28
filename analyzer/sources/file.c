@@ -339,6 +339,8 @@ suscan_wav_source_init(void)
       suscan_wav_source_ctor)) == NULL)
     return SU_FALSE;
 
+  source->real_samp = SU_TRUE;
+
   if (!suscan_source_add_field(
       source,
       SUSCAN_FIELD_TYPE_FILE,
