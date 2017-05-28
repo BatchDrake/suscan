@@ -27,6 +27,7 @@
 #include "source.h"
 #include "xsig.h"
 #include "sources/bladerf.h"
+#include "sources/alsa.h"
 
 /* Will never be freed */
 PTR_LIST(struct suscan_source, source);
@@ -598,17 +599,15 @@ fail:
 SUBOOL
 suscan_init_sources(void)
 {
-  if (!suscan_null_source_init())
-    return SU_FALSE;
+  SU_TRYCATCH(suscan_null_source_init(), return SU_FALSE);
 
-  if (!suscan_wav_source_init())
-    return SU_FALSE;
+  SU_TRYCATCH(suscan_wav_source_init(), return SU_FALSE);
 
-  if (!suscan_iqfile_source_init())
-    return SU_FALSE;
+  SU_TRYCATCH(suscan_iqfile_source_init(), return SU_FALSE);
 
-  if (!suscan_bladeRF_source_init())
-    return SU_FALSE;
+  SU_TRYCATCH(suscan_bladeRF_source_init(), return SU_FALSE);
+
+  SU_TRYCATCH(suscan_alsa_source_init(), return SU_FALSE);
 
   return SU_TRUE;
 }
