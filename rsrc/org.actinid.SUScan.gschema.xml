@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE schemalist SYSTEM "/usr/share/glib-2.0/schemas/gschema.dtd">
+
+<schemalist>
+  <schema id="org.actinid.SUScan" path="/org/actinid/SUScan/">
+    <key name="recent-sources" type="as">
+      <default>[]</default>
+      <summary>Recent sources</summary>
+      <description>Configuration strings of the recently used signal sources</description>
+    </key>
+  </schema>
+</schemalist>
+
+
