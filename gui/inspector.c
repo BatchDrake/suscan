@@ -813,6 +813,8 @@ suscan_on_close_inspector_tab(GtkWidget *widget, gpointer data)
      * remove the page and free allocated memory
      */
     suscan_gui_remove_inspector(insp->gui, insp);
+
+    suscan_gui_inspector_destroy(insp);
   }
 }
 
@@ -851,7 +853,7 @@ suscan_inspector_spectrum_on_scroll(
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
-  suscan_gui_spectrum_parse_scroll(&insp->spectrum, widget, ev);
+  suscan_gui_spectrum_parse_scroll(&insp->spectrum, ev);
 }
 
 void
@@ -862,7 +864,7 @@ suscan_inspector_spectrum_on_motion(
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
-  suscan_gui_spectrum_parse_motion(&insp->spectrum, widget, ev);
+  suscan_gui_spectrum_parse_motion(&insp->spectrum, ev);
 }
 
 void

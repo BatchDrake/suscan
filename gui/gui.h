@@ -83,6 +83,10 @@ struct suscan_gui_spectrum {
   SUFLOAT  original_freq_offset;
   SUFLOAT  original_ref_level;
 
+  /* Current channel selection state */
+  SUBOOL selecting;
+  struct sigutils_channel selection;
+
   /* Current channel list */
   PTR_LIST(struct sigutils_channel, channel);
 };
@@ -258,6 +262,8 @@ struct suscan_gui_inspector {
   struct sigutils_channel channel;
 };
 
+void suscan_gui_destroy(struct suscan_gui *gui);
+
 struct suscan_gui *suscan_gui_new(int argc, char **argv);
 
 SUBOOL suscan_gui_start(
@@ -318,13 +324,14 @@ void suscan_gui_spectrum_redraw(
 
 void suscan_gui_spectrum_parse_scroll(
     struct suscan_gui_spectrum *spectrum,
-    GtkWidget *widget,
-    GdkEventScroll *ev);
+    const GdkEventScroll *ev);
 
 void suscan_gui_spectrum_parse_motion(
     struct suscan_gui_spectrum *spectrum,
-    GtkWidget *widget,
-    GdkEventMotion *ev);
+    const GdkEventMotion *ev);
+
+void suscan_gui_spectrum_reset_selection(
+    struct suscan_gui_spectrum *spectrum);
 
 /* Constellation API */
 void suscan_gui_constellation_init(

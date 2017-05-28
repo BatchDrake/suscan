@@ -801,8 +801,6 @@ suscan_gui_remove_inspector(
 
   gtk_notebook_remove_page(gui->analyzerViewsNotebook, num);
 
-  suscan_gui_inspector_destroy(insp);
-
   gui->inspector_list[index] = NULL;
 
   return SU_TRUE;
