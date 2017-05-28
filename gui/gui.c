@@ -880,11 +880,7 @@ suscan_quit_cb(GtkWidget *obj, gpointer data)
 {
   struct suscan_gui *gui = (struct suscan_gui *) data;
 
-  gtk_main_quit();
-
-  suscan_gui_store_recent(gui);
-
-  suscan_gui_destroy(gui);
+  suscan_gui_quit(gui);
 }
 
 struct suscan_gui *

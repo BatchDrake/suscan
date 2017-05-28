@@ -287,6 +287,8 @@ done:
   if (!halt_acked)
     suscan_wait_for_halt(analyzer);
 
+  analyzer->running = SU_FALSE;
+
   pthread_exit(NULL);
 
   return NULL;

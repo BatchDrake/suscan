@@ -41,7 +41,8 @@ struct suscan_gui_source_config {
 enum suscan_gui_state {
   SUSCAN_GUI_STATE_STOPPED,
   SUSCAN_GUI_STATE_RUNNING,
-  SUSCAN_GUI_STATE_STOPPING
+  SUSCAN_GUI_STATE_STOPPING,
+  SUSCAN_GUI_STATE_QUITTING
 };
 
 #define SUSCAN_GUI_SPECTRUM_FREQ_OFFSET_DEFAULT 0
@@ -289,6 +290,7 @@ void suscan_gui_detach_all_inspectors(struct suscan_gui *gui);
 
 SUBOOL suscan_gui_connect(struct suscan_gui *gui);
 void suscan_gui_disconnect(struct suscan_gui *gui);
+void suscan_gui_quit(struct suscan_gui *gui);
 
 /* Spectrum API */
 void suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum);

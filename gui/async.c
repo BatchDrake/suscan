@@ -106,6 +106,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
       break;
 
     case SUSCAN_GUI_STATE_STOPPING:
+    case SUSCAN_GUI_STATE_QUITTING:
       subtitle = strbuild("%s (Stopping...)", source_name);
       suscan_gui_change_button_icon(
           GTK_BUTTON(gui->toggleConnect),
@@ -149,8 +150,20 @@ suscan_async_stopped_cb(gpointer user_data)
   /* Consume any pending messages */
   suscan_analyzer_consume_mq(&gui->mq_out);
 
-  /* Update GUI with new state */
-  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
+  if (gui->state == SUSCAN_GUI_STATE_QUITTING) {
+    /*
+     * Stopped was caused by a transition to QUITTING. Destroy GUI
+     * and exit main loop
+     */
+    suscan_gui_store_recent(gui);
+
+    suscan_gui_destroy(gui);
+
+    gtk_main_quit();
+  } else {
+    /* Update GUI with new state */
+    suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
+  }
 
   return G_SOURCE_REMOVE;
 }
@@ -533,6 +546,26 @@ suscan_gui_disconnect(struct suscan_gui *gui)
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPING);
 
   suscan_analyzer_req_halt(gui->analyzer);
+}
+
+void
+suscan_gui_quit(struct suscan_gui *gui)
+{
+  if (gui->state == SUSCAN_GUI_STATE_RUNNING) {
+    /* GUI is running, ask async thread politely to quit */
+    suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
+
+    suscan_analyzer_req_halt(gui->analyzer);
+  } else if (gui->state == SUSCAN_GUI_STATE_STOPPED) {
+    /* GUI already stopped, proceed to stop safely */
+    suscan_gui_store_recent(gui);
+
+    suscan_gui_destroy(gui);
+
+    gtk_main_quit();
+  }
+
+  /* Ignore other states */
 }
 
 
