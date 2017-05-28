@@ -346,6 +346,13 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
           return SU_FALSE);
 
   SU_TRYCATCH(
+      inspector->costas8RadioButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "rbCostas8")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
       inspector->manualRadioButton =
           GTK_RADIO_BUTTON(gtk_builder_get_object(
               inspector->builder,
@@ -707,6 +714,9 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
   else if (gtk_toggle_button_get_active(
       GTK_TOGGLE_BUTTON(insp->costas4RadioButton)))
     insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4;
+  else if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(insp->costas8RadioButton)))
+    insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8;
   else
     insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
 

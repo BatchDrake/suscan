@@ -223,6 +223,7 @@ struct suscan_gui_inspector {
   /* Carrier control alignment */
   GtkRadioButton *costas2RadioButton;
   GtkRadioButton *costas4RadioButton;
+  GtkRadioButton *costas8RadioButton;
   GtkRadioButton *manualRadioButton;
   GtkAlignment   *carrierManualAlignment;
   GtkEntry       *carrierOffsetEntry;

@@ -92,7 +92,8 @@ enum suscan_inspector_gain_control {
 enum suscan_inspector_carrier_control {
   SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL,
   SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2,
-  SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4
+  SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4,
+  SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8,
 };
 
 enum suscan_inspector_matched_filter {
@@ -147,6 +148,7 @@ struct suscan_inspector {
   su_agc_t                agc;      /* AGC, for sampler */
   su_costas_t             costas_2; /* 2nd order Costas loop */
   su_costas_t             costas_4; /* 4th order Costas loop */
+  su_costas_t             costas_8; /* 8th order Costas loop */
   su_iir_filt_t           mf;       /* Matched filter (Root Raised Cosine) */
   su_clock_detector_t     cd;       /* Clock detector */
   su_ncqo_t               lo;       /* Oscillator for manual carrier offset */

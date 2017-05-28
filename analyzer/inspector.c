@@ -322,6 +322,17 @@ suscan_inspector_new(
           1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, params.bw)),
       goto fail);
 
+
+  SU_TRYCATCH(
+      su_costas_init(
+          &new->costas_8,
+          SU_COSTAS_KIND_8PSK,
+          0,
+          SU_ABS2NORM_FREQ(new->equiv_fs, params.bw),
+          3,
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, params.bw)),
+      goto fail);
+
   return new;
 
 fail:
@@ -395,6 +406,11 @@ suscan_inspector_feed_bulk(
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4:
         su_costas_feed(&insp->costas_4, det_x);
         sample = insp->costas_4.y;
+        break;
+
+      case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8:
+        su_costas_feed(&insp->costas_8, det_x);
+        sample = insp->costas_8.y;
         break;
     }
 
