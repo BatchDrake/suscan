@@ -137,6 +137,26 @@ suscan_gui_inspector_decide(
         sym_ndx = 3;
       break;
 
+    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8:
+      /* 8PSK decision */
+      if (0 < arg && arg <= .25 * M_PI)
+        sym_ndx = 0;
+      else if (.25 * M_PI < arg && arg <= .5 * M_PI)
+        sym_ndx = 1;
+      else if (.5 * M_PI < arg && arg <= .75 * M_PI)
+        sym_ndx = 2;
+      else if (.75 * M_PI < arg && arg <= M_PI)
+        sym_ndx = 3;
+      else if (-M_PI < arg && arg <= -.75 * M_PI)
+        sym_ndx = 4;
+      else if (-.75 * M_PI < arg && arg <= -.5 * M_PI)
+        sym_ndx = 5;
+      else if (-.5 * M_PI < arg && arg <= -.25 * M_PI)
+        sym_ndx = 6;
+      else
+        sym_ndx = 7;
+      break;
+
     default:
       return SU_NOSYMBOL;
   }
