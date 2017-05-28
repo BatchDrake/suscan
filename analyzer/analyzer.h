@@ -60,7 +60,6 @@ struct suscan_analyzer_source {
   SUSCOUNT per_cnt_channels;
   SUSCOUNT per_cnt_psd;
   uint64_t fc; /* Center frequency of source */
-  SUBOOL real_time; /* Is it a real-time source? */
 };
 
 struct suscan_analyzer;

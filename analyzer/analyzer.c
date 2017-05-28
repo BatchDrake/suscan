@@ -639,7 +639,6 @@ suscan_analyzer_source_init_from_block_properties(
 {
   const uint64_t *samp_rate;
   const uint64_t *fc;
-  const SUBOOL *real_time;
 
   /* Retrieve sample rate. All source blocks must expose this property */
   if ((samp_rate = su_block_get_property_ref(
@@ -658,13 +657,6 @@ suscan_analyzer_source_init_from_block_properties(
       SU_PROPERTY_TYPE_INTEGER,
       "fc")) != NULL)
     source->fc = *fc;
-
-  /* Guess whether this is a real-time source or not */
-  if ((real_time = su_block_get_property_ref(
-      source->block,
-      SU_PROPERTY_TYPE_BOOL,
-      "real_time")) != NULL)
-    source->real_time = *real_time;
 
   return SU_TRUE;
 }
@@ -707,7 +699,7 @@ suscan_analyzer_source_init(
   if (!su_block_port_plug(&source->port, source->block, 0))
     goto done;
 
-  if (source->real_time) {
+  if (config->source->real_time) {
     /*
      * With real time sources, we must use the master/slave flow controller.
      * This way, we ensure that at least the channel detector works

@@ -27,8 +27,6 @@
 
 #include "bladerf.h"
 
-SUPRIVATE SUBOOL real_time = SU_TRUE;
-
 SUPRIVATE void
 bladeRF_state_destroy(struct bladeRF_state *state)
 {
@@ -259,15 +257,6 @@ su_block_bladeRF_ctor(struct sigutils_block *block, void **private, va_list ap)
     goto fail;
   }
 
-  if (!su_block_set_property_ref(
-      block,
-      SU_PROPERTY_TYPE_BOOL,
-      "real_time",
-      &real_time)) {
-    SU_ERROR("Expose real_time failed\n");
-    goto fail;
-  }
-
   *private = state;
 
   return SU_TRUE;
@@ -412,6 +401,8 @@ suscan_bladeRF_source_init(void)
       "Nuand's bladeRF SDR",
       suscan_bladeRF_source_ctor)) == NULL)
     return SU_FALSE;
+
+  source->real_time = SU_TRUE;
 
   if (!suscan_source_add_field(
       source,

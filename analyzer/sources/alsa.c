@@ -23,8 +23,6 @@
 
 #include "alsa.h"
 
-SUPRIVATE SUBOOL real_time = SU_TRUE;
-
 void
 alsa_state_destroy(struct alsa_state *state)
 {
@@ -164,15 +162,6 @@ su_block_alsa_ctor(struct sigutils_block *block, void **private, va_list ap)
     goto fail;
   }
 
-  if (!su_block_set_property_ref(
-      block,
-      SU_PROPERTY_TYPE_BOOL,
-      "real_time",
-      &real_time)) {
-    SU_ERROR("Expose real_time failed\n");
-    goto fail;
-  }
-
   *private = state;
 
   return SU_TRUE;
@@ -287,6 +276,9 @@ suscan_alsa_source_init(void)
       "ALSA audio live capture",
       suscan_alsa_source_ctor)) == NULL)
     return SU_FALSE;
+
+  source->real_time = SU_TRUE;
+  source->real_samp = SU_TRUE;
 
   if (!suscan_source_add_field(
       source,

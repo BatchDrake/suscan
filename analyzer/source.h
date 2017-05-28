@@ -60,6 +60,9 @@ struct suscan_source {
   const char *name;
   const char *desc;
 
+  SUBOOL real_samp; /* Samples are real numbers */
+  SUBOOL real_time; /* Source is real time */
+
   PTR_LIST(struct suscan_field, field);
 
   su_block_t *(*ctor) (const struct suscan_source_config *);
