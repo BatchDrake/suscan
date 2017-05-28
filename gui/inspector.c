@@ -198,13 +198,15 @@ suscan_gui_inspector_feed_w_batch(
         inspector->symbolTextBuffer,
         inspector->symbol_text_buffer,
         full_samp_count);
-    gtk_text_view_scroll_to_mark(
-        inspector->symbolTextView,
-        mark,
-        0.0,  /* within_margin */
-        TRUE, /* use_align */
-        0.5,  /* xalign */
-        1);   /* yalign */
+
+    if (inspector->autoscroll)
+      gtk_text_view_scroll_to_mark(
+          inspector->symbolTextView,
+          mark,
+          0.0,  /* within_margin */
+          TRUE, /* use_align */
+          0.5,  /* xalign */
+          1);   /* yalign */
   }
 
   for (i = 0; i < sample_count; ++i)
@@ -521,6 +523,13 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
   inspector->symbolTextBuffer =
       gtk_text_view_get_buffer(inspector->symbolTextView);
 
+  SU_TRYCATCH(
+      inspector->autoScrollToggleButton =
+          GTK_TOGGLE_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "tbAutoScroll")),
+          return SU_FALSE);
+
   /* Somehow Glade fails to set these default values */
   gtk_toggle_button_set_active(
       GTK_TOGGLE_BUTTON(inspector->manualRadioButton),
@@ -534,6 +543,9 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
       GTK_TOGGLE_BUTTON(inspector->noSpectrumRadioButton),
       TRUE);
 
+  gtk_toggle_button_set_active(
+      GTK_TOGGLE_BUTTON(inspector->autoScrollToggleButton),
+      TRUE);
   return SU_TRUE;
 }
 
@@ -550,6 +562,7 @@ suscan_gui_inspector_new(
   new->channel = *channel;
   new->index = -1;
   new->inshnd = handle;
+  new->autoscroll = SU_TRUE;
 
   suscan_gui_constellation_init(&new->constellation);
   suscan_gui_spectrum_init(&new->spectrum);
@@ -968,3 +981,14 @@ suscan_inspector_on_clear(
 
   gtk_text_buffer_set_text(insp->symbolTextBuffer, "", -1);
 }
+
+void
+suscan_inspector_on_toggle_autoscroll(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+
+  insp->autoscroll = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+

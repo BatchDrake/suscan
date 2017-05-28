@@ -191,8 +191,9 @@ struct suscan_gui_constellation {
 struct suscan_gui_inspector {
   int index; /* Back reference */
   SUHANDLE inshnd; /* Inspector handle (relative to current analyzer) */
-  SUBOOL recording; /* Symbol recorder enabled */
   SUBOOL dead; /* Owner analyzer has been destroyed */
+  SUBOOL recording; /* Symbol recorder enabled */
+  SUBOOL autoscroll;
   struct suscan_gui *gui; /* Parent GUI */
   struct suscan_gui_constellation constellation; /* Constellation graph */
   struct suscan_gui_spectrum spectrum; /* Spectrum graph */
@@ -205,6 +206,7 @@ struct suscan_gui_inspector {
   GtkEventBox *pageLabelEventBox;
   GtkLabel    *pageLabel;
   GtkGrid     *channelInspectorGrid;
+  GtkToggleButton *autoScrollToggleButton;
 
   /* Gain control widgets */
   GtkRadioButton *automaticGainRadioButton;
