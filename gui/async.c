@@ -197,6 +197,9 @@ suscan_async_update_channels_cb(gpointer user_data)
       channel_list,
       channel_count);
 
+  if (channel_count > SUSCAN_GUI_MAX_CHANNELS)
+    channel_count = SUSCAN_GUI_MAX_CHANNELS;
+
   /* Update channel list */
   gtk_list_store_clear(envelope->gui->channelListStore);
   for (i = 0; i < channel_count; ++i) {

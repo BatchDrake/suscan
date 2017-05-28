@@ -30,6 +30,7 @@
 #endif
 
 #define SUSCAN_GUI_SETTINGS_ID "org.actinid.SUScan"
+#define SUSCAN_GUI_MAX_CHANNELS 10
 
 struct suscan_gui_source_config {
   const struct suscan_source *source;
