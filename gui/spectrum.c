@@ -663,8 +663,8 @@ suscan_gui_spectrum_parse_selection(
               spectrum,
               spectrum->last_x));
 
-    spectrum->selection.f_lo = spectrum->samp_rate * MIN(x, lx);
-    spectrum->selection.f_hi = spectrum->samp_rate * MAX(x, lx);
+    spectrum->selection.f_lo = spectrum->samp_rate * MIN(x, lx) + spectrum->fc;
+    spectrum->selection.f_hi = spectrum->samp_rate * MAX(x, lx) + spectrum->fc;
     spectrum->selection.bw =
         spectrum->selection.f_hi - spectrum->selection.f_lo;
     spectrum->selection.fc =
