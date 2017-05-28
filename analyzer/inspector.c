@@ -126,6 +126,12 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
       }
     }
 
+    /* Re-center costas loops */
+    if (insp->params.fc_ctrl == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
+      su_ncqo_set_freq(&insp->costas_2.ncqo, 0);
+      su_ncqo_set_freq(&insp->costas_4.ncqo, 0);
+      su_ncqo_set_freq(&insp->costas_8.ncqo, 0);
+    }
     insp->params_requested = SU_FALSE;
 
     suscan_inspector_params_unlock(insp);
