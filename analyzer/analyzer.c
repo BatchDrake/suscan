@@ -195,9 +195,11 @@ suscan_source_wk_cb(
     cpu = sub.tv_sec * 1000000000 + sub.tv_nsec;
 
     if (total == 0)
-      analyzer->cpu_usage += .1 * (1. - analyzer->cpu_usage);
+      analyzer->cpu_usage +=
+          .1 * (1. - analyzer->cpu_usage);
     else
-      analyzer->cpu_usage += .1 * ((SUFLOAT) cpu / (SUFLOAT) total - analyzer->cpu_usage);
+      analyzer->cpu_usage +=
+          .1 * ((SUFLOAT) cpu / (SUFLOAT) total - analyzer->cpu_usage);
 
   } else {
     analyzer->eos = SU_TRUE;
