@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <time.h>
 
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
@@ -31,6 +32,77 @@
 #include "source.h"
 #include "analyzer.h"
 #include "msg.h"
+/****************************** Throttle *************************************/
+void
+suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate)
+{
+  throttle->samp_count = 0;
+  throttle->samp_rate = samp_rate;
+
+  if (samp_rate > SUSCAN_THROTTLE_MAX_READ_UNIT_FRAC)
+    throttle->max_read_unit = samp_rate / SUSCAN_THROTTLE_MAX_READ_UNIT_FRAC;
+  else
+    throttle->max_read_unit = 1;
+
+  gettimeofday(&throttle->t0, NULL);
+}
+
+SUSCOUNT
+suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
+{
+  struct timeval tn;
+  struct timespec sleep_time;
+  SUSCOUNT secs;
+  SUSDIFF usecs;
+  SUSDIFF avail;
+
+  if (h > 0) {
+    /*
+     * Limit the number of samples we can read in a row to give
+     * a sensation of fluency
+     */
+    if (h > throttle->max_read_unit)
+      h = throttle->max_read_unit;
+
+    gettimeofday(&tn, NULL);
+
+    secs  = tn.tv_sec  - throttle->t0.tv_sec;
+    usecs = tn.tv_usec - throttle->t0.tv_usec;
+
+    if (secs > 1) {
+      /* Reader is really late, get a rough estimate */
+      avail = throttle->samp_rate * secs - throttle->samp_count;
+    } else {
+      usecs = secs * 1000000ll + (tn.tv_usec - throttle->t0.tv_usec);
+      avail = (throttle->samp_rate * usecs) / 1000000ll - throttle->samp_count;
+    }
+
+    if (avail < SUSCAN_THROTTLE_MIN_AVAIL) {
+      /* Stream exhausted. Wait until we can read -at least- h samples */
+      throttle->samp_count = 0;
+      throttle->t0 = tn;
+
+      usecs = (MAX(SUSCAN_THROTTLE_MIN_AVAIL, avail) * 1000000) /
+          throttle->samp_rate;
+
+      sleep_time.tv_sec = usecs / 1000000;
+      sleep_time.tv_nsec = (usecs % 1000000) * 1000;
+
+      (void) nanosleep(&sleep_time, NULL);
+    } else {
+      /* Check to avoid slow readers to overflow the available counter */
+      if (avail > SUSCAN_THROTTLE_RESET_THRESHOLD) {
+        throttle->samp_count = 0;
+        throttle->t0 = tn;
+      }
+
+      h = MIN(avail, h);
+      throttle->samp_count += h; /* Consume this much */
+    }
+  }
+
+  return h;
+}
 
 /************************ Source worker callback *****************************/
 SUPRIVATE void
@@ -58,6 +130,7 @@ suscan_source_wk_cb(
   struct suscan_analyzer_source *source =
       (struct suscan_analyzer_source *) cb_private;
   SUSDIFF got;
+  SUSCOUNT read_size;
   struct timespec read_start;
   struct timespec process_start;
   struct timespec process_end;
@@ -66,29 +139,26 @@ suscan_source_wk_cb(
   SUBOOL restart = SU_FALSE;
 
   clock_gettime(CLOCK_MONOTONIC_RAW, &read_start);
+
+  /* With non-real time sources, use throttle to control CPU usage */
+  if (source->config->source->real_time)
+    read_size = analyzer->read_size;
+  else
+    read_size = suscan_throttle_get_portion(
+        &source->throttle,
+        analyzer->read_size);
+
+  /* Ready to read */
   if ((got = su_block_port_read(
       &source->port,
       analyzer->read_buf,
-      analyzer->read_size)) > 0) {
+      read_size)) > 0) {
     clock_gettime(CLOCK_MONOTONIC_RAW, &process_start);
     if (su_channel_detector_feed_bulk(
         source->detector,
         analyzer->read_buf,
         got) < got)
       goto done;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &process_end);
-
-    /* Compute CPU usage */
-    timespecsub(&process_end, &read_start, &sub);
-    total = sub.tv_sec * 1000000000 + sub.tv_nsec;
-
-    timespecsub(&process_end, &process_start, &sub);
-    cpu = sub.tv_sec * 1000000000 + sub.tv_nsec;
-
-    if (total == 0)
-      analyzer->cpu_usage = 1.;
-    else
-      analyzer->cpu_usage = (SUFLOAT) cpu / (SUFLOAT) total;
 
     source->per_cnt_channels += got;
     source->per_cnt_psd += got;
@@ -114,6 +184,21 @@ suscan_source_wk_cb(
           goto done;
       }
     }
+
+    /* Compute CPU usage */
+    clock_gettime(CLOCK_MONOTONIC_RAW, &process_end);
+
+    timespecsub(&process_end, &read_start, &sub);
+    total = sub.tv_sec * 1000000000 + sub.tv_nsec;
+
+    timespecsub(&process_end, &process_start, &sub);
+    cpu = sub.tv_sec * 1000000000 + sub.tv_nsec;
+
+    if (total == 0)
+      analyzer->cpu_usage += .1 * (1. - analyzer->cpu_usage);
+    else
+      analyzer->cpu_usage += .1 * ((SUFLOAT) cpu / (SUFLOAT) total - analyzer->cpu_usage);
+
   } else {
     analyzer->eos = SU_TRUE;
     analyzer->cpu_usage = 0;
@@ -676,7 +761,6 @@ suscan_analyzer_source_init(
 
   source->config = config;
 
-
   source->per_cnt_channels  = 0;
   source->per_cnt_psd       = 0;
 
@@ -729,6 +813,13 @@ suscan_analyzer_source_init(
         0,
         SU_FLOW_CONTROL_KIND_BARRIER))
       goto done;
+
+    /*
+     * To avoid CPU hogging by unlimited input rate, we setup a throttle
+     * object to deliver samples at a constat rate specified by the
+     * sample rate;
+     */
+    suscan_throttle_init(&source->throttle, params.samp_rate);
   }
 
   ok = SU_TRUE;

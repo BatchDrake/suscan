@@ -35,6 +35,25 @@
 
 #define SUSCAN_CONSUMER_IDLE_COUNTER 30
 
+/*
+ * Throttle reset threshold. If the number of available samples keeps growing,
+ * it means that the reader is slower than the declared sample rate. In that
+ * case, we just reset t0 and set sample_count to 0.
+ */
+#define SUSCAN_THROTTLE_RESET_THRESHOLD 1000000000ll
+#define SUSCAN_THROTTLE_MAX_READ_UNIT_FRAC 1
+#define SUSCAN_THROTTLE_MIN_AVAIL 1024
+
+struct suscan_throttle {
+  SUSCOUNT samp_rate;
+  SUSCOUNT samp_count;
+  SUSCOUNT max_read_unit;
+  struct timeval t0;
+};
+
+
+typedef struct suscan_throttle suscan_throttle_t;
+
 enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_CREATED,
   SUSCAN_ASYNC_STATE_RUNNING,
@@ -51,6 +70,7 @@ struct suscan_analyzer_source {
   struct suscan_source_config *config;
   su_block_t *block;
   su_block_port_t port; /* Master reading port */
+  suscan_throttle_t throttle; /* Throttle object */
   su_channel_detector_t *detector; /* Channel detector */
   struct xsig_source *instance;
 
@@ -203,6 +223,11 @@ struct suscan_analyzer {
 };
 
 typedef struct suscan_analyzer suscan_analyzer_t;
+
+/***************************** Throttle API **********************************/
+void suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate);
+
+SUSCOUNT suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h);
 
 /***************************** Inspector API *********************************/
 void suscan_inspector_destroy(suscan_inspector_t *chanal);
