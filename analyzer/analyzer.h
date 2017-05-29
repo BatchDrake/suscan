@@ -42,7 +42,7 @@
  */
 #define SUSCAN_THROTTLE_RESET_THRESHOLD 1000000000ll
 #define SUSCAN_THROTTLE_MAX_READ_UNIT_FRAC 1
-#define SUSCAN_THROTTLE_MIN_AVAIL 1024
+#define SUSCAN_THROTTLE_MIN_AVAIL 256
 
 struct suscan_throttle {
   SUSCOUNT samp_rate;
@@ -228,6 +228,8 @@ typedef struct suscan_analyzer suscan_analyzer_t;
 void suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate);
 
 SUSCOUNT suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h);
+
+void suscan_throttle_advance(suscan_throttle_t *throttle, SUSCOUNT got);
 
 /***************************** Inspector API *********************************/
 void suscan_inspector_destroy(suscan_inspector_t *chanal);

@@ -53,6 +53,7 @@ suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
   struct timeval tn;
   struct timespec sleep_time;
   SUSCOUNT secs;
+  SUSCOUNT samps;
   SUSDIFF usecs;
   SUSDIFF avail;
 
@@ -82,13 +83,15 @@ suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
       throttle->samp_count = 0;
       throttle->t0 = tn;
 
-      usecs = (MAX(SUSCAN_THROTTLE_MIN_AVAIL, avail) * 1000000) /
-          throttle->samp_rate;
+      samps = MAX(SUSCAN_THROTTLE_MIN_AVAIL - avail, h - avail);
+      usecs = samps * 1000000 / throttle->samp_rate;
 
       sleep_time.tv_sec = usecs / 1000000;
       sleep_time.tv_nsec = (usecs % 1000000) * 1000;
 
       (void) nanosleep(&sleep_time, NULL);
+
+      h = samps;
     } else {
       /* Check to avoid slow readers to overflow the available counter */
       if (avail > SUSCAN_THROTTLE_RESET_THRESHOLD) {
@@ -97,11 +100,16 @@ suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
       }
 
       h = MIN(avail, h);
-      throttle->samp_count += h; /* Consume this much */
     }
   }
 
   return h;
+}
+
+void
+suscan_throttle_advance(suscan_throttle_t *throttle, SUSCOUNT got)
+{
+  throttle->samp_count += got;
 }
 
 /************************ Source worker callback *****************************/
@@ -154,6 +162,10 @@ suscan_source_wk_cb(
       analyzer->read_buf,
       read_size)) > 0) {
     clock_gettime(CLOCK_MONOTONIC_RAW, &process_start);
+
+    if (!source->config->source->real_time)
+      suscan_throttle_advance(&source->throttle, got);
+
     if (su_channel_detector_feed_bulk(
         source->detector,
         analyzer->read_buf,
