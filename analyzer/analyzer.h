@@ -41,14 +41,12 @@
  * case, we just reset t0 and set sample_count to 0.
  */
 #define SUSCAN_THROTTLE_RESET_THRESHOLD 1000000000ll
-#define SUSCAN_THROTTLE_MAX_READ_UNIT_FRAC 1
-#define SUSCAN_THROTTLE_MIN_AVAIL 256
+#define SUSCAN_THROTTLE_MAX_READ_UNIT_FRAC .25
 
 struct suscan_throttle {
   SUSCOUNT samp_rate;
   SUSCOUNT samp_count;
-  SUSCOUNT max_read_unit;
-  struct timeval t0;
+  struct timespec t0;
 };
 
 
