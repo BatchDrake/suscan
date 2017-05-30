@@ -812,7 +812,6 @@ suscan_analyzer_source_init(
         sigutils_channel_detector_params_INITIALIZER;
 
   params.mode = SU_CHANNEL_DETECTOR_MODE_DISCOVERY;
-  params.alpha = 1e-2;
   params.window_size = config->bufsiz;
 
   source->config = config;
@@ -832,6 +831,13 @@ suscan_analyzer_source_init(
    */
   if (!suscan_analyzer_source_init_from_block_properties(source, &params))
     goto done;
+
+  /* Adjust parameters that depend on sample rate */
+  su_channel_params_adjust(&params);
+
+  /* Make alpha a little bigger, to provide a more dynamic spectrum */
+  if (params.alpha <= .05)
+    params.alpha *= 20;
 
   if ((source->detector = su_channel_detector_new(&params)) == NULL)
     goto done;
