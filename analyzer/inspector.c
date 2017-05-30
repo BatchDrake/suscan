@@ -203,7 +203,6 @@ suscan_inspector_new(
       sigutils_channel_detector_params_INITIALIZER;
   struct su_agc_params agc_params = su_agc_params_INITIALIZER;
   SUFLOAT tau;
-
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
 
   new->state = SUSCAN_ASYNC_STATE_CREATED;
@@ -213,49 +212,13 @@ suscan_inspector_new(
 
   suscan_inspector_params_initialize(&new->params);
 
-  /* Common channel parameters */
-  su_channel_params_adjust_to_channel(&params, channel);
+  /*
+   * Removed alpha setting. This is now automatically done by
+   * adjust_to_channel
+   */
   params.samp_rate = su_channel_detector_get_fs(analyzer->source.detector);
   params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
-  params.alpha = 1e-4;
-
-  /*
-   * With real-valued sources, there is a nasty pitfall related to the
-   * imperfection of the antialiasing filter and the image frequency.
-   *
-   * Let say we have a real spectrum like this:
-   *
-   *              |
-   *       ___    |    ___
-   * _____/   |___|___|   \_____
-   *              |
-   *
-   * After centering the channel, we have something like this:
-   *
-   *              |
-   * ___         _|_
-   *|   |_______|   \__________/|
-   *              |
-   *
-   * If we decimate according to the channel bandwidth (let's forget about
-   * the antialiasing filter for now), we make the spectrum periodic, with
-   * a period close to the channel bandwidth. If the channel was the only
-   * signal present in the spectrum, this would not be an issue. *However*,
-   * since this is a real-valued signal, the image will add to the
-   * resulting spectrum, reinforcing and cancelling the real and imaginary
-   * parts of it respectively, strongly distorting the original signal.
-   *
-   * We can could expect from the antialiasing filter to get rid of the
-   * image, but with WAV files this is (most of the time) not true.
-   *
-   * We implement the following workaround: we identify these cases and divide
-   * the decimation by 2, creating a guard band for the antialiasing filter to
-   * decay safely before reaching the image.
-   */
-
-  if (analyzer->source.config->source->real_samp && params.decimation > 1) {
-    params.decimation >>= 1;
-  }
+  su_channel_params_adjust_to_channel(&params, channel);
 
   new->equiv_fs = (SUFLOAT) params.samp_rate / params.decimation;
 
