@@ -49,8 +49,9 @@ struct suscan_throttle {
   struct timespec t0;
 };
 
-
 typedef struct suscan_throttle suscan_throttle_t;
+
+#define SUSCAN_ANALYZER_CPU_USAGE_UPDATE_ALPHA .025
 
 enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_CREATED,
@@ -201,6 +202,9 @@ struct suscan_analyzer {
 
   /* Usage statistics (CPU, etc) */
   SUFLOAT cpu_usage;
+  struct timespec read_start;
+  struct timespec process_start;
+  struct timespec process_end;
 
   /* Source worker objects */
   struct suscan_analyzer_source source;

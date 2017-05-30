@@ -120,6 +120,46 @@ suscan_throttle_advance(suscan_throttle_t *throttle, SUSCOUNT got)
   throttle->samp_count += got;
 }
 
+/*********************** Performance measurement *****************************/
+SUPRIVATE void
+suscan_analyzer_read_start(suscan_analyzer_t *analyzer)
+{
+  clock_gettime(CLOCK_MONOTONIC_RAW, &analyzer->read_start);
+}
+
+SUPRIVATE void
+suscan_analyzer_process_start(suscan_analyzer_t *analyzer)
+{
+  clock_gettime(CLOCK_MONOTONIC_RAW, &analyzer->process_start);
+}
+
+SUPRIVATE void
+suscan_analyzer_process_end(suscan_analyzer_t *analyzer)
+{
+  struct timespec sub;
+  uint64_t total, cpu;
+
+  clock_gettime(CLOCK_MONOTONIC_RAW, &analyzer->process_end);
+
+  if (analyzer->read_start.tv_sec > 0) {
+    timespecsub(&analyzer->process_end, &analyzer->read_start, &sub);
+    total = sub.tv_sec * 1000000000 + sub.tv_nsec;
+
+    timespecsub(&analyzer->process_end, &analyzer->process_start, &sub);
+    cpu = sub.tv_sec * 1000000000 + sub.tv_nsec;
+
+    /* Update CPU usage */
+    if (total == 0)
+      analyzer->cpu_usage +=
+          SUSCAN_ANALYZER_CPU_USAGE_UPDATE_ALPHA
+          * (1. - analyzer->cpu_usage);
+    else
+      analyzer->cpu_usage +=
+          SUSCAN_ANALYZER_CPU_USAGE_UPDATE_ALPHA
+          * ((SUFLOAT) cpu / (SUFLOAT) total - analyzer->cpu_usage);
+  }
+}
+
 /************************ Source worker callback *****************************/
 #ifdef SUSCAN_DEBUG_THROTTLE
 SUBOOL   dbg_rate_set;
@@ -140,14 +180,7 @@ suscan_source_wk_cb(
       (struct suscan_analyzer_source *) cb_private;
   SUSDIFF got;
   SUSCOUNT read_size;
-  struct timespec read_start;
-  struct timespec process_start;
-  struct timespec process_end;
-  struct timespec sub;
-  uint64_t total, cpu;
   SUBOOL restart = SU_FALSE;
-
-  clock_gettime(CLOCK_MONOTONIC_RAW, &read_start);
 
 #ifdef SUSCAN_DEBUG_THROTTLE
   if (!dbg_rate_set) {
@@ -165,11 +198,13 @@ suscan_source_wk_cb(
         analyzer->read_size);
 
   /* Ready to read */
+  suscan_analyzer_read_start(analyzer);
+
   if ((got = su_block_port_read(
       &source->port,
       analyzer->read_buf,
       read_size)) > 0) {
-    clock_gettime(CLOCK_MONOTONIC_RAW, &process_start);
+    suscan_analyzer_process_start(analyzer);
 #ifdef SUSCAN_DEBUG_THROTTLE
     dbg_rate_counter += got;
 #endif
@@ -207,22 +242,6 @@ suscan_source_wk_cb(
           goto done;
       }
     }
-
-    /* Compute CPU usage */
-    clock_gettime(CLOCK_MONOTONIC_RAW, &process_end);
-
-    timespecsub(&process_end, &read_start, &sub);
-    total = sub.tv_sec * 1000000000 + sub.tv_nsec;
-
-    timespecsub(&process_end, &process_start, &sub);
-    cpu = sub.tv_sec * 1000000000 + sub.tv_nsec;
-
-    if (total == 0)
-      analyzer->cpu_usage +=
-          .1 * (1. - analyzer->cpu_usage);
-    else
-      analyzer->cpu_usage +=
-          .1 * ((SUFLOAT) cpu / (SUFLOAT) total - analyzer->cpu_usage);
 
 #ifdef SUSCAN_DEBUG_THROTTLE
     timespecsub(&process_end, &dbg_rate_source_start, &sub);
@@ -280,6 +299,9 @@ suscan_source_wk_cb(
 
     goto done;
   }
+
+  /* Finish processing */
+  suscan_analyzer_process_end(analyzer);
 
   restart = SU_TRUE;
 
