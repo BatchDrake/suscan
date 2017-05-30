@@ -82,32 +82,41 @@ SUPRIVATE void *
 suscan_worker_thread(void *data)
 {
   suscan_worker_t *worker = (suscan_worker_t *) data;
+  struct suscan_msg *msg;
   struct suscan_worker_callback *cb;
   SUBOOL halt_acked = SU_FALSE;
-  uint32_t type;
 
   for (;;) {
-    /* First read: blocking */
-    cb = suscan_mq_read(&worker->mq_in, &type);
+    /* First read: blocking read of a message */
+    msg = suscan_mq_read_msg(&worker->mq_in);
     do {
-      if (type == SUSCAN_WORKER_MSG_TYPE_CALLBACK) {
-        if (!(cb->func) (worker->mq_out, worker->private, cb->private)) {
-          /* Callback returns FALSE: remove from message queue */
-          suscan_worker_callback_destroy(cb);
-        } else {
-          /* Callback returns TRUE: queue again */
-          if (!suscan_mq_write(&worker->mq_in, type, cb))
-            goto done;
-        }
-      } else if (type == SUSCAN_WORKER_MSG_TYPE_HALT) {
-        worker->state = SUSCAN_WORKER_STATE_HALTED;
-        halt_acked = SU_TRUE;
-        suscan_worker_ack_halt(worker);
-        goto done;
+      switch (msg->type) {
+        case SUSCAN_WORKER_MSG_TYPE_CALLBACK:
+          cb = (struct suscan_worker_callback *) msg->private;
+          if (!(cb->func) (worker->mq_out, worker->private, cb->private)) {
+            /* Callback returns FALSE: remove from message queue */
+            suscan_worker_callback_destroy(cb);
+            suscan_msg_destroy(msg);
+          } else {
+            /* Callback returns TRUE: queue again */
+            suscan_mq_write_msg(&worker->mq_in, msg);
+          }
+          break;
+
+        case SUSCAN_WORKER_MSG_TYPE_HALT:
+          worker->state = SUSCAN_WORKER_STATE_HALTED;
+          halt_acked = SU_TRUE;
+          suscan_msg_destroy(msg);
+          suscan_worker_ack_halt(worker);
+          goto done;
+
+        default:
+          SU_WARNING("Unexpected worker message type #%d\n", msg->type);
+          suscan_msg_destroy(msg); /* Destroy message anyways */
       }
 
       /* Next reads: until queue is empty */
-    } while (suscan_mq_poll(&worker->mq_in, &type, (void *) &cb));
+    } while ((msg = suscan_mq_poll_msg(&worker->mq_in)) != NULL);
   }
 
 done:

@@ -77,7 +77,7 @@ suscan_msg_new(uint32_t type, void *private)
   return new;
 }
 
-SUPRIVATE void
+void
 suscan_msg_destroy(struct suscan_msg *msg)
 {
   free(msg);
@@ -148,6 +148,28 @@ suscan_mq_pop_w_type(struct suscan_mq *mq, uint32_t type)
   return this;
 }
 
+SUPRIVATE struct suscan_msg *
+suscan_mq_read_msg_internal(
+    struct suscan_mq *mq,
+    SUBOOL with_type,
+    uint32_t type)
+{
+  struct suscan_msg *msg;
+
+  suscan_mq_enter(mq);
+
+  if (with_type)
+    while ((msg = suscan_mq_pop_w_type(mq, type)) == NULL)
+      suscan_mq_wait_unsafe(mq);
+  else
+    while ((msg = suscan_mq_pop(mq)) == NULL)
+      suscan_mq_wait_unsafe(mq);
+
+  suscan_mq_leave(mq);
+
+  return msg;
+}
+
 SUPRIVATE void *
 suscan_mq_read_internal(
     struct suscan_mq *mq,
@@ -157,16 +179,7 @@ suscan_mq_read_internal(
   struct suscan_msg *msg;
   void *private;
 
-  suscan_mq_enter(mq);
-
-  if (ptype != NULL)
-    while ((msg = suscan_mq_pop(mq)) == NULL)
-      suscan_mq_wait_unsafe(mq);
-  else
-    while ((msg = suscan_mq_pop_w_type(mq, type)) == NULL)
-      suscan_mq_wait_unsafe(mq);
-
-  suscan_mq_leave(mq);
+  msg = suscan_mq_read_msg_internal(mq, ptype == NULL, type);
 
   private = msg->private;
 
@@ -177,7 +190,6 @@ suscan_mq_read_internal(
 
   return private;
 }
-
 
 void *
 suscan_mq_read(struct suscan_mq *mq, uint32_t *type)
@@ -191,6 +203,35 @@ suscan_mq_read_w_type(struct suscan_mq *mq, uint32_t type)
   return suscan_mq_read_internal(mq, NULL, type);
 }
 
+struct suscan_msg *
+suscan_mq_read_msg(struct suscan_mq *mq)
+{
+  return suscan_mq_read_msg_internal(mq, SU_FALSE, 0);
+}
+
+struct suscan_msg *
+suscan_mq_read_msg_w_type(struct suscan_mq *mq, uint32_t type)
+{
+  return suscan_mq_read_msg_internal(mq, SU_TRUE, type);
+}
+
+struct suscan_msg *
+suscan_mq_poll_msg_internal(struct suscan_mq *mq, SUBOOL with_type, uint32_t type)
+{
+  struct suscan_msg *msg;
+
+  suscan_mq_enter(mq);
+
+  if (with_type)
+    msg = suscan_mq_pop_w_type(mq, type);
+  else
+    msg = suscan_mq_pop(mq);
+
+  suscan_mq_leave(mq);
+
+  return msg;
+}
+
 SUPRIVATE SUBOOL
 suscan_mq_poll_internal(
     struct suscan_mq *mq,
@@ -200,14 +241,7 @@ suscan_mq_poll_internal(
 {
   struct suscan_msg *msg;
 
-  suscan_mq_enter(mq);
-
-  if (ptype != NULL)
-    msg = suscan_mq_pop(mq);
-  else
-    msg = suscan_mq_pop_w_type(mq, type);
-
-  suscan_mq_leave(mq);
+  msg = suscan_mq_poll_msg_internal(mq, ptype == NULL, type);
 
   if (msg != NULL) {
     *private = msg->private;
@@ -235,6 +269,42 @@ suscan_mq_poll_w_type(struct suscan_mq *mq, uint32_t type, void **private)
   return suscan_mq_poll_internal(mq, NULL, private, type);
 }
 
+struct suscan_msg *
+suscan_mq_poll_msg(struct suscan_mq *mq)
+{
+  return suscan_mq_poll_msg_internal(mq, SU_FALSE, 0);
+}
+
+struct suscan_msg *
+suscan_mq_poll_msg_w_type(struct suscan_mq *mq, uint32_t type)
+{
+  return suscan_mq_poll_msg_internal(mq, SU_TRUE, type);
+}
+
+void
+suscan_mq_write_msg(struct suscan_mq *mq, struct suscan_msg *msg)
+{
+  suscan_mq_enter(mq);
+
+  suscan_mq_push(mq, msg);
+
+  suscan_mq_notify(mq); /* We notify the queue always */
+
+  suscan_mq_leave(mq);
+}
+
+void
+suscan_mq_write_msg_urgent(struct suscan_mq *mq, struct suscan_msg *msg)
+{
+  suscan_mq_enter(mq);
+
+  suscan_mq_push_front(mq, msg);
+
+  suscan_mq_notify(mq);
+
+  suscan_mq_leave(mq);
+}
+
 SUBOOL
 suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *private)
 {
@@ -243,13 +313,7 @@ suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *private)
   if ((msg = suscan_msg_new(type, private)) == NULL)
     return SU_FALSE;
 
-  suscan_mq_enter(mq);
-
-  suscan_mq_push(mq, msg);
-
-  suscan_mq_notify(mq); /* We notify the queue always */
-
-  suscan_mq_leave(mq);
+  suscan_mq_write_msg(mq, msg);
 
   return SU_TRUE;
 }
@@ -262,13 +326,7 @@ suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *private)
   if ((msg = suscan_msg_new(type, private)) == NULL)
     return SU_FALSE;
 
-  suscan_mq_enter(mq);
-
-  suscan_mq_push_front(mq, msg);
-
-  suscan_mq_notify(mq);
-
-  suscan_mq_leave(mq);
+  suscan_mq_write_msg_urgent(mq, msg);
 
   return SU_TRUE;
 }
