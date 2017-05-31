@@ -24,10 +24,18 @@
 #include <pthread.h>
 #include <sigutils/sigutils.h>
 
+#define SUSCAN_MQ_USE_POOL
+
+#define SUSCAN_MQ_POOL_WARNING_THRESHOLD 100
+
 struct suscan_msg {
   uint32_t type;
   void *private;
   struct suscan_msg *next;
+
+#ifdef SUSCAN_MQ_USE_POOL
+  struct suscan_msg *free_next; /* Next free message */
+#endif
 };
 
 struct suscan_mq {

@@ -28,6 +28,85 @@
 
 #include "mq.h"
 
+#ifdef SUSCAN_MQ_USE_POOL
+
+SUPRIVATE pthread_mutex_t msg_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
+SUPRIVATE struct suscan_msg *msg_pool = NULL;
+SUPRIVATE int msg_pool_size;
+SUPRIVATE int msg_pool_peak;
+
+SUPRIVATE void
+suscan_msg_pool_enter(void)
+{
+  (void) pthread_mutex_lock(&msg_pool_mutex);
+}
+
+
+SUPRIVATE void
+suscan_msg_pool_leave(void)
+{
+  (void) pthread_mutex_unlock(&msg_pool_mutex);
+}
+
+SUPRIVATE struct suscan_msg *
+suscan_mq_alloc_msg(void)
+{
+  struct suscan_msg *msg = NULL;
+  suscan_msg_pool_enter();
+
+  if (msg_pool != NULL) {
+    msg = msg_pool;
+    msg_pool = msg->free_next;
+
+    --msg_pool_size;
+  }
+
+  suscan_msg_pool_leave();
+
+  /* Fallback to malloc. TODO: add a message limit here */
+  if (msg == NULL)
+    msg = (struct suscan_msg *) malloc (sizeof (struct suscan_msg));
+
+  return msg;
+}
+
+SUPRIVATE void
+suscan_mq_return_msg(struct suscan_msg *msg)
+{
+  int msg_pool_peak_copy = -1;
+  suscan_msg_pool_enter();
+
+  msg->free_next = msg_pool;
+  msg_pool = msg;
+
+  ++msg_pool_size;
+  if (msg_pool_size > msg_pool_peak) {
+    msg_pool_peak = msg_pool_size;
+    msg_pool_peak_copy = msg_pool_peak;
+  }
+
+  suscan_msg_pool_leave();
+
+  if ((msg_pool_peak_copy % SUSCAN_MQ_POOL_WARNING_THRESHOLD) == 0)
+    SU_WARNING(
+        "Message pool freelist grew to %d elements!\n",
+        msg_pool_peak_copy);
+}
+
+#else
+SUPRIVATE struct suscan_msg *
+suscan_mq_alloc_msg(void)
+{
+  return (struct suscan_msg *) malloc (sizeof (struct suscan_msg));
+}
+
+SUPRIVATE void
+suscan_mq_return_msg(struct suscan_msg *msg)
+{
+  free(msg);
+}
+#endif
+
 SUPRIVATE void
 suscan_mq_enter(struct suscan_mq *mq)
 {
@@ -67,8 +146,7 @@ suscan_msg_new(uint32_t type, void *private)
 {
   struct suscan_msg *new;
 
-  if ((new = malloc(sizeof (struct suscan_msg))) == NULL)
-      return NULL;
+  SU_TRYCATCH(new = suscan_mq_alloc_msg(), return NULL);
 
   new->type = type;
   new->private = private;
@@ -80,7 +158,7 @@ suscan_msg_new(uint32_t type, void *private)
 void
 suscan_msg_destroy(struct suscan_msg *msg)
 {
-  free(msg);
+  suscan_mq_return_msg(msg);
 }
 
 SUPRIVATE void
