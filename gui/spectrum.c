@@ -329,15 +329,6 @@ suscan_gui_spectrum_draw_channels(
           .75, /* Red */
           0,   /* Green */
           0);  /* Blue */
-
-    if (spectrum->selection.bw > 0)
-      suscan_gui_spectrum_draw_channel(
-          spectrum,
-          cr,
-          &spectrum->selection,
-          0,    /* Red */
-          .75,  /* Green */
-          .75); /* Blue */
   }
 }
 
@@ -512,6 +503,17 @@ suscan_gui_spectrum_redraw(
   /* Draw channels, if enabled */
   if (spectrum->show_channels)
     suscan_gui_spectrum_draw_channels(spectrum, cr);
+
+  /* Selected channel is always displayed */
+  if (spectrum->samp_rate > 0)
+    if (spectrum->selection.bw > 0)
+      suscan_gui_spectrum_draw_channel(
+          spectrum,
+          cr,
+          &spectrum->selection,
+          0,    /* Red */
+          .75,  /* Green */
+          .75); /* Blue */
 
   /* Draw spectrum */
   if (spectrum->psd_data != NULL) {
