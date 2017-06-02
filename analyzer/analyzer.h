@@ -176,6 +176,7 @@ struct suscan_inspector {
   /* Spectrum state */
   SUFLOAT                 interval_psd;
   SUSCOUNT                per_cnt_psd;
+  SUBOOL                  pending;
 
   /* Inspector parameters */
   pthread_mutex_t params_mutex;

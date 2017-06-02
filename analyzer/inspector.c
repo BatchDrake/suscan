@@ -345,6 +345,10 @@ suscan_inspector_feed_bulk(
     if (!su_channel_detector_sample_was_consumed(insp->fac_baud_det))
       continue;
 
+    insp->pending =
+           insp->pending
+        || (su_channel_detector_get_window_ptr(insp->fac_baud_det) == 0);
+
     det_x = su_channel_detector_get_last_sample(insp->fac_baud_det);
 
     /* Re-center carrier */
@@ -475,7 +479,7 @@ suscan_inspector_wk_cb(
   }
 
   /* Check spectrum update */
-  if (insp->interval_psd > 0)
+  if (insp->interval_psd > 0 && insp->pending)
     if (insp->per_cnt_psd
         >= insp->interval_psd
         * su_channel_detector_get_fs(insp->fac_baud_det)) {
@@ -496,6 +500,8 @@ suscan_inspector_wk_cb(
           /* Prevent warnings */
           break;
       }
+
+      insp->pending = SU_FALSE;
     }
 
   /* Got samples, send message batch */

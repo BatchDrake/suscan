@@ -175,7 +175,7 @@ struct suscan_analyzer_psd_msg *
 suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
 {
   struct suscan_analyzer_psd_msg *new = NULL;
-
+  unsigned int i;
   SU_TRYCATCH(
       new = calloc(1, sizeof(struct suscan_analyzer_psd_msg)),
       goto fail);
@@ -192,7 +192,15 @@ suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
       new->psd_data = malloc(sizeof(SUFLOAT) * new->psd_size),
       goto fail);
 
-  memcpy(new->psd_data, cd->spect, sizeof(SUFLOAT) * new->psd_size);
+  switch (cd->params.mode) {
+    case SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION:
+      for (i = 0; i < new->psd_size; ++i)
+        new->psd_data[i] = SU_C_REAL(cd->fft[i]);
+      break;
+
+    default:
+      memcpy(new->psd_data, cd->spect, sizeof(SUFLOAT) * new->psd_size);
+  }
 
   return new;
 

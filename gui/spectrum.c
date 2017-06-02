@@ -23,6 +23,8 @@
 #include <string.h>
 #include <sigutils/sampling.h>
 
+#define SUSCAN_GUI_SPECTRUM_ALPHA .01
+
 #define SUSCAN_GUI_HORIZONTAL_DIVS 20
 #define SUSCAN_GUI_VERTICAL_DIVS   10
 
@@ -199,14 +201,25 @@ suscan_gui_spectrum_update(
     struct suscan_gui_spectrum *spectrum,
     struct suscan_analyzer_psd_msg *msg)
 {
-  if (spectrum->psd_data != NULL)
-    free(spectrum->psd_data);
+  SUFLOAT *old_data = spectrum->psd_data;
+  SUSCOUNT old_size = spectrum->psd_size;
+
+  unsigned int i;
 
   spectrum->fc        = msg->fc;
   spectrum->psd_data  = suscan_analyzer_psd_msg_take_psd(msg);
   spectrum->psd_size  = msg->psd_size;
   spectrum->samp_rate = msg->samp_rate;
   spectrum->N0        = msg->N0;
+
+  if (old_data != NULL) {
+    /* Average against previous update, only if sizes match */
+    if (old_size == msg->psd_size)
+      for (i = 0; i < old_size; ++i)
+        spectrum->psd_data[i] +=
+            SUSCAN_GUI_SPECTRUM_ALPHA * (old_data[i] - spectrum->psd_data[i]);
+    free(old_data);
+  }
 }
 
 void
