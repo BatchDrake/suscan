@@ -50,6 +50,7 @@ enum suscan_gui_state {
 #define SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT  1
 #define SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT 10
 #define SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT   0
+#define SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA .5
 
 enum suscan_gui_spectrum_param {
   SUSCAN_GUI_SPECTRUM_PARAM_FREQ_OFFSET,
@@ -58,7 +59,13 @@ enum suscan_gui_spectrum_param {
   SUSCAN_GUI_SPECTRUM_PARAM_DBS_PER_DIV,
 };
 
+enum suscan_gui_spectrum_mode {
+  SUSCAN_GUI_SPECTRUM_MODE_WATERFALL,
+  SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM,
+};
+
 struct suscan_gui_spectrum {
+  enum suscan_gui_spectrum_mode mode;
   cairo_surface_t *surface;
   unsigned width;
   unsigned height;
@@ -68,6 +75,8 @@ struct suscan_gui_spectrum {
   SUSCOUNT psd_size;
   SUSCOUNT samp_rate;
   SUFLOAT  N0;
+  SUSCOUNT updates; /* Number of spectrum updates */
+  SUSCOUNT last_update; /* Last update in which waterfall has been repainted */
 
   /* Representation properties */
   SUBOOL  show_channels; /* Defaults to TRUE */
@@ -75,6 +84,13 @@ struct suscan_gui_spectrum {
   SUFLOAT freq_scale;  /* Defaults to 1 */
   SUFLOAT dbs_per_div; /* Defaults to 10 */
   SUFLOAT ref_level;   /* Defaults to 0 */
+  SUFLOAT last_max;
+
+  /* Waterfall members */
+  int wf_width;
+  int wf_height;
+  SUBOOL flip;
+  cairo_surface_t *wf_surf[2];
 
   /* Scroll and motion state */
   gdouble last_x;
@@ -92,7 +108,6 @@ struct suscan_gui_spectrum {
   PTR_LIST(struct sigutils_channel, channel);
 };
 
-struct suscan_gui_inspector;
 
 struct suscan_gui_recent {
   struct suscan_gui *gui;
@@ -139,8 +154,6 @@ struct suscan_gui {
 
   GtkLevelBar *n0LevelBar;
   GtkLabel *n0Label;
-
-  GtkDrawingArea *spectrumArea;
 
   GtkCheckButton *spectrumShowChannelsCheck;
   GtkLabel *spectrumSampleRate;

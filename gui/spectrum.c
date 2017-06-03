@@ -85,11 +85,18 @@ suscan_gui_spectrum_clear(struct suscan_gui_spectrum *spectrum)
   cairo_t *cr;
 
   cr = cairo_create(spectrum->surface);
-
   cairo_set_source_rgb(cr, 0, 0, 0);
-
   cairo_paint(cr);
+  cairo_destroy(cr);
 
+  cr = cairo_create(spectrum->wf_surf[0]);
+  cairo_set_source_rgb(cr, 0, 0, 0);
+  cairo_paint(cr);
+  cairo_destroy(cr);
+
+  cr = cairo_create(spectrum->wf_surf[1]);
+  cairo_set_source_rgb(cr, 0, 0, 0);
+  cairo_paint(cr);
   cairo_destroy(cr);
 }
 
@@ -99,7 +106,7 @@ suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum)
   memset(spectrum, 0, sizeof (struct suscan_gui_spectrum));
 
   spectrum->show_channels = SU_TRUE;
-
+  spectrum->mode        = SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM;
   spectrum->freq_offset = SUSCAN_GUI_SPECTRUM_FREQ_OFFSET_DEFAULT;
   spectrum->freq_scale  = SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT;
   spectrum->ref_level   = SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT;
@@ -119,6 +126,12 @@ suscan_spectrum_finalize(struct suscan_gui_spectrum *spectrum)
 
   if (spectrum->psd_data != NULL)
     free(spectrum->psd_data);
+
+  if (spectrum->wf_surf[0] != NULL)
+    cairo_surface_destroy(spectrum->wf_surf[0]);
+
+  if (spectrum->wf_surf[1] != NULL)
+    cairo_surface_destroy(spectrum->wf_surf[1]);
 }
 
 const struct sigutils_channel *
@@ -146,6 +159,16 @@ suscan_gui_spectrum_configure(
     struct suscan_gui_spectrum *spectrum,
     GtkWidget *widget)
 {
+  cairo_surface_t *old_surf0;
+  cairo_surface_t *old_surf1;
+  int old_wf_width;
+  SUFLOAT K;
+  cairo_t *cr;
+
+  /* TODO: Save previous surface */
+  old_surf0 = spectrum->wf_surf[0];
+  old_surf1 = spectrum->wf_surf[1];
+
   if (spectrum->surface != NULL)
     cairo_surface_destroy(spectrum->surface);
 
@@ -158,7 +181,63 @@ suscan_gui_spectrum_configure(
       spectrum->width,
       spectrum->height);
 
+  /* Initialize waterfall surfaces */
+  old_wf_width = spectrum->wf_width;
+
+  spectrum->wf_width =
+        spectrum->width
+      - SUSCAN_GUI_SPECTRUM_LEFT_PADDING
+      - SUSCAN_GUI_SPECTRUM_RIGHT_PADDING
+      - 2;
+
+  spectrum->wf_height =
+          spectrum->height
+        - SUSCAN_GUI_SPECTRUM_TOP_PADDING
+        - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING
+        - 2;
+
+  if (spectrum->wf_width < 1)
+    spectrum->wf_width = 1;
+
+  if (spectrum->wf_height < 1)
+      spectrum->wf_height = 1;
+
+  spectrum->wf_surf[0] = cairo_image_surface_create(
+      CAIRO_FORMAT_RGB24,
+      spectrum->wf_width,
+      spectrum->wf_height);
+
+  spectrum->wf_surf[1] = cairo_image_surface_create(
+      CAIRO_FORMAT_RGB24,
+      spectrum->wf_width,
+      spectrum->wf_height);
+
+  /* Clear new surfaces */
   suscan_gui_spectrum_clear(spectrum);
+
+  /* Reuse existing data from previous waterfall */
+
+  K = (SUFLOAT) spectrum->wf_width / (SUFLOAT) old_wf_width;
+
+  if (old_surf0 != NULL) {
+    cr = cairo_create(spectrum->wf_surf[0]);
+    cairo_set_antialias(cr, CAIRO_ANTIALIAS_FAST);
+    cairo_scale(cr, K, 1);
+    cairo_set_source_surface(cr, old_surf0, 0, 0);
+    cairo_paint(cr);
+    cairo_destroy(cr);
+    cairo_surface_destroy(old_surf0);
+  }
+
+  if (old_surf1 != NULL) {
+    cr = cairo_create(spectrum->wf_surf[1]);
+    cairo_set_antialias(cr, CAIRO_ANTIALIAS_FAST);
+    cairo_scale(cr, K, 1);
+    cairo_set_source_surface(cr, old_surf1, 0, 0);
+    cairo_paint(cr);
+    cairo_destroy(cr);
+    cairo_surface_destroy(old_surf1);
+  }
 }
 
 void
@@ -211,6 +290,7 @@ suscan_gui_spectrum_update(
   spectrum->psd_size  = msg->psd_size;
   spectrum->samp_rate = msg->samp_rate;
   spectrum->N0        = msg->N0;
+  ++spectrum->updates;
 
   if (old_data != NULL) {
     /* Average against previous update, only if sizes match */
@@ -273,7 +353,9 @@ suscan_gui_spectrum_draw_channel(
     xscr1 = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x1);
     xscr2 = SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x2);
 
-    if (channel->S0 > channel->N0) {
+    /* Draw levels only if spectrogram mode is enabled */
+    if (channel->S0 > channel->N0
+        && spectrum->mode == SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM) {
       y1 = SUSCAN_GUI_SPECTRUM_ADJUST_Y(
           spectrum,
           -channel->S0);
@@ -410,110 +492,123 @@ suscan_gui_spectrum_draw_levels(
   }
 }
 
-void
-suscan_gui_spectrum_redraw(
+SUPRIVATE void
+suscan_gui_spectrum_redraw_waterfall(
     struct suscan_gui_spectrum *spectrum,
     cairo_t *cr)
 {
-  static const double axis_pattern[] = {5.0, 5.0};
+  float x, prev_x;
+  int i, j;
+  const SUFLOAT *psd_data;
+  SUSCOUNT psd_size;
+  SUFLOAT max = 0;
+  cairo_t *cr_next = NULL;
+  float val;
+
+  psd_data = spectrum->psd_data;
+  psd_size = spectrum->psd_size;
+
+  if (psd_data != NULL) {
+    /* TODO: draw and translate downwards */
+    if (spectrum->last_update != spectrum->updates) {
+      spectrum->flip = !spectrum->flip;
+      spectrum->last_update = spectrum->updates;
+
+      cr_next = cairo_create(spectrum->wf_surf[spectrum->flip]);
+      cairo_set_source_surface(
+          cr_next,
+          spectrum->wf_surf[!spectrum->flip],
+          0, /* x */
+          1  /* y */);
+
+      /* Scroll existing waterfall to the bottom */
+      cairo_rectangle(
+          cr_next,
+          0, /* x */
+          0, /* y */
+          spectrum->wf_width,
+          spectrum->wf_height - 1);
+      cairo_fill(cr_next);
+
+      prev_x = 0;
+      j = psd_size / 2 + 1;
+
+      if (spectrum->last_max == 0)
+        spectrum->last_max = 1;
+
+      for (i = 1; i < psd_size; ++i, ++j) {
+        if (j >= psd_size)
+          j = 0;
+
+        prev_x = x;
+        x = SUSCAN_GUI_SPECTRUM_ADJUST_X(
+            spectrum,
+            (float) i / (float) (psd_size - 1) - .5);
+
+        /* This test is used to skip frequencies around the DC */
+        if (abs(i - psd_size / 2) > psd_size / 4)
+          if (psd_data[j] > max)
+            max = psd_data[j];
+
+        val = psd_data[j] / spectrum->last_max;
+        if (val < 0)
+          val = 0;
+        else if (val > 1)
+          val = 1;
+
+
+        cairo_set_source_rgb(
+            cr_next,
+            val,
+            val,
+            val);
+        cairo_move_to(
+            cr_next,
+            SUSCAN_SPECTRUM_TO_SCR_X(spectrum, prev_x)
+            - SUSCAN_GUI_SPECTRUM_LEFT_PADDING
+            - 1,
+            0);
+        cairo_line_to(
+            cr_next,
+            SUSCAN_SPECTRUM_TO_SCR_X(spectrum, x)
+            - SUSCAN_GUI_SPECTRUM_LEFT_PADDING
+            - 1,
+            0);
+        cairo_stroke(cr_next);
+      }
+
+      spectrum->last_max +=
+          SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA * (max - spectrum->last_max);
+    }
+  }
+
+  /* Dump waterfall to screen */
+  cairo_set_source_surface(
+      cr,
+      spectrum->wf_surf[spectrum->flip],
+      SUSCAN_GUI_SPECTRUM_LEFT_PADDING + 1, /* x */
+      0  /* y */);
+  cairo_rectangle(
+      cr,
+      SUSCAN_GUI_SPECTRUM_LEFT_PADDING + 1,
+      SUSCAN_GUI_SPECTRUM_TOP_PADDING + 1,
+      spectrum->wf_width,
+      spectrum->wf_height);
+  cairo_fill(cr);
+
+  if (cr_next != NULL)
+    cairo_destroy(cr_next);
+}
+
+SUPRIVATE void
+suscan_gui_spectrum_redraw_spectrogram(
+    struct suscan_gui_spectrum *spectrum,
+    cairo_t *cr)
+{
   int i;
   int step;
   SUFLOAT x, x_prev;
   SUFLOAT x_adj, x_prev_adj;
-
-  cairo_set_source_surface(cr, spectrum->surface, 0, 0);
-
-  /* Paint in black */
-  cairo_paint(cr);
-
-  cairo_set_line_width(cr, 1);
-
-  suscan_gui_spectrum_draw_levels(spectrum, cr);
-
-  /* Draw axes */
-  cairo_set_dash(cr, axis_pattern, 2, 0);
-
-  for (
-      i = -SUSCAN_GUI_HORIZONTAL_DIVS / 2 + 1;
-      i < SUSCAN_GUI_HORIZONTAL_DIVS / 2;
-      ++i) {
-
-    if (i == 0)
-      cairo_set_source_rgb(cr, 1, 1, 1);
-    else
-      cairo_set_source_rgb(cr, 0, 0.5, 0);
-
-    cairo_move_to(
-        cr,
-        SUSCAN_SPECTRUM_TO_SCR(spectrum, i * SUSCAN_GUI_SPECTRUM_DX, 0));
-    cairo_line_to(
-        cr,
-        SUSCAN_SPECTRUM_TO_SCR(spectrum, i * SUSCAN_GUI_SPECTRUM_DX, 1));
-
-    cairo_stroke(cr);
-  }
-
-  for (i = 1; i < SUSCAN_GUI_VERTICAL_DIVS; ++i) {
-    cairo_move_to(
-        cr,
-        SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, i * SUSCAN_GUI_SPECTRUM_DY));
-    cairo_line_to(
-        cr,
-        SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, i * SUSCAN_GUI_SPECTRUM_DY));
-
-    cairo_stroke(cr);
-  }
-
-  /* Draw border */
-  cairo_set_dash(cr, NULL, 0, 0);
-  cairo_move_to(
-      cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 0));
-  cairo_line_to(
-      cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 1));
-  cairo_stroke(cr);
-
-  cairo_move_to(
-      cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 0));
-
-  cairo_line_to(
-      cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 0));
-  cairo_stroke(cr);
-
-  cairo_move_to(
-      cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 1));
-  cairo_line_to(
-      cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 1));
-  cairo_stroke(cr);
-
-  cairo_move_to(
-      cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 1));
-
-  cairo_line_to(
-      cr,
-      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 0));
-  cairo_stroke(cr);
-
-  /* Draw channels, if enabled */
-  if (spectrum->show_channels)
-    suscan_gui_spectrum_draw_channels(spectrum, cr);
-
-  /* Selected channel is always displayed */
-  if (spectrum->samp_rate > 0)
-    if (spectrum->selection.bw > 0)
-      suscan_gui_spectrum_draw_channel(
-          spectrum,
-          cr,
-          &spectrum->selection,
-          0,    /* Red */
-          .75,  /* Green */
-          .75); /* Blue */
 
   /* Draw spectrum */
   if (spectrum->psd_data != NULL) {
@@ -591,6 +686,122 @@ suscan_gui_spectrum_redraw(
       x_prev = x;
     }
   }
+}
+
+SUPRIVATE void
+suscan_gui_spectrum_redraw_axes(
+    struct suscan_gui_spectrum *spectrum,
+    cairo_t *cr)
+{
+  static const double axis_pattern[] = {5.0, 5.0};
+  int i;
+
+  /* Paint in black */
+  cairo_paint(cr);
+
+  cairo_set_line_width(cr, 1);
+
+  suscan_gui_spectrum_draw_levels(spectrum, cr);
+
+  /* Draw axes */
+  cairo_set_dash(cr, axis_pattern, 2, 0);
+
+  for (
+      i = -SUSCAN_GUI_HORIZONTAL_DIVS / 2 + 1;
+      i < SUSCAN_GUI_HORIZONTAL_DIVS / 2;
+      ++i) {
+
+    if (i == 0)
+      cairo_set_source_rgb(cr, 1, 1, 1);
+    else
+      cairo_set_source_rgb(cr, 0, 0.5, 0);
+
+    cairo_move_to(
+        cr,
+        SUSCAN_SPECTRUM_TO_SCR(spectrum, i * SUSCAN_GUI_SPECTRUM_DX, 0));
+    cairo_line_to(
+        cr,
+        SUSCAN_SPECTRUM_TO_SCR(spectrum, i * SUSCAN_GUI_SPECTRUM_DX, 1));
+
+    cairo_stroke(cr);
+  }
+
+  for (i = 1; i < SUSCAN_GUI_VERTICAL_DIVS; ++i) {
+    cairo_move_to(
+        cr,
+        SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, i * SUSCAN_GUI_SPECTRUM_DY));
+    cairo_line_to(
+        cr,
+        SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, i * SUSCAN_GUI_SPECTRUM_DY));
+
+    cairo_stroke(cr);
+  }
+
+  /* Draw border */
+  cairo_set_dash(cr, NULL, 0, 0);
+  cairo_move_to(
+      cr,
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 0));
+  cairo_line_to(
+      cr,
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 1));
+  cairo_stroke(cr);
+
+  cairo_move_to(
+      cr,
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 0));
+
+  cairo_line_to(
+      cr,
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 0));
+  cairo_stroke(cr);
+
+  cairo_move_to(
+      cr,
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 1));
+  cairo_line_to(
+      cr,
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, -.5, 1));
+  cairo_stroke(cr);
+
+  cairo_move_to(
+      cr,
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 1));
+
+  cairo_line_to(
+      cr,
+      SUSCAN_SPECTRUM_TO_SCR(spectrum, .5, 0));
+  cairo_stroke(cr);
+}
+
+void
+suscan_gui_spectrum_redraw(
+    struct suscan_gui_spectrum *spectrum,
+    cairo_t *cr)
+{
+  suscan_gui_spectrum_redraw_axes(spectrum, cr);
+
+  if (spectrum->mode == SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM) {
+    suscan_gui_spectrum_redraw_spectrogram(spectrum, cr);
+  } else {
+    suscan_gui_spectrum_redraw_waterfall(spectrum, cr);
+  }
+
+  /* Draw channels, if enabled */
+  if (spectrum->show_channels)
+    suscan_gui_spectrum_draw_channels(spectrum, cr);
+
+  /* Selected channel is always displayed */
+  if (spectrum->samp_rate > 0)
+    if (spectrum->selection.bw > 0)
+      suscan_gui_spectrum_draw_channel(
+          spectrum,
+          cr,
+          &spectrum->selection,
+          0,    /* Red */
+          .75,  /* Green */
+          .75); /* Blue */
+
 }
 
 void
