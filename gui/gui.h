@@ -69,6 +69,8 @@ struct suscan_gui_spectrum {
   cairo_surface_t *surface;
   unsigned width;
   unsigned height;
+  int g_width;
+  int g_height;
 
   uint64_t fc;
   SUFLOAT *psd_data;
@@ -87,15 +89,15 @@ struct suscan_gui_spectrum {
   SUFLOAT last_max;
 
   /* Waterfall members */
-  int g_width;
-  int g_height;
   SUBOOL flip;
   cairo_surface_t *wf_surf[2];
+  SUFLOAT last_freq_offset;
 
   /* Scroll and motion state */
   gdouble last_x;
   gdouble last_y;
 
+  gdouble  prev_ev_x;
   SUBOOL   dragging;
   SUFLOAT  original_freq_offset;
   SUFLOAT  original_ref_level;
