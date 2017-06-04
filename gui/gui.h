@@ -66,7 +66,6 @@ enum suscan_gui_spectrum_mode {
 
 struct suscan_gui_spectrum {
   enum suscan_gui_spectrum_mode mode;
-  cairo_surface_t *surface;
   unsigned width;
   unsigned height;
   int g_width;
