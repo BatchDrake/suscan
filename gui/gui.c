@@ -709,13 +709,6 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->spectrumShowChannelsCheck =
-          GTK_CHECK_BUTTON(gtk_builder_get_object(
-            gui->builder,
-            "chShowChannels")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
       gui->channelMenu =
           GTK_MENU(gtk_builder_get_object(
             gui->builder,
@@ -769,6 +762,62 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
           GTK_MENU_ITEM(gtk_builder_get_object(
               gui->builder,
               "miEmpty")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->spectrogramMenuItem =
+          GTK_RADIO_MENU_ITEM(gtk_builder_get_object(
+              gui->builder,
+              "miSpectrogram")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->waterfallMenuItem =
+          GTK_RADIO_MENU_ITEM(gtk_builder_get_object(
+              gui->builder,
+              "miWaterfall")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->overlayChannelToggleButton =
+          GTK_TOGGLE_TOOL_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "tbOverlayChannels")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->autoGainToggleButton =
+          GTK_TOGGLE_TOOL_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "tbAutoGain")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->gainAdjustment =
+          GTK_ADJUSTMENT(gtk_builder_get_object(
+              gui->builder,
+              "aGain")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->rangeAdjustment =
+          GTK_ADJUSTMENT(gtk_builder_get_object(
+              gui->builder,
+              "aRange")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->gainScaleButton =
+          GTK_SCALE_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "sbRefLevel")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->rangeScaleButton =
+          GTK_SCALE_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "sbRange")),
           return SU_FALSE);
 
   suscan_gui_populate_source_list(gui);
@@ -904,6 +953,8 @@ suscan_gui_new(int argc, char **argv)
   SU_TRYCATCH(suscan_gui_load_all_widgets(gui), goto fail);
 
   suscan_gui_spectrum_init(&gui->main_spectrum);
+
+  gui->main_spectrum.auto_level = SU_TRUE;
 
   g_signal_connect(
       GTK_WIDGET(gui->main),
