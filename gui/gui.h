@@ -87,8 +87,8 @@ struct suscan_gui_spectrum {
   SUFLOAT last_max;
 
   /* Waterfall members */
-  int wf_width;
-  int wf_height;
+  int g_width;
+  int g_height;
   SUBOOL flip;
   cairo_surface_t *wf_surf[2];
 
