@@ -144,6 +144,9 @@ struct suscan_gui {
   GtkToggleToolButton *overlayChannelToggleButton;
   GtkToggleToolButton *autoGainToggleButton;
   GtkAdjustment       *gainAdjustment;
+  GtkAdjustment       *rangeAdjustment;
+  GtkScaleButton      *gainScaleButton;
+  GtkScaleButton      *rangeScaleButton;
 
   GtkTreeViewColumn *centerFrequencyCol;
   GtkTreeViewColumn *snrCol;
