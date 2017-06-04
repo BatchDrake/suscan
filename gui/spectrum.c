@@ -23,6 +23,8 @@
 #include <string.h>
 #include <sigutils/sampling.h>
 
+#include "gradient.h"
+
 #define SUSCAN_GUI_SPECTRUM_ALPHA .01
 
 #define SUSCAN_GUI_HORIZONTAL_DIVS 20
@@ -420,14 +422,21 @@ suscan_gui_spectrum_draw_channel(
       yscr2 = spectrum->height - SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING - 1;
     }
 
+    if (spectrum->mode == SUSCAN_GUI_SPECTRUM_MODE_WATERFALL)
+      cairo_set_source_rgb(cr, .5 * red, .5 * green, .5 * blue);
+    else
+      cairo_set_source_rgba(cr, red, green, blue, .25);
 
-    cairo_set_source_rgba(cr, red, green, blue, .25);
     cairo_rectangle(cr, xscr1, yscr1, xscr2 - xscr1, yscr2 - yscr1);
     cairo_stroke_preserve(cr);
     cairo_fill(cr);
 
     /* Draw detected bandwidth */
-    cairo_set_source_rgba(cr, red, green, blue, .5);
+    if (spectrum->mode == SUSCAN_GUI_SPECTRUM_MODE_WATERFALL)
+      cairo_set_source_rgba(cr, red, green, blue, 1);
+    else
+      cairo_set_source_rgba(cr, red, green, blue, .5);
+
     x1 = (channel->fc - channel->bw / 2 - spectrum->fc)
             / (SUFLOAT) spectrum->samp_rate;
     x2 = (channel->fc + channel->bw / 2 - spectrum->fc)
@@ -458,7 +467,9 @@ suscan_gui_spectrum_draw_channels(
           spectrum,
           cr,
           spectrum->channel_list[i],
-          .75, /* Red */
+          spectrum->mode == SUSCAN_GUI_SPECTRUM_MODE_WATERFALL /* Red */
+            ? 1
+            : .75,
           0,   /* Green */
           0);  /* Blue */
   }
@@ -616,6 +627,16 @@ suscan_gui_spectrum_waterfall_dump(
       spectrum->g_height);
 
   cairo_fill(cr);
+
+  /*
+   * If we are asking to overlay channels, we darken the whole waterfall
+   * so that channels painted on top are more visible
+   */
+
+  if (spectrum->show_channels) {
+    cairo_set_source_rgb(cr, 0, 0, 0);
+    cairo_paint_with_alpha(cr, .5);
+  }
 }
 
 SUPRIVATE void
@@ -625,6 +646,7 @@ suscan_gui_spectrum_redraw_waterfall(struct suscan_gui_spectrum *spectrum)
   int i, j;
   int start;
   int end;
+  int index;
   const SUFLOAT *psd_data;
   SUSCOUNT psd_size;
   cairo_t *cr_wf = NULL;
@@ -670,19 +692,22 @@ suscan_gui_spectrum_redraw_waterfall(struct suscan_gui_spectrum *spectrum)
 
         val = 1 + suscan_gui_spectrum_adjust_y(
             spectrum,
-            SU_POWER_DB(psd_data[j]));
+            SU_POWER_DB(psd_data[j]) - 5);
 
         if (val < 0)
           val = 0;
         else if (val > 1)
           val = 1;
 
+        index = round(val * 255);
 
+        /* TODO: add more gradients */
         cairo_set_source_rgb(
             cr_wf,
-            0,
-            .05 + .95 * val,
-            0);
+            wf_gradient[index][0],
+            wf_gradient[index][1],
+            wf_gradient[index][2]);
+
         cairo_move_to(cr_wf, i - 1, 0);
         cairo_line_to(cr_wf, i, 0);
         cairo_stroke(cr_wf);
