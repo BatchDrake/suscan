@@ -820,7 +820,7 @@ suscan_analyzer_source_init(
   source->per_cnt_psd       = 0;
 
   source->interval_channels = .1;
-  source->interval_psd      = .1;
+  source->interval_psd      = 1. / 25.;
 
   if ((source->block = (config->source->ctor)(config)) == NULL)
     goto done;

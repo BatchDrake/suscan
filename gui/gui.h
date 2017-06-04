@@ -50,7 +50,7 @@ enum suscan_gui_state {
 #define SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT  1
 #define SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT 10
 #define SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT   0
-#define SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA .5
+#define SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA .1
 
 enum suscan_gui_spectrum_param {
   SUSCAN_GUI_SPECTRUM_PARAM_FREQ_OFFSET,
@@ -60,8 +60,8 @@ enum suscan_gui_spectrum_param {
 };
 
 enum suscan_gui_spectrum_mode {
-  SUSCAN_GUI_SPECTRUM_MODE_WATERFALL,
   SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM,
+  SUSCAN_GUI_SPECTRUM_MODE_WATERFALL,
 };
 
 struct suscan_gui_spectrum {
@@ -78,6 +78,7 @@ struct suscan_gui_spectrum {
   SUFLOAT  N0;
   SUSCOUNT updates; /* Number of spectrum updates */
   SUSCOUNT last_update; /* Last update in which waterfall has been repainted */
+  SUBOOL   auto_level; /* Automatic reference level */
 
   /* Representation properties */
   SUBOOL  show_channels; /* Defaults to TRUE */
@@ -138,6 +139,12 @@ struct suscan_gui {
   GtkMenu *recentMenu;
   GtkMenuItem *emptyMenuItem;
 
+  GtkRadioMenuItem    *spectrogramMenuItem;
+  GtkRadioMenuItem    *waterfallMenuItem;
+  GtkToggleToolButton *overlayChannelToggleButton;
+  GtkToggleToolButton *autoGainToggleButton;
+  GtkAdjustment       *gainAdjustment;
+
   GtkTreeViewColumn *centerFrequencyCol;
   GtkTreeViewColumn *snrCol;
   GtkTreeViewColumn *signalLevelCol;
@@ -156,7 +163,6 @@ struct suscan_gui {
   GtkLevelBar *n0LevelBar;
   GtkLabel *n0Label;
 
-  GtkCheckButton *spectrumShowChannelsCheck;
   GtkLabel *spectrumSampleRate;
   GtkLabel *spectrumDbsPerDivLabel;
   GtkLabel *spectrumRefLevelLabel;
@@ -320,6 +326,10 @@ void suscan_gui_quit(struct suscan_gui *gui);
 void suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum);
 
 void suscan_spectrum_finalize(struct suscan_gui_spectrum *spectrum);
+
+void suscan_gui_spectrum_set_mode(
+    struct suscan_gui_spectrum *spectrum,
+    enum suscan_gui_spectrum_mode mode);
 
 void suscan_gui_spectrum_update(
     struct suscan_gui_spectrum *spectrum,

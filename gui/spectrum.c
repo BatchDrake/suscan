@@ -48,6 +48,9 @@ SUPRIVATE void suscan_gui_spectrum_scale_waterfall(
     struct suscan_gui_spectrum *spectrum,
     gdouble factor);
 
+SUPRIVATE void suscan_gui_spectrum_redraw_waterfall(
+    struct suscan_gui_spectrum *spectrum);
+
 /************************ Coordinate translation *****************************/
 
 /* Graph area conversion functions */
@@ -138,11 +141,19 @@ suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum)
   memset(spectrum, 0, sizeof (struct suscan_gui_spectrum));
 
   spectrum->show_channels = SU_TRUE;
-  //spectrum->mode        = SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM;
+  spectrum->mode        = SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM;
   spectrum->freq_offset = SUSCAN_GUI_SPECTRUM_FREQ_OFFSET_DEFAULT;
   spectrum->freq_scale  = SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT;
   spectrum->ref_level   = SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT;
   spectrum->dbs_per_div = SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT;
+}
+
+void
+suscan_gui_spectrum_set_mode(
+    struct suscan_gui_spectrum *spectrum,
+    enum suscan_gui_spectrum_mode mode)
+{
+  spectrum->mode = mode;
 }
 
 void
@@ -279,7 +290,7 @@ suscan_gui_spectrum_apply_delta(
   switch (param) {
     case SUSCAN_GUI_SPECTRUM_PARAM_FREQ_OFFSET:
       /* Multiplied by freq_scale to keep proportion */
-      spectrum->ref_level -=
+      spectrum->freq_offset -=
           SUSCAN_GUI_SPECTRUM_SCALE_DELTA * delta * spectrum->freq_scale;
       break;
 
@@ -317,8 +328,10 @@ suscan_gui_spectrum_update(
 {
   SUFLOAT *old_data = spectrum->psd_data;
   SUSCOUNT old_size = spectrum->psd_size;
-
+  SUFLOAT  max = 0;
+  SUFLOAT  range;
   unsigned int i;
+  unsigned int skip;
 
   spectrum->fc        = msg->fc;
   spectrum->psd_data  = suscan_analyzer_psd_msg_take_psd(msg);
@@ -335,6 +348,25 @@ suscan_gui_spectrum_update(
             SUSCAN_GUI_SPECTRUM_ALPHA * (old_data[i] - spectrum->psd_data[i]);
     free(old_data);
   }
+
+  if (spectrum->auto_level) {
+    skip = spectrum->psd_size / 8;
+    for (i = skip; i < spectrum->psd_size - skip; ++i)
+      if (spectrum->psd_data[i] > max)
+        max = spectrum->psd_data[i];
+
+    spectrum->last_max +=
+        SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA * (max - spectrum->last_max);
+
+    spectrum->ref_level = -SU_POWER_DB(spectrum->last_max);
+
+    range = (-spectrum->ref_level - SU_POWER_DB(msg->N0)) * SUSCAN_GUI_SPECTRUM_DY;
+    spectrum->dbs_per_div +=
+        SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA
+        * (range - spectrum->dbs_per_div);
+  }
+
+  suscan_gui_spectrum_redraw_waterfall(spectrum);
 }
 
 /******************** Channel handling methods *******************************/
@@ -587,9 +619,7 @@ suscan_gui_spectrum_waterfall_dump(
 }
 
 SUPRIVATE void
-suscan_gui_spectrum_redraw_waterfall(
-    struct suscan_gui_spectrum *spectrum,
-    cairo_t *cr)
+suscan_gui_spectrum_redraw_waterfall(struct suscan_gui_spectrum *spectrum)
 {
   float x;
   int i, j;
@@ -597,7 +627,6 @@ suscan_gui_spectrum_redraw_waterfall(
   int end;
   const SUFLOAT *psd_data;
   SUSCOUNT psd_size;
-  SUFLOAT max = 0;
   cairo_t *cr_wf = NULL;
   float val;
 
@@ -620,9 +649,6 @@ suscan_gui_spectrum_redraw_waterfall(
       cairo_line_to(cr_wf, spectrum->g_width - 1, 0);
       cairo_stroke(cr_wf);
 
-      if (spectrum->last_max == 0)
-        spectrum->last_max = 0;
-
       /* Paint new line */
       for (i = start + 1; i < end; ++i) {
         /*
@@ -642,11 +668,11 @@ suscan_gui_spectrum_redraw_waterfall(
         if (j < 0 || j >= psd_size)
           break;
 
-        /* This test is used to skip frequencies around the DC */
-        if (SU_ABS(x) > .25 && psd_data[j] > max)
-          max = psd_data[j];
+        val =
+            (1 - suscan_gui_spectrum_adjust_y(
+                spectrum,
+                -SU_POWER_DB(psd_data[j])));
 
-        val = psd_data[j] / spectrum->last_max;
         if (val < 0)
           val = 0;
         else if (val > 1)
@@ -662,14 +688,8 @@ suscan_gui_spectrum_redraw_waterfall(
         cairo_line_to(cr_wf, i, 0);
         cairo_stroke(cr_wf);
       }
-
-      if (max > 0)
-        spectrum->last_max +=
-            SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA * (max - spectrum->last_max);
     }
   }
-
-  suscan_gui_spectrum_waterfall_dump(spectrum, cr);
 
   if (cr_wf != NULL)
     cairo_destroy(cr_wf);
@@ -934,7 +954,6 @@ suscan_gui_spectrum_redraw_axes(
 }
 
 /**************************** Event parsing **********************************/
-
 SUPRIVATE void
 suscan_gui_spectrum_parse_dragging(
     struct suscan_gui_spectrum *spectrum,
@@ -958,7 +977,8 @@ suscan_gui_spectrum_parse_dragging(
       spectrum,
       suscan_gui_spectrum_from_scr_y(spectrum, spectrum->last_y));
 
-  spectrum->ref_level = spectrum->original_ref_level + ly - y;
+  if (!spectrum->auto_level)
+    spectrum->ref_level = spectrum->original_ref_level + ly - y;
 
   /* Change frequency offset only if sample rate has been defined */
   if (spectrum->samp_rate != 0) {
@@ -1025,7 +1045,7 @@ suscan_gui_spectrum_redraw(
   if (spectrum->mode == SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM) {
     suscan_gui_spectrum_redraw_spectrogram(spectrum, cr);
   } else {
-    suscan_gui_spectrum_redraw_waterfall(spectrum, cr);
+    suscan_gui_spectrum_waterfall_dump(spectrum, cr);
   }
 
   /* Draw channels, if enabled */
@@ -1053,10 +1073,11 @@ suscan_gui_spectrum_parse_scroll(
   switch (ev->direction) {
     case GDK_SCROLL_SMOOTH:
       if (ev->state & GDK_SHIFT_MASK) {
-        suscan_gui_spectrum_apply_delta(
-            spectrum,
-            SUSCAN_GUI_SPECTRUM_PARAM_DBS_PER_DIV,
-            -ev->delta_y);
+        if (!spectrum->auto_level)
+          suscan_gui_spectrum_apply_delta(
+              spectrum,
+              SUSCAN_GUI_SPECTRUM_PARAM_DBS_PER_DIV,
+              -ev->delta_y);
       } else {
         suscan_gui_spectrum_apply_delta(
             spectrum,
@@ -1149,8 +1170,21 @@ suscan_spectrum_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
   }
 
   gui->main_spectrum.show_channels =
-      gtk_toggle_button_get_active(
-          GTK_TOGGLE_BUTTON(gui->spectrumShowChannelsCheck));
+      gtk_toggle_tool_button_get_active(gui->overlayChannelToggleButton);
+
+  gui->main_spectrum.auto_level =
+      gtk_toggle_tool_button_get_active(gui->autoGainToggleButton);
+
+  if (gtk_check_menu_item_get_active(
+      GTK_CHECK_MENU_ITEM(gui->spectrogramMenuItem)))
+    suscan_gui_spectrum_set_mode(
+        &gui->main_spectrum,
+        SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM);
+  else if (gtk_check_menu_item_get_active(
+      GTK_CHECK_MENU_ITEM(gui->waterfallMenuItem)))
+    suscan_gui_spectrum_set_mode(
+        &gui->main_spectrum,
+        SUSCAN_GUI_SPECTRUM_MODE_WATERFALL);
 
   suscan_gui_spectrum_redraw(&gui->main_spectrum, cr);
 
@@ -1183,16 +1217,18 @@ suscan_spectrum_on_motion(GtkWidget *widget, GdkEventMotion *ev, gpointer data)
   snprintf(
       text,
       sizeof(text),
-      "%.2lg dB",
-      gui->main_spectrum.ref_level);
+      "%.0lf dB",
+      -gui->main_spectrum.ref_level);
   gtk_label_set_text(gui->spectrumRefLevelLabel, text);
 
   snprintf(
       text,
       sizeof(text),
-      "%.2lg Hz",
+      "%.0lf Hz",
       gui->main_spectrum.samp_rate * gui->main_spectrum.freq_offset);
   gtk_label_set_text(gui->spectrumFreqOffsetLabel, text);
+
+  gtk_adjustment_set_value(gui->gainAdjustment, -gui->main_spectrum.ref_level);
 }
 
 gboolean
