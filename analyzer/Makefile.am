@@ -1,4 +1,5 @@
 AM_CPPFLAGS = -I. -I../util -I..
+AUTOMAKE_OPTIONS = subdir-objects
 
 noinst_LTLIBRARIES = libanalyzer.la
 
