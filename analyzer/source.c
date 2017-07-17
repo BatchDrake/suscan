@@ -27,6 +27,7 @@
 #include "source.h"
 #include "xsig.h"
 #include "sources/bladerf.h"
+#include "sources/hack_rf.h"
 #include "sources/alsa.h"
 
 /* Will never be freed */
@@ -606,6 +607,8 @@ suscan_init_sources(void)
   SU_TRYCATCH(suscan_iqfile_source_init(), return SU_FALSE);
 
   SU_TRYCATCH(suscan_bladeRF_source_init(), return SU_FALSE);
+
+  SU_TRYCATCH(suscan_hackRF_source_init(), return SU_FALSE);
 
   SU_TRYCATCH(suscan_alsa_source_init(), return SU_FALSE);
 

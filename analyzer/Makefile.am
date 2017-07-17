@@ -8,6 +8,7 @@ libanalyzer_la_CFLAGS = -I. -ggdb @sigutils_CFLAGS@ @bladeRF_CFLAGS@ \
 
 libanalyzer_la_SOURCES = sources/file.c sources/bladerf.c mq.c msg.c msg.h \
 	source.c analyzer.c source.h xsig.h mq.h worker.c worker.h analyzer.h \
-	sources/bladerf.h inspector.c sources/alsa.c sources/alsa.h
+	sources/bladerf.h inspector.c sources/alsa.c sources/alsa.h \
+	sources/hack_rf.h sources/hack_rf.c
 	
 	
