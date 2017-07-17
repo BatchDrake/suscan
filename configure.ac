@@ -69,16 +69,28 @@ PKG_CHECK_MODULES([gtk3], [ gtk+-3.0 >= 0.28 ], , [AC_MSG_ERROR([Couldn't find G
 AC_SUBST(gtk3_CFLAGS)
 AC_SUBST(gtk3_LIBS)
 
-PKG_CHECK_MODULES(bladeRF, libbladeRF >= 0.28, ac_cv_bladeRF=yes)
+PKG_CHECK_MODULES(bladeRF, [ libbladeRF >= 0.28 ], ac_cv_bladeRF=yes, ac_cv_bladeRF=no)
 
 if test "$ac_cv_bladeRF" != no ; then
   AC_DEFINE([HAVE_BLADERF], [0], [Compiled with bladeRF support])
   AC_DEFINE(HAVE_BLADERF,1)
   AC_SUBST(HAVE_BLADERF)
-  AC_SUBST(bladeRF_CFLAGS)
-  AC_SUBST(bladeRF_LIBS)
 fi
 
+AC_SUBST(bladeRF_CFLAGS)
+AC_SUBST(bladeRF_LIBS)
+  
+PKG_CHECK_MODULES(hackRF, [ libhackrf >= 0.4 ], ac_cv_hackrf=yes, ac_cv_hackrf=no)
+
+if test "$ac_cv_hackrf" != no ; then
+  AC_DEFINE([HAVE_HACKRF], [0], [Compiled with hackRF support])
+  AC_DEFINE(HAVE_HACKRF,1)
+  AC_SUBST(HAVE_HACKRF)
+fi
+
+AC_SUBST(hackRF_CFLAGS)
+AC_SUBST(hackRF_LIBS)
+  
 dnl Macro snippets imported from dependency `util'
 AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(GLOBAL_LDFLAGS)

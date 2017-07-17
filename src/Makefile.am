@@ -8,6 +8,7 @@ suscan_CFLAGS = -I. -I../util -I../ctk -I.. -g -O0 \
 	@sndfile_CFLAGS@						\
 	@asoundlib_CFLAGS@					\
 	@gtk3_CFLAGS@								\
+	@hackRF_CFLAGS@ 						\	
 	@GLOBAL_CFLAGS@
 	
 suscan_LDFLAGS = @GLOBAL_LDFLAGS@ -Wl,--whole-archive \
@@ -21,6 +22,7 @@ suscan_LDADD = ../util/libutil.la \
 	@sndfile_LIBS@									\
 	@asoundlib_LIBS@								\
 	@bladeRF_LIBS@									\
+	@hackRF_LIBS@ 									\
 	@gtk3_LIBS@											\
 	@GLOBAL_LDFLAGS@
 

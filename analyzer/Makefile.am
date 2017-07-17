@@ -3,7 +3,8 @@ AUTOMAKE_OPTIONS = subdir-objects
 
 noinst_LTLIBRARIES = libanalyzer.la
 
-libanalyzer_la_CFLAGS = -I. -ggdb @sigutils_CFLAGS@ @bladeRF_CFLAGS@
+libanalyzer_la_CFLAGS = -I. -ggdb @sigutils_CFLAGS@ @bladeRF_CFLAGS@ \
+  @hackRF_CFLAGS@
 
 libanalyzer_la_SOURCES = sources/file.c sources/bladerf.c mq.c msg.c msg.h \
 	source.c analyzer.c source.h xsig.h mq.h worker.c worker.h analyzer.h \
