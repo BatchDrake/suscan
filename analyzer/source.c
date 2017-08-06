@@ -24,6 +24,8 @@
 #include <ctype.h>
 #include <libgen.h>
 
+#define SU_LOG_DOMAIN "source"
+
 #include "source.h"
 #include "xsig.h"
 #include "sources/bladerf.h"
@@ -360,6 +362,67 @@ suscan_source_config_set_file(
 
   strncpy(cfg->values[id]->as_string, value, str_size);
   cfg->values[id]->set = SU_TRUE;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_config_copy(
+    struct suscan_source_config *dest,
+    const struct suscan_source_config *src)
+{
+  unsigned int i;
+
+  SU_TRYCATCH(dest->source == src->source, return SU_FALSE);
+
+  for (i = 0; i < src->source->field_count; ++i) {
+    switch (src->source->field_list[i]->type) {
+      case SUSCAN_FIELD_TYPE_STRING:
+        SU_TRYCATCH(
+            suscan_source_config_set_string(
+                dest,
+                src->source->field_list[i]->name,
+                src->values[i]->as_string),
+            return SU_FALSE);
+        break;
+
+      case SUSCAN_FIELD_TYPE_INTEGER:
+        SU_TRYCATCH(
+            suscan_source_config_set_integer(
+                dest,
+                src->source->field_list[i]->name,
+                src->values[i]->as_int),
+            return SU_FALSE);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FLOAT:
+        SU_TRYCATCH(
+            suscan_source_config_set_float(
+                dest,
+                src->source->field_list[i]->name,
+                src->values[i]->as_float),
+            return SU_FALSE);
+        break;
+
+      case SUSCAN_FIELD_TYPE_BOOLEAN:
+        SU_TRYCATCH(
+            suscan_source_config_set_bool(
+                dest,
+                src->source->field_list[i]->name,
+                src->values[i]->as_bool),
+            return SU_FALSE);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FILE:
+        SU_TRYCATCH(
+            suscan_source_config_set_file(
+                dest,
+                src->source->field_list[i]->name,
+                src->values[i]->as_string),
+            return SU_FALSE);
+        break;
+    }
+  }
 
   return SU_TRUE;
 }

@@ -115,7 +115,6 @@ struct suscan_gui_recent {
   struct suscan_gui *gui;
   char *conf_string;
   struct suscan_source_config *config;
-  struct suscan_gui_source_config as_gui_config;
 };
 
 struct suscan_gui {
@@ -323,10 +322,16 @@ void suscan_gui_msgbox(
 
 void suscan_gui_setup_logging(struct suscan_gui *gui);
 
-struct suscan_gui_source_config *suscan_gui_get_selected_source(
+struct suscan_gui_source_config *suscan_gui_get_selected_source_config(
     struct suscan_gui *gui);
 
-SUBOOL suscan_gui_source_config_parse(struct suscan_gui_source_config *config);
+SUBOOL suscan_gui_set_selected_source_config(
+    struct suscan_gui *gui,
+    const struct suscan_gui_source_config *source);
+
+void suscan_gui_source_config_to_dialog(const struct suscan_gui_source_config *config);
+
+SUBOOL suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config);
 
 void suscan_gui_set_config(
     struct suscan_gui *gui,
@@ -432,6 +437,11 @@ void suscan_gui_inspector_detach(struct suscan_gui_inspector *insp);
 void suscan_gui_inspector_close(struct suscan_gui_inspector *insp);
 
 void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
+
+/* Source API */
+struct suscan_gui_source_config *suscan_gui_lookup_source_config(
+    const struct suscan_gui *gui,
+    const struct suscan_source *src);
 
 /* Recent source configuration management */
 SUBOOL suscan_gui_append_recent(

@@ -118,6 +118,18 @@ suscan_gui_text_entry_set_scount(GtkEntry *entry, SUSCOUNT value)
   gtk_entry_set_text(entry, buffer);
 }
 
+SUPRIVATE void
+suscan_gui_text_entry_set_integer(GtkEntry *entry, int64_t value)
+{
+  char buffer[30];
+
+  buffer[29] = '\0';
+
+  snprintf(buffer, 29, "%lli", value);
+
+  gtk_entry_set_text(entry, buffer);
+}
+
 void
 suscan_gui_analyzer_params_to_dialog(struct suscan_gui *gui)
 {
@@ -386,8 +398,53 @@ done:
   return widget;
 }
 
+void
+suscan_gui_source_config_to_dialog(
+    const struct suscan_gui_source_config *config)
+{
+  unsigned int i;
+  char textbuf[32];
+  const char *str;
+  for (i = 0; i < config->source->field_count; ++i) {
+    switch (config->source->field_list[i]->type) {
+      case SUSCAN_FIELD_TYPE_STRING:
+        if ((str = config->config->values[i]->as_string) == NULL)
+          str = "";
+
+        gtk_entry_set_text(GTK_ENTRY(config->widget_list[i]), str);
+        break;
+
+      case SUSCAN_FIELD_TYPE_INTEGER:
+        suscan_gui_text_entry_set_integer(
+            GTK_ENTRY(config->widget_list[i]),
+            config->config->values[i]->as_int);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FLOAT:
+        suscan_gui_text_entry_set_float(
+            GTK_ENTRY(config->widget_list[i]),
+            config->config->values[i]->as_float);
+        break;
+
+      case SUSCAN_FIELD_TYPE_BOOLEAN:
+        gtk_toggle_button_set_active(
+            GTK_TOGGLE_BUTTON(config->widget_list[i]),
+            config->config->values[i]->as_bool);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FILE:
+        if (config->config->values[i]->as_string != NULL) {
+          gtk_file_chooser_set_filename(
+              GTK_FILE_CHOOSER(config->widget_list[i]),
+              config->config->values[i]->as_string);
+        }
+        break;
+    }
+  }
+}
+
 SUBOOL
-suscan_gui_source_config_parse(struct suscan_gui_source_config *config)
+suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config)
 {
   unsigned int i;
   uint64_t int_val;
@@ -560,7 +617,7 @@ fail:
   if (label != NULL)
     gtk_widget_destroy(label);
 
-  return new;
+  return NULL;
 }
 
 SUBOOL
@@ -586,6 +643,36 @@ suscan_gui_populate_source_list(struct suscan_gui *gui)
   }
 
   return SU_TRUE;
+}
+
+struct suscan_gui_source_config *
+suscan_gui_lookup_source_config(
+    const struct suscan_gui *gui,
+    const struct suscan_source *src)
+{
+  GtkTreeIter iter;
+  struct suscan_gui_source_config *config;
+  gboolean ok;
+
+  ok = gtk_tree_model_get_iter_first(
+      GTK_TREE_MODEL(gui->sourceListStore),
+      &iter);
+
+  while (ok) {
+    gtk_tree_model_get(
+        GTK_TREE_MODEL(gui->sourceListStore),
+        &iter,
+        1,
+        &config,
+        -1);
+
+    if (config->source == src)
+      return config;
+
+    ok = gtk_tree_model_iter_next(GTK_TREE_MODEL(gui->sourceListStore), &iter);
+  }
+
+  return NULL;
 }
 
 SUPRIVATE void

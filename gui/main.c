@@ -18,6 +18,7 @@
 
 */
 
+#define SU_LOG_DOMAIN "main"
 
 #include "gui.h"
 
@@ -54,7 +55,7 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
     response = suscan_settings_dialog_run(gui);
 
     if (response == 0) { /* Okay pressed */
-      config = suscan_gui_get_selected_source(gui);
+      config = suscan_gui_get_selected_source_config(gui);
 
       if (!suscan_gui_analyzer_params_from_dialog(gui)) {
         suscan_error(
@@ -64,7 +65,7 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
         continue;
       }
 
-      if (!suscan_gui_source_config_parse(config)) {
+      if (!suscan_gui_source_config_from_dialog(config)) {
         suscan_error(
             gui,
             "Parameter validation",
@@ -119,7 +120,7 @@ suscan_on_open_inspector(GtkWidget *widget, gpointer data)
 }
 
 struct suscan_gui_source_config *
-suscan_gui_get_selected_source(struct suscan_gui *gui)
+suscan_gui_get_selected_source_config(struct suscan_gui *gui)
 {
   struct suscan_gui_source_config *config;
   GtkTreeIter iter;
@@ -137,6 +138,38 @@ suscan_gui_get_selected_source(struct suscan_gui *gui)
   return config;
 }
 
+SUBOOL
+suscan_gui_set_selected_source_config(
+    struct suscan_gui *gui,
+    const struct suscan_gui_source_config *new_config)
+{
+  GtkTreeIter iter;
+  const struct suscan_gui_source_config *config;
+  gboolean ok;
+
+  ok = gtk_tree_model_get_iter_first(
+      GTK_TREE_MODEL(gui->sourceListStore),
+      &iter);
+
+  while (ok) {
+    gtk_tree_model_get(
+        GTK_TREE_MODEL(gui->sourceListStore),
+        &iter,
+        1,
+        &config,
+        -1);
+
+    if (config == new_config) {
+      gtk_combo_box_set_active_iter(gui->sourceCombo, &iter);
+      return SU_TRUE;
+    }
+
+    ok = gtk_tree_model_iter_next(GTK_TREE_MODEL(gui->sourceListStore), &iter);
+  }
+
+  return SU_FALSE;
+}
+
 void
 suscan_on_source_changed(GtkWidget *widget, gpointer *data)
 {
@@ -145,7 +178,7 @@ suscan_on_source_changed(GtkWidget *widget, gpointer *data)
   GList *list;
   GtkWidget *prev = NULL;
 
-  config = suscan_gui_get_selected_source(gui);
+  config = suscan_gui_get_selected_source_config(gui);
 
   list = gtk_container_get_children(GTK_CONTAINER(gui->sourceAlignment));
 
