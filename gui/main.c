@@ -56,11 +56,19 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
     if (response == 0) { /* Okay pressed */
       config = suscan_gui_get_selected_source(gui);
 
+      if (!suscan_gui_analyzer_params_from_dialog(gui)) {
+        suscan_error(
+            gui,
+            "Analyzer params",
+            "Invalid values passed to analyzer parameters (see log)");
+        continue;
+      }
+
       if (!suscan_gui_source_config_parse(config)) {
         suscan_error(
             gui,
             "Parameter validation",
-            "Invalid values passed to source parameters");
+            "Invalid values passed to source parameters (see log)");
         continue;
       }
 

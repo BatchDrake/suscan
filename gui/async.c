@@ -18,6 +18,9 @@
 
 */
 #include <assert.h>
+
+#define SU_LOG_DOMAIN "async-thread"
+
 #include "gui.h"
 
 /* Asynchronous thread: take messages from analyzer and parse them */
@@ -156,6 +159,8 @@ suscan_async_stopped_cb(gpointer user_data)
      * and exit main loop
      */
     suscan_gui_store_recent(gui);
+
+    suscan_gui_store_analyzer_params(gui);
 
     suscan_gui_destroy(gui);
 
@@ -509,6 +514,7 @@ suscan_gui_connect(struct suscan_gui *gui)
         "The opened inspector tabs will remain in idle state");
 
   if ((gui->analyzer = suscan_analyzer_new(
+      &gui->analyzer_params,
       gui->selected_config->config,
       &gui->mq_out)) == NULL)
     return SU_FALSE;
@@ -562,6 +568,8 @@ suscan_gui_quit(struct suscan_gui *gui)
   } else if (gui->state == SUSCAN_GUI_STATE_STOPPED) {
     /* GUI already stopped, proceed to stop safely */
     suscan_gui_store_recent(gui);
+
+    suscan_gui_store_analyzer_params(gui);
 
     suscan_gui_destroy(gui);
 

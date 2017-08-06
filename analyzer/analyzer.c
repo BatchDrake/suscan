@@ -453,23 +453,23 @@ suscan_analyzer_source_init_from_block_properties(
 
 SUPRIVATE SUBOOL
 suscan_analyzer_source_init(
+    const struct suscan_analyzer_params *analyzer_params,
     struct suscan_analyzer_source *source,
     struct suscan_source_config *config)
 {
-  SUBOOL ok = SU_FALSE;
   struct sigutils_channel_detector_params params =
-        sigutils_channel_detector_params_INITIALIZER;
+      analyzer_params->detector_params;
+  SUBOOL ok = SU_FALSE;
 
   params.mode = SU_CHANNEL_DETECTOR_MODE_DISCOVERY;
-  params.window_size = config->bufsiz;
 
   source->config = config;
 
   source->per_cnt_channels  = 0;
   source->per_cnt_psd       = 0;
 
-  source->interval_channels = .1;
-  source->interval_psd      = 1. / 25.;
+  source->interval_channels = analyzer_params->channel_update_int;
+  source->interval_psd      = analyzer_params->psd_update_int;
 
   if ((source->block = (config->source->ctor)(config)) == NULL)
     goto done;
@@ -484,9 +484,13 @@ suscan_analyzer_source_init(
   /* Adjust parameters that depend on sample rate */
   su_channel_params_adjust(&params);
 
+#if 0
   /* Make alpha a little bigger, to provide a more dynamic spectrum */
   if (params.alpha <= .05)
     params.alpha *= 20;
+#endif
+
+  params.alpha = analyzer_params->detector_params.alpha;
 
   if ((source->detector = su_channel_detector_new(&params)) == NULL)
     goto done;
@@ -645,6 +649,7 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 
 suscan_analyzer_t *
 suscan_analyzer_new(
+    const struct suscan_analyzer_params *params,
     struct suscan_source_config *config,
     struct suscan_mq *mq)
 {
@@ -657,6 +662,8 @@ suscan_analyzer_new(
     SU_ERROR("Cannot allocate analyzer\n");
     goto fail;
   }
+
+  analyzer->params = *params;
 
   /* Allocate read buffer */
   if ((analyzer->read_buf = malloc(config->bufsiz * sizeof(SUCOMPLEX)))
@@ -674,7 +681,7 @@ suscan_analyzer_new(
   }
 
   /* Initialize source */
-  if (!suscan_analyzer_source_init(&analyzer->source, config)) {
+  if (!suscan_analyzer_source_init(params, &analyzer->source, config)) {
     SU_ERROR("Failed to initialize source\n");
     goto fail;
   }

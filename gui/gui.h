@@ -181,6 +181,22 @@ struct suscan_gui {
   GtkTreeView *logMessagesTreeView;
   GtkListStore *logMessagesListStore;
 
+  /* Settings widgets */
+  GtkEntry *alphaEntry;
+  GtkEntry *betaEntry;
+  GtkEntry *gammaEntry;
+  GtkEntry *snrEntry;
+
+  GtkEntry *bufSizeEntry;
+  GtkEntry *chIntervalEntry;
+  GtkEntry *psdIntervalEntry;
+
+  GtkRadioButton *rectangularWindowButton;
+  GtkRadioButton *hammingWindowButton;
+  GtkRadioButton *hannWindowButton;
+  GtkRadioButton *blackmannHarrisWindowButton;
+  GtkRadioButton *flatTopWindowButton;
+
   /* FIXME: this should be suscan_source_config, not suscan_gui_source_config */
   struct suscan_gui_source_config *selected_config;
 
@@ -188,6 +204,7 @@ struct suscan_gui {
   enum suscan_gui_state state;
 
   /* Analyzer integration */
+  struct suscan_analyzer_params analyzer_params;
   suscan_analyzer_t *analyzer;
   struct suscan_mq mq_out;
   GThread *async_thread;
@@ -315,6 +332,10 @@ void suscan_gui_set_config(
     struct suscan_gui *gui,
     struct suscan_gui_source_config *config);
 
+void suscan_gui_analyzer_params_to_dialog(struct suscan_gui *gui);
+
+SUBOOL suscan_gui_analyzer_params_from_dialog(struct suscan_gui *gui);
+
 void suscan_gui_update_state(
     struct suscan_gui *gui,
     enum suscan_gui_state state);
@@ -426,5 +447,9 @@ void suscan_gui_recent_destroy(struct suscan_gui_recent *recent);
 void suscan_gui_retrieve_recent(struct suscan_gui *gui);
 
 void suscan_gui_store_recent(struct suscan_gui *gui);
+
+void suscan_gui_retrieve_analyzer_params(struct suscan_gui *gui);
+
+void suscan_gui_store_analyzer_params(struct suscan_gui *gui);
 
 #endif /* _GUI_GUI_H */

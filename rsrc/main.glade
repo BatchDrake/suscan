@@ -1433,7 +1433,6 @@ network-cellular-signal-good-symbolic</property>
                 <child>
                   <object class="GtkFrame">
                     <property name="visible">True</property>
-                    <property name="sensitive">False</property>
                     <property name="can_focus">False</property>
                     <property name="margin_left">3</property>
                     <property name="margin_right">3</property>
@@ -1453,6 +1452,10 @@ network-cellular-signal-good-symbolic</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="halign">start</property>
+                            <property name="margin_left">3</property>
+                            <property name="margin_right">3</property>
+                            <property name="margin_top">3</property>
+                            <property name="margin_bottom">3</property>
                             <property name="label" translatable="yes">Search bandwidth (%)</property>
                           </object>
                           <packing>
@@ -1463,6 +1466,7 @@ network-cellular-signal-good-symbolic</property>
                         <child>
                           <object class="GtkScale">
                             <property name="visible">True</property>
+                            <property name="sensitive">False</property>
                             <property name="can_focus">True</property>
                             <property name="adjustment">aDetectorBandwidthProportion</property>
                             <property name="round_digits">1</property>
@@ -1478,6 +1482,10 @@ network-cellular-signal-good-symbolic</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="halign">start</property>
+                            <property name="margin_left">3</property>
+                            <property name="margin_right">3</property>
+                            <property name="margin_top">3</property>
+                            <property name="margin_bottom">3</property>
                             <property name="label" translatable="yes">Spectrum averaging factor</property>
                           </object>
                           <packing>
@@ -1601,6 +1609,7 @@ network-cellular-signal-good-symbolic</property>
                             <child>
                               <object class="GtkLabel">
                                 <property name="visible">True</property>
+                                <property name="sensitive">False</property>
                                 <property name="can_focus">False</property>
                                 <property name="halign">start</property>
                                 <property name="label" translatable="yes">DC Cancel</property>
@@ -1618,6 +1627,10 @@ network-cellular-signal-good-symbolic</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="halign">start</property>
+                            <property name="margin_left">3</property>
+                            <property name="margin_right">3</property>
+                            <property name="margin_top">3</property>
+                            <property name="margin_bottom">3</property>
                             <property name="label" translatable="yes">FFT buffer size</property>
                           </object>
                           <packing>
@@ -1647,6 +1660,10 @@ network-cellular-signal-good-symbolic</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="halign">start</property>
+                            <property name="margin_left">3</property>
+                            <property name="margin_right">3</property>
+                            <property name="margin_top">3</property>
+                            <property name="margin_bottom">3</property>
                             <property name="label" translatable="yes">Level averaging factor</property>
                           </object>
                           <packing>
@@ -1659,6 +1676,10 @@ network-cellular-signal-good-symbolic</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="halign">start</property>
+                            <property name="margin_left">3</property>
+                            <property name="margin_right">3</property>
+                            <property name="margin_top">3</property>
+                            <property name="margin_bottom">3</property>
                             <property name="label" translatable="yes">Noise level update factor</property>
                           </object>
                           <packing>
@@ -1671,6 +1692,10 @@ network-cellular-signal-good-symbolic</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="halign">start</property>
+                            <property name="margin_left">3</property>
+                            <property name="margin_right">3</property>
+                            <property name="margin_top">3</property>
+                            <property name="margin_bottom">3</property>
                             <property name="label" translatable="yes">SNR threshold (dB)</property>
                           </object>
                           <packing>
@@ -1774,7 +1799,6 @@ network-cellular-signal-good-symbolic</property>
                 <child>
                   <object class="GtkFrame">
                     <property name="visible">True</property>
-                    <property name="sensitive">False</property>
                     <property name="can_focus">False</property>
                     <property name="margin_left">3</property>
                     <property name="margin_right">3</property>
@@ -1804,7 +1828,7 @@ network-cellular-signal-good-symbolic</property>
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkEntry">
+                              <object class="GtkEntry" id="eChInterval">
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="margin_left">3</property>
@@ -1844,7 +1868,7 @@ network-cellular-signal-good-symbolic</property>
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkEntry">
+                              <object class="GtkEntry" id="ePSDInterval">
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="margin_left">3</property>
