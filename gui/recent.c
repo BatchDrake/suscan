@@ -20,6 +20,8 @@
 
 #include <string.h>
 
+#define SU_LOG_DOMAIN "recent"
+
 #include "gui.h"
 
 void
