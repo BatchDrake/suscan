@@ -20,6 +20,8 @@
 
 #include <string.h>
 
+#define SU_LOG_DOMAIN "recent"
+
 #include "gui.h"
 
 void
@@ -52,9 +54,6 @@ suscan_gui_recent_new(
   new->gui = gui;
   new->conf_string = conf_string;
 
-  /* Dirty hack to pass configurations as strings */
-  new->as_gui_config.source = new->config->source;
-  new->as_gui_config.config = new->config;
   return new;
 
 fail:
@@ -64,13 +63,32 @@ fail:
   return NULL;
 }
 
-
 void
 suscan_gui_on_open_recent(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui_recent *recent = (struct suscan_gui_recent *) data;
+  struct suscan_gui_source_config *guisrc;
 
-  suscan_gui_set_config(recent->gui, &recent->as_gui_config);
+  SU_TRYCATCH(
+      guisrc = suscan_gui_lookup_source_config(
+          recent->gui,
+          recent->config->source),
+      return);
+
+  SU_TRYCATCH(
+      suscan_source_config_copy(guisrc->config, recent->config),
+      return);
+
+  /* Refresh config dialog */
+  suscan_gui_source_config_to_dialog(guisrc);
+
+  /* Mark this source as the currently selected */
+  SU_TRYCATCH(
+      suscan_gui_set_selected_source_config(recent->gui, guisrc),
+      return);
+
+  /* Update current config */
+  suscan_gui_set_config(recent->gui, guisrc);
 }
 
 SUPRIVATE void

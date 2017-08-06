@@ -19,6 +19,9 @@
 */
 
 #include <string.h>
+
+#define SU_LOG_DOMAIN "gui"
+
 #include "gui.h"
 
 PTR_LIST_EXTERN(struct suscan_source, source); /* Declared in source.c */
@@ -90,6 +93,220 @@ suscan_gui_destroy(struct suscan_gui *gui)
   free(gui);
 }
 
+/************************* Analyzer parameter dialog ************************/
+SUPRIVATE void
+suscan_gui_text_entry_set_float(GtkEntry *entry, SUFLOAT value)
+{
+  char buffer[30];
+
+  buffer[29] = '\0';
+
+  snprintf(buffer, 29, "%lg", value);
+
+  gtk_entry_set_text(entry, buffer);
+}
+
+SUPRIVATE void
+suscan_gui_text_entry_set_scount(GtkEntry *entry, SUSCOUNT value)
+{
+  char buffer[30];
+
+  buffer[29] = '\0';
+
+  snprintf(buffer, 29, "%lu", value);
+
+  gtk_entry_set_text(entry, buffer);
+}
+
+SUPRIVATE void
+suscan_gui_text_entry_set_integer(GtkEntry *entry, int64_t value)
+{
+  char buffer[30];
+
+  buffer[29] = '\0';
+
+  snprintf(buffer, 29, "%lli", value);
+
+  gtk_entry_set_text(entry, buffer);
+}
+
+void
+suscan_gui_analyzer_params_to_dialog(struct suscan_gui *gui)
+{
+  suscan_gui_text_entry_set_float(
+      gui->alphaEntry,
+      gui->analyzer_params.detector_params.alpha);
+  suscan_gui_text_entry_set_float(
+      gui->betaEntry,
+      gui->analyzer_params.detector_params.beta);
+  suscan_gui_text_entry_set_float(
+      gui->gammaEntry,
+      gui->analyzer_params.detector_params.gamma);
+  suscan_gui_text_entry_set_float(
+      gui->snrEntry,
+      SU_POWER_DB(gui->analyzer_params.detector_params.snr));
+  suscan_gui_text_entry_set_scount(
+      gui->bufSizeEntry,
+      gui->analyzer_params.detector_params.window_size);
+
+  switch (gui->analyzer_params.detector_params.window) {
+    case SU_CHANNEL_DETECTOR_WINDOW_NONE:
+      gtk_toggle_button_set_active(
+          GTK_TOGGLE_BUTTON(gui->rectangularWindowButton),
+          TRUE);
+      break;
+
+    case SU_CHANNEL_DETECTOR_WINDOW_HAMMING:
+      gtk_toggle_button_set_active(
+          GTK_TOGGLE_BUTTON(gui->hammingWindowButton),
+          TRUE);
+      break;
+
+    case SU_CHANNEL_DETECTOR_WINDOW_HANN:
+      gtk_toggle_button_set_active(
+          GTK_TOGGLE_BUTTON(gui->hannWindowButton),
+          TRUE);
+      break;
+
+    case SU_CHANNEL_DETECTOR_WINDOW_FLAT_TOP:
+      gtk_toggle_button_set_active(
+          GTK_TOGGLE_BUTTON(gui->flatTopWindowButton),
+          TRUE);
+      break;
+
+    case SU_CHANNEL_DETECTOR_WINDOW_BLACKMANN_HARRIS:
+      gtk_toggle_button_set_active(
+          GTK_TOGGLE_BUTTON(gui->blackmannHarrisWindowButton),
+          TRUE);
+      break;
+  }
+
+  suscan_gui_text_entry_set_float(
+      gui->psdIntervalEntry,
+      gui->analyzer_params.psd_update_int * 1e3);
+  suscan_gui_text_entry_set_float(
+      gui->chIntervalEntry,
+      gui->analyzer_params.channel_update_int * 1e3);
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_text_entry_get_float(GtkEntry *entry, SUFLOAT *result)
+{
+  const gchar *text = NULL;
+
+  SU_TRYCATCH(
+      text = gtk_entry_get_text(entry),
+      return FALSE);
+
+  if (sscanf(text, "%lf", result) < 1)
+    return FALSE;
+
+  return TRUE;
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_text_entry_get_scount(GtkEntry *entry, SUSCOUNT *result)
+{
+  const gchar *text = NULL;
+
+  SU_TRYCATCH(
+      text = gtk_entry_get_text(entry),
+      return FALSE);
+
+  if (sscanf(text, "%lu", result) < 1)
+    return FALSE;
+
+  return TRUE;
+}
+
+SUBOOL
+suscan_gui_analyzer_params_from_dialog(struct suscan_gui *gui)
+{
+  struct suscan_analyzer_params params = gui->analyzer_params;
+  SUFLOAT snr;
+  SUBOOL ok = SU_FALSE;
+
+  if (!suscan_gui_text_entry_get_float(
+      gui->alphaEntry,
+      &params.detector_params.alpha)) {
+    SU_ERROR("Invalid value for detector's spectrum averaging factor\n");
+    goto done;
+  }
+
+  if (!suscan_gui_text_entry_get_float(
+      gui->betaEntry,
+      &params.detector_params.beta)) {
+    SU_ERROR("Invalid value for detector's signal level averaging factor\n");
+    goto done;
+  }
+
+  if (!suscan_gui_text_entry_get_float(
+      gui->gammaEntry,
+      &params.detector_params.gamma)) {
+    SU_ERROR("Invalid value for detector's noise level averaging factor\n");
+    goto done;
+  }
+
+  if (!suscan_gui_text_entry_get_float(
+      gui->snrEntry,
+      &snr)) {
+    SU_ERROR("Invalid value for detector's spectrum averaging factor\n");
+    goto done;
+  }
+
+  params.detector_params.snr = SU_POWER_MAG(snr);
+
+  if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(gui->rectangularWindowButton)))
+      params.detector_params.window = SU_CHANNEL_DETECTOR_WINDOW_NONE;
+  else if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(gui->hammingWindowButton)))
+    params.detector_params.window = SU_CHANNEL_DETECTOR_WINDOW_HAMMING;
+  else if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(gui->hannWindowButton)))
+    params.detector_params.window = SU_CHANNEL_DETECTOR_WINDOW_HANN;
+  else if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(gui->flatTopWindowButton)))
+    params.detector_params.window = SU_CHANNEL_DETECTOR_WINDOW_FLAT_TOP;
+  else if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(gui->blackmannHarrisWindowButton)))
+      params.detector_params.window = SU_CHANNEL_DETECTOR_WINDOW_BLACKMANN_HARRIS;
+
+  if (!suscan_gui_text_entry_get_scount(
+      gui->bufSizeEntry,
+      &params.detector_params.window_size)) {
+    SU_ERROR("Invalid value for detector's FFT size\n");
+    goto done;
+  }
+
+  if (!suscan_gui_text_entry_get_float(
+      gui->psdIntervalEntry,
+      &params.psd_update_int)) {
+    SU_ERROR("Invalid value for PSD update interval\n");
+    goto done;
+  }
+
+  params.psd_update_int *= 1e-3;
+
+  if (!suscan_gui_text_entry_get_float(
+      gui->chIntervalEntry,
+      &params.channel_update_int)) {
+    SU_ERROR("Invalid value for channel update interval\n");
+    goto done;
+  }
+
+  params.channel_update_int *= 1e-3;
+
+  gui->analyzer_params = params;
+  ok = SU_TRUE;
+
+done:
+  suscan_gui_analyzer_params_to_dialog(gui);
+
+  return ok;
+}
+
+/*************************** Source dialog methods **************************/
 void
 suscan_gui_source_config_destroy(struct suscan_gui_source_config *config)
 {
@@ -181,8 +398,53 @@ done:
   return widget;
 }
 
+void
+suscan_gui_source_config_to_dialog(
+    const struct suscan_gui_source_config *config)
+{
+  unsigned int i;
+  char textbuf[32];
+  const char *str;
+  for (i = 0; i < config->source->field_count; ++i) {
+    switch (config->source->field_list[i]->type) {
+      case SUSCAN_FIELD_TYPE_STRING:
+        if ((str = config->config->values[i]->as_string) == NULL)
+          str = "";
+
+        gtk_entry_set_text(GTK_ENTRY(config->widget_list[i]), str);
+        break;
+
+      case SUSCAN_FIELD_TYPE_INTEGER:
+        suscan_gui_text_entry_set_integer(
+            GTK_ENTRY(config->widget_list[i]),
+            config->config->values[i]->as_int);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FLOAT:
+        suscan_gui_text_entry_set_float(
+            GTK_ENTRY(config->widget_list[i]),
+            config->config->values[i]->as_float);
+        break;
+
+      case SUSCAN_FIELD_TYPE_BOOLEAN:
+        gtk_toggle_button_set_active(
+            GTK_TOGGLE_BUTTON(config->widget_list[i]),
+            config->config->values[i]->as_bool);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FILE:
+        if (config->config->values[i]->as_string != NULL) {
+          gtk_file_chooser_set_filename(
+              GTK_FILE_CHOOSER(config->widget_list[i]),
+              config->config->values[i]->as_string);
+        }
+        break;
+    }
+  }
+}
+
 SUBOOL
-suscan_gui_source_config_parse(struct suscan_gui_source_config *config)
+suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config)
 {
   unsigned int i;
   uint64_t int_val;
@@ -355,7 +617,7 @@ fail:
   if (label != NULL)
     gtk_widget_destroy(label);
 
-  return new;
+  return NULL;
 }
 
 SUBOOL
@@ -381,6 +643,36 @@ suscan_gui_populate_source_list(struct suscan_gui *gui)
   }
 
   return SU_TRUE;
+}
+
+struct suscan_gui_source_config *
+suscan_gui_lookup_source_config(
+    const struct suscan_gui *gui,
+    const struct suscan_source *src)
+{
+  GtkTreeIter iter;
+  struct suscan_gui_source_config *config;
+  gboolean ok;
+
+  ok = gtk_tree_model_get_iter_first(
+      GTK_TREE_MODEL(gui->sourceListStore),
+      &iter);
+
+  while (ok) {
+    gtk_tree_model_get(
+        GTK_TREE_MODEL(gui->sourceListStore),
+        &iter,
+        1,
+        &config,
+        -1);
+
+    if (config->source == src)
+      return config;
+
+    ok = gtk_tree_model_iter_next(GTK_TREE_MODEL(gui->sourceListStore), &iter);
+  }
+
+  return NULL;
 }
 
 SUPRIVATE void
@@ -820,11 +1112,97 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
               "sbRange")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->alphaEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              gui->builder,
+              "eAnalyzerAlpha")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->betaEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              gui->builder,
+              "eAnalyzerBeta")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->gammaEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              gui->builder,
+              "eAnalyzerGamma")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->snrEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              gui->builder,
+              "eSNR")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->bufSizeEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              gui->builder,
+              "eBufferSize")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->chIntervalEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              gui->builder,
+              "eChInterval")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->psdIntervalEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              gui->builder,
+              "ePSDInterval")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->rectangularWindowButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "rbWinFuncRectangular")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->hammingWindowButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "rbWinFuncHamming")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->hannWindowButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "rbWinFuncHann")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->blackmannHarrisWindowButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "rbWinFuncBlackmannHarris")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->flatTopWindowButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "rbWinFuncFlatTop")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
 
   gtk_combo_box_set_active(gui->sourceCombo, 0);
+
+  suscan_gui_analyzer_params_to_dialog(gui);
 
   return SU_TRUE;
 }
@@ -949,6 +1327,8 @@ suscan_gui_new(int argc, char **argv)
       goto fail);
 
   gtk_builder_connect_signals(gui->builder, gui);
+
+  suscan_gui_retrieve_analyzer_params(gui);
 
   SU_TRYCATCH(suscan_gui_load_all_widgets(gui), goto fail);
 

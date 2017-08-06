@@ -118,7 +118,9 @@ SUBOOL suscan_source_config_set_bool(
     struct suscan_source_config *cfg,
     const char *name,
     SUBOOL value);
-
+SUBOOL suscan_source_config_copy(
+    struct suscan_source_config *dest,
+    const struct suscan_source_config *src);
 struct suscan_field_value *suscan_source_config_get_value(
     const struct suscan_source_config *cfg,
     const char *name);

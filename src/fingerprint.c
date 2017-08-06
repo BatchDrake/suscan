@@ -174,6 +174,7 @@ suscan_perform_fingerprint(struct suscan_source_config *config)
   void *private;
   uint32_t type;
   suscan_analyzer_t *analyzer = NULL;
+  struct suscan_analyzer_params params = suscan_analyzer_params_INITIALIZER;
   const struct suscan_analyzer_channel_msg *ch_msg;
   const struct suscan_analyzer_status_msg  *st_msg;
   struct suscan_fingerprint_report *report = NULL;
@@ -186,7 +187,7 @@ suscan_perform_fingerprint(struct suscan_source_config *config)
   if (!suscan_mq_init(&mq))
     return SU_FALSE;
 
-  SU_TRYCATCH(analyzer = suscan_analyzer_new(config, &mq), goto done);
+  SU_TRYCATCH(analyzer = suscan_analyzer_new(&params, config, &mq), goto done);
 
   while (running) {
     private = suscan_analyzer_read(analyzer, &type);

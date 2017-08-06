@@ -30,6 +30,18 @@
 #include "inspector.h"
 #include "consumer.h"
 
+struct suscan_analyzer_params {
+  struct sigutils_channel_detector_params detector_params;
+  SUFLOAT  channel_update_int;
+  SUFLOAT  psd_update_int;
+};
+
+#define suscan_analyzer_params_INITIALIZER {                                \
+  sigutils_channel_detector_params_INITIALIZER, /* detector_params */       \
+  .1,                                           /* channel_update_int */    \
+  .04                                           /* psd_update_int */        \
+}
+
 struct suscan_analyzer_source {
   struct suscan_source_config *config;
   su_block_t *block;
@@ -54,6 +66,9 @@ struct suscan_analyzer {
   SUBOOL running;
   SUBOOL halt_requested;
   SUBOOL eos;
+
+  /* Analyzer parameters */
+  struct suscan_analyzer_params params;
 
   /* Usage statistics (CPU, etc) */
   SUFLOAT cpu_usage;
@@ -94,6 +109,7 @@ void suscan_analyzer_destroy(suscan_analyzer_t *analyzer);
 void suscan_analyzer_req_halt(suscan_analyzer_t *analyzer);
 SUBOOL suscan_analyzer_halt_worker(suscan_worker_t *worker);
 suscan_analyzer_t *suscan_analyzer_new(
+    const struct suscan_analyzer_params *params,
     struct suscan_source_config *config,
     struct suscan_mq *mq);
 SUBOOL suscan_analyzer_push_task(

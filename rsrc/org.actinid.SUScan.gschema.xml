@@ -9,6 +9,46 @@
       <summary>Recent sources</summary>
       <description>Configuration strings of the recently used signal sources</description>
     </key>
+    <key name="spectrum-avg-factor" type="d">
+      <default>.01</default>
+      <summary>Spectrum averaging factor</summary>
+      <description>Coefficient of the first-order filter used to average the spectrum</description>
+    </key>
+    <key name="signal-avg-factor" type="d">
+      <default>.001</default>
+      <summary>Signal level averaging factor</summary>
+      <description>Coefficient of the first-order filter used to average the signal level</description>
+    </key>
+    <key name="noise-avg-factor" type="d">
+      <default>.5</default>
+      <summary>Noise level averaging factor</summary>
+      <description>Coefficient of the first-order filter used to average the noise level</description>
+    </key>
+    <key name="snr-threshold" type="d">
+      <default>6</default>
+      <summary>SNR threshold</summary>
+      <description>Minimum signal-to-noise ratio threshold to detect a channel</description>
+    </key>
+    <key name="buffer-size" type="u">
+      <default>512</default>
+      <summary>FFT buffer size </summary>
+      <description>Number of FFT bins in the spectrum detector</description>
+    </key>
+    <key name="window-func" type="s">
+      <default>"blackmann-harris"</default>
+      <summary>Window function </summary>
+      <description>Window function to apply before the calculation of the FFT</description>
+    </key>
+    <key name="channel-interval" type="d">
+      <default>.1</default>
+      <summary>Channel update interval</summary>
+      <description>Interval (in seconds) between two consecutive channel updates</description>
+    </key>
+     <key name="psd-interval" type="d">
+      <default>.04</default>
+      <summary>Spectrum update interval</summary>
+      <description>Interval (in seconds) between two consecutive spectrum updates</description>
+    </key>
   </schema>
 </schemalist>
 
