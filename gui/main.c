@@ -65,15 +65,27 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
         continue;
       }
 
-      if (!suscan_gui_src_ui_from_dialog(config)) {
-        suscan_error(
-            gui,
-            "Parameter validation",
-            "Invalid values passed to source parameters (see log)");
-        continue;
-      }
+      if (gui->state == SUSCAN_GUI_STATE_RUNNING)
+        if (!suscan_analyzer_set_params_async(
+            gui->analyzer,
+            &gui->analyzer_params,
+            0))
+          suscan_error(
+              gui,
+              "Analyzer params",
+              "Failed to send parameters to analyzer thread");
 
-      suscan_gui_set_src_ui(gui, config);
+      if (gtk_widget_get_sensitive(GTK_WIDGET(gui->sourceGrid))) {
+        if (!suscan_gui_src_ui_from_dialog(config)) {
+          suscan_error(
+              gui,
+              "Parameter validation",
+              "Invalid values passed to source parameters (see log)");
+          continue;
+        }
+
+        suscan_gui_set_src_ui(gui, config);
+      }
     }
 
     break;

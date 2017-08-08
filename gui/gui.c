@@ -769,6 +769,11 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
+      gui->sourceGrid = GTK_GRID(
+          gtk_builder_get_object(gui->builder, "grSourceGrid")),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
       gui->sourceCombo = GTK_COMBO_BOX(
           gtk_builder_get_object(gui->builder, "cmSourceSelect")),
       return SU_FALSE);

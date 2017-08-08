@@ -131,6 +131,7 @@ struct suscan_gui {
   GtkListStore *channelListStore;
   GtkDialog *settingsDialog;
   GtkDialog *aboutDialog;
+  GtkGrid *sourceGrid;
   GtkComboBox *sourceCombo;
   GtkHeaderBar *headerBar;
   GtkMenuBar *menuBar;

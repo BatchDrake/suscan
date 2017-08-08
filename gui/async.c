@@ -93,6 +93,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
           "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
       break;
@@ -103,7 +104,8 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
           GTK_BUTTON(gui->toggleConnect),
           "media-playback-stop-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
       break;
