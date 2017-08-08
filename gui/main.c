@@ -48,14 +48,14 @@ void
 suscan_on_settings(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui *gui = (struct suscan_gui *) data;
-  struct suscan_gui_source_config *config;
+  struct suscan_gui_src_ui *config;
   gint response;
 
   for (;;) {
     response = suscan_settings_dialog_run(gui);
 
     if (response == 0) { /* Okay pressed */
-      config = suscan_gui_get_selected_source_config(gui);
+      config = suscan_gui_get_selected_src_ui(gui);
 
       if (!suscan_gui_analyzer_params_from_dialog(gui)) {
         suscan_error(
@@ -65,7 +65,7 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
         continue;
       }
 
-      if (!suscan_gui_source_config_from_dialog(config)) {
+      if (!suscan_gui_src_ui_from_dialog(config)) {
         suscan_error(
             gui,
             "Parameter validation",
@@ -73,7 +73,7 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
         continue;
       }
 
-      suscan_gui_set_config(gui, config);
+      suscan_gui_set_src_ui(gui, config);
     }
 
     break;
@@ -119,10 +119,10 @@ suscan_on_open_inspector(GtkWidget *widget, gpointer data)
       return);
 }
 
-struct suscan_gui_source_config *
-suscan_gui_get_selected_source_config(struct suscan_gui *gui)
+struct suscan_gui_src_ui *
+suscan_gui_get_selected_src_ui(const struct suscan_gui *gui)
 {
-  struct suscan_gui_source_config *config;
+  struct suscan_gui_src_ui *ui;
   GtkTreeIter iter;
   GtkTreeModel *model;
   GValue val = G_VALUE_INIT;
@@ -131,20 +131,20 @@ suscan_gui_get_selected_source_config(struct suscan_gui *gui)
   gtk_combo_box_get_active_iter(gui->sourceCombo, &iter);
   gtk_tree_model_get_value(model, &iter, 1, &val);
 
-  config = (struct suscan_gui_source_config *) g_value_get_pointer(&val);
+  ui = (struct suscan_gui_src_ui *) g_value_get_pointer(&val);
 
   g_value_unset(&val);
 
-  return config;
+  return ui;
 }
 
 SUBOOL
-suscan_gui_set_selected_source_config(
+suscan_gui_set_selected_src_ui(
     struct suscan_gui *gui,
-    const struct suscan_gui_source_config *new_config)
+    const struct suscan_gui_src_ui *new_ui)
 {
   GtkTreeIter iter;
-  const struct suscan_gui_source_config *config;
+  const struct suscan_gui_src_ui *ui;
   gboolean ok;
 
   ok = gtk_tree_model_get_iter_first(
@@ -156,10 +156,10 @@ suscan_gui_set_selected_source_config(
         GTK_TREE_MODEL(gui->sourceListStore),
         &iter,
         1,
-        &config,
+        &ui,
         -1);
 
-    if (config == new_config) {
+    if (ui == new_ui) {
       gtk_combo_box_set_active_iter(gui->sourceCombo, &iter);
       return SU_TRUE;
     }
@@ -174,11 +174,11 @@ void
 suscan_on_source_changed(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui *gui = (struct suscan_gui *) data;
-  struct suscan_gui_source_config *config;
+  struct suscan_gui_src_ui *config;
   GList *list;
   GtkWidget *prev = NULL;
 
-  config = suscan_gui_get_selected_source_config(gui);
+  config = suscan_gui_get_selected_src_ui(gui);
 
   list = gtk_container_get_children(GTK_CONTAINER(gui->sourceAlignment));
 

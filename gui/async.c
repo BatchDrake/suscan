@@ -82,8 +82,8 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
   const char *source_name = "No source selected";
   char *subtitle = NULL;
 
-  if (gui->selected_config != NULL)
-    source_name = gui->selected_config->source->desc;
+  if (gui->analyzer_source_config != NULL)
+    source_name = gui->analyzer_source_config->source->desc;
 
   switch (state) {
     case SUSCAN_GUI_STATE_STOPPED:
@@ -501,7 +501,7 @@ suscan_gui_connect(struct suscan_gui *gui)
 
   assert(gui->state == SUSCAN_GUI_STATE_STOPPED);
   assert(gui->analyzer == NULL);
-  assert(gui->selected_config != NULL);
+  assert(gui->analyzer_source_config != NULL);
 
   for (i = 0; i < gui->inspector_count; ++i)
     if (gui->inspector_list[i] != NULL)
@@ -515,7 +515,7 @@ suscan_gui_connect(struct suscan_gui *gui)
 
   if ((gui->analyzer = suscan_analyzer_new(
       &gui->analyzer_params,
-      gui->selected_config->config,
+      gui->analyzer_source_config,
       &gui->mq_out)) == NULL)
     return SU_FALSE;
 
@@ -528,7 +528,7 @@ suscan_gui_connect(struct suscan_gui *gui)
       goto fail);
 
   /* Append recent. Not critical */
-  (void) suscan_gui_append_recent(gui, gui->selected_config->config);
+  (void) suscan_gui_append_recent(gui, gui->analyzer_source_config);
 
   /* Change state and succeed */
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RUNNING);

@@ -32,7 +32,7 @@
 #define SUSCAN_GUI_SETTINGS_ID "org.actinid.SUScan"
 #define SUSCAN_GUI_MAX_CHANNELS 10
 
-struct suscan_gui_source_config {
+struct suscan_gui_src_ui {
   const struct suscan_source *source;
   struct suscan_source_config *config;
   PTR_LIST(GtkWidget, widget);
@@ -196,13 +196,11 @@ struct suscan_gui {
   GtkRadioButton *blackmannHarrisWindowButton;
   GtkRadioButton *flatTopWindowButton;
 
-  /* FIXME: this should be suscan_source_config, not suscan_gui_source_config */
-  struct suscan_gui_source_config *selected_config;
-
   /* GUI state */
   enum suscan_gui_state state;
 
   /* Analyzer integration */
+  struct suscan_source_config *analyzer_source_config;
   struct suscan_analyzer_params analyzer_params;
   suscan_analyzer_t *analyzer;
   struct suscan_mq mq_out;
@@ -322,25 +320,28 @@ void suscan_gui_msgbox(
 
 void suscan_gui_setup_logging(struct suscan_gui *gui);
 
-struct suscan_gui_source_config *suscan_gui_get_selected_source_config(
-    struct suscan_gui *gui);
+/* Source UI API */
+struct suscan_gui_src_ui *suscan_gui_get_selected_src_ui(
+    const struct suscan_gui *gui);
 
-SUBOOL suscan_gui_set_selected_source_config(
+SUBOOL suscan_gui_set_selected_src_ui(
     struct suscan_gui *gui,
-    const struct suscan_gui_source_config *source);
+    const struct suscan_gui_src_ui *ui);
 
-void suscan_gui_source_config_to_dialog(const struct suscan_gui_source_config *config);
+void suscan_gui_src_ui_to_dialog(const struct suscan_gui_src_ui *ui);
 
-SUBOOL suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config);
+SUBOOL suscan_gui_src_ui_from_dialog(struct suscan_gui_src_ui *ui);
 
-void suscan_gui_set_config(
+void suscan_gui_set_src_ui(
     struct suscan_gui *gui,
-    struct suscan_gui_source_config *config);
+    struct suscan_gui_src_ui *ui);
 
+/* Analyzer params API */
 void suscan_gui_analyzer_params_to_dialog(struct suscan_gui *gui);
 
 SUBOOL suscan_gui_analyzer_params_from_dialog(struct suscan_gui *gui);
 
+/* GUI State */
 void suscan_gui_update_state(
     struct suscan_gui *gui,
     enum suscan_gui_state state);
@@ -439,7 +440,7 @@ void suscan_gui_inspector_close(struct suscan_gui_inspector *insp);
 void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
 
 /* Source API */
-struct suscan_gui_source_config *suscan_gui_lookup_source_config(
+struct suscan_gui_src_ui *suscan_gui_lookup_source_config(
     const struct suscan_gui *gui,
     const struct suscan_source *src);
 
