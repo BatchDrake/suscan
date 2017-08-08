@@ -107,7 +107,16 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), TRUE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      break;
+
+    case SUSCAN_GUI_STATE_RESTARTING:
+      subtitle = strbuild("%s (Restarting...)", source_name);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
+      suscan_gui_detach_all_inspectors(gui);
       break;
 
     case SUSCAN_GUI_STATE_STOPPING:
@@ -155,21 +164,29 @@ suscan_async_stopped_cb(gpointer user_data)
   /* Consume any pending messages */
   suscan_analyzer_consume_mq(&gui->mq_out);
 
-  if (gui->state == SUSCAN_GUI_STATE_QUITTING) {
-    /*
-     * Stopped was caused by a transition to QUITTING. Destroy GUI
-     * and exit main loop
-     */
-    suscan_gui_store_recent(gui);
+  switch (gui->state) {
+    case SUSCAN_GUI_STATE_QUITTING:
+      /*
+       * Stopped was caused by a transition to QUITTING. Destroy GUI
+       * and exit main loop
+       */
+      suscan_gui_store_recent(gui);
+      suscan_gui_store_analyzer_params(gui);
+      suscan_gui_destroy(gui);
+      gtk_main_quit();
+      break;
 
-    suscan_gui_store_analyzer_params(gui);
+    case SUSCAN_GUI_STATE_RESTARTING:
+      /*
+       * Analyzer has stopped because it was restarting with a different
+       * configuration. We are ready to connect.
+       */
+      suscan_gui_connect(gui);
+      break;
 
-    suscan_gui_destroy(gui);
-
-    gtk_main_quit();
-  } else {
-    /* Update GUI with new state */
-    suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
+    default:
+      /* Update GUI with new state */
+      suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
   }
 
   return G_SOURCE_REMOVE;
@@ -501,7 +518,8 @@ suscan_gui_connect(struct suscan_gui *gui)
 {
   unsigned int i;
 
-  assert(gui->state == SUSCAN_GUI_STATE_STOPPED);
+  assert(gui->state == SUSCAN_GUI_STATE_STOPPED
+      || gui->state == SUSCAN_GUI_STATE_RESTARTING);
   assert(gui->analyzer == NULL);
   assert(gui->analyzer_source_config != NULL);
 
@@ -549,33 +567,45 @@ fail:
 }
 
 void
+suscan_gui_reconnect(struct suscan_gui *gui)
+{
+  assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
+  assert(gui->analyzer != NULL);
+
+  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RESTARTING);
+  suscan_analyzer_req_halt(gui->analyzer);
+}
+
+void
 suscan_gui_disconnect(struct suscan_gui *gui)
 {
   assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
   assert(gui->analyzer != NULL);
 
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPING);
-
   suscan_analyzer_req_halt(gui->analyzer);
 }
 
 void
 suscan_gui_quit(struct suscan_gui *gui)
 {
-  if (gui->state == SUSCAN_GUI_STATE_RUNNING) {
-    /* GUI is running, ask async thread politely to quit */
-    suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
+  switch (gui->state) {
+    case SUSCAN_GUI_STATE_RUNNING:
+      suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
+      suscan_analyzer_req_halt(gui->analyzer);
+      break;
 
-    suscan_analyzer_req_halt(gui->analyzer);
-  } else if (gui->state == SUSCAN_GUI_STATE_STOPPED) {
-    /* GUI already stopped, proceed to stop safely */
-    suscan_gui_store_recent(gui);
+    case SUSCAN_GUI_STATE_RESTARTING:
+      suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
+      break;
 
-    suscan_gui_store_analyzer_params(gui);
-
-    suscan_gui_destroy(gui);
-
-    gtk_main_quit();
+    case SUSCAN_GUI_STATE_STOPPED:
+      /* GUI already stopped, proceed to stop safely */
+      suscan_gui_store_recent(gui);
+      suscan_gui_store_analyzer_params(gui);
+      suscan_gui_destroy(gui);
+      gtk_main_quit();
+      break;
   }
 
   /* Ignore other states */

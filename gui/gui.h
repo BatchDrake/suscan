@@ -42,7 +42,7 @@ struct suscan_gui_src_ui {
 enum suscan_gui_state {
   SUSCAN_GUI_STATE_STOPPED,
   SUSCAN_GUI_STATE_RUNNING,
-  SUSCAN_GUI_STATE_SWITCHING,
+  SUSCAN_GUI_STATE_RESTARTING,
   SUSCAN_GUI_STATE_STOPPING,
   SUSCAN_GUI_STATE_QUITTING
 };
@@ -351,6 +351,7 @@ void suscan_gui_update_state(
 void suscan_gui_detach_all_inspectors(struct suscan_gui *gui);
 
 SUBOOL suscan_gui_connect(struct suscan_gui *gui);
+void suscan_gui_reconnect(struct suscan_gui *gui);
 void suscan_gui_disconnect(struct suscan_gui *gui);
 void suscan_gui_quit(struct suscan_gui *gui);
 

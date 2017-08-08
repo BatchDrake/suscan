@@ -89,6 +89,10 @@ suscan_gui_on_open_recent(GtkWidget *widget, gpointer *data)
 
   /* Update current config */
   suscan_gui_set_src_ui(recent->gui, guisrc);
+
+  /* If already running, try to reconnect */
+  if (recent->gui->state == SUSCAN_GUI_STATE_RUNNING)
+    suscan_gui_reconnect(recent->gui);
 }
 
 SUPRIVATE void
