@@ -26,9 +26,9 @@
 
 /*
  * This is the client interface: provides helper functions to call
- * inspector methods in the analyzer thread
+ * different methods in the analyzer thread
  */
-#define SU_LOG_DOMAIN "suscan-inspector-client"
+#define SU_LOG_DOMAIN "analyzer-client"
 
 #include <sigutils/sigutils.h>
 
@@ -36,22 +36,54 @@
 #include "mq.h"
 #include "msg.h"
 
+/**************************** Configuration methods **************************/
 SUBOOL
-suscan_inspector_open_async(
+suscan_analyzer_set_params_async(
+    suscan_analyzer_t *analyzer,
+    const struct suscan_analyzer_params *params,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_params *dup = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(dup = malloc(sizeof(struct suscan_analyzer_params)), goto done);
+
+  *dup = *params;
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS,
+      dup)) {
+    SU_ERROR("Failed to send set_params command\n");
+    goto done;
+  }
+
+  dup = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (dup != NULL)
+    free(dup);
+
+  return ok;
+}
+
+/****************************** Inspector methods ****************************/
+SUBOOL
+suscan_analyzer_open_async(
     suscan_analyzer_t *analyzer,
     const struct sigutils_channel *channel,
     uint32_t req_id)
 {
   struct suscan_analyzer_inspector_msg *req = NULL;
-  uint32_t type;
   SUBOOL ok = SU_FALSE;
 
-  if ((req = suscan_analyzer_inspector_msg_new(
-      SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN,
-      req_id)) == NULL) {
-    SU_ERROR("Failed to craft open message\n");
-    goto done;
-  }
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN,
+          req_id),
+      goto done);
 
   req->channel = *channel;
 
@@ -75,7 +107,7 @@ done:
 }
 
 SUHANDLE
-suscan_inspector_open(
+suscan_analyzer_open(
     suscan_analyzer_t *analyzer,
     const struct sigutils_channel *channel)
 {
@@ -84,7 +116,7 @@ suscan_inspector_open(
   SUHANDLE handle = -1;
 
   SU_TRYCATCH(
-      suscan_inspector_open_async(analyzer, channel, req_id),
+      suscan_analyzer_open_async(analyzer, channel, req_id),
       goto done);
 
   SU_TRYCATCH(
@@ -109,21 +141,20 @@ done:
 }
 
 SUBOOL
-suscan_inspector_close_async(
+suscan_analyzer_close_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     uint32_t req_id)
 {
   struct suscan_analyzer_inspector_msg *req = NULL;
-  uint32_t type;
   SUBOOL ok = SU_FALSE;
 
-  if ((req = suscan_analyzer_inspector_msg_new(
-      SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
-      req_id)) == NULL) {
-    SU_ERROR("Failed to craft close message\n");
-    goto done;
-  }
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
+          req_id),
+      goto done);
+
   req->handle = handle;
 
   if (!suscan_analyzer_write(
@@ -146,7 +177,7 @@ done:
 }
 
 SUBOOL
-suscan_inspector_close(
+suscan_analyzer_close(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle)
 {
@@ -156,7 +187,7 @@ suscan_inspector_close(
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(
-      suscan_inspector_close_async(analyzer, handle, req_id),
+      suscan_analyzer_close_async(analyzer, handle, req_id),
       goto done);
 
   SU_TRYCATCH(
@@ -186,21 +217,19 @@ done:
 }
 
 SUBOOL
-suscan_inspector_get_info_async(
+suscan_analyzer_get_info_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     uint32_t req_id)
 {
   struct suscan_analyzer_inspector_msg *req = NULL;
-  uint32_t type;
   SUBOOL ok = SU_FALSE;
 
-  if ((req = suscan_analyzer_inspector_msg_new(
-      SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO,
-      req_id)) == NULL) {
-    SU_ERROR("Failed to craft get_info message\n");
-    goto done;
-  }
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO,
+          req_id),
+      goto done);
 
   req->handle = handle;
 
@@ -224,7 +253,7 @@ done:
 }
 
 SUBOOL
-suscan_inspector_get_info(
+suscan_analyzer_get_info(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     struct suscan_baud_det_result *result)
@@ -234,7 +263,7 @@ suscan_inspector_get_info(
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(
-      suscan_inspector_get_info_async(analyzer, handle, req_id),
+      suscan_analyzer_get_info_async(analyzer, handle, req_id),
       goto done);
 
   SU_TRYCATCH(
@@ -266,31 +295,29 @@ done:
 }
 
 SUBOOL
-suscan_inspector_set_inspector_params_async(
+suscan_analyzer_set_inspector_params_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     const struct suscan_inspector_params *params,
     uint32_t req_id)
 {
   struct suscan_analyzer_inspector_msg *req = NULL;
-  uint32_t type;
   SUBOOL ok = SU_FALSE;
 
-  if ((req = suscan_analyzer_inspector_msg_new(
-      SUSCAN_ANALYZER_INSPECTOR_MSGKIND_PARAMS,
-      req_id)) == NULL) {
-    SU_ERROR("Failed to craft get_info message\n");
-    goto done;
-  }
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS,
+          req_id),
+      goto done);
 
   req->handle = handle;
-  req->params = *params;
+  req->insp_params = *params;
 
   if (!suscan_analyzer_write(
       analyzer,
       SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
       req)) {
-    SU_ERROR("Failed to send set_params command\n");
+    SU_ERROR("Failed to send get_inspector_params command\n");
     goto done;
   }
 

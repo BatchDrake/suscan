@@ -1275,7 +1275,7 @@ suscan_gui_add_inspector(
   insp->params = params;
 
   SU_TRYCATCH(
-      suscan_inspector_set_inspector_params_async(
+      suscan_analyzer_set_inspector_params_async(
           gui->analyzer,
           insp->inshnd,
           &params,

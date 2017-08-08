@@ -112,7 +112,7 @@ suscan_on_open_inspector(GtkWidget *widget, gpointer data)
 
   /* Send open message. We will open new tab on response */
   SU_TRYCATCH(
-      suscan_inspector_open_async(
+      suscan_analyzer_open_async(
           gui->analyzer,
           &gui->selected_channel,
           rand()),

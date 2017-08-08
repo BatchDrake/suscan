@@ -252,7 +252,7 @@ suscan_analyzer_parse_inspector_msg(
       }
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_PARAMS:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INSP_PARAMS:
       if ((insp = suscan_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
@@ -260,12 +260,12 @@ suscan_analyzer_parse_inspector_msg(
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
         /* Retrieve current inspector params */
-        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_PARAMS;
-        msg->params = insp->params;
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS;
+        msg->insp_params = insp->params;
       }
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_PARAMS:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS:
       if ((insp = suscan_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
@@ -273,7 +273,7 @@ suscan_analyzer_parse_inspector_msg(
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
         /* Store the parameter update request */
-        suscan_inspector_request_params(insp, &msg->params);
+        suscan_inspector_request_params(insp, &msg->insp_params);
       }
       break;
 

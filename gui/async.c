@@ -353,13 +353,13 @@ suscan_async_parse_inspector_msg(gpointer user_data)
 
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_PARAMS:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS:
       /* TODO: update GUI according to params */
       SU_TRYCATCH(
           insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
           goto done);
       SU_TRYCATCH(
-          suscan_gui_inspector_update_sensitiveness(insp, &msg->params),
+          suscan_gui_inspector_update_sensitiveness(insp, &msg->insp_params),
           goto done);
       break;
 
