@@ -790,7 +790,7 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
   suscan_gui_inspector_update_sensitiveness(insp, &insp->params);
 
   SU_TRYCATCH(
-      suscan_inspector_set_params_async(
+      suscan_inspector_set_inspector_params_async(
           insp->gui->analyzer,
           insp->inshnd,
           &insp->params,
@@ -817,7 +817,7 @@ suscan_on_set_baudrate(GtkWidget *widget, gpointer data)
         gtk_range_get_value(GTK_RANGE(insp->fineBaudScale));
 
     SU_TRYCATCH(
-        suscan_inspector_set_params_async(
+        suscan_inspector_set_inspector_params_async(
             insp->gui->analyzer,
             insp->inshnd,
             &insp->params,

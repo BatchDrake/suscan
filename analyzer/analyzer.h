@@ -149,7 +149,7 @@ SUBOOL suscan_inspector_get_info(
     SUHANDLE handle,
     struct suscan_baud_det_result *result);
 
-SUBOOL suscan_inspector_set_params_async(
+SUBOOL suscan_inspector_set_inspector_params_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     const struct suscan_inspector_params *params,

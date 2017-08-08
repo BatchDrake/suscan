@@ -266,7 +266,7 @@ done:
 }
 
 SUBOOL
-suscan_inspector_set_params_async(
+suscan_inspector_set_inspector_params_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     const struct suscan_inspector_params *params,
