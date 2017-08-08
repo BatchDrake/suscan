@@ -26,8 +26,10 @@
 #include <libgen.h>
 #include <pthread.h>
 #include <stdint.h>
-
 #include <pthread.h>
+
+#define SU_LOG_DOMAIN "msg"
+
 #include "mq.h"
 #include "msg.h"
 #include "source.h"
