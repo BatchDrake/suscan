@@ -142,7 +142,7 @@ suscan_gui_append_recent(
   char *conf_string = NULL;
   unsigned int i;
   struct suscan_gui_recent *tmp;
-  struct suscan_gui_recent *recent;
+  struct suscan_gui_recent *recent = NULL;
 
   SU_TRYCATCH(conf_string = suscan_source_config_to_string(config), goto done);
 
