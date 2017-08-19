@@ -101,12 +101,8 @@ suscan_source_wk_cb(
   SUSCOUNT read_size;
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
-
 #ifdef SUSCAN_DEBUG_THROTTLE
-  if (!dbg_rate_set) {
-    dbg_rate_set = SU_TRUE;
-    dbg_rate_source_start = read_start;
-  }
+  struct timespec sub;
 #endif
 
   SU_TRYCATCH(pthread_mutex_lock(&source->det_mutex) != -1, goto done);
@@ -122,6 +118,13 @@ suscan_source_wk_cb(
 
   /* Ready to read */
   suscan_analyzer_read_start(analyzer);
+
+#ifdef SUSCAN_DEBUG_THROTTLE
+  if (!dbg_rate_set) {
+    dbg_rate_set = SU_TRUE;
+    dbg_rate_source_start = analyzer->read_start;
+  }
+#endif
 
   if ((got = su_block_port_read(
       &source->port,
@@ -168,16 +171,6 @@ suscan_source_wk_cb(
             goto done);
       }
     }
-
-#ifdef SUSCAN_DEBUG_THROTTLE
-    timespecsub(&process_end, &dbg_rate_source_start, &sub);
-
-    if (sub.tv_sec != dbg_rate_last_second) {
-      dbg_rate_mean += ((SUFLOAT) dbg_rate_counter / (SUFLOAT) sub.tv_sec - dbg_rate_mean);
-      SU_INFO("Current read rate: %lg\n", dbg_rate_mean);
-      dbg_rate_last_second = sub.tv_sec;
-    }
-#endif
   } else {
     analyzer->eos = SU_TRUE;
     analyzer->cpu_usage = 0;
@@ -228,6 +221,16 @@ suscan_source_wk_cb(
 
   /* Finish processing */
   suscan_analyzer_process_end(analyzer);
+
+#ifdef SUSCAN_DEBUG_THROTTLE
+    timespecsub(&analyzer->process_end, &dbg_rate_source_start, &sub);
+
+    if (sub.tv_sec != dbg_rate_last_second) {
+      dbg_rate_mean += ((SUFLOAT) dbg_rate_counter / (SUFLOAT) sub.tv_sec - dbg_rate_mean);
+      SU_INFO("Current read rate: %lg\n", dbg_rate_mean);
+      dbg_rate_last_second = sub.tv_sec;
+    }
+#endif
 
   restart = SU_TRUE;
 
