@@ -23,6 +23,8 @@
 #include <time.h>
 #include <string.h>
 
+#define SU_LOG_DOMAIN "inspector-gui"
+
 void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 {
@@ -31,9 +33,6 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
         inspector->gui->analyzer,
         inspector->inshnd,
         rand());
-
-  if (inspector->symbol_text_buffer != NULL)
-    free(inspector->symbol_text_buffer);
 
   if (inspector->channelInspectorGrid != NULL)
     gtk_widget_destroy(GTK_WIDGET(inspector->channelInspectorGrid));
@@ -44,6 +43,9 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
   suscan_gui_spectrum_init(&inspector->spectrum);
 
   g_object_unref(G_OBJECT(inspector->builder));
+
+  if (inspector->symbolView != NULL)
+    g_object_unref(G_OBJECT(inspector->symbolView));
 
   free(inspector);
 }
@@ -172,7 +174,6 @@ suscan_gui_inspector_feed_w_batch(
   unsigned int sample_count, full_samp_count;
   unsigned int i;
   GtkTextIter iter;
-  GtkTextMark *mark;
   char *new_buffer;
   char sym;
 
@@ -184,50 +185,11 @@ suscan_gui_inspector_feed_w_batch(
   sample_count = MIN(full_samp_count, SUSCAN_GUI_CONSTELLATION_HISTORY);
 
   /* Check if recording is enabled to assert the symbol buffer */
-  if (inspector->recording) {
-    mark = gtk_text_buffer_get_insert(inspector->symbolTextBuffer);
-
-    if (full_samp_count + 1 > inspector->symbol_text_buffer_size) {
-      if ((new_buffer = realloc(
-          inspector->symbol_text_buffer,
-          full_samp_count + 1)) == NULL) {
-        SU_ERROR(
-            "Failed to allocate symbol buffer of %d bytes\n",
-            full_samp_count + 1);
-        return;
-      }
-
-      inspector->symbol_text_buffer = new_buffer;
-      inspector->symbol_text_buffer_size = full_samp_count + 1;
-    }
-
-    inspector->symbol_text_buffer[full_samp_count] = '\0';
-
-    for (i = 0; i < full_samp_count; ++i) {
+  if (inspector->recording)
+    for (i = 0; i < full_samp_count; ++i)
       if ((sym = suscan_gui_inspector_decide(inspector, msg->samples[i]))
-          == SU_NOSYMBOL)
-        inspector->symbol_text_buffer[i] = '?';
-      else
-        inspector->symbol_text_buffer[i] = sym;
-    }
-
-    /* Append text to buffer */
-    gtk_text_buffer_get_end_iter(inspector->symbolTextBuffer, &iter);
-    gtk_text_buffer_move_mark(inspector->symbolTextBuffer, mark, &iter);
-    gtk_text_buffer_insert_at_cursor(
-        inspector->symbolTextBuffer,
-        inspector->symbol_text_buffer,
-        full_samp_count);
-
-    if (inspector->autoscroll)
-      gtk_text_view_scroll_to_mark(
-          inspector->symbolTextView,
-          mark,
-          0.0,  /* within_margin */
-          TRUE, /* use_align */
-          0.5,  /* xalign */
-          1);   /* yalign */
-  }
+          != SU_NOSYMBOL) /* Append text to buffer */
+        sugtk_sym_view_append(inspector->symbolView, 0xff * (sym - '0'));
 
   for (i = 0; i < sample_count; ++i)
     suscan_gui_constellation_push_sample(
@@ -541,14 +503,11 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      inspector->symbolTextView =
-          GTK_TEXT_VIEW(gtk_builder_get_object(
+      inspector->recorderGrid =
+          GTK_GRID(gtk_builder_get_object(
               inspector->builder,
-              "txSymbols")),
+              "grRecorder")),
           return SU_FALSE);
-
-  inspector->symbolTextBuffer =
-      gtk_text_view_get_buffer(inspector->symbolTextView);
 
   SU_TRYCATCH(
       inspector->autoScrollToggleButton =
@@ -556,6 +515,21 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
               inspector->builder,
               "tbAutoScroll")),
           return SU_FALSE);
+
+  inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
+
+  gtk_grid_attach(
+      inspector->recorderGrid,
+      GTK_WIDGET(inspector->symbolView),
+      0, /* left */
+      1, /* top */
+      1, /* width */
+      1 /* height */);
+
+  gtk_widget_set_hexpand(GTK_WIDGET(inspector->symbolView), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(inspector->symbolView), TRUE);
+
+  gtk_widget_show(GTK_WIDGET(inspector->symbolView));
 
   /* Somehow Glade fails to set these default values */
   gtk_toggle_button_set_active(
@@ -589,7 +563,6 @@ suscan_gui_inspector_new(
   new->channel = *channel;
   new->index = -1;
   new->inshnd = handle;
-  new->autoscroll = SU_TRUE;
 
   suscan_gui_constellation_init(&new->constellation);
   suscan_gui_spectrum_init(&new->spectrum);
@@ -956,17 +929,9 @@ suscan_inspector_on_save(
       goto done;
     }
 
-    gtk_text_buffer_get_start_iter(insp->symbolTextBuffer, &istart);
-    gtk_text_buffer_get_end_iter(insp->symbolTextBuffer, &iend);
+    suscan_error(insp->gui, "Save failed", "Not implemented!");
 
-    SU_TRYCATCH(
-        text = gtk_text_buffer_get_text(
-            insp->symbolTextBuffer,
-            &istart,
-            &iend,
-            FALSE),
-        goto done);
-
+/*
     if (fwrite(text, strlen(text), 1, fp) < 1) {
       suscan_error(
           insp->gui,
@@ -975,6 +940,7 @@ suscan_inspector_on_save(
           strerror(errno));
       goto done;
     }
+    */
   }
 
 done:
@@ -1011,7 +977,7 @@ suscan_inspector_on_clear(
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
-  gtk_text_buffer_set_text(insp->symbolTextBuffer, "", -1);
+  sugtk_sym_view_clear(insp->symbolView);
 }
 
 void
@@ -1021,6 +987,7 @@ suscan_inspector_on_toggle_autoscroll(
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
-  insp->autoscroll = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+  sugtk_sym_view_set_autoscroll(
+      insp->symbolView,
+      gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)));
 }
-
