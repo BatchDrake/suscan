@@ -36,6 +36,7 @@
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PSD           0x7 /* Main spectrum */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES       0x8 /* Sample batch */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD      0x9 /* Inspector spectrum */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xa /* Analyzer params */
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
@@ -77,12 +78,14 @@ struct suscan_analyzer_sample_batch_msg {
  * updates are treated separately
  */
 enum suscan_analyzer_inspector_msgkind {
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_PARAMS,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_PARAMS,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO,
-  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_PARAMS,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INSP_PARAMS,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO,
-  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_PARAMS,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND
 };
@@ -97,7 +100,8 @@ struct suscan_analyzer_inspector_msg {
   union {
     struct sigutils_channel channel;
     struct suscan_baud_det_result baud;
-    struct suscan_inspector_params params;
+    struct suscan_analyzer_params params;
+    struct suscan_inspector_params insp_params;
   };
 };
 

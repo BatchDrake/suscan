@@ -23,6 +23,7 @@
 
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
+#include <pthread.h>
 
 #include "worker.h"
 #include "source.h"
@@ -47,9 +48,10 @@ struct suscan_analyzer_source {
   su_block_t *block;
   su_block_port_t port; /* Master reading port */
   suscan_throttle_t throttle; /* Throttle object */
-  su_channel_detector_t *detector; /* Channel detector */
   struct xsig_source *instance;
 
+  pthread_mutex_t det_mutex;
+  su_channel_detector_t *detector; /* Channel detector */
   SUFLOAT interval_channels;
   SUFLOAT interval_psd;
 
@@ -66,9 +68,6 @@ struct suscan_analyzer {
   SUBOOL running;
   SUBOOL halt_requested;
   SUBOOL eos;
-
-  /* Analyzer parameters */
-  struct suscan_analyzer_params params;
 
   /* Usage statistics (CPU, etc) */
   SUFLOAT cpu_usage;
@@ -120,36 +119,41 @@ SUBOOL suscan_analyzer_push_task(
           void *cb_private),
     void *private);
 
-/* Baud inspector operations */
-SUBOOL suscan_inspector_open_async(
+
+SUBOOL suscan_analyzer_set_params_async(
+    suscan_analyzer_t *analyzer,
+    const struct suscan_analyzer_params *params,
+    uint32_t req_id);
+
+SUBOOL suscan_analyzer_open_async(
     suscan_analyzer_t *analyzer,
     const struct sigutils_channel *channel,
     uint32_t req_id);
 
-SUHANDLE suscan_inspector_open(
+SUHANDLE suscan_analyzer_open(
     suscan_analyzer_t *analyzer,
     const struct sigutils_channel *channel);
 
-SUBOOL suscan_inspector_close_async(
+SUBOOL suscan_analyzer_close_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     uint32_t req_id);
 
-SUBOOL suscan_inspector_close(
+SUBOOL suscan_analyzer_close(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle);
 
-SUBOOL suscan_inspector_get_info_async(
+SUBOOL suscan_analyzer_get_info_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     uint32_t req_id);
 
-SUBOOL suscan_inspector_get_info(
+SUBOOL suscan_analyzer_get_info(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     struct suscan_baud_det_result *result);
 
-SUBOOL suscan_inspector_set_params_async(
+SUBOOL suscan_analyzer_set_inspector_params_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     const struct suscan_inspector_params *params,

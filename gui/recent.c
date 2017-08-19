@@ -67,7 +67,7 @@ void
 suscan_gui_on_open_recent(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui_recent *recent = (struct suscan_gui_recent *) data;
-  struct suscan_gui_source_config *guisrc;
+  struct suscan_gui_src_ui *guisrc;
 
   SU_TRYCATCH(
       guisrc = suscan_gui_lookup_source_config(
@@ -80,15 +80,19 @@ suscan_gui_on_open_recent(GtkWidget *widget, gpointer *data)
       return);
 
   /* Refresh config dialog */
-  suscan_gui_source_config_to_dialog(guisrc);
+  suscan_gui_src_ui_to_dialog(guisrc);
 
   /* Mark this source as the currently selected */
   SU_TRYCATCH(
-      suscan_gui_set_selected_source_config(recent->gui, guisrc),
+      suscan_gui_set_selected_src_ui(recent->gui, guisrc),
       return);
 
   /* Update current config */
-  suscan_gui_set_config(recent->gui, guisrc);
+  suscan_gui_set_src_ui(recent->gui, guisrc);
+
+  /* If already running, try to reconnect */
+  if (recent->gui->state == SUSCAN_GUI_STATE_RUNNING)
+    suscan_gui_reconnect(recent->gui);
 }
 
 SUPRIVATE void
@@ -138,7 +142,7 @@ suscan_gui_append_recent(
   char *conf_string = NULL;
   unsigned int i;
   struct suscan_gui_recent *tmp;
-  struct suscan_gui_recent *recent;
+  struct suscan_gui_recent *recent = NULL;
 
   SU_TRYCATCH(conf_string = suscan_source_config_to_string(config), goto done);
 

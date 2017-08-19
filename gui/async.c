@@ -82,8 +82,8 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
   const char *source_name = "No source selected";
   char *subtitle = NULL;
 
-  if (gui->selected_config != NULL)
-    source_name = gui->selected_config->source->desc;
+  if (gui->analyzer_source_config != NULL)
+    source_name = gui->analyzer_source_config->source->desc;
 
   switch (state) {
     case SUSCAN_GUI_STATE_STOPPED:
@@ -93,6 +93,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
           "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
       break;
@@ -103,9 +104,19 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
           GTK_BUTTON(gui->toggleConnect),
           "media-playback-stop-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), TRUE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      break;
+
+    case SUSCAN_GUI_STATE_RESTARTING:
+      subtitle = strbuild("%s (Restarting...)", source_name);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
+      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
+      suscan_gui_detach_all_inspectors(gui);
       break;
 
     case SUSCAN_GUI_STATE_STOPPING:
@@ -153,21 +164,29 @@ suscan_async_stopped_cb(gpointer user_data)
   /* Consume any pending messages */
   suscan_analyzer_consume_mq(&gui->mq_out);
 
-  if (gui->state == SUSCAN_GUI_STATE_QUITTING) {
-    /*
-     * Stopped was caused by a transition to QUITTING. Destroy GUI
-     * and exit main loop
-     */
-    suscan_gui_store_recent(gui);
+  switch (gui->state) {
+    case SUSCAN_GUI_STATE_QUITTING:
+      /*
+       * Stopped was caused by a transition to QUITTING. Destroy GUI
+       * and exit main loop
+       */
+      suscan_gui_store_recent(gui);
+      suscan_gui_store_analyzer_params(gui);
+      suscan_gui_destroy(gui);
+      gtk_main_quit();
+      break;
 
-    suscan_gui_store_analyzer_params(gui);
+    case SUSCAN_GUI_STATE_RESTARTING:
+      /*
+       * Analyzer has stopped because it was restarting with a different
+       * configuration. We are ready to connect.
+       */
+      suscan_gui_connect(gui);
+      break;
 
-    suscan_gui_destroy(gui);
-
-    gtk_main_quit();
-  } else {
-    /* Update GUI with new state */
-    suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
+    default:
+      /* Update GUI with new state */
+      suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
   }
 
   return G_SOURCE_REMOVE;
@@ -353,13 +372,13 @@ suscan_async_parse_inspector_msg(gpointer user_data)
 
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_PARAMS:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS:
       /* TODO: update GUI according to params */
       SU_TRYCATCH(
           insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
           goto done);
       SU_TRYCATCH(
-          suscan_gui_inspector_update_sensitiveness(insp, &msg->params),
+          suscan_gui_inspector_update_sensitiveness(insp, &msg->insp_params),
           goto done);
       break;
 
@@ -499,9 +518,10 @@ suscan_gui_connect(struct suscan_gui *gui)
 {
   unsigned int i;
 
-  assert(gui->state == SUSCAN_GUI_STATE_STOPPED);
+  assert(gui->state == SUSCAN_GUI_STATE_STOPPED
+      || gui->state == SUSCAN_GUI_STATE_RESTARTING);
   assert(gui->analyzer == NULL);
-  assert(gui->selected_config != NULL);
+  assert(gui->analyzer_source_config != NULL);
 
   for (i = 0; i < gui->inspector_count; ++i)
     if (gui->inspector_list[i] != NULL)
@@ -515,7 +535,7 @@ suscan_gui_connect(struct suscan_gui *gui)
 
   if ((gui->analyzer = suscan_analyzer_new(
       &gui->analyzer_params,
-      gui->selected_config->config,
+      gui->analyzer_source_config,
       &gui->mq_out)) == NULL)
     return SU_FALSE;
 
@@ -528,7 +548,7 @@ suscan_gui_connect(struct suscan_gui *gui)
       goto fail);
 
   /* Append recent. Not critical */
-  (void) suscan_gui_append_recent(gui, gui->selected_config->config);
+  (void) suscan_gui_append_recent(gui, gui->analyzer_source_config);
 
   /* Change state and succeed */
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RUNNING);
@@ -547,33 +567,45 @@ fail:
 }
 
 void
+suscan_gui_reconnect(struct suscan_gui *gui)
+{
+  assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
+  assert(gui->analyzer != NULL);
+
+  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RESTARTING);
+  suscan_analyzer_req_halt(gui->analyzer);
+}
+
+void
 suscan_gui_disconnect(struct suscan_gui *gui)
 {
   assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
   assert(gui->analyzer != NULL);
 
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPING);
-
   suscan_analyzer_req_halt(gui->analyzer);
 }
 
 void
 suscan_gui_quit(struct suscan_gui *gui)
 {
-  if (gui->state == SUSCAN_GUI_STATE_RUNNING) {
-    /* GUI is running, ask async thread politely to quit */
-    suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
+  switch (gui->state) {
+    case SUSCAN_GUI_STATE_RUNNING:
+      suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
+      suscan_analyzer_req_halt(gui->analyzer);
+      break;
 
-    suscan_analyzer_req_halt(gui->analyzer);
-  } else if (gui->state == SUSCAN_GUI_STATE_STOPPED) {
-    /* GUI already stopped, proceed to stop safely */
-    suscan_gui_store_recent(gui);
+    case SUSCAN_GUI_STATE_RESTARTING:
+      suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
+      break;
 
-    suscan_gui_store_analyzer_params(gui);
-
-    suscan_gui_destroy(gui);
-
-    gtk_main_quit();
+    case SUSCAN_GUI_STATE_STOPPED:
+      /* GUI already stopped, proceed to stop safely */
+      suscan_gui_store_recent(gui);
+      suscan_gui_store_analyzer_params(gui);
+      suscan_gui_destroy(gui);
+      gtk_main_quit();
+      break;
   }
 
   /* Ignore other states */

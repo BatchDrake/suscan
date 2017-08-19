@@ -27,7 +27,7 @@ void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 {
   if (inspector->inshnd != -1)
-    suscan_inspector_close_async(
+    suscan_analyzer_close_async(
         inspector->gui->analyzer,
         inspector->inshnd,
         rand());
@@ -105,7 +105,7 @@ suscan_gui_inspector_close(struct suscan_gui_inspector *insp)
   if (handle != -1) {
     /* Send close message */
     insp->inshnd = -1;
-    suscan_inspector_close_async(insp->gui->analyzer, handle, rand());
+    suscan_analyzer_close_async(insp->gui->analyzer, handle, rand());
   }
 
   gtk_widget_set_sensitive(GTK_WIDGET(insp->channelInspectorGrid), FALSE);
@@ -635,7 +635,7 @@ suscan_on_get_baudrate_fac(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
-  suscan_inspector_get_info_async(insp->gui->analyzer, insp->inshnd, 0);
+  suscan_analyzer_get_info_async(insp->gui->analyzer, insp->inshnd, 0);
 }
 
 void
@@ -643,7 +643,7 @@ suscan_on_get_baudrate_nln(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
-  suscan_inspector_get_info_async(insp->gui->analyzer, insp->inshnd, 1);
+  suscan_analyzer_get_info_async(insp->gui->analyzer, insp->inshnd, 1);
 }
 
 SUPRIVATE void
@@ -790,7 +790,7 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
   suscan_gui_inspector_update_sensitiveness(insp, &insp->params);
 
   SU_TRYCATCH(
-      suscan_inspector_set_params_async(
+      suscan_analyzer_set_inspector_params_async(
           insp->gui->analyzer,
           insp->inshnd,
           &insp->params,
@@ -817,7 +817,7 @@ suscan_on_set_baudrate(GtkWidget *widget, gpointer data)
         gtk_range_get_value(GTK_RANGE(insp->fineBaudScale));
 
     SU_TRYCATCH(
-        suscan_inspector_set_params_async(
+        suscan_analyzer_set_inspector_params_async(
             insp->gui->analyzer,
             insp->inshnd,
             &insp->params,

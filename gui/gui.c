@@ -308,7 +308,7 @@ done:
 
 /*************************** Source dialog methods **************************/
 void
-suscan_gui_source_config_destroy(struct suscan_gui_source_config *config)
+suscan_gui_source_config_destroy(struct suscan_gui_src_ui *config)
 {
   unsigned int i;
 
@@ -399,44 +399,44 @@ done:
 }
 
 void
-suscan_gui_source_config_to_dialog(
-    const struct suscan_gui_source_config *config)
+suscan_gui_src_ui_to_dialog(const struct suscan_gui_src_ui *ui)
 {
   unsigned int i;
   char textbuf[32];
   const char *str;
-  for (i = 0; i < config->source->field_count; ++i) {
-    switch (config->source->field_list[i]->type) {
+
+  for (i = 0; i < ui->source->field_count; ++i) {
+    switch (ui->source->field_list[i]->type) {
       case SUSCAN_FIELD_TYPE_STRING:
-        if ((str = config->config->values[i]->as_string) == NULL)
+        if ((str = ui->config->values[i]->as_string) == NULL)
           str = "";
 
-        gtk_entry_set_text(GTK_ENTRY(config->widget_list[i]), str);
+        gtk_entry_set_text(GTK_ENTRY(ui->widget_list[i]), str);
         break;
 
       case SUSCAN_FIELD_TYPE_INTEGER:
         suscan_gui_text_entry_set_integer(
-            GTK_ENTRY(config->widget_list[i]),
-            config->config->values[i]->as_int);
+            GTK_ENTRY(ui->widget_list[i]),
+            ui->config->values[i]->as_int);
         break;
 
       case SUSCAN_FIELD_TYPE_FLOAT:
         suscan_gui_text_entry_set_float(
-            GTK_ENTRY(config->widget_list[i]),
-            config->config->values[i]->as_float);
+            GTK_ENTRY(ui->widget_list[i]),
+            ui->config->values[i]->as_float);
         break;
 
       case SUSCAN_FIELD_TYPE_BOOLEAN:
         gtk_toggle_button_set_active(
-            GTK_TOGGLE_BUTTON(config->widget_list[i]),
-            config->config->values[i]->as_bool);
+            GTK_TOGGLE_BUTTON(ui->widget_list[i]),
+            ui->config->values[i]->as_bool);
         break;
 
       case SUSCAN_FIELD_TYPE_FILE:
-        if (config->config->values[i]->as_string != NULL) {
+        if (ui->config->values[i]->as_string != NULL) {
           gtk_file_chooser_set_filename(
-              GTK_FILE_CHOOSER(config->widget_list[i]),
-              config->config->values[i]->as_string);
+              GTK_FILE_CHOOSER(ui->widget_list[i]),
+              ui->config->values[i]->as_string);
         }
         break;
     }
@@ -444,7 +444,7 @@ suscan_gui_source_config_to_dialog(
 }
 
 SUBOOL
-suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config)
+suscan_gui_src_ui_from_dialog(struct suscan_gui_src_ui *ui)
 {
   unsigned int i;
   uint64_t int_val;
@@ -453,24 +453,24 @@ suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config)
   gchar *alloc = NULL;
   SUBOOL ok = SU_FALSE;
 
-  for (i = 0; i < config->source->field_count; ++i) {
-    switch (config->source->field_list[i]->type) {
+  for (i = 0; i < ui->source->field_count; ++i) {
+    switch (ui->source->field_list[i]->type) {
       case SUSCAN_FIELD_TYPE_STRING:
         SU_TRYCATCH(
-            text = gtk_entry_get_text(GTK_ENTRY(config->widget_list[i])),
+            text = gtk_entry_get_text(GTK_ENTRY(ui->widget_list[i])),
             goto done);
 
         SU_TRYCATCH(
             suscan_source_config_set_string(
-                config->config,
-                config->source->field_list[i]->name,
+                ui->config,
+                ui->source->field_list[i]->name,
                 text),
             goto done);
         break;
 
       case SUSCAN_FIELD_TYPE_INTEGER:
         SU_TRYCATCH(
-            text = gtk_entry_get_text(GTK_ENTRY(config->widget_list[i])),
+            text = gtk_entry_get_text(GTK_ENTRY(ui->widget_list[i])),
             goto done);
 
         if (sscanf(text, "%lli", &int_val) < 1)
@@ -478,8 +478,8 @@ suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config)
 
         SU_TRYCATCH(
             suscan_source_config_set_integer(
-                config->config,
-                config->source->field_list[i]->name,
+                ui->config,
+                ui->source->field_list[i]->name,
                 int_val),
                 goto done);
 
@@ -487,7 +487,7 @@ suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config)
 
       case SUSCAN_FIELD_TYPE_FLOAT:
         SU_TRYCATCH(
-            text = gtk_entry_get_text(GTK_ENTRY(config->widget_list[i])),
+            text = gtk_entry_get_text(GTK_ENTRY(ui->widget_list[i])),
             goto done);
 
         if (sscanf(text, SUFLOAT_FMT, &float_val) < 1)
@@ -495,8 +495,8 @@ suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config)
 
         SU_TRYCATCH(
             suscan_source_config_set_float(
-                config->config,
-                config->source->field_list[i]->name,
+                ui->config,
+                ui->source->field_list[i]->name,
                 float_val),
             goto done);
 
@@ -505,10 +505,10 @@ suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config)
       case SUSCAN_FIELD_TYPE_BOOLEAN:
         SU_TRYCATCH(
             suscan_source_config_set_bool(
-                config->config,
-                config->source->field_list[i]->name,
+                ui->config,
+                ui->source->field_list[i]->name,
                 gtk_toggle_button_get_active(
-                    GTK_TOGGLE_BUTTON(config->widget_list[i]))),
+                    GTK_TOGGLE_BUTTON(ui->widget_list[i]))),
             goto done);
 
         break;
@@ -516,15 +516,15 @@ suscan_gui_source_config_from_dialog(struct suscan_gui_source_config *config)
       case SUSCAN_FIELD_TYPE_FILE:
         SU_TRYCATCH(
             alloc = gtk_file_chooser_get_filename(
-                GTK_FILE_CHOOSER(config->widget_list[i])),
+                GTK_FILE_CHOOSER(ui->widget_list[i])),
             goto done);
 
         text = alloc;
 
         SU_TRYCATCH(
             suscan_source_config_set_file(
-                config->config,
-                config->source->field_list[i]->name,
+                ui->config,
+                ui->source->field_list[i]->name,
                 text),
             goto done);
         break;
@@ -540,16 +540,16 @@ done:
   return ok;
 }
 
-struct suscan_gui_source_config *
+struct suscan_gui_src_ui *
 suscan_gui_source_config_new(struct suscan_source *source)
 {
-  struct suscan_gui_source_config *new = NULL;
+  struct suscan_gui_src_ui *new = NULL;
   GtkWidget *widget = NULL;
   GtkWidget *label = NULL;
   unsigned int i;
 
   SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_gui_source_config)),
+      new = calloc(1, sizeof(struct suscan_gui_src_ui)),
       goto fail);
 
   new->source = source;
@@ -625,7 +625,7 @@ suscan_gui_populate_source_list(struct suscan_gui *gui)
 {
   unsigned int i;
   GtkTreeIter new_element;
-  struct suscan_gui_source_config *config;
+  struct suscan_gui_src_ui *config;
 
   for (i = 0; i < source_count; ++i) {
     SU_TRYCATCH(
@@ -645,13 +645,13 @@ suscan_gui_populate_source_list(struct suscan_gui *gui)
   return SU_TRUE;
 }
 
-struct suscan_gui_source_config *
+struct suscan_gui_src_ui *
 suscan_gui_lookup_source_config(
     const struct suscan_gui *gui,
     const struct suscan_source *src)
 {
   GtkTreeIter iter;
-  struct suscan_gui_source_config *config;
+  struct suscan_gui_src_ui *config;
   gboolean ok;
 
   ok = gtk_tree_model_get_iter_first(
@@ -766,6 +766,11 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
   SU_TRYCATCH(
       gui->aboutDialog = GTK_DIALOG(
           gtk_builder_get_object(gui->builder, "dlAbout")),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->sourceGrid = GTK_GRID(
+          gtk_builder_get_object(gui->builder, "grSourceGrid")),
       return SU_FALSE);
 
   SU_TRYCATCH(
@@ -1275,7 +1280,7 @@ suscan_gui_add_inspector(
   insp->params = params;
 
   SU_TRYCATCH(
-      suscan_inspector_set_params_async(
+      suscan_analyzer_set_inspector_params_async(
           gui->analyzer,
           insp->inshnd,
           &params,
@@ -1374,22 +1379,22 @@ suscan_gui_set_freq(struct suscan_gui *gui, uint64_t freq)
 }
 
 void
-suscan_gui_set_config(
+suscan_gui_set_src_ui(
     struct suscan_gui *gui,
-    struct suscan_gui_source_config *config)
+    struct suscan_gui_src_ui *ui)
 {
-  gui->selected_config = config;
-
   struct suscan_field_value *val;
 
-  if (config == NULL) {
+  if (ui == NULL) {
     gtk_header_bar_set_subtitle(gui->headerBar, "No source selected");
     gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
+    gui->analyzer_source_config = NULL;
   } else {
-    gtk_header_bar_set_subtitle(gui->headerBar, config->source->desc);
+    gtk_header_bar_set_subtitle(gui->headerBar, ui->source->desc);
     gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
+    gui->analyzer_source_config = ui->config;
 
-    if ((val = suscan_source_config_get_value(config->config, "fc")) != NULL) {
+    if ((val = suscan_source_config_get_value(ui->config, "fc")) != NULL) {
       if (val->field->type == SUSCAN_FIELD_TYPE_INTEGER)
         suscan_gui_set_freq(gui, val->as_int);
       else if (val->field->type == SUSCAN_FIELD_TYPE_FLOAT)
