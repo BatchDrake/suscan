@@ -27,6 +27,8 @@
 
 G_BEGIN_DECLS
 
+#define SUGTK_SYM_VIEW_STRIDE_ALIGN sizeof(gpointer)
+
 #define SUGTK_TYPE_SYM_VIEW            (sugtk_sym_view_get_type ())
 #define SUGTK_SYM_VIEW(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SUGTK_TYPE_SYM_VIEW, SuGtkSymView))
 #define SUGTK_SYM_VIEW_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST  ((klass), SUGTK_TYPE_SYM_VIEW, SuGtkSymViewClass))
@@ -38,16 +40,16 @@ struct _SuGtkSymView
 {
   GtkDrawingArea parent_instance;
 
-  unsigned int window_width;
-  unsigned int window_height;
-  unsigned int window_offset;
-  unsigned int window_stride;
-  unsigned int window_zoom;
+  guint window_width;
+  guint window_height;
+  guint window_offset;
+  guint window_zoom;
 
   uint8_t *data_buf;
-  unsigned int data_size;
-  unsigned int data_alloc;
+  guint data_size;
+  guint data_alloc;
 
+  gboolean autofit;
   gboolean autoscroll;
 };
 
@@ -62,8 +64,15 @@ typedef struct _SuGtkSymViewClass SuGtkSymViewClass;
 GType sugtk_sym_view_get_type(void);
 GtkWidget *sugtk_sym_view_new(void);
 void sugtk_sym_view_clear(SuGtkSymView *view);
+
+gboolean sugtk_sym_view_set_zoom(SuGtkSymView *view, guint zoom);
+guint sugtk_sym_view_get_zoom(const SuGtkSymView *view);
+
+gboolean sugtk_sym_view_set_width(SuGtkSymView *view, guint width);
+
 gboolean sugtk_sym_view_append(SuGtkSymView *view, uint8_t data);
 void sugtk_sym_view_set_autoscroll(SuGtkSymView *view, gboolean value);
+void sugtk_sym_view_set_autofit(SuGtkSymView *view, gboolean value);
 
 G_END_DECLS
 

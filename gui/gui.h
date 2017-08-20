@@ -248,7 +248,7 @@ struct suscan_gui_inspector {
   GtkEventBox *pageLabelEventBox;
   GtkLabel    *pageLabel;
   GtkGrid     *channelInspectorGrid;
-  GtkToggleButton *autoScrollToggleButton;
+  GtkToggleToolButton *autoScrollToggleButton;
 
   /* Gain control widgets */
   GtkRadioButton *automaticGainRadioButton;

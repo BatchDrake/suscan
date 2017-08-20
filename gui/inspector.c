@@ -28,7 +28,7 @@
 void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 {
-  if (inspector->inshnd != -1)
+  if (inspector->inshnd != -1 && inspector->gui != NULL)
     suscan_analyzer_close_async(
         inspector->gui->analyzer,
         inspector->inshnd,
@@ -511,9 +511,9 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
 
   SU_TRYCATCH(
       inspector->autoScrollToggleButton =
-          GTK_TOGGLE_BUTTON(gtk_builder_get_object(
+          GTK_TOGGLE_TOOL_BUTTON(gtk_builder_get_object(
               inspector->builder,
-              "tbAutoScroll")),
+              "tbAutoscroll")),
           return SU_FALSE);
 
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
@@ -967,7 +967,8 @@ suscan_inspector_on_toggle_record(
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
-  insp->recording = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+  insp->recording = gtk_toggle_tool_button_get_active(
+      GTK_TOGGLE_TOOL_BUTTON(widget));
 }
 
 void
@@ -989,5 +990,5 @@ suscan_inspector_on_toggle_autoscroll(
 
   sugtk_sym_view_set_autoscroll(
       insp->symbolView,
-      gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)));
+      gtk_toggle_tool_button_get_active(GTK_TOGGLE_TOOL_BUTTON(widget)));
 }

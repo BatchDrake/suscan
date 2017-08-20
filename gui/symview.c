@@ -37,11 +37,13 @@ sugtk_sym_view_clear(SuGtkSymView *view)
   view->data_size = 0;
 }
 
-gboolean
-sugtk_sym_view_append(SuGtkSymView *view, uint8_t data)
+static gboolean
+sugtk_sym_view_append_internal(SuGtkSymView *view, uint8_t data)
 {
   uint8_t *tmp = NULL;
-  unsigned int new_alloc;
+  guint new_alloc;
+  guint width;
+  guint height;
   gboolean ok = FALSE;
 
   if (view->data_alloc <= view->data_size) {
@@ -60,10 +62,14 @@ sugtk_sym_view_append(SuGtkSymView *view, uint8_t data)
 
   view->data_buf[view->data_size++] = data;
 
-  if (view->autoscroll)
-    if (view->window_stride * view->window_height < view->data_size)
-      view->window_offset = view->window_stride
-          * (1 + view->data_size / view->window_stride - view->window_height);
+  if (view->autoscroll) {
+    width = SUGTK_SYM_VIEW_STRIDE_ALIGN
+        * (view->window_width / view->window_zoom);
+    height = view->window_height / view->window_zoom;
+
+    if (width * height < view->data_size)
+      view->window_offset = width * (1 + view->data_size / width - height);
+  }
 
   ok = TRUE;
 
@@ -74,10 +80,56 @@ fail:
   return ok;
 }
 
+gboolean
+sugtk_sym_view_append(SuGtkSymView *view, uint8_t data)
+{
+  guint i;
+
+  for (i = 0; i < SUGTK_SYM_VIEW_STRIDE_ALIGN; ++i)
+    if (!sugtk_sym_view_append_internal(view, data))
+      return FALSE;
+
+  return TRUE;
+}
+
 void
 sugtk_sym_view_set_autoscroll(SuGtkSymView *view, gboolean value)
 {
   view->autoscroll = value;
+}
+
+void
+sugtk_sym_view_set_autofit(SuGtkSymView *view, gboolean value)
+{
+  view->autofit = value;
+}
+
+gboolean
+sugtk_sym_view_set_width(SuGtkSymView *view, guint width)
+{
+  if (width < 1)
+    return FALSE;
+
+  view->window_width = width;
+
+  return TRUE;
+}
+
+gboolean
+sugtk_sym_view_set_zoom(SuGtkSymView *view, guint zoom)
+{
+  if (zoom < 1)
+    return FALSE;
+
+  view->window_zoom = zoom;
+
+  return TRUE;
+}
+
+guint
+sugtk_sym_view_get_zoom(const SuGtkSymView *view)
+{
+  return view->window_zoom;
 }
 
 static void
@@ -104,11 +156,10 @@ sugtk_sym_view_on_configure_event(
 {
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
 
-  view->window_width = event->width;
+  if (view->autofit)
+    view->window_width = event->width;
+
   view->window_height = event->height;
-  view->window_stride = cairo_format_stride_for_width(
-      CAIRO_FORMAT_A8,
-      view->window_width);
 
   return TRUE;
 }
@@ -118,47 +169,80 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
   cairo_surface_t *surface;
-  unsigned int height;
-  unsigned int width;
-  unsigned int tail = 0;
-  unsigned int offset;
+  guint stride;
+  guint height;
+  guint width;
+  guint tail = 0;
+  guint offset;
 
-  width = view->window_stride;
-  height = view->window_height;
+  /* Precedence is imortant here */
+  width = SUGTK_SYM_VIEW_STRIDE_ALIGN
+      * (view->window_width / view->window_zoom);
+  height = view->window_height / view->window_zoom;
+  stride = cairo_format_stride_for_width(CAIRO_FORMAT_A8, width);
 
   cairo_set_source_rgb(cr, 0, 0, 0);
   cairo_paint(cr);
 
+  cairo_scale(
+      cr,
+      view->window_zoom / (gdouble) SUGTK_SYM_VIEW_STRIDE_ALIGN,
+      view->window_zoom);
+
   offset = view->window_offset;
 
   if (offset < view->data_size) {
-    if (width * height + offset > view->data_size) {
+    if (width * height + offset > view->data_size)
       height = (view->data_size - offset) / width;
-      tail = view->data_size - offset - width * height;
-    }
 
-    if (height + tail > 0) {
+    tail = view->data_size - offset - width * height;
+
+    if (height > 0) {
       surface = cairo_image_surface_create_for_data(
           view->data_buf + offset,
           CAIRO_FORMAT_A8,
           width,
           height,
-          width);
-      cairo_set_source_rgb(cr, 1, 1, 0);
-      cairo_mask_surface(cr, surface, 0, 0);
-      cairo_surface_destroy(surface);
+          stride);
 
-      if (tail > 0) {
-        surface = cairo_image_surface_create_for_data(
-            view->data_buf + width * height + offset,
-            CAIRO_FORMAT_A8,
-            tail,
-            1,
-            width);
-        cairo_set_source_rgb(cr, 1, 1, 0);
-        cairo_mask_surface(cr, surface, 0, height);
-        cairo_surface_destroy(surface);
-      }
+      /* Paint background */
+      cairo_set_source_rgb(cr, 1, 1, 0);
+      cairo_rectangle(cr, 0, 0, width, height);
+      cairo_set_line_width(cr, 0);
+      cairo_stroke_preserve(cr);
+      cairo_fill(cr);
+
+      /* Apply pixels */
+      cairo_set_source_surface(cr, surface, 0, 0);
+      cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
+      cairo_paint(cr);
+
+      /* Destroy surface */
+      cairo_surface_destroy(surface);
+    }
+
+    if (tail > 0) {
+      surface = cairo_image_surface_create_for_data(
+          view->data_buf + width * height + offset,
+          CAIRO_FORMAT_A8,
+          tail,
+          1,
+          stride);
+
+      /* Paint background */
+      cairo_set_source_rgb(cr, 1, 1, 0);
+      cairo_rectangle(cr, 0, height, tail, 1);
+      cairo_set_line_width(cr, 0);
+      cairo_stroke_preserve(cr);
+      cairo_fill(cr);
+
+      /* Apply pixels */
+      cairo_set_source_surface(cr, surface, 0, height);
+      cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
+      cairo_paint(cr);
+
+      /* Destroy surface */
+      cairo_surface_destroy(surface);
     }
   }
 
@@ -173,6 +257,8 @@ sugtk_sym_view_init(SuGtkSymView *self)
   self->data_buf = NULL;
 
   self->autoscroll = TRUE;
+  self->autofit = TRUE;
+  self->window_zoom = 1;
 
   g_signal_connect(
       self,
