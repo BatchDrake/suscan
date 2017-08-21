@@ -2,6 +2,7 @@
 <!-- Generated with glade 3.20.0 -->
 <interface>
   <requires lib="gtk+" version="3.20"/>
+  <!-- interface-css-provider-path ui.css -->
   <object class="GtkAdjustment" id="aFineBaud">
     <property name="lower">-5</property>
     <property name="upper">5</property>
@@ -31,6 +32,17 @@
     <property name="value">0.34999999999999998</property>
     <property name="step_increment">0.01</property>
     <property name="page_increment">0.10000000000000001</property>
+  </object>
+  <object class="GtkAdjustment" id="aSymViewOffset">
+    <property name="upper">1000000</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">10</property>
+  </object>
+  <object class="GtkAdjustment" id="aSymViewWidth">
+    <property name="lower">1</property>
+    <property name="upper">4096</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">10</property>
   </object>
   <object class="GtkAdjustment" id="aSymbolPhase">
     <property name="lower">-0.5</property>
@@ -143,6 +155,7 @@
                       <object class="GtkToolbar">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="icon_size">2</property>
                         <child>
                           <object class="GtkToolButton">
                             <property name="visible">True</property>
@@ -188,6 +201,7 @@
                             <property name="can_focus">False</property>
                             <property name="use_underline">True</property>
                             <property name="icon_name">zoom-in-symbolic</property>
+                            <signal name="clicked" handler="suscan_inspector_on_zoom_in" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">False</property>
@@ -200,6 +214,7 @@
                             <property name="can_focus">False</property>
                             <property name="use_underline">True</property>
                             <property name="icon_name">zoom-out-symbolic</property>
+                            <signal name="clicked" handler="suscan_inspector_on_zoom_out" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">False</property>
@@ -231,6 +246,9 @@
                                 <property name="margin_left">3</property>
                                 <property name="margin_right">3</property>
                                 <property name="label" translatable="yes">Offset</property>
+                                <style>
+                                  <class name="toolbarLabel"/>
+                                </style>
                               </object>
                             </child>
                           </object>
@@ -244,12 +262,21 @@
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <child>
-                              <object class="GtkSpinButton">
+                              <object class="GtkSpinButton" id="sbOffset">
                                 <property name="visible">True</property>
                                 <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
-                                <property name="editable">False</property>
+                                <property name="primary_icon_activatable">False</property>
+                                <property name="secondary_icon_activatable">False</property>
+                                <property name="primary_icon_sensitive">False</property>
+                                <property name="secondary_icon_sensitive">False</property>
+                                <property name="input_purpose">digits</property>
+                                <property name="adjustment">aSymViewOffset</property>
                                 <property name="numeric">True</property>
+                                <signal name="value-changed" handler="suscan_inspector_on_set_offset" swapped="no"/>
+                                <style>
+                                  <class name="toolbarEntry"/>
+                                </style>
                               </object>
                             </child>
                           </object>
@@ -265,6 +292,7 @@
                             <property name="use_underline">True</property>
                             <property name="icon_name">format-justify-fill-symbolic</property>
                             <property name="active">True</property>
+                            <signal name="toggled" handler="suscan_inspector_on_toggle_autofit" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">False</property>
@@ -282,6 +310,9 @@
                                 <property name="margin_left">3</property>
                                 <property name="margin_right">3</property>
                                 <property name="label" translatable="yes">Width</property>
+                                <style>
+                                  <class name="toolbarLabel"/>
+                                </style>
                               </object>
                             </child>
                           </object>
@@ -295,12 +326,18 @@
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <child>
-                              <object class="GtkSpinButton">
+                              <object class="GtkSpinButton" id="sbWidth">
                                 <property name="visible">True</property>
                                 <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
-                                <property name="editable">False</property>
+                                <property name="input_purpose">digits</property>
+                                <property name="adjustment">aSymViewWidth</property>
                                 <property name="numeric">True</property>
+                                <property name="value">1</property>
+                                <signal name="value-changed" handler="suscan_inspector_on_set_width" swapped="no"/>
+                                <style>
+                                  <class name="toolbarEntry"/>
+                                </style>
                               </object>
                             </child>
                           </object>
@@ -314,9 +351,6 @@
                         <property name="left_attach">0</property>
                         <property name="top_attach">0</property>
                       </packing>
-                    </child>
-                    <child>
-                      <placeholder/>
                     </child>
                   </object>
                   <packing>
@@ -1459,7 +1493,7 @@
                                 <property name="can_focus">False</property>
                                 <property name="left_padding">12</property>
                                 <child>
-                                  <object class="GtkGrid" id="alRootRaisedCosine">
+                                  <object class="GtkGrid" id="grRootRaisedCosine">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                     <child>

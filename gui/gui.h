@@ -249,6 +249,7 @@ struct suscan_gui_inspector {
   GtkLabel    *pageLabel;
   GtkGrid     *channelInspectorGrid;
   GtkToggleToolButton *autoScrollToggleButton;
+  GtkToggleToolButton *autoFitToggleButton;
 
   /* Gain control widgets */
   GtkRadioButton *automaticGainRadioButton;
@@ -286,7 +287,7 @@ struct suscan_gui_inspector {
   /* Matched filter widgets */
   GtkRadioButton *matchedFilterBypassRadioButton;
   GtkRadioButton *matchedFilterRRCRadioButton;
-  GtkAlignment   *rootRaisedCosineAlignment;
+  GtkGrid        *rootRaisedCosineGrid;
   GtkScale       *rollOffScale;
 
   /* Spectrum source widgets */
@@ -297,6 +298,8 @@ struct suscan_gui_inspector {
   /* Symbol recorder widgets */
   GtkGrid        *recorderGrid;
   SuGtkSymView   *symbolView;
+  GtkSpinButton  *offsetSpinButton;
+  GtkSpinButton  *widthSpinButton;
 
   struct sigutils_channel channel;
 };

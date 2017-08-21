@@ -35,6 +35,7 @@ sugtk_sym_view_clear(SuGtkSymView *view)
 
   view->data_alloc = 0;
   view->data_size = 0;
+  view->window_offset = 0;
 }
 
 static gboolean
@@ -42,8 +43,6 @@ sugtk_sym_view_append_internal(SuGtkSymView *view, uint8_t data)
 {
   uint8_t *tmp = NULL;
   guint new_alloc;
-  guint width;
-  guint height;
   gboolean ok = FALSE;
 
   if (view->data_alloc <= view->data_size) {
@@ -62,15 +61,6 @@ sugtk_sym_view_append_internal(SuGtkSymView *view, uint8_t data)
 
   view->data_buf[view->data_size++] = data;
 
-  if (view->autoscroll) {
-    width = SUGTK_SYM_VIEW_STRIDE_ALIGN
-        * (view->window_width / view->window_zoom);
-    height = view->window_height / view->window_zoom;
-
-    if (width * height < view->data_size)
-      view->window_offset = width * (1 + view->data_size / width - height);
-  }
-
   ok = TRUE;
 
 fail:
@@ -80,14 +70,33 @@ fail:
   return ok;
 }
 
+static guint
+sugtk_sym_view_get_height(SuGtkSymView *view)
+{
+  return gtk_widget_get_allocated_height(GTK_WIDGET(view))
+        / view->window_zoom;
+}
+
 gboolean
 sugtk_sym_view_append(SuGtkSymView *view, uint8_t data)
 {
   guint i;
+  guint width;
+  guint height;
 
   for (i = 0; i < SUGTK_SYM_VIEW_STRIDE_ALIGN; ++i)
     if (!sugtk_sym_view_append_internal(view, data))
       return FALSE;
+
+  if (view->autoscroll) {
+    width = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_width;
+    height = sugtk_sym_view_get_height(view);
+
+    if (width * height < view->data_size)
+      view->window_offset =
+          width * (1 + view->data_size / width - height)
+          / SUGTK_SYM_VIEW_STRIDE_ALIGN;
+  }
 
   return TRUE;
 }
@@ -102,6 +111,11 @@ void
 sugtk_sym_view_set_autofit(SuGtkSymView *view, gboolean value)
 {
   view->autofit = value;
+
+  if (value)
+    sugtk_sym_view_set_width(
+        view,
+        gtk_widget_get_allocated_width(GTK_WIDGET(view)) / view->window_zoom);
 }
 
 gboolean
@@ -115,6 +129,12 @@ sugtk_sym_view_set_width(SuGtkSymView *view, guint width)
   return TRUE;
 }
 
+guint
+sugtk_sym_view_get_width(const SuGtkSymView *view)
+{
+  return view->window_width;
+}
+
 gboolean
 sugtk_sym_view_set_zoom(SuGtkSymView *view, guint zoom)
 {
@@ -123,6 +143,11 @@ sugtk_sym_view_set_zoom(SuGtkSymView *view, guint zoom)
 
   view->window_zoom = zoom;
 
+  if (view->autofit)
+    sugtk_sym_view_set_width(
+        view,
+        gtk_widget_get_allocated_width(GTK_WIDGET(view)) / view->window_zoom);
+
   return TRUE;
 }
 
@@ -130,6 +155,23 @@ guint
 sugtk_sym_view_get_zoom(const SuGtkSymView *view)
 {
   return view->window_zoom;
+}
+
+gboolean
+sugtk_sym_view_set_offset(SuGtkSymView *view, guint offset)
+{
+  if (offset >= view->data_size)
+    return FALSE;
+
+  view->window_offset = offset;
+
+  return TRUE;
+}
+
+guint
+sugtk_sym_view_get_offset(const SuGtkSymView *view)
+{
+  return view->window_offset;
 }
 
 static void
@@ -157,9 +199,7 @@ sugtk_sym_view_on_configure_event(
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
 
   if (view->autofit)
-    view->window_width = event->width;
-
-  view->window_height = event->height;
+    sugtk_sym_view_set_width(view, event->width / view->window_zoom);
 
   return TRUE;
 }
@@ -176,9 +216,8 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
   guint offset;
 
   /* Precedence is imortant here */
-  width = SUGTK_SYM_VIEW_STRIDE_ALIGN
-      * (view->window_width / view->window_zoom);
-  height = view->window_height / view->window_zoom;
+  width = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_width;
+  height = sugtk_sym_view_get_height(view);
   stride = cairo_format_stride_for_width(CAIRO_FORMAT_A8, width);
 
   cairo_set_source_rgb(cr, 0, 0, 0);
@@ -189,13 +228,13 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
       view->window_zoom / (gdouble) SUGTK_SYM_VIEW_STRIDE_ALIGN,
       view->window_zoom);
 
-  offset = view->window_offset;
+  offset = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_offset;
 
   if (offset < view->data_size) {
-    if (width * height + offset > view->data_size)
+    if (width * height + offset > view->data_size) {
       height = (view->data_size - offset) / width;
-
-    tail = view->data_size - offset - width * height;
+      tail = view->data_size - offset - width * height;
+    }
 
     if (height > 0) {
       surface = cairo_image_surface_create_for_data(
@@ -206,7 +245,7 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
           stride);
 
       /* Paint background */
-      cairo_set_source_rgb(cr, 1, 1, 0);
+      cairo_set_source_rgb(cr, 1, 1, 1);
       cairo_rectangle(cr, 0, 0, width, height);
       cairo_set_line_width(cr, 0);
       cairo_stroke_preserve(cr);
@@ -230,7 +269,7 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
           stride);
 
       /* Paint background */
-      cairo_set_source_rgb(cr, 1, 1, 0);
+      cairo_set_source_rgb(cr, 1, 1, 1);
       cairo_rectangle(cr, 0, height, tail, 1);
       cairo_set_line_width(cr, 0);
       cairo_stroke_preserve(cr);

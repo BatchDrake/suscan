@@ -166,9 +166,25 @@ suscan_gui_inspector_decide(
   return '0' + sym_ndx;
 }
 
+SUPRIVATE void
+suscan_gui_inspector_update_spin_buttons(struct suscan_gui_inspector *insp)
+{
+  if (gtk_toggle_tool_button_get_active(
+      GTK_TOGGLE_TOOL_BUTTON(insp->autoScrollToggleButton)))
+    gtk_spin_button_set_value(
+        insp->offsetSpinButton,
+        sugtk_sym_view_get_offset(insp->symbolView));
+
+  if (gtk_toggle_tool_button_get_active(
+      GTK_TOGGLE_TOOL_BUTTON(insp->autoFitToggleButton)))
+    gtk_spin_button_set_value(
+        insp->widthSpinButton,
+        sugtk_sym_view_get_width(insp->symbolView));
+}
+
 void
 suscan_gui_inspector_feed_w_batch(
-    struct suscan_gui_inspector *inspector,
+    struct suscan_gui_inspector *insp,
     const struct suscan_analyzer_sample_batch_msg *msg)
 {
   unsigned int sample_count, full_samp_count;
@@ -185,17 +201,19 @@ suscan_gui_inspector_feed_w_batch(
   sample_count = MIN(full_samp_count, SUSCAN_GUI_CONSTELLATION_HISTORY);
 
   /* Check if recording is enabled to assert the symbol buffer */
-  if (inspector->recording)
+  if (insp->recording) {
     for (i = 0; i < full_samp_count; ++i)
-      if ((sym = suscan_gui_inspector_decide(inspector, msg->samples[i]))
+      if ((sym = suscan_gui_inspector_decide(insp, msg->samples[i]))
           != SU_NOSYMBOL) /* Append text to buffer */
-        sugtk_sym_view_append(inspector->symbolView, 0xff * (sym - '0'));
+        sugtk_sym_view_append(insp->symbolView, 0xff * (sym - '0'));
+
+    suscan_gui_inspector_update_spin_buttons(insp);
+  }
 
   for (i = 0; i < sample_count; ++i)
     suscan_gui_constellation_push_sample(
-        &inspector->constellation,
+        &insp->constellation,
         msg->samples[msg->sample_count - sample_count + i]);
-
 }
 
 char *
@@ -489,10 +507,10 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      inspector->rootRaisedCosineAlignment =
-          GTK_ALIGNMENT(gtk_builder_get_object(
+      inspector->rootRaisedCosineGrid =
+          GTK_GRID(gtk_builder_get_object(
               inspector->builder,
-              "alRootRaisedCosine")),
+              "grRootRaisedCosine")),
           return SU_FALSE);
 
   SU_TRYCATCH(
@@ -514,6 +532,27 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
           GTK_TOGGLE_TOOL_BUTTON(gtk_builder_get_object(
               inspector->builder,
               "tbAutoscroll")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->autoFitToggleButton =
+          GTK_TOGGLE_TOOL_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "tbFitWidth")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->offsetSpinButton =
+          GTK_SPIN_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "sbOffset")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->widthSpinButton =
+          GTK_SPIN_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "sbWidth")),
           return SU_FALSE);
 
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
@@ -544,9 +583,14 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
       GTK_TOGGLE_BUTTON(inspector->noSpectrumRadioButton),
       TRUE);
 
-  gtk_toggle_button_set_active(
-      GTK_TOGGLE_BUTTON(inspector->autoScrollToggleButton),
+  gtk_toggle_tool_button_set_active(
+      GTK_TOGGLE_TOOL_BUTTON(inspector->autoScrollToggleButton),
       TRUE);
+
+  gtk_toggle_tool_button_set_active(
+        GTK_TOGGLE_TOOL_BUTTON(inspector->autoFitToggleButton),
+        TRUE);
+
   return SU_TRUE;
 }
 
@@ -982,13 +1026,97 @@ suscan_inspector_on_clear(
 }
 
 void
+suscan_inspector_on_zoom_in(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  guint curr_width = sugtk_sym_view_get_width(insp->symbolView);
+  guint curr_zoom = sugtk_sym_view_get_zoom(insp->symbolView);
+
+  curr_zoom <<= 1;
+
+  if (curr_width < curr_zoom)
+    curr_zoom = curr_width;
+
+  sugtk_sym_view_set_zoom(insp->symbolView, curr_zoom);
+
+  suscan_gui_inspector_update_spin_buttons(insp);
+}
+
+
+void
+suscan_inspector_on_zoom_out(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  guint curr_width = sugtk_sym_view_get_width(insp->symbolView);
+  guint curr_zoom = sugtk_sym_view_get_zoom(insp->symbolView);
+
+  curr_zoom >>= 1;
+
+  if (curr_zoom < 1)
+    curr_zoom = 1;
+
+  sugtk_sym_view_set_zoom(insp->symbolView, curr_zoom);
+
+  suscan_gui_inspector_update_spin_buttons(insp);
+}
+
+void
 suscan_inspector_on_toggle_autoscroll(
     GtkWidget *widget,
     gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  gboolean active;
 
-  sugtk_sym_view_set_autoscroll(
-      insp->symbolView,
-      gtk_toggle_tool_button_get_active(GTK_TOGGLE_TOOL_BUTTON(widget)));
+  active = gtk_toggle_tool_button_get_active(GTK_TOGGLE_TOOL_BUTTON(widget));
+
+  sugtk_sym_view_set_autoscroll(insp->symbolView, active);
+  gtk_widget_set_sensitive(GTK_WIDGET(insp->offsetSpinButton), !active);
 }
+
+void
+suscan_inspector_on_toggle_autofit(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  gboolean active;
+
+  active = gtk_toggle_tool_button_get_active(GTK_TOGGLE_TOOL_BUTTON(widget));
+
+  sugtk_sym_view_set_autofit(insp->symbolView, active);
+  gtk_widget_set_sensitive(GTK_WIDGET(insp->widthSpinButton), !active);
+}
+
+void
+suscan_inspector_on_set_offset(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+
+  if (!gtk_toggle_tool_button_get_active(
+      GTK_TOGGLE_TOOL_BUTTON(insp->autoScrollToggleButton)))
+    sugtk_sym_view_set_offset(
+        insp->symbolView,
+        gtk_spin_button_get_value(insp->offsetSpinButton));
+}
+
+void
+suscan_inspector_on_set_width(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+
+  if (!gtk_toggle_tool_button_get_active(
+      GTK_TOGGLE_TOOL_BUTTON(insp->autoFitToggleButton)))
+    sugtk_sym_view_set_width(
+        insp->symbolView,
+        gtk_spin_button_get_value(insp->widthSpinButton));
+}
+

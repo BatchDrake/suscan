@@ -41,7 +41,6 @@ struct _SuGtkSymView
   GtkDrawingArea parent_instance;
 
   guint window_width;
-  guint window_height;
   guint window_offset;
   guint window_zoom;
 
@@ -69,6 +68,10 @@ gboolean sugtk_sym_view_set_zoom(SuGtkSymView *view, guint zoom);
 guint sugtk_sym_view_get_zoom(const SuGtkSymView *view);
 
 gboolean sugtk_sym_view_set_width(SuGtkSymView *view, guint width);
+guint sugtk_sym_view_get_width(const SuGtkSymView *view);
+
+gboolean sugtk_sym_view_set_offset(SuGtkSymView *view, guint offset);
+guint sugtk_sym_view_get_offset(const SuGtkSymView *view);
 
 gboolean sugtk_sym_view_append(SuGtkSymView *view, uint8_t data);
 void sugtk_sym_view_set_autoscroll(SuGtkSymView *view, gboolean value);
