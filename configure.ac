@@ -65,7 +65,7 @@ PKG_CHECK_MODULES([asoundlib], [ alsa >= 1.0.25 ], , [AC_MSG_ERROR([Couldn't fin
 AC_SUBST(asoundlib_CFLAGS)
 AC_SUBST(asoundlib_LIBS)
 
-PKG_CHECK_MODULES([gtk3], [ gtk+-3.0 >= 0.28 ], , [AC_MSG_ERROR([Couldn't find GTK3])])
+PKG_CHECK_MODULES([gtk3], [ gtk+-3.0 >= 3.22 ], , [AC_MSG_ERROR([Couldn't find GTK3])])
 AC_SUBST(gtk3_CFLAGS)
 AC_SUBST(gtk3_LIBS)
 
