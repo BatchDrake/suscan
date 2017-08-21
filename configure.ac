@@ -99,6 +99,5 @@ AC_OUTPUT([
   src/Makefile
   util/Makefile
   analyzer/Makefile
-  ctk/Makefile
   gui/Makefile
 ])
