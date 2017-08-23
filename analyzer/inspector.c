@@ -32,8 +32,10 @@
 #include "source.h"
 #include "inspector.h"
 
-#define SUSCAN_INSPECTOR_DEFAULT_ROLL_OFF .35
-#define SUSCAN_INSPECTOR_MAX_MF_SPAN      1024
+#define SUSCAN_INSPECTOR_DEFAULT_ROLL_OFF  .35
+#define SUSCAN_INSPECTOR_DEFAULT_EQ_MU     1e-3
+#define SUSCAN_INSPECTOR_DEFAULT_EQ_LENGTH 20
+#define SUSCAN_INSPECTOR_MAX_MF_SPAN       1024
 
 SUPRIVATE SUSCOUNT
 suscan_inspector_mf_span(SUSCOUNT span)
@@ -49,15 +51,15 @@ suscan_inspector_mf_span(SUSCOUNT span)
 }
 
 SUPRIVATE void
-suscan_inspector_params_lock(suscan_inspector_t *insp)
+suscan_inspector_lock(suscan_inspector_t *insp)
 {
-  (void) pthread_mutex_lock(&insp->params_mutex);
+  (void) pthread_mutex_lock(&insp->mutex);
 }
 
 SUPRIVATE void
-suscan_inspector_params_unlock(suscan_inspector_t *insp)
+suscan_inspector_unlock(suscan_inspector_t *insp)
 {
-  (void) pthread_mutex_unlock(&insp->params_mutex);
+  (void) pthread_mutex_unlock(&insp->mutex);
 }
 
 void
@@ -65,13 +67,23 @@ suscan_inspector_request_params(
     suscan_inspector_t *insp,
     struct suscan_inspector_params *params_request)
 {
-  suscan_inspector_params_lock(insp);
+  suscan_inspector_lock(insp);
 
   insp->params_request = *params_request;
 
   insp->params_requested = SU_TRUE;
 
-  suscan_inspector_params_unlock(insp);
+  suscan_inspector_unlock(insp);
+}
+
+void
+suscan_inspector_reset_equalizer(suscan_inspector_t *insp)
+{
+  suscan_inspector_lock(insp);
+
+  su_equalizer_reset(&insp->eq);
+
+  suscan_inspector_unlock(insp);
 }
 
 void
@@ -82,7 +94,7 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
   su_iir_filt_t mf = su_iir_filt_INITIALIZER;
 
   if (insp->params_requested) {
-    suscan_inspector_params_lock(insp);
+    suscan_inspector_lock(insp);
 
     mf_changed =
         (insp->params.baud != insp->params_request.baud)
@@ -111,6 +123,9 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
     insp->cd.alpha = insp->params.br_alpha;
     insp->cd.beta = insp->params.br_beta;
 
+    /* Update equalizer */
+    insp->eq.params.mu = insp->params.eq_mu;
+
     /* Update matched filter */
     if (mf_changed) {
       if (!su_iir_rrc_init(
@@ -133,14 +148,14 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
     }
     insp->params_requested = SU_FALSE;
 
-    suscan_inspector_params_unlock(insp);
+    suscan_inspector_unlock(insp);
   }
 }
 
 void
 suscan_inspector_destroy(suscan_inspector_t *insp)
 {
-  pthread_mutex_destroy(&insp->params_mutex);
+  pthread_mutex_destroy(&insp->mutex);
 
   if (insp->fac_baud_det != NULL)
     su_channel_detector_destroy(insp->fac_baud_det);
@@ -192,6 +207,9 @@ suscan_inspector_params_initialize(struct suscan_inspector_params *params)
 
   params->mf_conf = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
   params->mf_rolloff = SUSCAN_INSPECTOR_DEFAULT_ROLL_OFF;
+
+  params->eq_conf = SUSCAN_INSPECTOR_EQUALIZER_BYPASS;
+  params->eq_mu = SUSCAN_INSPECTOR_DEFAULT_EQ_MU;
 }
 
 suscan_inspector_t *
@@ -210,7 +228,7 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   new->state = SUSCAN_ASYNC_STATE_CREATED;
 
   /* Initialize inspector parameters */
-  SU_TRYCATCH(pthread_mutex_init(&new->params_mutex, NULL) != -1, goto fail);
+  SU_TRYCATCH(pthread_mutex_init(&new->mutex, NULL) != -1, goto fail);
 
   suscan_inspector_params_initialize(&new->params);
 
@@ -305,8 +323,8 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
       goto fail);
 
   /* Initialize equalizer */
-  eq_params.mu = 1e-3;
-  eq_params.length = 20;
+  eq_params.mu = SUSCAN_INSPECTOR_DEFAULT_EQ_MU;
+  eq_params.length = SUSCAN_INSPECTOR_DEFAULT_EQ_LENGTH;
 
   SU_TRYCATCH(su_equalizer_init(&new->eq, &eq_params), goto fail);
 
@@ -413,7 +431,7 @@ suscan_inspector_feed_bulk(
           alpha = insp->sym_phase - SU_FLOOR(insp->sym_phase);
 
           insp->sym_sampler_output =
-              .5 * ((1 - alpha) * insp->sym_last_sample + alpha * sample);
+              ((1 - alpha) * insp->sym_last_sample + alpha * sample);
 
         }
       }
@@ -424,7 +442,21 @@ suscan_inspector_feed_bulk(
 
       insp->sym_new_sample = su_clock_detector_read(&insp->cd, &sample, 1) == 1;
       if (insp->sym_new_sample)
-        insp->sym_sampler_output = .5 * su_equalizer_feed(&insp->eq, sample);
+        insp->sym_sampler_output = sample;
+    }
+
+    /* Apply channel equalizer, if enabled */
+    if (insp->sym_new_sample) {
+      if (insp->params.eq_conf == SUSCAN_INSPECTOR_EQUALIZER_CMA) {
+        suscan_inspector_lock(insp);
+        insp->sym_sampler_output = su_equalizer_feed(
+            &insp->eq,
+            insp->sym_sampler_output);
+        suscan_inspector_unlock(insp);
+      }
+
+      /* Reduce amplitude so it fits in the constellation window */
+      insp->sym_sampler_output *= .75;
     }
   }
 

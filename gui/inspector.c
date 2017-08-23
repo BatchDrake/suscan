@@ -71,13 +71,15 @@ suscan_gui_inspector_update_sensitiveness(
 
   gtk_widget_set_sensitive(
       GTK_WIDGET(insp->gardnerBetaEntry),
-      gtk_toggle_button_get_active(
-          GTK_TOGGLE_BUTTON(insp->gardnerEnableBetaCheckButton)));
+      params->br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_GARDNER);
 
   gtk_widget_set_sensitive(
       GTK_WIDGET(insp->gainManualAlignment),
-      gtk_toggle_button_get_active(
-          GTK_TOGGLE_BUTTON(insp->manualGainRadioButton)));
+      params->gc_ctrl == SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL);
+
+  gtk_widget_set_sensitive(
+      GTK_WIDGET(insp->eqCMAGrid),
+      params->eq_conf == SUSCAN_INSPECTOR_EQUALIZER_CMA);
 
   gtk_widget_set_sensitive(GTK_WIDGET(insp->baudRateEntry), TRUE);
   gtk_widget_set_sensitive(GTK_WIDGET(insp->setBaudRateButton), TRUE);
@@ -555,6 +557,34 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
               "sbWidth")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->eqBypassRadioButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "rbEqDisable")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->eqCMARadioButton =
+          GTK_RADIO_BUTTON(gtk_builder_get_object(
+              inspector->builder,
+              "rbEqCMA")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->eqCMAGrid =
+          GTK_GRID(gtk_builder_get_object(
+              inspector->builder,
+              "grEqCMA")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->eqMuEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              inspector->builder,
+              "eEqMu")),
+          return SU_FALSE);
+
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
   gtk_grid_attach(
@@ -689,6 +719,7 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
   SUFLOAT gain;
   SUFLOAT alpha;
   SUFLOAT beta;
+  SUFLOAT mu;
 
   /* Block callback while we check values */
   g_signal_handlers_block_matched(
@@ -715,6 +746,9 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
 
   beta = round(SU_DB_RAW(insp->params.br_beta));
   suscan_attempt_to_read_entry(insp->gardnerBetaEntry, &beta);
+
+  mu = insp->params.eq_mu;
+  suscan_attempt_to_read_entry(insp->eqMuEntry, &mu);
 
   /* Our work is done here */
   g_signal_handlers_unblock_matched(
@@ -763,6 +797,15 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
   insp->params.fc_phi =
       gtk_range_get_value(GTK_RANGE(insp->phaseScale)) / 180 * M_PI;
 
+  /* Set equalizer configuration */
+  if (gtk_toggle_button_get_active(
+        GTK_TOGGLE_BUTTON(insp->eqBypassRadioButton))) {
+    insp->params.eq_conf = SUSCAN_INSPECTOR_EQUALIZER_BYPASS;
+    insp->params.eq_mu = 0;
+  } else {
+    insp->params.eq_conf = SUSCAN_INSPECTOR_EQUALIZER_CMA;
+    insp->params.eq_mu = mu;
+  }
 
   /* Set baudrate control */
   if (gtk_toggle_button_get_active(
@@ -841,6 +884,19 @@ suscan_on_set_baudrate(GtkWidget *widget, gpointer data)
             rand()),
         return);
   }
+}
+
+void
+suscan_on_reset_equalizer(GtkWidget *widget, gpointer data)
+{
+  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+
+  SU_TRYCATCH(
+      suscan_analyzer_reset_equalizer_async(
+          insp->gui->analyzer,
+          insp->inshnd,
+          rand()),
+      return);
 }
 
 void

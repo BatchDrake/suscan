@@ -394,6 +394,10 @@ suscan_async_parse_inspector_msg(gpointer user_data)
 
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
+      /* Okay */
+      break;
+
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE:
       suscan_error(
           envelope->gui,

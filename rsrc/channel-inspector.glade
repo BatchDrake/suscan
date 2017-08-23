@@ -100,6 +100,51 @@
       </object>
     </child>
   </object>
+  <object class="GtkMenu" id="mTransformations">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <child>
+      <object class="GtkMenuItem">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Clear stack</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Transformations</property>
+        <child type="submenu">
+          <object class="GtkMenu" id="mTransformList">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <child>
+              <object class="GtkMenuItem" id="miDBPSKDecode">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">DBSK Decoder</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuItem" id="miDBPSKEncode">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">DBPSK Encoder</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuItem" id="miRowXor">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Row XOR</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
   <object class="GtkGrid" id="grChannelInspector">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -227,6 +272,8 @@
                   <object class="GtkFrame">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="vexpand">True</property>
@@ -281,6 +328,8 @@
                               <object class="GtkFrame">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
+                                <property name="margin_left">3</property>
+                                <property name="margin_right">3</property>
                                 <property name="margin_top">3</property>
                                 <property name="margin_bottom">3</property>
                                 <property name="label_xalign">0</property>
@@ -486,12 +535,15 @@
                   <packing>
                     <property name="left_attach">0</property>
                     <property name="top_attach">1</property>
+                    <property name="height">2</property>
                   </packing>
                 </child>
                 <child>
                   <object class="GtkFrame">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="vexpand">True</property>
@@ -607,6 +659,8 @@
                               <object class="GtkFrame">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
+                                <property name="margin_left">3</property>
+                                <property name="margin_right">3</property>
                                 <property name="margin_top">3</property>
                                 <property name="margin_bottom">3</property>
                                 <property name="label_xalign">0</property>
@@ -755,6 +809,8 @@
                               <object class="GtkFrame">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
+                                <property name="margin_left">3</property>
+                                <property name="margin_right">3</property>
                                 <property name="margin_top">3</property>
                                 <property name="margin_bottom">3</property>
                                 <property name="label_xalign">0</property>
@@ -910,13 +966,15 @@
                   <packing>
                     <property name="left_attach">2</property>
                     <property name="top_attach">0</property>
-                    <property name="height">2</property>
+                    <property name="height">3</property>
                   </packing>
                 </child>
                 <child>
                   <object class="GtkFrame">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="hexpand">True</property>
@@ -1000,13 +1058,15 @@
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
-                    <property name="top_attach">1</property>
+                    <property name="top_attach">2</property>
                   </packing>
                 </child>
                 <child>
                   <object class="GtkFrame">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="label_xalign">0</property>
@@ -1044,6 +1104,8 @@
                               <object class="GtkFrame">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
+                                <property name="margin_left">3</property>
+                                <property name="margin_right">3</property>
                                 <property name="margin_top">3</property>
                                 <property name="margin_bottom">3</property>
                                 <property name="hexpand">True</property>
@@ -1194,6 +1256,8 @@
                   <object class="GtkFrame">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="hexpand">True</property>
@@ -1232,6 +1296,8 @@
                               <object class="GtkFrame">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
+                                <property name="margin_left">3</property>
+                                <property name="margin_right">3</property>
                                 <property name="margin_top">3</property>
                                 <property name="margin_bottom">3</property>
                                 <property name="hexpand">True</property>
@@ -1317,6 +1383,157 @@
                   <packing>
                     <property name="left_attach">1</property>
                     <property name="top_attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkFrame">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_top">3</property>
+                    <property name="margin_bottom">3</property>
+                    <property name="label_xalign">0</property>
+                    <property name="shadow_type">in</property>
+                    <child>
+                      <object class="GtkAlignment">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="margin_top">3</property>
+                        <property name="margin_bottom">3</property>
+                        <property name="left_padding">12</property>
+                        <child>
+                          <object class="GtkGrid">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <child>
+                              <object class="GtkRadioButton" id="rbEqDisable">
+                                <property name="label" translatable="yes">Bypass</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">False</property>
+                                <property name="halign">start</property>
+                                <property name="hexpand">True</property>
+                                <property name="active">True</property>
+                                <property name="draw_indicator">True</property>
+                                <signal name="toggled" handler="suscan_on_change_inspector_params" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkFrame">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="margin_left">3</property>
+                                <property name="margin_right">3</property>
+                                <property name="margin_top">3</property>
+                                <property name="margin_bottom">3</property>
+                                <property name="hexpand">True</property>
+                                <property name="label_xalign">0</property>
+                                <property name="shadow_type">in</property>
+                                <child>
+                                  <object class="GtkAlignment">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="margin_top">3</property>
+                                    <property name="margin_bottom">3</property>
+                                    <property name="hexpand">True</property>
+                                    <property name="left_padding">12</property>
+                                    <child>
+                                      <object class="GtkGrid" id="grEqCMA">
+                                        <property name="name">grEqCMA</property>
+                                        <property name="visible">True</property>
+                                        <property name="sensitive">False</property>
+                                        <property name="can_focus">False</property>
+                                        <property name="hexpand">True</property>
+                                        <child>
+                                          <object class="GtkLabel">
+                                            <property name="visible">True</property>
+                                            <property name="can_focus">False</property>
+                                            <property name="halign">start</property>
+                                            <property name="margin_right">3</property>
+                                            <property name="label" translatable="yes">Update rate</property>
+                                          </object>
+                                          <packing>
+                                            <property name="left_attach">0</property>
+                                            <property name="top_attach">0</property>
+                                          </packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkEntry" id="eEqMu">
+                                            <property name="visible">True</property>
+                                            <property name="can_focus">True</property>
+                                            <property name="margin_left">3</property>
+                                            <property name="margin_right">3</property>
+                                            <property name="margin_top">3</property>
+                                            <property name="margin_bottom">3</property>
+                                            <property name="text" translatable="yes">1e-3</property>
+                                            <property name="xalign">1</property>
+                                            <property name="input_purpose">number</property>
+                                            <signal name="activate" handler="suscan_on_change_inspector_params" swapped="no"/>
+                                            <signal name="focus-out-event" handler="suscan_on_change_inspector_params_event" swapped="no"/>
+                                          </object>
+                                          <packing>
+                                            <property name="left_attach">1</property>
+                                            <property name="top_attach">0</property>
+                                          </packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkButton" id="bEqReset">
+                                            <property name="label" translatable="yes">Reset</property>
+                                            <property name="visible">True</property>
+                                            <property name="can_focus">True</property>
+                                            <property name="receives_default">True</property>
+                                            <property name="margin_left">3</property>
+                                            <property name="margin_right">3</property>
+                                            <property name="margin_top">3</property>
+                                            <property name="margin_bottom">3</property>
+                                            <signal name="clicked" handler="suscan_on_reset_equalizer" swapped="no"/>
+                                          </object>
+                                          <packing>
+                                            <property name="left_attach">0</property>
+                                            <property name="top_attach">1</property>
+                                            <property name="width">2</property>
+                                          </packing>
+                                        </child>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child type="label">
+                                  <object class="GtkRadioButton" id="rbEqCMA">
+                                    <property name="label" translatable="yes">Constant modulus (CMA)</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">False</property>
+                                    <property name="active">True</property>
+                                    <property name="draw_indicator">True</property>
+                                    <property name="group">rbEqDisable</property>
+                                    <signal name="toggled" handler="suscan_on_change_inspector_params" swapped="no"/>
+                                  </object>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">1</property>
+                              </packing>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child type="label">
+                      <object class="GtkLabel">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Equalizer</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="top_attach">1</property>
                   </packing>
                 </child>
               </object>
@@ -1592,51 +1809,6 @@
         <property name="top_attach">0</property>
         <property name="width">3</property>
       </packing>
-    </child>
-  </object>
-  <object class="GtkMenu" id="mTransformations">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <child>
-      <object class="GtkMenuItem">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Clear stack</property>
-      </object>
-    </child>
-    <child>
-      <object class="GtkMenuItem">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Transformations</property>
-        <child type="submenu">
-          <object class="GtkMenu" id="mTransformList">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <child>
-              <object class="GtkMenuItem" id="miDBPSKDecode">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">DBSK Decoder</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="miDBPSKEncode">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">DBPSK Encoder</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="miRowXor">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Row XOR</property>
-              </object>
-            </child>
-          </object>
-        </child>
-      </object>
     </child>
   </object>
 </interface>

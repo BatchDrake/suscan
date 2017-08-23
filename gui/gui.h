@@ -290,6 +290,12 @@ struct suscan_gui_inspector {
   GtkGrid        *rootRaisedCosineGrid;
   GtkScale       *rollOffScale;
 
+  /* Equalizer widgets */
+  GtkRadioButton *eqBypassRadioButton;
+  GtkRadioButton *eqCMARadioButton;
+  GtkGrid        *eqCMAGrid;
+  GtkEntry       *eqMuEntry;
+
   /* Spectrum source widgets */
   GtkRadioButton *powerSpectrumRadioButton;
   GtkRadioButton *cycloSpectrumRadioButton;
