@@ -158,6 +158,8 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
 
   su_clock_detector_finalize(&insp->cd);
 
+  su_equalizer_finalize(&insp->eq);
+
   free(insp);
 }
 
@@ -196,10 +198,13 @@ suscan_inspector_t *
 suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
 {
   suscan_inspector_t *new;
-  struct sigutils_channel_detector_params params =
+  struct sigutils_channel_detector_params cd_params =
       sigutils_channel_detector_params_INITIALIZER;
+  struct sigutils_equalizer_params eq_params =
+      sigutils_equalizer_params_INITIALIZER;
   struct su_agc_params agc_params = su_agc_params_INITIALIZER;
   SUFLOAT tau;
+
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
 
   new->state = SUSCAN_ASYNC_STATE_CREATED;
@@ -213,29 +218,29 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
    * Removed alpha setting. This is now automatically done by
    * adjust_to_channel
    */
-  params.samp_rate = fs;
-  params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
-  su_channel_params_adjust_to_channel(&params, channel);
+  cd_params.samp_rate = fs;
+  cd_params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
+  su_channel_params_adjust_to_channel(&cd_params, channel);
 
-  new->equiv_fs = (SUFLOAT) params.samp_rate / params.decimation;
+  new->equiv_fs = (SUFLOAT) cd_params.samp_rate / cd_params.decimation;
 
   /* Initialize spectrum parameters */
   new->interval_psd = .1;
 
   /* Create generic autocorrelation-based detector */
-  params.mode = SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION;
-  SU_TRYCATCH(new->fac_baud_det = su_channel_detector_new(&params), goto fail);
+  cd_params.mode = SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION;
+  SU_TRYCATCH(new->fac_baud_det = su_channel_detector_new(&cd_params), goto fail);
 
   /* Create non-linear baud rate detector */
-  params.mode = SU_CHANNEL_DETECTOR_MODE_NONLINEAR_DIFF;
-  SU_TRYCATCH(new->nln_baud_det = su_channel_detector_new(&params), goto fail);
+  cd_params.mode = SU_CHANNEL_DETECTOR_MODE_NONLINEAR_DIFF;
+  SU_TRYCATCH(new->nln_baud_det = su_channel_detector_new(&cd_params), goto fail);
 
   /* Create clock detector */
   SU_TRYCATCH(
       su_clock_detector_init(
           &new->cd,
           1.,
-          .5 * SU_ABS2NORM_BAUD(new->equiv_fs, params.bw),
+          .5 * SU_ABS2NORM_BAUD(new->equiv_fs, cd_params.bw),
           32),
       goto fail);
 
@@ -244,7 +249,7 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   new->phase = 1.;
 
   /* Initialize AGC */
-  tau = new->equiv_fs / params.bw; /* Samples per symbol */
+  tau = new->equiv_fs / cd_params.bw; /* Samples per symbol */
 
   agc_params.fast_rise_t = tau * SUSCAN_INSPECTOR_FAST_RISE_FRAC;
   agc_params.fast_fall_t = tau * SUSCAN_INSPECTOR_FAST_FALL_FRAC;
@@ -273,9 +278,9 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
           &new->costas_2,
           SU_COSTAS_KIND_BPSK,
           0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw)),
       goto fail);
 
   SU_TRYCATCH(
@@ -283,9 +288,9 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
           &new->costas_4,
           SU_COSTAS_KIND_QPSK,
           0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw)),
       goto fail);
 
 
@@ -294,10 +299,16 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
           &new->costas_8,
           SU_COSTAS_KIND_8PSK,
           0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw)),
       goto fail);
+
+  /* Initialize equalizer */
+  eq_params.mu = 1e-3;
+  eq_params.length = 20;
+
+  SU_TRYCATCH(su_equalizer_init(&new->eq, &eq_params), goto fail);
 
   return new;
 
@@ -413,7 +424,7 @@ suscan_inspector_feed_bulk(
 
       insp->sym_new_sample = su_clock_detector_read(&insp->cd, &sample, 1) == 1;
       if (insp->sym_new_sample)
-        insp->sym_sampler_output = .5 * sample;
+        insp->sym_sampler_output = .5 * su_equalizer_feed(&insp->eq, sample);
     }
   }
 

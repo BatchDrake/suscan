@@ -26,6 +26,7 @@
 #include <sigutils/pll.h>
 #include <sigutils/clock.h>
 #include <sigutils/detect.h>
+#include <sigutils/equalizer.h>
 
 #define SUHANDLE int32_t
 
@@ -110,6 +111,7 @@ struct suscan_inspector {
   su_costas_t             costas_8; /* 8th order Costas loop */
   su_iir_filt_t           mf;       /* Matched filter (Root Raised Cosine) */
   su_clock_detector_t     cd;       /* Clock detector */
+  su_equalizer_t          eq;       /* Equalizer */
   su_ncqo_t               lo;       /* Oscillator for manual carrier offset */
   SUCOMPLEX               phase;    /* Local oscillator phase */
 
