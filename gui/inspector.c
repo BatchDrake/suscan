@@ -191,9 +191,11 @@ suscan_gui_inspector_feed_w_batch(
 {
   unsigned int sample_count, full_samp_count;
   unsigned int i;
+  unsigned int sym_count;
   GtkTextIter iter;
   char *new_buffer;
   char sym;
+  char value;
 
   /*
    * Push, at most, the last SUSCAN_GUI_CONSTELLATION_HISTORY. We do this
@@ -204,10 +206,16 @@ suscan_gui_inspector_feed_w_batch(
 
   /* Check if recording is enabled to assert the symbol buffer */
   if (insp->recording) {
+    sym_count = 1 << insp->params.fc_ctrl;
+
     for (i = 0; i < full_samp_count; ++i)
       if ((sym = suscan_gui_inspector_decide(insp, msg->samples[i]))
-          != SU_NOSYMBOL) /* Append text to buffer */
-        sugtk_sym_view_append(insp->symbolView, 0xff * (sym - '0'));
+          != SU_NOSYMBOL) {
+        /* Append text to buffer */
+        value = (0xff * (sym - '0')) / (sym_count - 1);
+
+        sugtk_sym_view_append(insp->symbolView, value);
+      }
 
     suscan_gui_inspector_update_spin_buttons(insp);
   }
