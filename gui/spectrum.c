@@ -696,7 +696,7 @@ suscan_gui_spectrum_redraw_waterfall(struct suscan_gui_spectrum *spectrum)
 
         if (val < 0)
           val = 0;
-        else if (val > 1)
+        else if (val > 1 || isnan(val))
           val = 1;
 
         index = round(val * 255);
