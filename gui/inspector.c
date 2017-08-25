@@ -248,6 +248,10 @@ suscan_gui_inspector_to_filename(
       demod = "qpsk";
       break;
 
+    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8:
+      demod = "opsk";
+      break;
+
     default:
       demod = "manual";
   }
@@ -998,9 +1002,25 @@ suscan_inspector_on_save(
   gint res;
   char *new_fname = NULL;
   gchar *filename = NULL;
-  gchar *text = NULL;
+  char result;
+  const uint8_t *bytes;
+  size_t size;
   GtkTextIter istart, iend;
+  uint8_t bpsym;
   FILE *fp = NULL;
+  unsigned int i;
+
+  if (insp->params.fc_ctrl == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
+    suscan_warning(
+        insp->gui,
+        "Save symbol view",
+        "Cannot save current symbol recording is carrier control is set to manual. "
+        "Please specify an appropriate constellation type in the demodulation "
+        "properties tab and try again.");
+    return;
+  }
+
+  bpsym = insp->params.fc_ctrl;
 
   SU_TRYCATCH(
       new_fname = suscan_gui_inspector_to_filename(insp, "symbols", ".log"),
@@ -1037,24 +1057,23 @@ suscan_inspector_on_save(
       goto done;
     }
 
-    suscan_error(insp->gui, "Save failed", "Not implemented!");
+    bytes = sugtk_sym_get_buffer_bytes(insp->symbolView);
+    size = sugtk_sym_get_buffer_size(insp->symbolView);
 
-/*
-    if (fwrite(text, strlen(text), 1, fp) < 1) {
-      suscan_error(
-          insp->gui,
-          "Write failed",
-          "Failed to write symbol recording to disk: %s",
-          strerror(errno));
-      goto done;
+    for (i = 0; i < size; i += SUGTK_SYM_VIEW_STRIDE_ALIGN) {
+      result = (bytes[i] >> (8 - bpsym)) + '0';
+      if (fwrite(&result, 1, 1, fp) < 1) {
+        suscan_error(
+            insp->gui,
+            "Write failed",
+            "Failed to write symbol recording to disk: %s",
+            strerror(errno));
+        goto done;
+      }
     }
-    */
   }
 
 done:
-  if (text != NULL)
-    g_free(text);
-
   if (fp != NULL)
     fclose(fp);
 

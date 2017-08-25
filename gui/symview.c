@@ -174,6 +174,18 @@ sugtk_sym_view_get_offset(const SuGtkSymView *view)
   return view->window_offset;
 }
 
+const uint8_t *
+sugtk_sym_get_buffer_bytes(const SuGtkSymView *view)
+{
+  return view->data_buf;
+}
+
+size_t
+sugtk_sym_get_buffer_size(const SuGtkSymView *view)
+{
+  return view->data_size;
+}
+
 static void
 sugtk_sym_view_dispose(GObject* object)
 {

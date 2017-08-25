@@ -73,6 +73,9 @@ guint sugtk_sym_view_get_width(const SuGtkSymView *view);
 gboolean sugtk_sym_view_set_offset(SuGtkSymView *view, guint offset);
 guint sugtk_sym_view_get_offset(const SuGtkSymView *view);
 
+const uint8_t *sugtk_sym_get_buffer_bytes(const SuGtkSymView *view);
+size_t sugtk_sym_get_buffer_size(const SuGtkSymView *view);
+
 gboolean sugtk_sym_view_append(SuGtkSymView *view, uint8_t data);
 void sugtk_sym_view_set_autoscroll(SuGtkSymView *view, gboolean value);
 void sugtk_sym_view_set_autofit(SuGtkSymView *view, gboolean value);
