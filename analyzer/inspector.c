@@ -171,6 +171,8 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
 
   su_costas_finalize(&insp->costas_4);
 
+  su_costas_finalize(&insp->costas_8);
+
   su_clock_detector_finalize(&insp->cd);
 
   su_equalizer_finalize(&insp->eq);
