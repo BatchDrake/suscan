@@ -189,6 +189,7 @@ sugtk_sym_get_buffer_size(const SuGtkSymView *view)
 static void
 sugtk_sym_view_dispose(GObject* object)
 {
+  sugtk_sym_view_clear(SUGTK_SYM_VIEW(object));
   G_OBJECT_CLASS(sugtk_sym_view_parent_class)->dispose(object);
 }
 

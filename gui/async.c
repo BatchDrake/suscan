@@ -204,6 +204,9 @@ suscan_async_update_channels_cb(gpointer user_data)
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
 
+  if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
+    goto done;
+
   cpu = envelope->gui->analyzer->cpu_usage;
 
   snprintf(cpu_str, sizeof(cpu_str), "%.1lf%%", cpu * 100);
@@ -241,6 +244,7 @@ suscan_async_update_channels_cb(gpointer user_data)
         -1);
   }
 
+done:
   suscan_gui_msg_envelope_destroy(envelope);
 
   return G_SOURCE_REMOVE;
@@ -254,8 +258,10 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
   char N0_str[20];
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
-
   msg = (struct suscan_analyzer_psd_msg *) envelope->private;
+
+  if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
+    goto done;
 
   snprintf(N0_str, sizeof(N0_str), "%.1lf dBFS", SU_POWER_DB(msg->N0));
 
@@ -268,6 +274,7 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
       &envelope->gui->main_spectrum,
       msg);
 
+done:
   suscan_gui_msg_envelope_destroy(envelope);
 
   return G_SOURCE_REMOVE;
@@ -282,6 +289,9 @@ suscan_async_update_inspector_spectrum_cb(gpointer user_data)
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_psd_msg *) envelope->private;
+
+  if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
+    goto done;
 
   SU_TRYCATCH(
       insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
@@ -309,6 +319,9 @@ suscan_async_parse_sample_batch_msg(gpointer user_data)
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_sample_batch_msg *) envelope->private;
 
+  if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
+    goto done;
+
   SU_TRYCATCH(
       insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
       goto done);
@@ -330,8 +343,12 @@ suscan_async_parse_inspector_msg(gpointer user_data)
   struct suscan_gui_inspector *new_insp = NULL;
   struct suscan_gui_inspector *insp = NULL;
   char text[64];
+
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_inspector_msg *) envelope->private;
+
+  if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
+    goto done;
 
   /* Analyze inspector message type */
   switch (msg->kind) {
@@ -436,83 +453,91 @@ suscan_gui_async_thread(gpointer data)
   for (;;) {
     private = suscan_analyzer_read(gui->analyzer, &type);
 
-    switch (type) {
-      case SUSCAN_WORKER_MSG_TYPE_HALT: /* Halt response */
-        g_idle_add(suscan_async_stopped_cb, gui);
-        /* This message is empty */
-        goto done;
+    if (type == SUSCAN_WORKER_MSG_TYPE_HALT) {
+      g_idle_add(suscan_async_stopped_cb, gui);
+      goto done;
+    } else if (gui->state == SUSCAN_GUI_STATE_RUNNING) {
+      /*
+       * We parse messages *only* if an analyzer is running and the
+       * current GUI state is set to running.
+       */
+      switch (type) {
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
+          if ((envelope = suscan_gui_msg_envelope_new(
+              gui,
+              type,
+              private)) == NULL) {
+            suscan_analyzer_dispose_message(type, private);
+            break;
+          }
 
-      case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
-        if ((envelope = suscan_gui_msg_envelope_new(
-            gui,
-            type,
-            private)) == NULL) {
-          suscan_analyzer_dispose_message(type, private);
+          g_idle_add(suscan_async_update_channels_cb, envelope);
           break;
-        }
 
-        g_idle_add(suscan_async_update_channels_cb, envelope);
-        break;
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+          if ((envelope = suscan_gui_msg_envelope_new(
+              gui,
+              type,
+              private)) == NULL) {
+            suscan_analyzer_dispose_message(type, private);
+            break;
+          }
 
-      case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
-        if ((envelope = suscan_gui_msg_envelope_new(
-            gui,
-            type,
-            private)) == NULL) {
-          suscan_analyzer_dispose_message(type, private);
+          g_idle_add(suscan_async_update_main_spectrum_cb, envelope);
           break;
-        }
 
-        g_idle_add(suscan_async_update_main_spectrum_cb, envelope);
-        break;
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
+          if ((envelope = suscan_gui_msg_envelope_new(
+              gui,
+              type,
+              private)) == NULL) {
+            suscan_analyzer_dispose_message(type, private);
+            break;
+          }
 
-      case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
-        if ((envelope = suscan_gui_msg_envelope_new(
-            gui,
-            type,
-            private)) == NULL) {
-          suscan_analyzer_dispose_message(type, private);
+          g_idle_add(suscan_async_parse_inspector_msg, envelope);
           break;
-        }
 
-        g_idle_add(suscan_async_parse_inspector_msg, envelope);
-        break;
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
+          if ((envelope = suscan_gui_msg_envelope_new(
+              gui,
+              type,
+              private)) == NULL) {
+            suscan_analyzer_dispose_message(type, private);
+            break;
+          }
 
-      case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
-        if ((envelope = suscan_gui_msg_envelope_new(
-            gui,
-            type,
-            private)) == NULL) {
-          suscan_analyzer_dispose_message(type, private);
+          g_idle_add(suscan_async_parse_sample_batch_msg, envelope);
           break;
-        }
 
-        g_idle_add(suscan_async_parse_sample_batch_msg, envelope);
-        break;
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD:
+          if ((envelope = suscan_gui_msg_envelope_new(
+              gui,
+              type,
+              private)) == NULL) {
+            suscan_analyzer_dispose_message(type, private);
+            break;
+          }
 
-      case SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD:
-        if ((envelope = suscan_gui_msg_envelope_new(
-            gui,
-            type,
-            private)) == NULL) {
-          suscan_analyzer_dispose_message(type, private);
+          g_idle_add(suscan_async_update_inspector_spectrum_cb, envelope);
           break;
-        }
 
-        g_idle_add(suscan_async_update_inspector_spectrum_cb, envelope);
-        break;
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS: /* End of stream */
+          g_idle_add(suscan_async_stopped_cb, gui);
+          goto done;
 
-      case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS: /* End of stream */
-        g_idle_add(suscan_async_stopped_cb, gui);
-        suscan_analyzer_dispose_message(type, private);
-        goto done;
-
-      default:
-        suscan_analyzer_dispose_message(type, private);
+        default:
+          suscan_analyzer_dispose_message(type, private);
+      }
+    } else {
+      /* Discard message */
+      suscan_analyzer_dispose_message(type, private);
     }
   }
 
 done:
+  suscan_analyzer_dispose_message(type, private);
+
   return NULL;
 }
 

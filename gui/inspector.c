@@ -18,12 +18,12 @@
 
 */
 
+#define SU_LOG_DOMAIN "inspector-gui"
+
 #include "gui.h"
 #include <sigutils/agc.h>
 #include <time.h>
 #include <string.h>
-
-#define SU_LOG_DOMAIN "inspector-gui"
 
 void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
@@ -43,9 +43,6 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
   suscan_gui_spectrum_init(&inspector->spectrum);
 
   g_object_unref(G_OBJECT(inspector->builder));
-
-  if (inspector->symbolView != NULL)
-    g_object_unref(G_OBJECT(inspector->symbolView));
 
   free(inspector);
 }
