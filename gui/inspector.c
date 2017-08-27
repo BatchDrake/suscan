@@ -661,7 +661,7 @@ suscan_gui_inspector_new(
 
   SU_TRYCATCH(
       page_label = strbuild(
-          "Inspecting at %lli Hz",
+          "PSK inspector at %lli Hz",
           (uint64_t) round(channel->fc)),
       goto fail);
 

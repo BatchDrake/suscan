@@ -143,7 +143,7 @@
       <object class="GtkMenuItem" id="miOpenInspector">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Open inspector</property>
+        <property name="label" translatable="yes">Open PSK inspector</property>
         <property name="use_underline">True</property>
         <signal name="activate" handler="suscan_on_open_inspector" swapped="no"/>
       </object>
