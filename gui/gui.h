@@ -75,6 +75,7 @@ struct suscan_gui_spectrum {
 
   uint64_t fc;
   SUFLOAT *psd_data;
+  SUFLOAT *psd_data_smooth;
   SUSCOUNT psd_size;
   SUSCOUNT samp_rate;
   SUFLOAT  N0;
@@ -145,8 +146,6 @@ struct suscan_gui {
   GtkRadioMenuItem    *waterfallMenuItem;
   GtkToggleToolButton *overlayChannelToggleButton;
   GtkToggleToolButton *autoGainToggleButton;
-  GtkAdjustment       *gainAdjustment;
-  GtkAdjustment       *rangeAdjustment;
   GtkScaleButton      *gainScaleButton;
   GtkScaleButton      *rangeScaleButton;
 

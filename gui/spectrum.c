@@ -172,6 +172,9 @@ suscan_spectrum_finalize(struct suscan_gui_spectrum *spectrum)
   if (spectrum->psd_data != NULL)
     free(spectrum->psd_data);
 
+  if (spectrum->psd_data_smooth != NULL)
+    free(spectrum->psd_data_smooth);
+
   if (spectrum->wf_surf[0] != NULL)
     cairo_surface_destroy(spectrum->wf_surf[0]);
 
@@ -342,13 +345,30 @@ suscan_gui_spectrum_update(
   spectrum->N0        = msg->N0;
   ++spectrum->updates;
 
-  if (old_data != NULL) {
+  if (spectrum->psd_data_smooth == NULL) {
+    if (old_data != NULL) {
+      /* Smoothed spectrum not initialized. Attempt to initialize */
+      if (old_size == msg->psd_size)
+        spectrum->psd_data_smooth = old_data;
+      else
+        free(old_data); /* Size mismatch */
+    }
+  } else {
     /* Average against previous update, only if sizes match */
-    if (old_size == msg->psd_size)
+    if (old_size == msg->psd_size) {
       for (i = 0; i < old_size; ++i)
-        spectrum->psd_data[i] +=
-            SUSCAN_GUI_SPECTRUM_ALPHA * (old_data[i] - spectrum->psd_data[i]);
-    free(old_data);
+        spectrum->psd_data_smooth[i] +=
+            SUSCAN_GUI_SPECTRUM_ALPHA *
+              (spectrum->psd_data[i] - spectrum->psd_data_smooth[i]);
+    } else {
+      /* Sizes don't match, reset smoothed spectrum */
+      free(spectrum->psd_data_smooth);
+      spectrum->psd_data_smooth = NULL;
+    }
+
+    /* We don't need old_data anymore */
+    if (old_data != NULL)
+      free(old_data);
   }
 
   if (spectrum->auto_level) {
@@ -729,6 +749,7 @@ suscan_gui_spectrum_redraw_spectrogram(
   int step;
   SUFLOAT x, x_prev;
   SUFLOAT x_adj, x_prev_adj;
+  SUFLOAT psd;
 
   /* Draw spectrum */
   if (spectrum->psd_data != NULL) {
@@ -783,22 +804,27 @@ suscan_gui_spectrum_redraw_spectrogram(
       if (x_adj >= -.5 && x_adj < .5) {
         x_prev_adj = suscan_gui_spectrum_adjust_x(spectrum, x_prev);
 
+        psd = spectrum->psd_data_smooth == NULL
+            ? SU_POWER_DB(spectrum->psd_data[i - step])
+            : SU_POWER_DB(spectrum->psd_data_smooth[i - step]);
+
         cairo_move_to(
             cr,
             SUSCAN_SPECTRUM_TO_SCR(
                 spectrum,
                 x_prev_adj,
-                suscan_gui_spectrum_adjust_y(
-                    spectrum,
-                    SU_POWER_DB(spectrum->psd_data[i - step]))));
+                suscan_gui_spectrum_adjust_y(spectrum, psd)));
+
+        psd = spectrum->psd_data_smooth == NULL
+            ? SU_POWER_DB(spectrum->psd_data[i])
+            : SU_POWER_DB(spectrum->psd_data_smooth[i]);
+
         cairo_line_to(
             cr,
             SUSCAN_SPECTRUM_TO_SCR(
                 spectrum,
                 x_adj,
-                suscan_gui_spectrum_adjust_y(
-                    spectrum,
-                    SU_POWER_DB(spectrum->psd_data[i]))));
+                suscan_gui_spectrum_adjust_y(spectrum, psd)));
 
         cairo_stroke(cr);
       }
@@ -1238,11 +1264,6 @@ suscan_spectrum_on_motion(GtkWidget *widget, GdkEventMotion *ev, gpointer data)
       "%.0lf Hz",
       gui->main_spectrum.samp_rate * gui->main_spectrum.freq_offset);
   gtk_label_set_text(gui->spectrumFreqOffsetLabel, text);
-
-  gtk_adjustment_set_value(gui->gainAdjustment, gui->main_spectrum.ref_level);
-  gtk_adjustment_set_value(
-      gui->rangeAdjustment,
-      10. / gui->main_spectrum.dbs_per_div);
 }
 
 gboolean
@@ -1323,13 +1344,6 @@ suscan_spectrum_on_settings_changed(
     suscan_gui_spectrum_set_mode(
         &gui->main_spectrum,
         SUSCAN_GUI_SPECTRUM_MODE_WATERFALL);
-
-  if (!gui->main_spectrum.auto_level) {
-    gui->main_spectrum.ref_level =
-        gtk_adjustment_get_value(gui->gainAdjustment);
-    gui->main_spectrum.dbs_per_div =
-        10 / gtk_adjustment_get_value(gui->rangeAdjustment);
-  }
 
   gtk_widget_set_sensitive(
       GTK_WIDGET(gui->gainScaleButton),

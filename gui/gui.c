@@ -1090,20 +1090,6 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->gainAdjustment =
-          GTK_ADJUSTMENT(gtk_builder_get_object(
-              gui->builder,
-              "aGain")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->rangeAdjustment =
-          GTK_ADJUSTMENT(gtk_builder_get_object(
-              gui->builder,
-              "aRange")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
       gui->gainScaleButton =
           GTK_SCALE_BUTTON(gtk_builder_get_object(
               gui->builder,

@@ -201,7 +201,10 @@ suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
       break;
 
     default:
-      memcpy(new->psd_data, cd->spect, sizeof(SUFLOAT) * new->psd_size);
+      for (i = 0; i < new->psd_size; ++i) {
+        new->psd_data[i] = SU_C_REAL(cd->fft[i] * SU_C_CONJ(cd->fft[i]));
+        new->psd_data[i] /= cd->params.window_size;;
+      }
   }
 
   return new;
