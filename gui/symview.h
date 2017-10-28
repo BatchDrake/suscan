@@ -55,6 +55,11 @@ struct _SuGtkSymView
   gboolean sel_started;
   guint sel_off0;
   guint sel_off1;
+
+  /* Auxiliary widgets */
+  GtkMenu *menu;
+  GtkWidget *apply_fac;
+  GtkWidget *apply_bm;
 };
 
 struct _SuGtkSymViewClass
@@ -84,6 +89,15 @@ size_t sugtk_sym_get_buffer_size(const SuGtkSymView *view);
 gboolean sugtk_sym_view_append(SuGtkSymView *view, uint8_t data);
 void sugtk_sym_view_set_autoscroll(SuGtkSymView *view, gboolean value);
 void sugtk_sym_view_set_autofit(SuGtkSymView *view, gboolean value);
+gboolean sugtk_sym_view_get_selection(
+    const SuGtkSymView *view,
+    guint *start,
+    guint *end);
+
+guint sugtk_sym_view_coords_to_offset(
+    const SuGtkSymView *widget,
+    gfloat x,
+    gfloat y);
 
 G_END_DECLS
 

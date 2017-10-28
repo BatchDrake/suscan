@@ -190,7 +190,12 @@ sugtk_sym_get_buffer_size(const SuGtkSymView *view)
 static void
 sugtk_sym_view_dispose(GObject* object)
 {
-  sugtk_sym_view_clear(SUGTK_SYM_VIEW(object));
+  SuGtkSymView *view;
+
+  view = SUGTK_SYM_VIEW(object);
+
+  sugtk_sym_view_clear(view);
+
   G_OBJECT_CLASS(sugtk_sym_view_parent_class)->dispose(object);
 }
 
@@ -403,17 +408,34 @@ sugtk_sym_view_on_button_press_event(
     gpointer data)
 {
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
-  int32_t offset;
+  GtkMenu *menu;
+  uint32_t offset;
+  guint start, end;
+  gboolean in_sel = FALSE;
 
   offset = sugtk_sym_view_coords_to_offset(
       view,
       event->motion.x,
       event->motion.y);
 
-  view->selection = FALSE;
-  view->sel_started = TRUE;
-  view->sel_off0 = offset;
-  view->sel_off1 = view->sel_off0;
+  switch (event->button.button) {
+    case GDK_BUTTON_PRIMARY:
+      view->selection = FALSE;
+      view->sel_started = TRUE;
+      view->sel_off0 = offset;
+      view->sel_off1 = view->sel_off0;
+      break;
+
+    case GDK_BUTTON_SECONDARY:
+      if (sugtk_sym_view_get_selection(view, &start, &end))
+        if (start <= offset && offset <= end)
+          in_sel = TRUE;
+
+      gtk_widget_set_sensitive(view->apply_bm, in_sel);
+
+      gtk_menu_popup_at_pointer(view->menu, event);
+      break;
+  }
 
   return TRUE;
 }
@@ -426,7 +448,11 @@ sugtk_sym_view_on_button_release_event(
 {
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
 
-  view->sel_started = FALSE;
+  switch (event->button.button) {
+    case GDK_BUTTON_PRIMARY:
+      view->sel_started = FALSE;
+      break;
+  }
 
   return TRUE;
 }
@@ -460,6 +486,19 @@ sugtk_sym_view_init(SuGtkSymView *self)
   self->autoscroll = TRUE;
   self->autofit = TRUE;
   self->window_zoom = 1;
+
+  self->menu = GTK_MENU(gtk_menu_new());
+  gtk_menu_attach_to_widget(self->menu, GTK_WIDGET(self), NULL);
+
+  gtk_menu_shell_append(
+      GTK_MENU_SHELL(self->menu),
+      self->apply_fac = gtk_menu_item_new_with_label("FAC analysis"));
+
+  gtk_menu_shell_append(
+      GTK_MENU_SHELL(self->menu),
+      self->apply_bm = gtk_menu_item_new_with_label("Apply Berlekamp-Massey"));
+
+  gtk_widget_show_all(GTK_WIDGET(self->menu));
 
   gtk_widget_set_events(
       GTK_WIDGET(self),
