@@ -502,6 +502,20 @@ sugtk_sym_view_init(SuGtkSymView *self)
 
 }
 
+gboolean
+sugtk_sym_view_get_selection(const SuGtkSymView *view, guint *start, guint *end)
+{
+  if (view->sel_off0 < view->sel_off1) {
+    *start = view->sel_off0;
+    *end   = view->sel_off1;
+  } else {
+    *start = view->sel_off1;
+    *end   = view->sel_off0;
+  }
+
+  return view->selection;
+}
+
 GtkWidget *
 sugtk_sym_view_new(void)
 {
