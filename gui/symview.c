@@ -373,7 +373,7 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
   return TRUE;
 }
 
-static const int32_t
+guint
 sugtk_sym_view_coords_to_offset(const SuGtkSymView *widget, gfloat x, gfloat y)
 {
   int32_t offset;
