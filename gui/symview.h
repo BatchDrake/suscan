@@ -50,6 +50,11 @@ struct _SuGtkSymView
 
   gboolean autofit;
   gboolean autoscroll;
+
+  gboolean selection;
+  gboolean sel_started;
+  guint sel_off0;
+  guint sel_off1;
 };
 
 struct _SuGtkSymViewClass

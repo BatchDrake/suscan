@@ -21,6 +21,7 @@
 #include <glib-object.h>
 #include <gtk/gtk.h>
 #include <stdlib.h>
+#include <math.h>
 #include "symview.h"
 
 G_DEFINE_TYPE(SuGtkSymView, sugtk_sym_view, GTK_TYPE_DRAWING_AREA);
@@ -228,6 +229,14 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
   guint tail = 0;
   guint offset;
 
+  guint sel_start, sel_end;
+  guint sel_x0, sel_y0;
+  guint sel_x1, sel_y1;
+  guint sel_size;
+  guint sel_width, sel_tmp;
+
+  gboolean selection = FALSE;
+
   /* Precedence is imortant here */
   width = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_width;
   height = sugtk_sym_view_get_height(view);
@@ -241,7 +250,32 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
       view->window_zoom / (gdouble) SUGTK_SYM_VIEW_STRIDE_ALIGN,
       view->window_zoom);
 
-  offset = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_offset;
+  offset    = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_offset;
+
+  /* Prepare selection parameters (if something is selected) */
+  if (view->selection) {
+    sel_start = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->sel_off0;
+    sel_end   = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->sel_off1;
+
+    if (sel_start > sel_end) {
+      sel_tmp = sel_start;
+      sel_start = sel_end;
+      sel_end = sel_tmp;
+    }
+
+    if (sel_start < width * height + offset && sel_end >= offset) {
+      selection = TRUE;
+
+      if (sel_start < offset)
+        sel_start = offset;
+
+      if (sel_end > width * height + offset)
+        sel_end = width * height + offset;
+
+      sel_start -= offset;
+      sel_end -= offset;
+    }
+  }
 
   if (offset < view->data_size) {
     if (width * height + offset > view->data_size) {
@@ -298,6 +332,121 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     }
   }
 
+  /* Paint selection */
+  if (selection) {
+    sel_x0 = sel_start % width;
+    sel_y0 = sel_start / width;
+
+    sel_x1 = sel_end % width;
+    sel_y1 = sel_end / width;
+
+    sel_size = sel_end - sel_start + 1;
+
+    cairo_set_source_rgba(cr, 0, 0, 1, .5);
+
+    if (sel_x0 > 0) {
+      if (sel_size + sel_x0 < width)
+        sel_width = sel_size;
+      else
+        sel_width = width - sel_x0;
+
+      cairo_rectangle(cr, sel_x0, sel_y0, sel_width, 1);
+      cairo_fill(cr);
+
+      ++sel_y0;
+      sel_size -= sel_width;
+    }
+
+    if (sel_y1 > sel_y0) {
+      cairo_rectangle(cr, 0, sel_y0, width, sel_y1 - sel_y0);
+      cairo_fill(cr);
+
+      sel_size -= (sel_y1 - sel_y0) * width;
+    }
+
+    if (sel_size > 0) {
+      cairo_rectangle(cr, 0, sel_y1, sel_size, 1);
+      cairo_fill(cr);
+    }
+  }
+
+  return TRUE;
+}
+
+static const int32_t
+sugtk_sym_view_coords_to_offset(const SuGtkSymView *widget, gfloat x, gfloat y)
+{
+  int32_t offset;
+  int32_t data_size;
+  data_size = widget->data_size / SUGTK_SYM_VIEW_STRIDE_ALIGN;
+
+  x /= widget->window_zoom;
+  y /= widget->window_zoom;
+
+  if (y > widget->window_width)
+    y = widget->window_width;
+
+  offset = floor(x) + floor(y) * widget->window_width + widget->window_offset;
+
+  if (offset >= data_size)
+    offset = data_size - 1;
+  if (offset < 0)
+    offset = 0;
+
+  return offset;
+}
+
+static gboolean
+sugtk_sym_view_on_button_press_event(
+    GtkWidget *widget,
+    GdkEvent *event,
+    gpointer data)
+{
+  SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
+  int32_t offset;
+
+  offset = sugtk_sym_view_coords_to_offset(
+      view,
+      event->motion.x,
+      event->motion.y);
+
+  view->selection = FALSE;
+  view->sel_started = TRUE;
+  view->sel_off0 = offset;
+  view->sel_off1 = view->sel_off0;
+
+  return TRUE;
+}
+
+static gboolean
+sugtk_sym_view_on_button_release_event(
+    GtkWidget *widget,
+    GdkEvent *event,
+    gpointer data)
+{
+  SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
+
+  view->sel_started = FALSE;
+
+  return TRUE;
+}
+
+static gboolean
+sugtk_sym_view_on_motion_notify_event(
+    GtkWidget *widget,
+    GdkEventMotion *event,
+    gpointer data)
+{
+  SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
+  int32_t offset;
+
+  if (view->sel_started) {
+    offset = sugtk_sym_view_coords_to_offset(view, event->x, event->y);
+
+    view->sel_off1 = offset;
+    view->selection = TRUE;
+  }
+
   return TRUE;
 }
 
@@ -312,6 +461,15 @@ sugtk_sym_view_init(SuGtkSymView *self)
   self->autofit = TRUE;
   self->window_zoom = 1;
 
+  gtk_widget_set_events(
+      GTK_WIDGET(self),
+        GDK_EXPOSURE_MASK
+      | GDK_LEAVE_NOTIFY_MASK
+      | GDK_BUTTON_PRESS_MASK
+      | GDK_BUTTON_RELEASE_MASK
+      | GDK_POINTER_MOTION_MASK);
+
+
   g_signal_connect(
       self,
       "configure-event",
@@ -322,6 +480,24 @@ sugtk_sym_view_init(SuGtkSymView *self)
       self,
       "draw",
       (GCallback) suscan_constellation_on_draw,
+      NULL);
+
+  g_signal_connect(
+      self,
+      "button-press-event",
+      (GCallback) sugtk_sym_view_on_button_press_event,
+      NULL);
+
+  g_signal_connect(
+      self,
+      "button-release-event",
+      (GCallback) sugtk_sym_view_on_button_release_event,
+      NULL);
+
+  g_signal_connect(
+      self,
+      "motion-notify-event",
+      (GCallback) sugtk_sym_view_on_motion_notify_event,
       NULL);
 
 }
