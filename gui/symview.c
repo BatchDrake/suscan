@@ -467,8 +467,8 @@ sugtk_sym_view_coords_to_offset(const SuGtkSymView *widget, gfloat x, gfloat y)
   x /= widget->window_zoom;
   y /= widget->window_zoom;
 
-  if (y > widget->window_width)
-    y = widget->window_width;
+  if (x > widget->window_width)
+    x = widget->window_width;
 
   offset = floor(x) + floor(y) * widget->window_width + widget->window_offset;
 
