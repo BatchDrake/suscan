@@ -490,7 +490,6 @@ sugtk_sym_view_on_button_press_event(
   GtkMenu *menu;
   uint32_t offset;
   guint start, end;
-  gboolean in_sel = FALSE;
 
   offset = sugtk_sym_view_coords_to_offset(
       view,
@@ -506,12 +505,7 @@ sugtk_sym_view_on_button_press_event(
       break;
 
     case GDK_BUTTON_SECONDARY:
-      if (sugtk_sym_view_get_selection(view, &start, &end))
-        if (start <= offset && offset <= end)
-          in_sel = TRUE;
-
-      gtk_widget_set_sensitive(view->apply_bm, in_sel);
-
+      gtk_widget_set_sensitive(view->apply_bm, view->selection);
       gtk_menu_popup_at_pointer(view->menu, event);
       break;
   }
