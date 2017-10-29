@@ -23,6 +23,7 @@
 
 #include <glib-object.h>
 #include <gtk/gtk.h>
+#include <util.h>
 #include <stdint.h>
 
 G_BEGIN_DECLS

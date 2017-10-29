@@ -21,10 +21,89 @@
 #include <glib-object.h>
 #include <gtk/gtk.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include "symview.h"
 
 G_DEFINE_TYPE(SuGtkSymView, sugtk_sym_view, GTK_TYPE_DRAWING_AREA);
+
+static gchar *
+sugtk_sym_view_apply_berlekamp_massey(
+    const SuGtkSymView *view,
+    guint *len,
+    gboolean inv)
+{
+  guint start, end;
+  guint size;
+
+  gchar *b = NULL;
+  gchar *c = NULL;
+  gchar *t = NULL;
+  gchar *result = NULL;
+
+  gint ibit = !!inv;
+  gint i;
+  gint d;
+  gint N, p;
+  gint L = 0;
+  gint m = -1;
+
+  /* Work only if a selection is available */
+  if (sugtk_sym_view_get_selection(view, &start, &end)) {
+    size = end - start;
+
+    if ((b = g_malloc0(size)) == NULL)
+      goto done;
+
+    if ((c = g_malloc0(size)) == NULL)
+      goto done;
+
+    if ((t = g_malloc(size)) == NULL)
+      goto done;
+
+    b[0] = 1;
+    c[0] = 1;
+
+    /* TODO: Add support for non-binary symbols */
+    p = start * SUGTK_SYM_VIEW_STRIDE_ALIGN;
+    for (N = 0; N < size; ++N, p += SUGTK_SYM_VIEW_STRIDE_ALIGN) {
+      d = (view->data_buf[p] & 1) ^ ibit;
+      for (i = 1; i <= L; ++i)
+        d ^= c[i]
+          & ((view->data_buf[p - i * SUGTK_SYM_VIEW_STRIDE_ALIGN] & 1) ^ ibit);
+
+      /* Discrepancy is found! */
+      if (d) {
+        memcpy(t, c, size); /* Save copy of C */
+
+        for (i = N - m; i < size; ++i)
+          c[i] ^= b[i - (N - m)];
+
+        if (L <= N / 2) {
+          L = N + 1 - L;
+          m = N;
+          memcpy(b, t, size);
+        }
+      }
+    }
+
+    result = c;
+    c = NULL;
+    *len = L;
+  }
+
+done:
+  if (b != NULL)
+    g_free(b);
+
+  if (c != NULL)
+    g_free(c);
+
+  if (t != NULL)
+    g_free(t);
+
+  return result;
+}
 
 void
 sugtk_sym_view_clear(SuGtkSymView *view)
@@ -476,6 +555,95 @@ sugtk_sym_view_on_motion_notify_event(
   return TRUE;
 }
 
+static gboolean
+sugtk_sym_view_poly_to_gbuf(grow_buf_t *gbuf, gchar *result, guint len)
+{
+  guint i;
+
+  for (i = 0; i < len; ++i)
+    if (result[i]) {
+      if (len - i > 1) {
+        if (grow_buf_append_printf(gbuf, "x<sup>%d</sup> + ", len - i) == -1)
+          return FALSE;
+      } else {
+        if (grow_buf_append(gbuf, "x + ", 4) == -1)
+          return FALSE;
+      }
+    }
+
+  if (grow_buf_append(gbuf, "1", 1) == -1)
+    return FALSE;
+
+  return TRUE;
+}
+
+static void
+sugtk_sym_view_on_bm(GtkWidget *widget, gpointer *data)
+{
+  SuGtkSymView *view = SUGTK_SYM_VIEW(data);
+  grow_buf_t gbuf = grow_buf_INITIALIZER;
+  GtkWidget *dialog = NULL;
+  gchar *result_dir = NULL;
+  gchar *result_inv = NULL;
+  guint dir_len, inv_len;
+  guint i;
+  guint len;
+  guint start, end;
+
+  if (sugtk_sym_view_get_selection(view, &start, &end)) {
+    result_dir = sugtk_sym_view_apply_berlekamp_massey(view, &dir_len, FALSE);
+    result_inv = sugtk_sym_view_apply_berlekamp_massey(view, &inv_len, TRUE);
+    len = end - start + 1;
+
+    if (result_dir != NULL && result_inv != NULL) {
+      if (grow_buf_append_printf(&gbuf, "Input length: %u\n", len) == -1)
+        goto done;
+
+      if (grow_buf_append_printf(&gbuf, "Direct sequence polynomial: ") == -1)
+        goto done;
+
+      if (!sugtk_sym_view_poly_to_gbuf(&gbuf, result_dir, dir_len))
+        goto done;
+
+      if (grow_buf_append_printf(&gbuf, "\nNegated sequence polynomial: ") == -1)
+        goto done;
+
+      if (!sugtk_sym_view_poly_to_gbuf(&gbuf, result_inv, inv_len))
+        goto done;
+
+      if (grow_buf_append_null(&gbuf) == -1)
+        goto done;
+
+      dialog = gtk_message_dialog_new(
+          GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(view))),
+          GTK_DIALOG_DESTROY_WITH_PARENT,
+          GTK_MESSAGE_INFO,
+          GTK_BUTTONS_CLOSE,
+          NULL);
+
+      gtk_window_set_title(GTK_WINDOW(dialog), "Berlekamp-Massey analysis");
+
+      gtk_message_dialog_set_markup(
+          GTK_MESSAGE_DIALOG(dialog),
+          (gchar *) grow_buf_get_buffer(&gbuf));
+
+      gtk_dialog_run(GTK_DIALOG(dialog));
+    }
+  }
+
+done:
+  if (result_dir != NULL)
+    g_free(result_dir);
+
+  if (result_inv != NULL)
+    g_free(result_inv);
+
+  if (dialog != NULL)
+    gtk_widget_destroy(dialog);
+
+  grow_buf_finalize(&gbuf);
+}
+
 static void
 sugtk_sym_view_init(SuGtkSymView *self)
 {
@@ -487,6 +655,7 @@ sugtk_sym_view_init(SuGtkSymView *self)
   self->autofit = TRUE;
   self->window_zoom = 1;
 
+  /* Create context menu */
   self->menu = GTK_MENU(gtk_menu_new());
   gtk_menu_attach_to_widget(self->menu, GTK_WIDGET(self), NULL);
 
@@ -499,6 +668,13 @@ sugtk_sym_view_init(SuGtkSymView *self)
       self->apply_bm = gtk_menu_item_new_with_label("Apply Berlekamp-Massey"));
 
   gtk_widget_show_all(GTK_WIDGET(self->menu));
+
+  /* Connect calbacks */
+  g_signal_connect(
+      G_OBJECT(self->apply_bm),
+      "activate",
+      G_CALLBACK(sugtk_sym_view_on_bm),
+      self);
 
   gtk_widget_set_events(
       GTK_WIDGET(self),
