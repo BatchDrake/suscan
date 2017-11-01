@@ -389,7 +389,7 @@ suscan_inspector_feed_bulk(
         break;
 
       case SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC:
-        det_x  = 2 * su_agc_feed(&insp->agc, det_x) * 1.4142;
+        det_x  = 2 * su_agc_feed(&insp->agc, det_x);
         break;
     }
 

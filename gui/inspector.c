@@ -202,20 +202,27 @@ suscan_gui_inspector_feed_w_batch(
   sample_count = MIN(full_samp_count, SUSCAN_GUI_CONSTELLATION_HISTORY);
 
   /* Check if recording is enabled to assert the symbol buffer */
-  if (insp->recording) {
+  if (insp->recording)
     sym_count = 1 << insp->params.fc_ctrl;
 
-    for (i = 0; i < full_samp_count; ++i)
-      if ((sym = suscan_gui_inspector_decide(insp, msg->samples[i]))
-          != SU_NOSYMBOL) {
-        /* Append text to buffer */
-        value = (0xff * (sym - '0')) / (sym_count - 1);
+  sugtk_trans_mtx_reset(insp->transMatrix);
 
+  for (i = 0; i < full_samp_count; ++i)
+    if ((sym = suscan_gui_inspector_decide(insp, msg->samples[i]))
+        != SU_NOSYMBOL) {
+      sym -= '0'; /* All symbol IDs start by '0' */
+      if (insp->recording) {
+        /* Append text to buffer */
+        value = (0xff * sym) / (sym_count - 1);
         sugtk_sym_view_append(insp->symbolView, value);
       }
 
+      /* Feed transition matrix */
+      sugtk_trans_mtx_feed(insp->transMatrix, sym);
+    }
+
+  if (insp->recording)
     suscan_gui_inspector_update_spin_buttons(insp);
-  }
 
   for (i = 0; i < sample_count; ++i)
     suscan_gui_constellation_push_sample(
@@ -594,6 +601,21 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
               "eEqMu")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->constellationNotebook =
+          GTK_NOTEBOOK(gtk_builder_get_object(
+              inspector->builder,
+              "nbConstellation")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->transAlignment =
+          GTK_ALIGNMENT(gtk_builder_get_object(
+              inspector->builder,
+              "aTransition")),
+          return SU_FALSE);
+
+  /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
   gtk_grid_attach(
@@ -608,6 +630,18 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
   gtk_widget_set_vexpand(GTK_WIDGET(inspector->symbolView), TRUE);
 
   gtk_widget_show(GTK_WIDGET(inspector->symbolView));
+
+  /* Add transition matrix view */
+  inspector->transMatrix = SUGTK_TRANS_MTX(sugtk_trans_mtx_new());
+
+  gtk_container_add(
+      GTK_CONTAINER(inspector->transAlignment),
+      GTK_WIDGET(inspector->transMatrix));
+
+  gtk_widget_set_hexpand(GTK_WIDGET(inspector->transMatrix), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(inspector->transMatrix), TRUE);
+
+  gtk_widget_show(GTK_WIDGET(inspector->transMatrix));
 
   /* Somehow Glade fails to set these default values */
   gtk_toggle_button_set_active(
@@ -789,16 +823,21 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
 
   /* Set carrier control */
   if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->costas2RadioButton)))
+      GTK_TOGGLE_BUTTON(insp->costas2RadioButton))) {
     insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2;
-  else if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->costas4RadioButton)))
+    sugtk_trans_mtx_set_order(insp->transMatrix, 2);
+  } else if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(insp->costas4RadioButton))) {
     insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4;
-  else if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->costas8RadioButton)))
+    sugtk_trans_mtx_set_order(insp->transMatrix, 4);
+  } else if (gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(insp->costas8RadioButton))) {
     insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8;
-  else
+    sugtk_trans_mtx_set_order(insp->transMatrix, 8);
+  } else {
     insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
+    sugtk_trans_mtx_set_order(insp->transMatrix, 0);
+  }
 
   insp->params.fc_off =
       freq + gtk_range_get_value(GTK_RANGE(insp->fineTuneScale));

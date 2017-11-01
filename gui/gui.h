@@ -25,6 +25,7 @@
 #include <suscan.h>
 #include <gtk/gtk.h>
 #include <symview.h>
+#include <transmtx.h>
 
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
@@ -243,12 +244,15 @@ struct suscan_gui_inspector {
   struct suscan_inspector_params params; /* Inspector params */
 
   /* Widgets */
-  GtkBuilder  *builder;
-  GtkEventBox *pageLabelEventBox;
-  GtkLabel    *pageLabel;
-  GtkGrid     *channelInspectorGrid;
+  GtkBuilder     *builder;
+  GtkEventBox    *pageLabelEventBox;
+  GtkLabel       *pageLabel;
+  GtkGrid        *channelInspectorGrid;
   GtkToggleToolButton *autoScrollToggleButton;
   GtkToggleToolButton *autoFitToggleButton;
+  GtkNotebook    *constellationNotebook;
+  SuGtkTransMtx  *transMatrix;
+  GtkAlignment   *transAlignment;
 
   /* Gain control widgets */
   GtkRadioButton *automaticGainRadioButton;
