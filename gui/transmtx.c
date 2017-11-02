@@ -23,7 +23,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <complex.h>
 #include "transmtx.h"
+
+#define SUGTK_TRANS_MTX_GRAPH_REL_RADIUS .75
+#define SUGTK_TRANS_MTX_GRAPH_LINE_WIDTH 4
 
 G_DEFINE_TYPE(SuGtkTransMtx, sugtk_trans_mtx, GTK_TYPE_DRAWING_AREA);
 
@@ -102,9 +106,95 @@ sugtk_trans_mtx_on_configure_event(
 }
 
 static gboolean
-suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
 {
-  SuGtkTransMtx *mtx = SUGTK_TRANS_MTX(widget);
+  gfloat p;
+  gfloat count_inv;
+  gfloat min_phase;
+  gfloat w_half, h_half;
+  gfloat x0, y0;
+  complex phi_step, phi0;
+  complex phi_j, phi_i;
+  guint i, j, ndx;
+  const double dashes[] = {4.};
+
+  cairo_set_source_rgb(cr, 0, 0, 0);
+  cairo_paint(cr);
+  cairo_set_source_rgb(cr, 1, 1, 0);
+
+  if (mtx->order > 0) {
+    phi0 = cexp(I * M_PI / mtx->order);
+    phi_step = phi0 * phi0;
+    w_half = mtx->width / 2;
+    h_half = mtx->height / 2;
+    phi_j = phi0;
+
+    ndx = 0;
+
+    for (j = 0; j < mtx->order; ++j) {
+      /* Draw decision thresholds */
+      phi_j *= phi0;
+      x0 = w_half * (1 + 2 * creal(phi_j));
+      y0 = h_half * (1 + 2 * cimag(phi_j));
+
+      cairo_set_line_width(cr, 1);
+      cairo_set_source_rgb(cr, .5, .5, .5);
+      cairo_set_dash(cr, dashes, 1, 0);
+      cairo_move_to(cr, x0, y0);
+      cairo_line_to(cr, w_half, h_half);
+      cairo_stroke(cr);
+
+      /* Draw state transition edges */
+      phi_j *= phi0;
+      x0 = w_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * creal(phi_j));
+      y0 = h_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * cimag(phi_j));
+
+      if (mtx->coef[ndx] == 0) {
+        ndx += mtx->order + 1;
+        continue;
+      }
+
+      phi_i = phi0;
+      count_inv = 1. / mtx->coef[ndx++];
+
+      cairo_set_source_rgb(cr, 1, 1, 0);
+      cairo_set_dash(cr, NULL, 0, 0);
+
+      for (i = 0; i < mtx->order; ++i) {
+        phi_i *= phi_step;
+        p = count_inv * mtx->coef[ndx++];
+
+        if (i != j) {
+          /* Transition between different states: draw a line */
+          cairo_set_line_width(cr, SUGTK_TRANS_MTX_GRAPH_LINE_WIDTH * p);
+          cairo_move_to(cr, x0, y0);
+          cairo_line_to(
+              cr,
+              w_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * creal(phi_i)),
+              h_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * cimag(phi_i)));
+          cairo_stroke(cr);
+        } else {
+          /* Transition to the same state: draw a circle */
+          cairo_set_line_width(cr, 0);
+          cairo_arc(
+              cr,
+              x0,
+              y0,
+              SUGTK_TRANS_MTX_GRAPH_LINE_WIDTH * p,
+              0,
+              2 * M_PI);
+          cairo_fill(cr);
+        }
+      }
+    }
+  }
+
+  return TRUE;
+}
+
+static gboolean
+sugtk_trans_mtx_draw_matrix(SuGtkTransMtx *mtx, cairo_t *cr)
+{
   gfloat cwidth, cheight;
   gfloat p;
   gfloat count_inv;
@@ -140,10 +230,38 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
   return TRUE;
 }
 
+static gboolean
+sugtk_trans_mtx_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+{
+  SuGtkTransMtx *mtx = SUGTK_TRANS_MTX(widget);
+
+  if (mtx->graph_mode)
+    return sugtk_trans_mtx_draw_graph(mtx, cr);
+  else
+    return sugtk_trans_mtx_draw_matrix(mtx, cr);
+}
+
+static gboolean
+sugtk_trans_mtx_on_button_press_event(
+    GtkWidget *widget,
+    GdkEvent *event,
+    gpointer data)
+{
+  SuGtkTransMtx *mtx = SUGTK_TRANS_MTX(widget);
+
+  /* Toggle graph mode if requested */
+  if (event->button.button == GDK_BUTTON_PRIMARY)
+    mtx->graph_mode = !mtx->graph_mode;
+
+  return TRUE;
+}
+
 static void
 sugtk_trans_mtx_init(SuGtkTransMtx *self)
 {
-  gtk_widget_set_events(GTK_WIDGET(self), GDK_EXPOSURE_MASK);
+  gtk_widget_set_events(
+      GTK_WIDGET(self),
+      GDK_EXPOSURE_MASK | GDK_BUTTON_PRESS_MASK);
 
   g_signal_connect(
       self,
@@ -154,7 +272,13 @@ sugtk_trans_mtx_init(SuGtkTransMtx *self)
   g_signal_connect(
       self,
       "draw",
-      (GCallback) suscan_constellation_on_draw,
+      (GCallback) sugtk_trans_mtx_on_draw,
+      NULL);
+
+  g_signal_connect(
+      self,
+      "button-press-event",
+      (GCallback) sugtk_trans_mtx_on_button_press_event,
       NULL);
 }
 

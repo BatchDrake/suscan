@@ -47,6 +47,8 @@ struct _SuGtkTransMtx
   gfloat width;
   gfloat height;
 
+  gboolean graph_mode;
+
   /* Previous state */
   uint8_t prev;
 };
