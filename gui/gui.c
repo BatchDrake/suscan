@@ -1303,9 +1303,24 @@ struct suscan_gui *
 suscan_gui_new(int argc, char **argv)
 {
   struct suscan_gui *gui = NULL;
-  GError *err;
+  GtkCssProvider *provider;
+  GError *err = NULL;
 
   gtk_init(&argc, &argv);
+
+  provider = gtk_css_provider_new();
+
+  SU_TRYCATCH(
+      gtk_css_provider_load_from_path(
+          provider,
+          PKGDATADIR "/gui/ui.css",
+          &err),
+      g_prefix_error(&err, "Cannot parse CSS"); goto fail);
+
+  gtk_style_context_add_provider_for_screen(
+      gdk_screen_get_default(),
+      GTK_STYLE_PROVIDER(provider),
+      GTK_STYLE_PROVIDER_PRIORITY_USER);
 
   SU_TRYCATCH(gui = calloc(1, sizeof(struct suscan_gui)), goto fail);
 
