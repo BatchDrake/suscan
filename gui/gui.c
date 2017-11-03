@@ -789,73 +789,10 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->freqLabels[0] =
+      gui->freqLabel =
           GTK_LABEL(gtk_builder_get_object(
               gui->builder,
-              "lMainViewsSummaryFreq0")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->freqLabels[1] =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq1")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->freqLabels[2] =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq2")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->freqLabels[3] =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq3")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->freqLabels[4] =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq4")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->freqLabels[5] =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq5")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->freqLabels[6] =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq6")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->freqLabels[7] =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq7")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->freqLabels[8] =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq8")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->freqLabels[9] =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq9")),
+              "lMainViewsSummaryFreq")),
       return SU_FALSE);
 
   SU_TRYCATCH(
@@ -1362,21 +1299,20 @@ fail:
 void
 suscan_gui_set_freq(struct suscan_gui *gui, uint64_t freq)
 {
-  unsigned int i;
-  char string[3];
+  int i;
+  char freq_banner[] = "0,000.000.000 MHz";
+  char portion[4];
 
-  for (i = 0; i < 10; ++i) {
-    if (i == 9)
-      snprintf(string, 3, "%d,", freq % 10);
-    else if (i != 0 && (i % 3) == 0)
-      snprintf(string, 3, "%d.", freq % 10);
-    else
-      snprintf(string, 3, "%d", freq % 10);
+  for (i = 2; i >= 0; --i) {
+    snprintf(portion, 4, "%03d", freq % 1000);
+    freq /= 1000;
 
-    gtk_label_set_text(gui->freqLabels[i], string);
-
-    freq /= 10;
+    memcpy(freq_banner + 2 + 4 * i, portion, 3);
   }
+
+  freq_banner[0] = '0' + (freq % 10);
+
+  gtk_label_set_text(gui->freqLabel, freq_banner);
 }
 
 void

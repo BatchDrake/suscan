@@ -315,13 +315,13 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq9">
+                                  <object class="GtkLabel" id="lMainViewsSummaryFreq">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="label">0,</property>
+                                    <property name="label">0,000.000.000 MHz</property>
                                     <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#efef29292929"/>
+                                      <attribute name="font-desc" value="LCD Italic 28"/>
+                                      <attribute name="foreground" value="#ffffa5a50000"/>
                                       <attribute name="background" value="#000000000000"/>
                                     </attributes>
                                   </object>
@@ -329,176 +329,6 @@
                                     <property name="expand">False</property>
                                     <property name="fill">True</property>
                                     <property name="position">0</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq8">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label">0</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#fcfce9e94f4f"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">1</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq7">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label">0</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#fcfce9e94f4f"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">2</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq6">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label">0.</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#fcfce9e94f4f"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">3</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq5">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label">0</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#8a8ae2e23434"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">4</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq4">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label">0</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#8a8ae2e23434"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">5</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq3">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label">0.</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#8a8ae2e23434"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">6</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq2">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label">0</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#72729f9fcfcf"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">7</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq1">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label">0</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#72729f9fcfcf"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">8</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq0">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label">0</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#72729f9fcfcf"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">9</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryMHz">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label"> MHz</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="Inconsolata Bold 32"/>
-                                      <attribute name="foreground" value="#bababdbdb6b6"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">10</property>
                                   </packing>
                                 </child>
                               </object>

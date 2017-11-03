@@ -138,7 +138,7 @@ struct suscan_gui {
   GtkComboBox *sourceCombo;
   GtkHeaderBar *headerBar;
   GtkMenuBar *menuBar;
-  GtkLabel *freqLabels[10];
+  GtkLabel *freqLabel;
   GObject *sourceAlignment;
   GtkMenu *recentMenu;
   GtkMenuItem *emptyMenuItem;
