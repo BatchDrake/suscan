@@ -1,9 +1,9 @@
-#SUScan - Getting Started Guide
+# SUScan - Getting Started Guide
 SUScan is a graphical signal analysis tool compatible with a variety of signal sources, including some popular SDR devices, GQRX captures and even the soundcard.  It features a switchable real-time spectrum / waterfall view, a blind channel detector and a PSK channel inspector. QAM, OFDM and DSSS support is also planned.
 
 Due to the current experimental status of SUScan, this document will be a brief summary of its most common use case: reverse-engineer PSK channels by discovering its modulation parameters.
 
-##The main interface
+## The main interface
 This is what you should see after executing SUScan:
 
 ![](doc/main-window.png) 
@@ -18,7 +18,7 @@ For PSK analysis, we must take into account the following elements:
 * **Automatic level adjustment button**: Located after the channel overlay button, it toggles automatic level adjustment. If enabled, the spectrum is automatically rescaled to fit in the spectrum view.
 * **Channel list**: Located below the spectrum view. When a signal capture is running, it is filled with all the potential channels found by the channel detector.
 
-##Configuring a signal source
+## Configuring a signal source
 The first step to reverse-engineer a PSK signal is to tell SUScan how signal data is acquired. This is done by clicking on the preferences button:
 
 ![](doc/source-settings.png) 
