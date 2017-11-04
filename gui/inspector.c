@@ -40,7 +40,7 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
   if (inspector->pageLabelEventBox != NULL)
     gtk_widget_destroy(GTK_WIDGET(inspector->pageLabelEventBox));
 
-  suscan_gui_spectrum_init(&inspector->spectrum);
+  suscan_spectrum_finalize(&inspector->spectrum);
 
   g_object_unref(G_OBJECT(inspector->builder));
 
@@ -684,6 +684,9 @@ suscan_gui_inspector_new(
   suscan_gui_constellation_init(&new->constellation);
   suscan_gui_spectrum_init(&new->spectrum);
 
+  new->spectrum.auto_level = SU_FALSE;
+  new->spectrum.agc_alpha  = SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA;
+
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(
           PKGDATADIR "/gui/channel-inspector.glade"),
@@ -756,6 +759,7 @@ void
 suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  enum suscan_inspector_psd_source old_source;
 
   SUFLOAT freq;
   SUFLOAT baud;
@@ -886,6 +890,8 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
   }
 
   /* Configure spectrum */
+  old_source = insp->params.psd_source;
+
   if (gtk_toggle_button_get_active(
       GTK_TOGGLE_BUTTON(insp->powerSpectrumRadioButton)))
     insp->params.psd_source = SUSCAN_INSPECTOR_PSD_SOURCE_FAC;
@@ -895,6 +901,13 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
   else if (gtk_toggle_button_get_active(
       GTK_TOGGLE_BUTTON(insp->noSpectrumRadioButton)))
     insp->params.psd_source = SUSCAN_INSPECTOR_PSD_SOURCE_NONE;
+
+  /* Reset spectrum */
+  if (old_source != insp->params.psd_source) {
+    suscan_gui_spectrum_reset(&insp->spectrum);
+    insp->spectrum.agc_alpha  = SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA;
+  }
+
   suscan_gui_inspector_update_sensitiveness(insp, &insp->params);
 
   SU_TRYCATCH(

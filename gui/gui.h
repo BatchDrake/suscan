@@ -53,7 +53,7 @@ enum suscan_gui_state {
 #define SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT  1
 #define SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT 10
 #define SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT   0
-#define SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA .1
+#define SUSCAN_GUI_SPECTRUM_AGC_ALPHA .1
 
 enum suscan_gui_spectrum_param {
   SUSCAN_GUI_SPECTRUM_PARAM_FREQ_OFFSET,
@@ -83,6 +83,7 @@ struct suscan_gui_spectrum {
   SUSCOUNT updates; /* Number of spectrum updates */
   SUSCOUNT last_update; /* Last update in which waterfall has been repainted */
   SUBOOL   auto_level; /* Automatic reference level */
+  SUFLOAT  agc_alpha; /* AGC alpha for smooth update */
 
   /* Representation properties */
   SUBOOL  show_channels; /* Defaults to TRUE */
@@ -232,6 +233,8 @@ struct suscan_gui_constellation {
   SUCOMPLEX history[SUSCAN_GUI_CONSTELLATION_HISTORY];
   unsigned int p;
 };
+
+#define SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA .5
 
 struct suscan_gui_inspector {
   int index; /* Back reference */
