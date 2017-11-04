@@ -37,3 +37,21 @@ The configuration options vary a lot depending on the source type, but you will 
 * **Sampling frequency**: Set the sample rate. For live sources, this defines the number of data samples per second delivered to SUScan. For pre-recorded sources, it used to compute frequencies and baudrates correctly and configure throttling. 
 * **Center frequency**: For live sources, it corresponds to the tuner frequency in Hz. It is optional for pre-recorded sources as it simply allows you to configure the central frequency in the spectrum.
 * **Loop**: For pre-recorded sources, it tells SUScan to keep reading samples from the beginning after reaching the end of file.
+
+## Starting a signal capture and selecting a channel
+Click on the Run/Stop button on the top-left corner of the window. If your source was properly configured, you should see a spectrum plot in the spectrum view and (hopefully) a channel list:
+
+![](doc/inmarsat-aero.png) 
+
+The red rectangles overlaid on the spectrum plot represent the parameters of the detected channels. If you zoom horizontally (using the mouse wheel) and center any channel (dragging with the primary mouse button), you will see that the corresponding rectangle is formed by two nested rectangles. The innermost rectangle represents the channel bandwidth as the integral of its PSD divided by its peak PSD, while the outermost one represents the difference between its highest and lowest frequencies. The channel center is always computed using the [autocorrelation technique](https://en.wikipedia.org/wiki/Autocorrelation_technique):
+
+![](doc/bandwidth.png) 
+
+Please note that automatic channel detection is a purely heuristic feature based continuous estimations of the sequelch level and, because of its nature, it could fail (especially when there are lots of channels along the spectrum). In that case, you can manually define a channel by pressing shift while dragging over the frequency span of the channel. You should see a cyan rectangle as you define the new channel limits:
+
+![](doc/manual-selection.png) 
+
+After finding / defining the channel of interest, you are ready start the actual channel analysis by right-clicking on it and choosing "Open PSK inspector":
+
+![](doc/open-inspector.png) 
+
