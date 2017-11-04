@@ -113,6 +113,7 @@ sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
   gfloat min_phase;
   gfloat w_half, h_half;
   gfloat x0, y0;
+  cairo_matrix_t save_matrix;
   complex phi_step, phi0;
   complex phi_j, phi_i;
   guint i, j, ndx;
@@ -130,6 +131,28 @@ sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
     phi_j = phi0;
 
     ndx = 0;
+
+    cairo_get_matrix(cr, &save_matrix);
+    cairo_translate(cr, w_half, h_half);
+    cairo_scale(cr, w_half / h_half, 1);
+    cairo_translate(cr, -w_half, -h_half);
+    cairo_new_path(cr);
+
+    cairo_arc(
+        cr,
+        w_half,
+        h_half,
+        SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * h_half,
+        0,
+        2 * M_PI);
+
+    cairo_set_matrix(cr, &save_matrix);
+
+    cairo_set_line_width(cr, 1);
+    cairo_set_source_rgb(cr, .5, .5, .5);
+    cairo_set_dash(cr, dashes, 1, 0);
+
+    cairo_stroke(cr);
 
     for (j = 0; j < mtx->order; ++j) {
       /* Draw decision thresholds */
