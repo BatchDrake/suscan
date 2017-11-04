@@ -1277,8 +1277,6 @@ suscan_gui_new(int argc, char **argv)
 
   suscan_gui_spectrum_init(&gui->main_spectrum);
 
-  gui->main_spectrum.auto_level = SU_TRUE;
-
   g_signal_connect(
       GTK_WIDGET(gui->main),
       "destroy",

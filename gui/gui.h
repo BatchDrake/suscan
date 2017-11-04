@@ -374,6 +374,8 @@ void suscan_gui_spectrum_set_mode(
     struct suscan_gui_spectrum *spectrum,
     enum suscan_gui_spectrum_mode mode);
 
+void suscan_gui_spectrum_reset(struct suscan_gui_spectrum *spectrum);
+
 void suscan_gui_spectrum_update(
     struct suscan_gui_spectrum *spectrum,
     struct suscan_analyzer_psd_msg *msg);

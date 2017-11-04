@@ -99,6 +99,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
       break;
 
     case SUSCAN_GUI_STATE_RUNNING:
+      suscan_gui_spectrum_reset(&gui->main_spectrum);
       subtitle = strbuild("%s (Running)", source_name);
       suscan_gui_change_button_icon(
           GTK_BUTTON(gui->toggleConnect),
@@ -255,7 +256,7 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_psd_msg *msg;
-  char N0_str[20];
+  char text[32];
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_psd_msg *) envelope->private;
@@ -263,12 +264,23 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
   if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
     goto done;
 
-  snprintf(N0_str, sizeof(N0_str), "%.1lf dBFS", SU_POWER_DB(msg->N0));
+  /*
+   * TODO: Move this functions to something like
+   * suscan_update_spectrum_labels
+   */
+  snprintf(text, sizeof(text), "%.1lf dBFS", SU_POWER_DB(msg->N0));
 
-  gtk_label_set_text(envelope->gui->n0Label, N0_str);
+  gtk_label_set_text(envelope->gui->n0Label, text);
   gtk_level_bar_set_value(
       envelope->gui->n0LevelBar,
       1e-2 * (SU_POWER_DB(msg->N0) + 100));
+
+  snprintf(
+      text,
+      sizeof(text),
+      "%.2lg dB",
+      envelope->gui->main_spectrum.dbs_per_div);
+  gtk_label_set_text(envelope->gui->spectrumDbsPerDivLabel, text);
 
   suscan_gui_spectrum_update(
       &envelope->gui->main_spectrum,

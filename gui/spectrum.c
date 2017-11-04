@@ -41,6 +41,7 @@
 #define SUSCAN_GUI_SPECTRUM_RIGHT_PADDING 5
 #define SUSCAN_GUI_SPECTRUM_BOTTOM_PADDING 30
 
+#define SUSCAN_GUI_SPECTRUM_AUTO_LEVEL_RANGE_SCALE_DB 1.5
 
 #define SUSCAN_SPECTRUM_TO_SCR(s, x, y)         \
   suscan_gui_spectrum_to_scr_x(s, x), suscan_gui_spectrum_to_scr_y(s, y)
@@ -136,18 +137,24 @@ suscan_gui_spectrum_clear(struct suscan_gui_spectrum *spectrum)
 }
 
 /**************************** Common public API ******************************/
+void
+suscan_gui_spectrum_set_defaults(struct suscan_gui_spectrum *spectrum)
+{
+  spectrum->show_channels = SU_TRUE;
+  spectrum->auto_level  = SU_TRUE;
+  spectrum->mode        = SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM;
+  spectrum->freq_offset = SUSCAN_GUI_SPECTRUM_FREQ_OFFSET_DEFAULT;
+  spectrum->freq_scale  = SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT;
+  spectrum->ref_level   = SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT;
+  spectrum->dbs_per_div = SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT;
+}
 
 void
 suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum)
 {
   memset(spectrum, 0, sizeof (struct suscan_gui_spectrum));
 
-  spectrum->show_channels = SU_TRUE;
-  spectrum->mode        = SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM;
-  spectrum->freq_offset = SUSCAN_GUI_SPECTRUM_FREQ_OFFSET_DEFAULT;
-  spectrum->freq_scale  = SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT;
-  spectrum->ref_level   = SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT;
-  spectrum->dbs_per_div = SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT;
+  suscan_gui_spectrum_set_defaults(spectrum);
 }
 
 void
@@ -284,7 +291,6 @@ suscan_gui_spectrum_configure(
   }
 }
 
-
 void
 suscan_gui_spectrum_apply_delta(
     struct suscan_gui_spectrum *spectrum,
@@ -324,6 +330,22 @@ suscan_gui_spectrum_apply_delta(
           SUSCAN_GUI_SPECTRUM_SCALE_DELTA * delta * spectrum->dbs_per_div;
       break;
   }
+}
+
+void
+suscan_gui_spectrum_reset(struct suscan_gui_spectrum *spectrum)
+{
+  if (spectrum->psd_data != NULL) {
+    free(spectrum->psd_data);
+    spectrum->psd_data = NULL;
+  }
+
+  if (spectrum->psd_data_smooth != NULL) {
+    free(spectrum->psd_data_smooth);
+    spectrum->psd_data_smooth = NULL;
+  }
+
+  suscan_gui_spectrum_set_defaults(spectrum);
 }
 
 void
@@ -378,14 +400,27 @@ suscan_gui_spectrum_update(
         max = spectrum->psd_data[i];
 
     spectrum->last_max +=
-        SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA * (max - spectrum->last_max);
+        SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA * (SU_POWER_DB(max) - spectrum->last_max);
 
-    spectrum->ref_level = SU_POWER_DB(spectrum->last_max);
+    /* Update range (i.e. dBs per division) */
+    range =
+        SUSCAN_GUI_SPECTRUM_AUTO_LEVEL_RANGE_SCALE_DB
+        * (spectrum->last_max - SU_POWER_DB(msg->N0));
 
-    range = (spectrum->ref_level - SU_POWER_DB(msg->N0)) * SUSCAN_GUI_SPECTRUM_DY;
     spectrum->dbs_per_div +=
         SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA
-        * (range - spectrum->dbs_per_div);
+        * (range * SUSCAN_GUI_SPECTRUM_DY
+            - spectrum->dbs_per_div);
+
+    /*
+     * Update reference level (i.e. dBs on top of the spectrum)
+     * Since the spectrum may have been scaled by
+     * SUSCAN_GUI_SPECTRUM_AUTO_LEVEL_RANGE_SCALE_DB, we correct its
+     * layout
+     */
+    spectrum->ref_level +=
+        SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA
+        * (SU_POWER_DB(msg->N0) + range - spectrum->ref_level);
   }
 
   suscan_gui_spectrum_redraw_waterfall(spectrum);
