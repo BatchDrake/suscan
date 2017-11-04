@@ -55,3 +55,16 @@ After finding / defining the channel of interest, you are ready start the actual
 
 ![](doc/open-inspector.png) 
 
+## The channel inspector tab
+After opening the PSK inspector over the desired channel, you should see something like this:
+
+![](doc/inspector.png)
+
+This is the inspector tab. It allows you analyze, detect and configure a set of modulation parameters in a PSK signals. It is basically a configurable generic PSK demodulator. From left to right, top-down, it features:
+
+* **Constellation plot**: Scatter plot representing the amplitude and phase of the sampler output.
+* **Transition plot**: Symbol transition representation, either as a transition matrix or a transition graph. You can switch from one to another just by left-clicking on it.
+* **Spectrum plot**: Power spectrum and cyclostationary spectrum analysis of the desired channel, disabled by default.
+* **Demodulator properties**: Set of controls to define the channel modulation parameters. It also features a couple of automatic baudrate detectors.
+* **Symbol recorder**: After configuring the demodulator properly, it allows you to record, save and process demodulated symbols. 
+
