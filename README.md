@@ -66,5 +66,5 @@ This is the inspector tab. It allows you analyze, detect and configure a set of 
 * **Transition plot**: Symbol transition representation, either as a transition matrix or a transition graph. You can switch from one to another just by left-clicking on it.
 * **Spectrum plot**: Power spectrum and cyclostationary spectrum analysis of the desired channel, disabled by default.
 * **Demodulator properties**: Set of controls to define the channel modulation parameters. It also features a couple of automatic baudrate detectors.
-* **Symbol recorder**: After configuring the demodulator properly, it allows you to record, save and process demodulated symbols. 
+* **Symbol recorder**: After properly configuring the demodulator parameters, it allows you to record, save and process demodulated symbols. 
 
