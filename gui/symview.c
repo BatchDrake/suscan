@@ -677,78 +677,80 @@ sugtk_sym_view_on_fac(GtkWidget *widget, gpointer *data)
 
   len = end - start + 1;
 
-  if (len > SUGTK_SYM_VIEW_FFT_SIZE) {
+  if (len > 0) {
+    if (len > SUGTK_SYM_VIEW_FFT_SIZE) {
+      dialog = gtk_message_dialog_new(
+          GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(view))),
+          GTK_DIALOG_DESTROY_WITH_PARENT,
+          GTK_MESSAGE_INFO,
+          GTK_BUTTONS_YES_NO,
+          "The selected symbol stream is too big (%d symbols) to be analyzed "
+          "by fast autocorrelation (FAC). Only the last %d samples will be "
+          "taken into account. Do you want to continue?",
+          len,
+          SUGTK_SYM_VIEW_FFT_SIZE);
+
+      gtk_window_set_title(GTK_WINDOW(dialog), "Symbol autocorrelation");
+
+      /* Abort */
+      if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_YES)
+        goto done;
+
+      gtk_widget_destroy(dialog);
+      dialog = NULL;
+
+      start = end - SUGTK_SYM_VIEW_FFT_SIZE + 1;
+      len = SUGTK_SYM_VIEW_FFT_SIZE;
+    }
+
+    memset(view->fft_buf, 0, SUGTK_SYM_VIEW_FFT_SIZE * sizeof (fftw_complex));
+
+    inv = 1. / 128.0;
+    for (i = 0; i < len; ++i)
+      view->fft_buf[i] =
+          ((int) view->data_buf[(i + start) * SUGTK_SYM_VIEW_STRIDE_ALIGN] - 128)
+          * inv;
+
+    /* Direct FFT */
+    fftw_execute(view->fft_plan);
+
+    for (i = 0; i < len; ++i)
+      view->fft_buf[i] *= conj(view->fft_buf[i]);
+
+    /* Inverse FFT */
+    fftw_execute(view->fft_plan_rev);
+
+    for (i = 1; i < len; ++i) {
+      if (creal(view->fft_buf[i]) > max) {
+        max = creal(view->fft_buf[i]);
+        max_tau = i;
+      }
+    }
+
+    if (max_tau > SUGTK_SYM_VIEW_FFT_SIZE / 2)
+      max_tau = SUGTK_SYM_VIEW_FFT_SIZE - max_tau;
+
+    msg = strbuild(
+        "Maximum autocorrelation found at tau = <b>%d</b> and <b>%d</b> symbols "
+        "(significance: %lg%%)",
+        max_tau,
+        SUGTK_SYM_VIEW_FFT_SIZE - max_tau,
+        100.0 * max / creal(view->fft_buf[0]));
+    g_assert_nonnull(msg);
+
     dialog = gtk_message_dialog_new(
         GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(view))),
         GTK_DIALOG_DESTROY_WITH_PARENT,
         GTK_MESSAGE_INFO,
-        GTK_BUTTONS_YES_NO,
-        "The selected symbol stream is too big (%d symbols) to be analyzed "
-        "by fast autocorrelation (FAC). Only the last %d samples will be "
-        "taken into account. Do you want to continue?",
-        len,
-        SUGTK_SYM_VIEW_FFT_SIZE);
+        GTK_BUTTONS_CLOSE,
+        NULL);
+
+    gtk_message_dialog_set_markup(GTK_MESSAGE_DIALOG(dialog), (gchar *) msg);
 
     gtk_window_set_title(GTK_WINDOW(dialog), "Symbol autocorrelation");
 
-    /* Abort */
-    if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_YES)
-      goto done;
-
-    gtk_widget_destroy(dialog);
-    dialog = NULL;
-
-    start = end - SUGTK_SYM_VIEW_FFT_SIZE + 1;
-    len = SUGTK_SYM_VIEW_FFT_SIZE;
+    gtk_dialog_run(GTK_DIALOG(dialog));
   }
-
-  memset(view->fft_buf, 0, SUGTK_SYM_VIEW_FFT_SIZE * sizeof (fftw_complex));
-
-  inv = 1. / 128.0;
-  for (i = 0; i < len; ++i)
-    view->fft_buf[i] =
-        ((int) view->data_buf[(i + start) * SUGTK_SYM_VIEW_STRIDE_ALIGN] - 128)
-        * inv;
-
-  /* Direct FFT */
-  fftw_execute(view->fft_plan);
-
-  for (i = 0; i < len; ++i)
-    view->fft_buf[i] *= conj(view->fft_buf[i]);
-
-  /* Inverse FFT */
-  fftw_execute(view->fft_plan_rev);
-
-  for (i = 1; i < len; ++i) {
-    if (creal(view->fft_buf[i]) > max) {
-      max = creal(view->fft_buf[i]);
-      max_tau = i;
-    }
-  }
-
-  if (max_tau > SUGTK_SYM_VIEW_FFT_SIZE / 2)
-    max_tau = SUGTK_SYM_VIEW_FFT_SIZE - max_tau;
-
-  msg = strbuild(
-      "Maximum autocorrelation found at tau = <b>%d</b> and <b>%d</b> symbols "
-      "(significance: %lg%%)",
-      max_tau,
-      SUGTK_SYM_VIEW_FFT_SIZE - max_tau,
-      100.0 * max / creal(view->fft_buf[0]));
-  g_assert_nonnull(msg);
-
-  dialog = gtk_message_dialog_new(
-      GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(view))),
-      GTK_DIALOG_DESTROY_WITH_PARENT,
-      GTK_MESSAGE_INFO,
-      GTK_BUTTONS_CLOSE,
-      NULL);
-
-  gtk_message_dialog_set_markup(GTK_MESSAGE_DIALOG(dialog), (gchar *) msg);
-
-  gtk_window_set_title(GTK_WINDOW(dialog), "Symbol autocorrelation");
-
-  gtk_dialog_run(GTK_DIALOG(dialog));
 
 done:
   if (dialog != NULL)
