@@ -123,7 +123,73 @@ The remedy for this scenario is to perform blind equalization on the signal. Usi
 
 Note: If you are dealing with satellite signals, you will not notice any effect. In fact, it can make things even worse! If you still fail to lock, your best options here are to increase the Roll-off factor of the matched filter and reduce Gardner algorithm's loop gain.
 
-After stabilizing your constellation, you are ready to get a stream of symbols and say goodbye to the analog part of the analysis ;)
+## Step 3½: Tips for telling PSK variations apart
+As previously mentioned, there are many PSK variations that share the same constellation type but differ on the set of phase transitions they allow. After stabilizing your constellation, pen the "Transition" tab, and click in its display area. For regular QPSK you should see something like this:
 
+![](doc/qpsk-trans.png)
+
+Every symbol transition is displayed as a line communicating both symbols involved. The thicker is the line, the more frequent is the transition. In this case, as all transitions are allowed, all phases are connected.
+
+For OQPSK things are different: 180º transitions are forbidden. The only way to change the phase in 180º is by transmitting two symbols 90º apart in the same sense. The resulting graph lacks the diagonal lines that represent 180º transitions:
+
+![](doc/trans-oqpsk.png)
+
+Something similar happens with OPSK and π/4-QPSK. In regular OPSK all 8x8=16 transitions are allowed:
+
+![](doc/opsk-trans.png)
+
+However, in π/4-QPSK, each symbol must change to a subset of 4 equally spaced phases that are at least 45º apart from the current phase. The resulting transition graph lacks most of regular OPSK transitions:
+
+![](doc/pi4-trans.png)
+
+For high order modulations (i.e. QPSK and OPSK) you will need this information to figure out how much information is carried by each symbol. For instance, in regular OPSK, every symbol carries up to 3 bits of information while π/4-QPSK cannot carry more than 2.
 
 ## Step 4: Recording symbols
+Click on the "Symbol recorder" tab. You should could see something like this:
+
+![](doc/record.png)
+
+This tool allows you to visualize symbols at the demodulator output as a sequence of pixels, displayed in the symbol view (the black area of the tab). The lighter is the pixel, the higher is the symbol phase. For BPSK signals, black pixels represent symbol phase 0 and white pixels symbol phase 180º (you usually interpret this as bits). For QPSK signals, there are 4 shades of gray for symbol phases 0º, 90º, 180º and 270º. For OPSK there are 8 shades of gray, etc.
+
+Please note that since symbol representation is tied to the current Costas loop selection, you will not be able to record symbols if the carrier control is set to manual. This should change in the future, though.
+
+The toolbar on top allows you to control the recording process and representation. From left to right:
+* **Save**: save the current symbol view as a text file. Every symbol is saved as a digit from `0` to `n-1`, with `n` being the constellation order.
+* **Record/pause**: start or stop recording symbols. 
+* **Clear buffer**: delete all recorded symbols in the symbol view.
+* **Zoom in (+) and out (-)**: increase or decrease pixel size.
+* **Autoscroll**: move to the bottom of the view after a new symbol row is added.
+* **Offset**: set the first symbol displayed in the symbol view. Enabled if autoscroll is disabled.
+* **Fit width**: autofit the symbol view row width to the window width. New symbols that fall beyond the window border will be displayed in the beginning of the next row.
+* **Width**: manually set the symbol row width.
+
+Let's assume you are demodulating a BPSK signal. Click on "Record" and see how the symbol view gets filled as new symbols are demodulated:
+
+![](doc/symbols.png)
+
+This is already a stream of zeroes and ones that you can save for further processing with other applications. Normally, this is where your work with SUScan ends. However, depending on the regularity of your data, you can extract some properties of the symbol stream.
+
+Let's say that instead of the static-like pattern in the picture above you see something like this (some parts were blurried on purpose):
+
+![](doc/patterns.png)
+
+Diagonals in the symbol view suggest that there is some repeating structure, usually related to a fixed frame size. If you right-click on the symbol view and click on "FAC Analysis", you should get the two most probable frame sizes. You get two because of the ambiguity of the autocorrelation: since the autocorrelation buffer is limited to 8192, a repeating frame of `n` samples long will produce the same autocorrelation peaks as a repeating frame of `8192-n` samples long.
+
+![](doc/fac-mult.png)
+
+Most of the time, the right size is the smallest number (810). After disabling "Fit width" and typing this quantity in the "Width" text box, you may see something like this:
+
+![](doc/fac-repeat.png)
+
+As repeating structures are fitting the row width, you are basically stacking them one on top of the other. Sometimes, the FAC analysis gives you a multiple of the actual frame size (in this case, the actual size was 162). You apply FAC on a subset of the recorded symbols by previously selecting them, and try to get a smaller number:
+
+![](doc/fac-sel.png)
+
+**The following step works with BPSK signals only**: In BPSK signals, the symbol sequence is usually passed through a scrambler implemented as an [LFSR](https://en.wikipedia.org/wiki/Linear-feedback_shift_register). Repeating barcode-shaped patterns like the ones in the picture are usually a sign of that. Now select these repeating bits (not the whole frame!), right-click on the symbol view and select "Apply Berlekamp-Massey". You should see a message box like this:
+
+![](doc/bm.png)
+
+This tells you the feedback polynomial coefficients of the underlying LFSR. Since there is an ambiguity on how symbol phases are converted to bits (0º can represent 0 or 1, while 180º can represent 1 or 0), Berlekamp-Massey analysis gives you two polynomials for both options.
+
+In general, if the polynomial degree is much smaller than the input length (9 << 140 in this case), you can be rather certain that you found the right coefficients. However, if the degree of the polynomial is around the half of the input length, the sequence is probably not generated by an LFSR.
+
