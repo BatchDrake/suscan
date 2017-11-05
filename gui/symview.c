@@ -275,6 +275,25 @@ sugtk_sym_view_dispose(GObject* object)
 
   sugtk_sym_view_clear(view);
 
+  /*
+   * Remember: this function may be called several times on the
+   * same object.
+   */
+  if (view->fft_plan != NULL) {
+    fftw_destroy_plan(view->fft_plan);
+    view->fft_plan = NULL;
+  }
+
+  if (view->fft_plan_rev != NULL) {
+    fftw_destroy_plan(view->fft_plan_rev);
+    view->fft_plan_rev = NULL;
+  }
+
+  if (view->fft_buf != NULL) {
+    fftw_free(view->fft_buf);
+    view->fft_buf = NULL;
+  }
+
   G_OBJECT_CLASS(sugtk_sym_view_parent_class)->dispose(object);
 }
 
@@ -639,6 +658,107 @@ done:
 }
 
 static void
+sugtk_sym_view_on_fac(GtkWidget *widget, gpointer *data)
+{
+  SuGtkSymView *view = SUGTK_SYM_VIEW(data);
+  GtkWidget *dialog = NULL;
+  gdouble inv;
+  guint i;
+  gint len;
+  guint start, end;
+  guint max_tau = 0;
+  gfloat max = 0;
+  char *msg = NULL;
+
+  if (!sugtk_sym_view_get_selection(view, &start, &end)) {
+    start = 0;
+    end = view->data_size / SUGTK_SYM_VIEW_STRIDE_ALIGN - 1;
+  }
+
+  len = end - start + 1;
+
+  if (len > SUGTK_SYM_VIEW_FFT_SIZE) {
+    dialog = gtk_message_dialog_new(
+        GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(view))),
+        GTK_DIALOG_DESTROY_WITH_PARENT,
+        GTK_MESSAGE_INFO,
+        GTK_BUTTONS_YES_NO,
+        "The selected symbol stream is too big (%d symbols) to be analyzed "
+        "by fast autocorrelation (FAC). Only the last %d samples will be "
+        "taken into account. Do you want to continue?",
+        len,
+        SUGTK_SYM_VIEW_FFT_SIZE);
+
+    gtk_window_set_title(GTK_WINDOW(dialog), "Symbol autocorrelation");
+
+    /* Abort */
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_YES)
+      goto done;
+
+    gtk_widget_destroy(dialog);
+    dialog = NULL;
+
+    start = end - SUGTK_SYM_VIEW_FFT_SIZE + 1;
+    len = SUGTK_SYM_VIEW_FFT_SIZE;
+  }
+
+  memset(view->fft_buf, 0, SUGTK_SYM_VIEW_FFT_SIZE * sizeof (fftw_complex));
+
+  inv = 1. / 128.0;
+  for (i = 0; i < len; ++i)
+    view->fft_buf[i] =
+        ((int) view->data_buf[(i + start) * SUGTK_SYM_VIEW_STRIDE_ALIGN] - 128)
+        * inv;
+
+  /* Direct FFT */
+  fftw_execute(view->fft_plan);
+
+  for (i = 0; i < len; ++i)
+    view->fft_buf[i] *= conj(view->fft_buf[i]);
+
+  /* Inverse FFT */
+  fftw_execute(view->fft_plan_rev);
+
+  for (i = 1; i < len; ++i) {
+    if (creal(view->fft_buf[i]) > max) {
+      max = creal(view->fft_buf[i]);
+      max_tau = i;
+    }
+  }
+
+  if (max_tau > SUGTK_SYM_VIEW_FFT_SIZE / 2)
+    max_tau = SUGTK_SYM_VIEW_FFT_SIZE - max_tau;
+
+  msg = strbuild(
+      "Maximum autocorrelation found at tau = <b>%d</b> and <b>%d</b> symbols "
+      "(significance: %lg%%)",
+      max_tau,
+      SUGTK_SYM_VIEW_FFT_SIZE - max_tau,
+      100.0 * max / creal(view->fft_buf[0]));
+  g_assert_nonnull(msg);
+
+  dialog = gtk_message_dialog_new(
+      GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(view))),
+      GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_INFO,
+      GTK_BUTTONS_CLOSE,
+      NULL);
+
+  gtk_message_dialog_set_markup(GTK_MESSAGE_DIALOG(dialog), (gchar *) msg);
+
+  gtk_window_set_title(GTK_WINDOW(dialog), "Symbol autocorrelation");
+
+  gtk_dialog_run(GTK_DIALOG(dialog));
+
+done:
+  if (dialog != NULL)
+    gtk_widget_destroy(dialog);
+
+  if (msg != NULL)
+    free(msg);
+}
+
+static void
 sugtk_sym_view_init(SuGtkSymView *self)
 {
   self->data_alloc = 0;
@@ -648,6 +768,33 @@ sugtk_sym_view_init(SuGtkSymView *self)
   self->autoscroll = TRUE;
   self->autofit = TRUE;
   self->window_zoom = 1;
+
+  /*
+   * I dislike the way Gtk handles memory and forces me to
+   * abort in case of allocation error
+   */
+  self->fft_buf = fftw_malloc(SUGTK_SYM_VIEW_FFT_SIZE * sizeof(fftw_complex));
+  g_assert_nonnull(self->fft_buf);
+
+  /*
+   * In and out buffers must be complex because I want to do an in-place
+   * transform, and input will not be symmetrical most of the time
+   */
+  self->fft_plan = fftw_plan_dft_1d(
+      SUGTK_SYM_VIEW_FFT_SIZE,
+      self->fft_buf,
+      self->fft_buf,
+      FFTW_FORWARD,
+      FFTW_ESTIMATE);
+  g_assert_nonnull(self->fft_plan);
+
+  self->fft_plan_rev = fftw_plan_dft_1d(
+        SUGTK_SYM_VIEW_FFT_SIZE,
+        self->fft_buf,
+        self->fft_buf,
+        FFTW_FORWARD,
+        FFTW_BACKWARD);
+  g_assert_nonnull(self->fft_plan);
 
   /* Create context menu */
   self->menu = GTK_MENU(gtk_menu_new());
@@ -664,6 +811,13 @@ sugtk_sym_view_init(SuGtkSymView *self)
   gtk_widget_show_all(GTK_WIDGET(self->menu));
 
   /* Connect calbacks */
+  g_signal_connect(
+      G_OBJECT(self->apply_fac),
+      "activate",
+      G_CALLBACK(sugtk_sym_view_on_fac),
+      self);
+
+
   g_signal_connect(
       G_OBJECT(self->apply_bm),
       "activate",

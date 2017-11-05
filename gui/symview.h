@@ -25,6 +25,9 @@
 #include <gtk/gtk.h>
 #include <util.h>
 #include <stdint.h>
+#include <math.h>
+#include <complex.h>
+#include <fftw3.h>
 
 G_BEGIN_DECLS
 
@@ -36,6 +39,8 @@ G_BEGIN_DECLS
 #define SUGTK_IS_SYM_VIEW(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SUGTK_TYPE_SYM_VIEW))
 #define SUGTK_IS_SYM_VIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE  ((klass), SUGTK_TYPE_SYM_VIEW))
 #define SUGTK_SYM_VIEW_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS  ((obj), SUGTK_TYPE_SYM_VIEW, SuGtkSymViewClass))
+
+#define SUGTK_SYM_VIEW_FFT_SIZE        8192
 
 struct _SuGtkSymView
 {
@@ -56,6 +61,11 @@ struct _SuGtkSymView
   gboolean sel_started;
   guint sel_off0;
   guint sel_off1;
+
+  /* FFTW to perform FAC */
+  fftw_complex *fft_buf;
+  fftw_plan fft_plan;
+  fftw_plan fft_plan_rev;
 
   /* Auxiliary widgets */
   GtkMenu *menu;
