@@ -70,7 +70,7 @@ This is the inspector tab. It allows you analyze, detect and configure a set of 
 
 Even though you can set a bunch of modulation parameters for the channel, for every channel you must define at least two: the **baudrate** and the **constellation type**. **If one of these two is missing, the demodulator will not know when to sample the received signal or how to track the carrier frequency in order to retrieve the variations of the signal phase, and you will not be able to demodulate anything.**
 
-## First step: finding the baudrate of the signal
+## Step 1: finding the baudrate of the signal
 SUScan provides three ways to detect the baudrate of the signal:
 * **Cyclostationary analysis + autocorrelation technique**: Also known as non-linear baudrate detection ([paper here](https://www.iasj.net/iasj?func=fulltext&aId=51991)). This method usually produces the best estimate. However, if there is not enough significate, it will fail. You can perform this detection by clicking on "Detect baudrate (cyclo)" under the "Clock control" (right side of the window).
 * **Fast autocorrelation**: It computes an averaged autocorrelation function of the channel signal and returns the inverse of the delay of the first local minimum. The intuition behind this method is the following: if the symbol probability distribution is flat enough (which is usually true, as PSK signals are usually scrambler), the signal will not be correlated at all with itself delayed one symbol. However, this method provides a rough estimate as it depends on the number of coefficients of the autocorrelion function buffer. You can perform this detection by clocking on "Detect baudrate (FAC)"
@@ -94,3 +94,36 @@ If you succeed at finding the baudrate, you can click on "Set baudrate". This en
 ![](doc/cloud.png)
 
 Now, click on "Automatic clock recovery (Gardner's method)". This will use the [Gardner algorithm](http://read.pudn.com/downloads163/ebook/741040/Gardner_algorithm.pdf) to recover the symbol timing in real-time. You should not be able to see a big difference here, because the signal carrier is still not recovered and there is a frequency component in the received samples that makes the whole constellation spin around its center. This is something we will fix in the next step.
+
+## Step 2: Recovering the carrier
+PSK signals lack a constant carrier signal that you can track using a regular PLL. Instead, the carrier phase changes smoothly but faster than the symbol period, making automatic frequency control (necessary to stabilize the constellation) slightly more difficult. The appropriate mechanism to recover a stable phase reference from a signal whose phase is constantly switching between a set of pre-defined values is a [Costas loop](https://en.wikipedia.org/wiki/Costas_loop). 
+
+Costas loop implementations are particularized to a given number of equally-spaced phases (i.e. PSK modulation order). SUScan features order 2, 4 and 8 Costas loops, with which you can track the carrier of **BPSK**, **QPSK** and **OPSK** signals respectively. There are other PSK variants, but their number of phases usually fall in one of the tree aforementioned categories (e.g. π/4-QPSK consists of two overimposed QPSK constellations separated by 45º, effectively behaving as OPSK with constraints in the set of allowed phase transitions)
+
+There is no way to get estimates of the modulation order (*yet*). It is not a technical challenge either and it is planned for future releases. Currently, the only way to find the constellation type is by manually testing all three of them. If you are lucky, the point cloud will now form clusters around the symbol phases: you are *in lock*. For instance, if you had a QPSK signal, you should see something like this:
+
+![](doc/qpsk-sat.png)
+
+The size of the clusters is related to the signal noise: the bigger they are, the noisier your signal is. If the noise power is too strong, the PSK demodulator may even fail to lock. Fortunately, SUScan implements mechanisms to improve the SNR. This is covered in the next step.
+
+## Step 3: Enhancing the signal
+SUScan provides two features that may help improve the SNR of your signal: matched filtering and blind equalization.
+
+Many PSK modulators use the [square root raised cosine filter (SRRC)](https://en.wikipedia.org/wiki/Root-raised-cosine_filter) to reduce inter-symbol interference and improve SNR in the receiver side. This, however, is not guaranteed. If you click on "Root raised cosine" (located under "Matched filter") and the transmitter is using it too, the noise of your constellation could be reduced to this:
+
+![](doc/qpsk-mf.png)
+
+If you listen to HF or terrestrial stations, you will probaby face the problem of multipath distortions caused by reflections on mountains and buildings, refractions, etc. This impacts heavily on the quality of your constellation. An extreme case of multipath distortion can make your constellation look like this:
+
+![](doc/qpsk-multi.png)
+
+The remedy for this scenario is to perform blind equalization on the signal. Using the "Constant Modulus Algorithm (CMA)" (located in "Equalizer"), SUScan will use its knowledge of PSK modulations (i.e. ideally, PSK signals have constant amplitude) to compute a filter that undoes the distortion produced by the channel. It usually takes a while for the CMA to find this filter but, once it finds it, your constellation can be enhanced to this:
+
+![](doc/qpsk-eq.png)
+
+Note: If you are dealing with satellite signals, you will not notice any effect. In fact, it can make things even worse! If you still fail to lock, your best options here are to increase the Roll-off factor of the matched filter and reduce Gardner algorithm's loop gain.
+
+After stabilizing your constellation, you are ready to get a stream of symbols and say goodbye to the analog part of the analysis ;)
+
+
+## Step 4: Recording symbols
