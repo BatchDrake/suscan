@@ -683,9 +683,13 @@ suscan_gui_inspector_new(
 
   suscan_gui_constellation_init(&new->constellation);
   suscan_gui_spectrum_init(&new->spectrum);
+  suscan_gui_spectrum_set_mode(
+          &new->spectrum,
+          SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE);
 
   new->spectrum.auto_level = SU_FALSE;
   new->spectrum.agc_alpha  = SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA;
+  new->spectrum.show_channels = SU_FALSE;
 
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(
@@ -905,7 +909,11 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
   /* Reset spectrum */
   if (old_source != insp->params.psd_source) {
     suscan_gui_spectrum_reset(&insp->spectrum);
-    insp->spectrum.agc_alpha  = SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA;
+    suscan_gui_spectrum_set_mode(
+        &insp->spectrum,
+        SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE);
+    insp->spectrum.agc_alpha     = SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA;
+    insp->spectrum.show_channels = SU_FALSE;
   }
 
   suscan_gui_inspector_update_sensitiveness(insp, &insp->params);

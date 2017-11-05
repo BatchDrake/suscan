@@ -235,6 +235,7 @@ struct suscan_gui_constellation {
 };
 
 #define SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA .5
+#define SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM
 
 struct suscan_gui_inspector {
   int index; /* Back reference */
