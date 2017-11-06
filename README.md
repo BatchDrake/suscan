@@ -79,7 +79,7 @@ SUScan provides three ways to detect the baudrate of the signal:
 In any case, you can always set the baudrate manually by typing it on the baudrate text box and clicking on "Set baudrate".
 
 The typical procedure to find the baudrate of the signal is like this:
-1. Click on "Detect baudrate (cyclo)" several times. If the baudrate text box ot stabilizes to a value that looks valid (1200, 2400, 8000... typical baudrates found out there are usually multiples of 100), you are done. If not (or if the baudrate is zero) move to the next step.
+1. Click on "Detect baudrate (cyclo)" several times. If the baudrate text box stabilizes to a value that looks valid (1200, 2400, 8000... typical baudrates found out there are usually multiples of 100), you are done. If not (or if the baudrate is zero) move to the next step.
 
 2. Click on "Detect baudrate (FAC)" several times. Again, if it stabilizes to something that looks like a baudrate, you are done. If not, move to the next step. Have in mind however that since this estimate is usually rather inaccurate, you may need to correct it in the baudrate box. It is usually a good idea to compare this result to the cyclostationary spectrum.
 
