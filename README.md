@@ -144,6 +144,29 @@ However, in π/4-QPSK, each symbol must change to a subset of 4 equally spaced p
 
 For high order modulations (i.e. QPSK and OPSK) you will need this information to figure out how much information is carried by each symbol. For instance, in regular OPSK, every symbol carries up to 3 bits of information while π/4-QPSK cannot carry more than 2.
 
+**Important notes on π/4-DQPSK / QPSK**: in π/4-DQPSK constellations, is rather common to find long sequences of small transitions in the same phase direction (related to long sequences of the same symbol). From the perspective of an order-4 Costas Loop, this looks like the carrier is off by π/4 per symbol. **Even though this looks like a misdetection, it is not:** as the phase shift is always the same, you can either see it as a constant offset from the true QPSK carrier frequency or as a property of the 8-PSK symbol sequence. 
+
+It is rather difficult to tell these two constellations apart because we lack a multiply-filter-divide spectrum (this is, computing the FFT after taking the *n*-th power of the signal). This should be available as a new spectrum source soon. In the mean time, if the constellation order is uncertain, you should compare it against the output of the order-8 Costas Loop with a small loop gain (-34 dB should do) and check the symbol transitions. If the order-8 Costas Loop is able to sync to a constellation with 8 phases (and not only 4), you are probably dealing with a π/4-DQPSK signal.
+
+Here is an example of a π/4-DQPSK constellation with SRRC filter (roll-of: 1.0) as synchronized by the order-8 Costas Loop:
+
+![](doc/pi-4-ok.png)![](doc/pi-4-trans.png)
+
+And this is how it looks like as synchronized by the order-4 Costas Loop:
+![](doc/qpsk-notok.png)![](doc/qpsk-notok-trans.png)
+
+The equivalence shows up in the symbol view. Let's take for instance the following π/4-DQPSK symbol sequence:
+
+`2222000000000000000000000000000000002222203011201210313110300210223300200132220232103`
+
+If you choose the order-8 Costas Loop, you would see the following:
+
+`7416701234567012345670123456701234563052707036347470721470701612743234123652745216121`
+
+but if you choose the order-4 Costas Loop, you would get this:
+
+`2020222222222222222222222222222222222020200330133023323230033312202100022232020021300`
+
 ## Step 4: Recording symbols
 Click on the "Symbol recorder" tab. You should could see something like this:
 
