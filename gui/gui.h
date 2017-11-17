@@ -34,11 +34,16 @@
 #define SUSCAN_GUI_SETTINGS_ID "org.actinid.SUScan"
 #define SUSCAN_GUI_MAX_CHANNELS 10
 
+struct suscan_gui_cfgui {
+  suscan_config_t *config; /* Borrowed pointer */
+  PTR_LIST(GtkWidget, widget);
+  GtkGrid *grid;
+};
+
 struct suscan_gui_src_ui {
   const struct suscan_source *source;
   struct suscan_source_config *config;
-  PTR_LIST(GtkWidget, widget);
-  GtkGrid *grid;
+  struct suscan_gui_cfgui *cfgui;
 };
 
 enum suscan_gui_state {
@@ -335,6 +340,24 @@ void suscan_gui_msgbox(
     ...);
 
 void suscan_gui_setup_logging(struct suscan_gui *gui);
+
+/* Generic UI functions */
+void suscan_gui_text_entry_set_float(GtkEntry *entry, SUFLOAT value);
+
+void suscan_gui_text_entry_set_scount(GtkEntry *entry, SUSCOUNT value);
+
+void suscan_gui_text_entry_set_integer(GtkEntry *entry, int64_t value);
+
+/* Generic configuration UI */
+SUBOOL suscan_gui_cfgui_parse(struct suscan_gui_cfgui *ui);
+
+void suscan_gui_cfgui_dump(struct suscan_gui_cfgui *ui);
+
+void suscan_gui_cfgui_destroy(struct suscan_gui_cfgui *ui);
+
+GtkWidget *suscan_gui_cfgui_get_root(const struct suscan_gui_cfgui *ui);
+
+struct suscan_gui_cfgui *suscan_gui_cfgui_new(suscan_config_t *config);
 
 /* Source UI API */
 struct suscan_gui_src_ui *suscan_gui_get_selected_src_ui(

@@ -10,6 +10,6 @@ libgui_la_CFLAGS = -I. -I../ctk  -I../src -ggdb -DPKGDATADIR=\"$(pkgdatadir)\" \
 
 libgui_la_LDFLAGS = @GLOBAL_LDFLAGS@
 
-libgui_la_SOURCES = async.c constellation.c gui.c gui.h inspector.c log.c \
- main.c spectrum.c recent.c gradient.h settings.c symview.c symview.h \
- transmtx.c transmtx.h
+libgui_la_SOURCES = async.c cfgui.c constellation.c gui.c gui.h inspector.c \
+	log.c main.c spectrum.c recent.c gradient.h settings.c symview.c symview.h \
+	transmtx.c transmtx.h

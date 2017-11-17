@@ -24,35 +24,9 @@
 #include <util.h> /* From util: Common utility library */
 #include <sigutils/sigutils.h>
 
+#include "cfg.h"
+
 #define SUSCAN_SOURCE_DEFAULT_BUFSIZ 4096
-
-enum suscan_field_type {
-  SUSCAN_FIELD_TYPE_STRING,
-  SUSCAN_FIELD_TYPE_INTEGER,
-  SUSCAN_FIELD_TYPE_FLOAT,
-  SUSCAN_FIELD_TYPE_FILE,
-  SUSCAN_FIELD_TYPE_BOOLEAN
-};
-
-struct suscan_field;
-
-struct suscan_field_value {
-  SUBOOL set;
-  const struct suscan_field *field;
-  union {
-    uint64_t as_int;
-    SUBOOL   as_bool;
-    SUFLOAT  as_float;
-    char     as_string[0];
-  };
-};
-
-struct suscan_field {
-  enum suscan_field_type type;
-  SUBOOL optional;
-  const char *name;
-  const char *desc;
-};
 
 struct suscan_source_config;
 
@@ -63,14 +37,14 @@ struct suscan_source {
   SUBOOL real_samp; /* Samples are real numbers */
   SUBOOL real_time; /* Source is real time */
 
-  PTR_LIST(struct suscan_field, field);
+  suscan_config_desc_t *config_desc;
 
   su_block_t *(*ctor) (const struct suscan_source_config *);
 };
 
 struct suscan_source_config {
   const struct suscan_source *source;
-  struct suscan_field_value **values;
+  suscan_config_t *config;
   SUSCOUNT bufsiz;
 };
 

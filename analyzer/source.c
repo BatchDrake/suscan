@@ -56,27 +56,26 @@ suscan_source_register(
 {
   char *name_dup = NULL;
   char *desc_dup = NULL;
+  suscan_config_desc_t *cfgdesc = NULL;
   struct suscan_source *new = NULL;
 
   /* We cannot have two sources with the same name */
-  if (suscan_source_lookup(name) != NULL)
-    goto fail;
+  SU_TRYCATCH(suscan_source_lookup(name) == NULL, goto fail);
 
-  if ((name_dup = strdup(name)) == NULL)
-    goto fail;
+  SU_TRYCATCH(name_dup = strdup(name), goto fail);
 
-  if ((desc_dup = strdup(desc)) == NULL)
-    goto fail;
+  SU_TRYCATCH(desc_dup = strdup(desc), goto fail);
 
-  if ((new = calloc(1, sizeof(struct suscan_source))) == NULL)
-    goto fail;
+  SU_TRYCATCH(cfgdesc = suscan_config_desc_new(), goto fail);
+
+  SU_TRYCATCH(new = calloc(1, sizeof(struct suscan_source)), goto fail);
 
   new->name = name_dup;
   new->desc = desc_dup;
   new->ctor = ctor;
+  new->config_desc = cfgdesc;
 
-  if (PTR_LIST_APPEND_CHECK(source, new) == -1)
-    goto fail;
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(source, new) != -1, goto fail);
 
   return new;
 
@@ -90,39 +89,10 @@ fail:
   if (new != NULL)
     free(new);
 
+  if (cfgdesc != NULL)
+    suscan_config_desc_destroy(cfgdesc);
+
   return NULL;
-}
-
-int
-suscan_source_lookup_field_id(
-    const struct suscan_source *source,
-    const char *name)
-{
-  int i;
-
-  for (i = 0; i < source->field_count; ++i)
-    if (source->field_list[i] != NULL)
-      if (strcmp(source->field_list[i]->name, name) == 0)
-        return i;
-
-  return -1;
-}
-
-struct suscan_field *
-suscan_source_field_id_to_field(const struct suscan_source *source, int id)
-{
-  if (id < 0 || id >= source->field_count)
-    return NULL;
-
-  return source->field_list[id];
-}
-
-struct suscan_field *
-suscan_source_lookup_field(const struct suscan_source *source, const char *name)
-{
-  return suscan_source_field_id_to_field(
-      source,
-      suscan_source_lookup_field_id(source, name));
 }
 
 SUBOOL
@@ -133,43 +103,12 @@ suscan_source_add_field(
     const char *name,
     const char *desc)
 {
-  struct suscan_field *field;
-  char *name_dup = NULL;
-  char *desc_dup = NULL;
-
-  if (suscan_source_lookup_field_id(source, name) != -1)
-    goto fail;
-
-  if ((name_dup = strdup(name)) == NULL)
-    goto fail;
-
-  if ((desc_dup = strdup(desc)) == NULL)
-    goto fail;
-
-  if ((field = calloc(1, sizeof(struct suscan_field))) == NULL)
-    goto fail;
-
-  field->optional = optional;
-  field->type = type;
-  field->name = name_dup;
-  field->desc = desc_dup;
-
-  if (PTR_LIST_APPEND_CHECK(source->field, field) == -1)
-    goto fail;
-
-  return SU_TRUE;
-
-fail:
-  if (name_dup != NULL)
-    free(name_dup);
-
-  if (desc_dup != NULL)
-    free(desc_dup);
-
-  if (field != NULL)
-    free(field);
-
-  return SU_FALSE;
+  return suscan_config_desc_add_field(
+      source->config_desc,
+      type,
+      optional,
+      name,
+      desc);
 }
 
 void
@@ -177,13 +116,8 @@ suscan_source_config_destroy(struct suscan_source_config *config)
 {
   unsigned int i;
 
-  if (config->source != NULL && config->values != NULL) {
-    for (i = 0; i < config->source->field_count; ++i)
-      if (config->values[i] != NULL)
-        free(config->values[i]);
-
-    free(config->values);
-  }
+  if (config->config != NULL)
+    suscan_config_destroy(config->config);
 
   free(config);
 }
@@ -194,21 +128,12 @@ suscan_source_config_new(const struct suscan_source *source)
   struct suscan_source_config *new = NULL;
   unsigned int i;
 
-  if ((new = calloc(1, sizeof(struct suscan_source_config))) == NULL)
-    goto fail;
+  SU_TRYCATCH(new = calloc(1, sizeof(struct suscan_source_config)), goto fail);
 
-  if ((new->values = calloc(source->field_count, sizeof(void *))) == NULL)
-    goto fail;
+  SU_TRYCATCH(new->config = suscan_config_new(source->config_desc), goto fail);
 
   new->source = source;
   new->bufsiz = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
-
-  /* Allocate space for all fields */
-  for (i = 0; i < source->field_count; ++i) {
-    if ((new->values[i] = calloc(1, sizeof(struct suscan_field_value))) == NULL)
-      goto fail;
-    new->values[i]->field = source->field_list[i];
-  }
 
   return new;
 
@@ -220,153 +145,6 @@ fail:
 }
 
 SUBOOL
-suscan_source_config_set_integer(
-    struct suscan_source_config *cfg,
-    const char *name,
-    uint64_t value)
-{
-  const struct suscan_field *field;
-  int id;
-
-  /* Assert field and field type */
-  if ((id = suscan_source_lookup_field_id(cfg->source, name)) == -1)
-    return SU_FALSE;
-
-  field = suscan_source_field_id_to_field(cfg->source, id);
-
-  if (field->type != SUSCAN_FIELD_TYPE_INTEGER)
-    return SU_FALSE;
-
-  cfg->values[id]->as_int = value;
-  cfg->values[id]->set = SU_TRUE;
-
-  return SU_TRUE;
-}
-
-SUBOOL
-suscan_source_config_set_bool(
-    struct suscan_source_config *cfg,
-    const char *name,
-    SUBOOL value)
-{
-  const struct suscan_field *field;
-  int id;
-
-  /* Assert field and field type */
-  if ((id = suscan_source_lookup_field_id(cfg->source, name)) == -1)
-    return SU_FALSE;
-
-  field = suscan_source_field_id_to_field(cfg->source, id);
-
-  if (field->type != SUSCAN_FIELD_TYPE_BOOLEAN)
-    return SU_FALSE;
-
-  cfg->values[id]->as_bool = value;
-  cfg->values[id]->set = SU_TRUE;
-
-  return SU_TRUE;
-}
-
-SUBOOL
-suscan_source_config_set_float(
-    struct suscan_source_config *cfg,
-    const char *name,
-    SUFLOAT value)
-{
-  const struct suscan_field *field;
-  int id;
-
-  /* Assert field and field type */
-  if ((id = suscan_source_lookup_field_id(cfg->source, name)) == -1)
-    return SU_FALSE;
-
-  field = suscan_source_field_id_to_field(cfg->source, id);
-
-  if (field->type != SUSCAN_FIELD_TYPE_FLOAT)
-    return SU_FALSE;
-
-  cfg->values[id]->as_float = value;
-
-  return SU_TRUE;
-}
-
-SUBOOL
-suscan_source_config_set_string(
-    struct suscan_source_config *cfg,
-    const char *name,
-    const char *value)
-{
-  const struct suscan_field *field;
-  struct suscan_field_value *tmp;
-  size_t str_size;
-  int id;
-
-  /* Assert field and field type */
-  if ((id = suscan_source_lookup_field_id(cfg->source, name)) == -1)
-    return SU_FALSE;
-
-  field = suscan_source_field_id_to_field(cfg->source, id);
-
-  if (field->type != SUSCAN_FIELD_TYPE_STRING)
-    return SU_FALSE;
-
-  str_size = strlen(value) + 1;
-
-  /* Acceptable check to avoid unnecessary allocations */
-  if (strlen(cfg->values[id]->as_string) < str_size - 1) {
-    if ((tmp = realloc(
-        cfg->values[id],
-        sizeof (struct suscan_field_value) + str_size)) == NULL)
-      return SU_FALSE;
-
-    cfg->values[id] = tmp;
-  }
-
-  strncpy(cfg->values[id]->as_string, value, str_size);
-  cfg->values[id]->set = SU_TRUE;
-
-  return SU_TRUE;
-}
-
-SUBOOL
-suscan_source_config_set_file(
-    struct suscan_source_config *cfg,
-    const char *name,
-    const char *value)
-{
-  const struct suscan_field *field;
-  struct suscan_field_value *tmp;
-  size_t str_size;
-  int id;
-
-  /* Assert field and field type */
-  if ((id = suscan_source_lookup_field_id(cfg->source, name)) == -1)
-    return SU_FALSE;
-
-  field = suscan_source_field_id_to_field(cfg->source, id);
-
-  if (field->type != SUSCAN_FIELD_TYPE_FILE)
-    return SU_FALSE;
-
-  str_size = strlen(value) + 1;
-
-  /* Acceptable check to avoid unnecessary allocations */
-  if (strlen(cfg->values[id]->as_string) < str_size - 1) {
-    if ((tmp = realloc(
-        cfg->values[id],
-        sizeof (struct suscan_field_value) + str_size)) == NULL)
-      return SU_FALSE;
-
-    cfg->values[id] = tmp;
-  }
-
-  strncpy(cfg->values[id]->as_string, value, str_size);
-  cfg->values[id]->set = SU_TRUE;
-
-  return SU_TRUE;
-}
-
-SUBOOL
 suscan_source_config_copy(
     struct suscan_source_config *dest,
     const struct suscan_source_config *src)
@@ -375,54 +153,7 @@ suscan_source_config_copy(
 
   SU_TRYCATCH(dest->source == src->source, return SU_FALSE);
 
-  for (i = 0; i < src->source->field_count; ++i) {
-    switch (src->source->field_list[i]->type) {
-      case SUSCAN_FIELD_TYPE_STRING:
-        SU_TRYCATCH(
-            suscan_source_config_set_string(
-                dest,
-                src->source->field_list[i]->name,
-                src->values[i]->as_string),
-            return SU_FALSE);
-        break;
-
-      case SUSCAN_FIELD_TYPE_INTEGER:
-        SU_TRYCATCH(
-            suscan_source_config_set_integer(
-                dest,
-                src->source->field_list[i]->name,
-                src->values[i]->as_int),
-            return SU_FALSE);
-        break;
-
-      case SUSCAN_FIELD_TYPE_FLOAT:
-        SU_TRYCATCH(
-            suscan_source_config_set_float(
-                dest,
-                src->source->field_list[i]->name,
-                src->values[i]->as_float),
-            return SU_FALSE);
-        break;
-
-      case SUSCAN_FIELD_TYPE_BOOLEAN:
-        SU_TRYCATCH(
-            suscan_source_config_set_bool(
-                dest,
-                src->source->field_list[i]->name,
-                src->values[i]->as_bool),
-            return SU_FALSE);
-        break;
-
-      case SUSCAN_FIELD_TYPE_FILE:
-        SU_TRYCATCH(
-            suscan_source_config_set_file(
-                dest,
-                src->source->field_list[i]->name,
-                src->values[i]->as_string),
-            return SU_FALSE);
-        break;
-    }
-  }
+  SU_TRYCATCH(suscan_config_copy(dest->config, src->config), return SU_FALSE);
 
   return SU_TRUE;
 }
@@ -432,13 +163,7 @@ suscan_source_config_get_value(
     const struct suscan_source_config *cfg,
     const char *name)
 {
-  int id;
-
-  /* Assert field and field type */
-  if ((id = suscan_source_lookup_field_id(cfg->source, name)) == -1)
-    return NULL;
-
-  return cfg->values[id];
+  return suscan_config_get_value(cfg->config, name);
 }
 
 SUPRIVATE su_block_t *
@@ -466,198 +191,85 @@ suscan_null_source_init(void)
 struct suscan_source_config *
 suscan_source_string_to_config(const char *string)
 {
-  arg_list_t *al;
-  struct suscan_field *field = NULL;
   struct suscan_source *src = NULL;
-  struct suscan_source_config *config = NULL;
+  struct suscan_source_config *src_config = NULL;
+  suscan_config_t *config = NULL;
+  const char *p;
+  char *dup = NULL;
+  size_t len;
   SUBOOL ok = SU_FALSE;
-  char *val;
-  char *key;
-  unsigned int i;
-  uint64_t int_val;
-  SUFLOAT float_val;
-  SUBOOL bool_val;
 
-  if ((al = csv_split_line(string)) == NULL) {
-    SU_ERROR("Failed to parse source string\n");
+  /* Extract source name (first comma) */
+  p = string;
+
+  while (*p && *p != ',')
+    ++p;
+
+  len = p - string;
+
+  SU_TRYCATCH(dup = malloc(len + 1), goto done);
+
+  memcpy(dup, string, len);
+  dup[len] = '\0';
+
+  if ((src = suscan_source_lookup(dup)) == NULL) {
+    SU_ERROR("Unknown source `%s'\n", dup);
     goto done;
   }
 
-  if (al->al_argc == 0) {
-    SU_ERROR("Invalid source string\n");
+
+  /* Create configuration object */
+  SU_TRYCATCH(src_config = suscan_source_config_new(src), goto done);
+
+  /* Parse configuration string */
+  if (*p != '\0')
+    ++p;
+
+  if ((config = suscan_string_to_config(
+      src->config_desc,
+      p)) == NULL) {
+    SU_ERROR("Failed to convert string to source configuration\n");
     goto done;
   }
 
-  if ((src = suscan_source_lookup(al->al_argv[0])) == NULL) {
-    SU_ERROR("Unknown source `%s'\n", al->al_argv[0]);
-    goto done;
-  }
-
-  if ((config = suscan_source_config_new(src)) == NULL) {
-    SU_ERROR("Failed to initialize source config\n");
-    goto done;
-  }
-
-  for (i = 1; i < al->al_argc; ++i) {
-    key = al->al_argv[i];
-
-    if ((val = strchr(key, '=')) == NULL) {
-      SU_ERROR("Malformed parameter string: `%s'\n", al->al_argv[i]);
-      goto done;
-    }
-
-    *val++ = '\0';
-
-    if ((field = suscan_source_lookup_field(src, key)) == NULL) {
-      SU_ERROR("Unknown parameter `%s' for source\n", key);
-      goto done;
-    }
-
-    switch (field->type) {
-      case SUSCAN_FIELD_TYPE_FILE:
-        if (!suscan_source_config_set_file(config, key, val)) {
-          SU_ERROR("Cannot set file parameter `%s'\n", key);
-          goto done;
-        }
-        break;
-
-      case SUSCAN_FIELD_TYPE_STRING:
-        if (!suscan_source_config_set_string(config, key, val)) {
-          SU_ERROR("Cannot set string parameter `%s'\n", key);
-          goto done;
-        }
-        break;
-
-      case SUSCAN_FIELD_TYPE_INTEGER:
-        if (sscanf(val, "%lli", &int_val) < 1) {
-          SU_ERROR("Invalid value for parameter `%s': `%s'\n", key, val);
-          goto done;
-        }
-
-        if (!suscan_source_config_set_integer(config, key, int_val)) {
-          SU_ERROR("Cannot set string parameter `%s'\n", key);
-          goto done;
-        }
-        break;
-
-      case SUSCAN_FIELD_TYPE_FLOAT:
-        if (sscanf(val, SUFLOAT_FMT, &float_val) < 1) {
-          SU_ERROR("Invalid value for parameter `%s': `%s'\n", key, val);
-          goto done;
-        }
-
-        if (!suscan_source_config_set_float(config, key, float_val)) {
-          SU_ERROR("Cannot set string parameter `%s'\n", key);
-          goto done;
-        }
-        break;
-
-      case SUSCAN_FIELD_TYPE_BOOLEAN:
-        if (strcasecmp(val, "true") == 0 ||
-            strcasecmp(val, "yes")  == 0 ||
-            strcasecmp(val, "1")    == 0)
-          bool_val = SU_TRUE;
-        else if (strcasecmp(val, "false") == 0 ||
-            strcasecmp(val, "no")         == 0 ||
-            strcasecmp(val, "0")          == 0)
-          bool_val = SU_FALSE;
-        else {
-          SU_ERROR("Invalid boolean value for parameter `%s': %s\n", key, val);
-          goto done;
-        }
-
-        if (!suscan_source_config_set_bool(config, key, bool_val)) {
-          SU_ERROR("Failed to set boolean parameter `%s'\n", key);
-          goto done;
-        }
-        break;
-
-      default:
-        SU_ERROR("Parameter `%s' cannot be set for this source\n", key);
-        break;
-    }
-  }
+  SU_TRYCATCH(suscan_config_copy(src_config->config, config), goto done);
 
   ok = SU_TRUE;
 
 done:
+  if (dup != NULL)
+    free(dup);
+
+  if (config != NULL)
+    suscan_config_destroy(config);
+
   if (!ok) {
-    if (config != NULL) {
-      suscan_source_config_destroy(config);
-      config = NULL;
+    if (src_config != NULL) {
+      suscan_source_config_destroy(src_config);
+      src_config = NULL;
     }
   }
 
-  if (al != NULL)
-    free_al(al);
-
-  return config;
+  return src_config;
 }
 
 char *
 suscan_source_config_to_string(const struct suscan_source_config *config)
 {
-  char *result = NULL;
-  grow_buf_t gbuf = grow_buf_INITIALIZER;
-  const struct suscan_field *field = NULL;
-  const struct suscan_field_value *value = NULL;
-  char *terminator;
-  char num_buffer[32];
-  unsigned int i;
+  char *full_string = NULL;
+  char *cfgstring = NULL;
 
-  /* Source strings start with the source name */
-  SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, config->source->name) != -1, goto fail);
+  SU_TRYCATCH(cfgstring = suscan_config_to_string(config->config), goto done);
 
-  /* Convert all parameters */
-  for (i = 0; i < config->source->field_count; ++i) {
-    value = config->values[i];
-    field = value->field;
-    SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, ",") != -1, goto fail);
+  SU_TRYCATCH(
+      full_string = strbuild("%s,%s", config->source->name, cfgstring),
+      goto done);
 
-    SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, field->name) != -1, goto fail);
+done:
+  if (cfgstring != NULL)
+    free(cfgstring);
 
-    SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, "=") != -1, goto fail);
-
-    /* FIXME: escape commas! */
-    switch (field->type) {
-      case SUSCAN_FIELD_TYPE_FILE:
-      case SUSCAN_FIELD_TYPE_STRING:
-        SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, value->as_string) != -1, goto fail);
-        break;
-
-      case SUSCAN_FIELD_TYPE_INTEGER:
-        snprintf(
-            num_buffer,
-            sizeof(num_buffer),
-            "%lli",
-            (long long int) value->as_int);
-        SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, num_buffer) != -1, goto fail);
-        break;
-
-      case SUSCAN_FIELD_TYPE_FLOAT:
-        snprintf(num_buffer, sizeof(num_buffer), SUFLOAT_FMT, value->as_float);
-        SU_TRYCATCH(GROW_BUF_STRCAT(&gbuf, num_buffer) != -1, goto fail);
-        break;
-
-      case SUSCAN_FIELD_TYPE_BOOLEAN:
-        SU_TRYCATCH(
-            GROW_BUF_STRCAT(&gbuf, value->as_bool ? "yes" : "no") != -1,
-            goto fail);
-        break;
-
-      default:
-        SU_ERROR("Cannot serialize field type %d\n", field->type);
-    }
-  }
-
-  SU_TRYCATCH(grow_buf_append(&gbuf, "", 1) != -1, goto fail);
-
-  return (char *) grow_buf_get_buffer(&gbuf);
-
-fail:
-  grow_buf_finalize(&gbuf);
-
-  return NULL;
+  return full_string;
 }
 
 SUBOOL
