@@ -1,7 +1,7 @@
 # SUScan - Getting Started Guide
-SUScan is a graphical signal analysis tool compatible with a variety of signal sources, including some popular SDR devices, GQRX captures and even the soundcard.  It features a switchable real-time spectrum / waterfall view, a blind channel detector and a PSK channel inspector. QAM, OFDM and DSSS support is also planned.
+SUScan is a graphical signal analysis tool compatible with a variety of signal sources, including some popular SDR devices, GQRX captures and even the soundcard.  It features a switchable real-time spectrum / waterfall view, a blind channel detector and a [PSK](https://en.wikipedia.org/wiki/Phase-shift_keying) channel inspector. QAM, OFDM and DSSS support is also planned.
 
-Due to the current experimental status of SUScan, this document will be a brief summary of its most common use case: reverse-engineer PSK channels by discovering its modulation parameters.
+Due to the current experimental status of SUScan, this document will be a brief summary of its most common use case: reverse-engineer [PSK](https://en.wikipedia.org/wiki/Phase-shift_keying) channels by discovering its modulation parameters.
 
 ## The main interface
 This is what you should see after executing SUScan:
@@ -19,7 +19,7 @@ For PSK analysis, we must take into account the following elements:
 * **Channel list**: Located below the spectrum view. When a signal capture is running, it is filled with all the potential channels found by the channel detector.
 
 ## Configuring a signal source
-The first step to reverse-engineer a PSK signal is to tell SUScan how signal data is acquired. This is done by clicking on the preferences button:
+The first step to reverse-engineer a [PSK](https://en.wikipedia.org/wiki/Phase-shift_keying) signal is to tell SUScan how signal data is acquired. This is done by clicking on the preferences button:
 
 ![](doc/source-settings.png) 
 
@@ -47,11 +47,11 @@ The red rectangles overlaid on the spectrum plot represent the parameters of the
 
 ![](doc/bandwidth.png) 
 
-Please note that automatic channel detection is a purely heuristic feature based continuous estimations of the sequelch level and, because of its nature, it could fail (especially when there are lots of channels along the spectrum). In that case, you can manually define a channel by pressing shift while dragging over the frequency span of the channel. You should see a cyan rectangle as you define the new channel limits:
+Please note that automatic channel detection is a purely heuristic feature based on continuous estimations of the squelch level and, because of its nature, it could fail (especially when there are lots of channels along the spectrum). In that case, you can manually define a channel by pressing shift while dragging over the frequency span of the channel. You should see a cyan rectangle as you define the new channel limits:
 
 ![](doc/manual-selection.png) 
 
-After finding / defining the channel of interest, you are ready start the actual channel analysis by right-clicking on it and choosing "Open PSK inspector":
+After finding / defining the channel of interest, you are ready to start the actual channel analysis by right-clicking on it and choosing "Open PSK inspector":
 
 ![](doc/open-inspector.png) 
 
@@ -60,7 +60,7 @@ After opening the PSK inspector over the desired channel, you should see somethi
 
 ![](doc/inspector.png)
 
-This is the inspector tab. It allows you analyze, detect and configure a set of modulation parameters in a PSK signals. It is basically a configurable generic [PSK](https://en.wikipedia.org/wiki/Phase-shift_keying) demodulator. From left to right, top-down, it features:
+This is the inspector tab. It allows you analyze, detect and configure a set of modulation parameters in a PSK signal. It is basically a configurable generic [PSK](https://en.wikipedia.org/wiki/Phase-shift_keying) demodulator. From left to right, top-down, it features:
 
 * **Constellation plot**: Scatter plot representing the amplitude and phase of the sampler output.
 * **Transition plot**: Symbol transition representation, either as a transition matrix or a transition graph. You can switch from one to another just by left-clicking on it.
@@ -73,13 +73,13 @@ Even though you can set a bunch of modulation parameters for the channel, for ev
 ## Step 1: finding the baudrate of the signal
 SUScan provides three ways to detect the baudrate of the signal:
 * **Cyclostationary analysis + autocorrelation technique**: Also known as non-linear baudrate detection ([paper here](https://www.iasj.net/iasj?func=fulltext&aId=51991)). This method usually produces the best estimate. However, if there is not enough significate, it will fail. You can perform this detection by clicking on "Detect baudrate (cyclo)" under the "Clock control" (right side of the window).
-* **Fast autocorrelation**: It computes an averaged autocorrelation function of the channel signal and returns the inverse of the delay of the first local minimum. The intuition behind this method is the following: if the symbol probability distribution is flat enough (which is usually true, as PSK signals are usually scrambler), the signal will not be correlated at all with itself delayed one symbol. However, this method provides a rough estimate as it depends on the number of coefficients of the autocorrelion function buffer. You can perform this detection by clocking on "Detect baudrate (FAC)"
+* **Fast autocorrelation**: It computes an averaged autocorrelation function of the channel signal and returns the inverse of the delay of the first local minimum. The intuition behind this method is the following: if the symbol probability distribution is flat enough (which is usually true, as PSK signals are usually scrambler), the signal will not be correlated at all with itself delayed one symbol. However, this method provides a rough estimate as it depends on the number of coefficients of the autocorrelation function buffer. You can perform this detection by clocking on "Detect baudrate (FAC)"
 * **Manual inspection**: If both methods fail, you can click on "Cyclostationary analysis" under "Spectrum source". This will display the frequency spectrum of the function `|x(n) - x(n-1)|`, used by the non-linear baudrate detection. You may use this function to detect peaks that are consistent with a baudrate.
 
 In any case, you can always set the baudrate manually by typing it on the baudrate text box and clicking on "Set baudrate".
 
 The typical procedure to find the baudrate of the signal is like this:
-1. Click on "Detect baudrate (cyclo)" several times. If the baudrate text box ot stabilizes to a value that looks valid (1200, 2400, 8000... typical baudrates found out there are usually multiples of 100), you are done. If not (or if the baudrate is zero) move to the next step.
+1. Click on "Detect baudrate (cyclo)" several times. If the baudrate text box stabilizes to a value that looks valid (1200, 2400, 8000... typical baudrates found out there are usually multiples of 100), you are done. If not (or if the baudrate is zero) move to the next step.
 
 2. Click on "Detect baudrate (FAC)" several times. Again, if it stabilizes to something that looks like a baudrate, you are done. If not, move to the next step. Have in mind however that since this estimate is usually rather inaccurate, you may need to correct it in the baudrate box. It is usually a good idea to compare this result to the cyclostationary spectrum.
 
@@ -168,7 +168,7 @@ but if you choose the order-4 Costas Loop, you would get this:
 `2020222222222222222222222222222222222020200330133023323230033312202100022232020021300`
 
 ## Step 4: Recording symbols
-Click on the "Symbol recorder" tab. You should could see something like this:
+Click on the "Symbol recorder" tab. You should see something like this:
 
 ![](doc/record.png)
 
