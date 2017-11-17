@@ -21,10 +21,8 @@
 #ifndef _SOURCE_H
 #define _SOURCE_H
 
-#include <util.h> /* From util: Common utility library */
+#include <cfg.h>
 #include <sigutils/sigutils.h>
-
-#include "cfg.h"
 
 #define SUSCAN_SOURCE_DEFAULT_BUFSIZ 4096
 
