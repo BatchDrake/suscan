@@ -2,7 +2,7 @@ AM_CPPFLAGS = -I. -I../util
 
 noinst_LTLIBRARIES = libgui.la
 
-libgui_la_CFLAGS = -I. -I../ctk  -I../src -ggdb -DPKGDATADIR=\"$(pkgdatadir)\" \
+libgui_la_CFLAGS = -I. -I../decoder  -I../src -ggdb -DPKGDATADIR=\"$(pkgdatadir)\" \
 	-rdynamic \
 	@sigutils_CFLAGS@ \
 	@gtk3_CFLAGS@ \

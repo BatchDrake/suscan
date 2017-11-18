@@ -18,21 +18,28 @@
 
 */
 
+#include <string.h>
+#include <time.h>
+
 #define SU_LOG_DOMAIN "inspector-gui"
 
 #include "gui.h"
 #include <sigutils/agc.h>
-#include <time.h>
-#include <string.h>
+#include <decoder.h>
 
 void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 {
+  unsigned int i;
+
   if (inspector->inshnd != -1 && inspector->gui != NULL)
     suscan_analyzer_close_async(
         inspector->gui->analyzer,
         inspector->inshnd,
         rand());
+
+  for (i = 0; i < inspector->decoderui_count; ++i)
+    suscan_gui_decoderui_destroy(inspector->decoderui_list[i]);
 
   if (inspector->channelInspectorGrid != NULL)
     gtk_widget_destroy(GTK_WIDGET(inspector->channelInspectorGrid));
@@ -274,6 +281,265 @@ suscan_gui_inspector_to_filename(
       tm->tm_year + 1900,
       suffix);
 
+}
+
+void
+suscan_gui_decoderui_destroy(struct suscan_gui_decoderui *ui)
+{
+  if (ui->config != NULL)
+    suscan_config_destroy(ui->config);
+
+  if (ui->ui != NULL)
+    suscan_gui_cfgui_destroy(ui->ui);
+
+  if (ui->dialog != NULL)
+    gtk_widget_destroy(ui->dialog);
+
+  free(ui);
+}
+
+/*
+ * Has to be done in a lazy way because when a decoder is constructed the
+ * parent inspector is detached from the main GUI
+ */
+SUPRIVATE SUBOOL
+suscan_gui_decoderui_assert_parent_gui(struct suscan_gui_decoderui *ui)
+{
+  GtkDialogFlags flags = GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT;
+  GtkWidget *content;
+  GtkWidget *root;
+
+  if (ui->dialog == NULL) {
+    if (ui->inspector->gui == NULL)
+      return SU_FALSE;
+
+    ui->dialog = gtk_dialog_new_with_buttons(
+        ui->desc->desc,
+        ui->inspector->gui->main,
+        flags,
+        GTK_STOCK_OK,
+        GTK_RESPONSE_ACCEPT,
+        GTK_STOCK_CANCEL,
+        GTK_RESPONSE_REJECT,
+        NULL);
+
+    content = gtk_dialog_get_content_area(GTK_DIALOG(ui->dialog));
+    root = suscan_gui_cfgui_get_root(ui->ui);
+
+    gtk_widget_set_margin_start(root, 20);
+    gtk_widget_set_margin_end(root, 20);
+    gtk_widget_set_margin_top(root, 20);
+    gtk_widget_set_margin_bottom(root, 20);
+
+    gtk_container_add(GTK_CONTAINER(content), root);
+
+    gtk_widget_show(root);
+  }
+
+  return SU_TRUE;
+}
+
+struct suscan_gui_decoderui *
+suscan_gui_decoderui_new(
+    struct suscan_gui_inspector *inspector,
+    const struct suscan_decoder_desc *desc)
+{
+  struct suscan_gui_decoderui *new = NULL;
+
+
+  SU_TRYCATCH(new = calloc(1, sizeof (struct suscan_gui_decoderui)), goto fail);
+
+  SU_TRYCATCH(new->config = suscan_decoder_make_config(desc), goto fail);
+
+  SU_TRYCATCH(new->ui = suscan_gui_cfgui_new(new->config), goto fail);
+
+  new->inspector = inspector;
+  new->desc = desc;
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_gui_decoderui_destroy(new);
+
+  return NULL;
+}
+
+su_encoder_t *
+suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui)
+{
+  su_encoder_t *result = NULL;
+  gint response;
+  unsigned int bits;
+
+  if (!suscan_gui_decoderui_assert_parent_gui(ui))
+    return NULL; /* Weird */
+
+  if (ui->inspector->params.fc_ctrl
+      == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
+    suscan_error(
+        ui->inspector->gui,
+        "Encoder/decoder error",
+        "Cannot run encoder/decoder with manual carrier control");
+    return NULL;
+  }
+
+  bits = ui->inspector->params.fc_ctrl;
+
+
+  if (ui->ui->widget_count > 0) {
+    gtk_dialog_set_default_response(
+        GTK_DIALOG(ui->dialog),
+        GTK_RESPONSE_ACCEPT);
+
+    do {
+      response = gtk_dialog_run(GTK_DIALOG(ui->dialog));
+
+      if (response == GTK_RESPONSE_ACCEPT) {
+        if (!suscan_gui_cfgui_parse(ui->ui)) {
+          suscan_error(
+              ui->inspector->gui,
+              "Encoder/decoder parameters",
+              "Some parameters are incorrect. Please verify that all mandatory "
+              "fields have been properly filled and are within a valid range");
+        } else {
+          if ((result = suscan_decoder_make_encoder(ui->desc, bits, ui->config))
+              == NULL) {
+            suscan_error(
+                ui->inspector->gui,
+                "Encoder/decoder constructor",
+                "Failed to create encoder/decoder object. This usually means "
+                "that the current encoder/decoder settings are not supported "
+                "by the underlying implementation.\n\n"
+                "You can get additional details on this error in the Log "
+                "Messages tab");
+          } else {
+            break;
+          }
+        }
+      }
+    } while (response == GTK_RESPONSE_ACCEPT);
+
+    gtk_widget_hide(ui->dialog);
+  } else {
+    /* For decoders that do not accept arguments, make decoder directly */
+    if ((result = suscan_decoder_make_encoder(ui->desc, bits, ui->config))
+        == NULL) {
+      suscan_error(
+          ui->inspector->gui,
+          "Encoder/decoder constructor",
+          "Failed to create encoder/decoder object. Maybe there is problem "
+          "with the implementation.\n\n"
+          "You can get additional details on this error in the Log "
+          "Messages tab");
+    }
+  }
+  return result;
+}
+
+SUPRIVATE void
+suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
+{
+  struct suscan_gui_decoderui *ui = (struct suscan_gui_decoderui *) data;
+  su_encoder_t *encoder;
+
+  encoder = suscan_gui_decoderui_run(ui);
+
+  if (encoder != NULL) {
+    su_encoder_set_direction(encoder, SU_ENCODER_DIRECTION_FORWARDS);
+
+    /* TODO: Apply */
+
+    su_encoder_destroy(encoder);
+  }
+}
+
+SUPRIVATE void
+suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
+{
+  struct suscan_gui_decoderui *ui = (struct suscan_gui_decoderui *) data;
+  su_encoder_t *encoder;
+
+  encoder = suscan_gui_decoderui_run(ui);
+
+  if (encoder != NULL) {
+    su_encoder_set_direction(encoder, SU_ENCODER_DIRECTION_BACKWARDS);
+
+    /* TODO: Apply */
+
+    su_encoder_destroy(encoder);
+  }
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_inspector_populate_decoder_menu(
+    struct suscan_gui_inspector *inspector)
+{
+  GtkWidget *encs, *decs, *item;
+  GtkWidget *enc_menu;
+  GtkWidget *dec_menu;
+  GtkMenu *menu;
+  struct suscan_decoder_desc *const *list;
+  struct suscan_gui_decoderui *ui = NULL;
+  unsigned int count;
+  unsigned int i;
+
+  menu = sugtk_sym_view_get_menu(inspector->symbolView);
+
+  enc_menu = gtk_menu_new();
+  dec_menu = gtk_menu_new();
+
+  encs = gtk_menu_item_new_with_label("Encode with...");
+  decs = gtk_menu_item_new_with_label("Decode with...");
+
+  gtk_menu_item_set_submenu(GTK_MENU_ITEM(encs), enc_menu);
+  gtk_menu_item_set_submenu(GTK_MENU_ITEM(decs), dec_menu);
+
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu), encs);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu), decs);
+
+  /* Append all available decoders */
+  suscan_decoder_desc_get_list(&list, &count);
+  for (i = 0; i < count; ++i) {
+    SU_TRYCATCH(
+        ui = suscan_gui_decoderui_new(inspector, list[i]),
+        return SU_FALSE);
+
+    SU_TRYCATCH(
+        PTR_LIST_APPEND_CHECK(inspector->decoderui, ui) != -1,
+        goto fail);
+
+    /* To be handled by the encoder */
+    item = gtk_menu_item_new_with_label(list[i]->desc);
+    gtk_menu_shell_append(GTK_MENU_SHELL(enc_menu), item);
+    g_signal_connect(
+        G_OBJECT(item),
+        "activate",
+        G_CALLBACK(suscan_gui_inspector_run_encoder),
+        ui);
+
+    /* To be handled by the decoder */
+    item = gtk_menu_item_new_with_label(list[i]->desc);
+    gtk_menu_shell_append(GTK_MENU_SHELL(dec_menu), item);
+    g_signal_connect(
+        G_OBJECT(item),
+        "activate",
+        G_CALLBACK(suscan_gui_inspector_run_decoder),
+        ui);
+
+    ui = NULL;
+  }
+
+  /* Show everything */
+  gtk_widget_show_all(GTK_WIDGET(menu));
+
+  return SU_TRUE;
+
+fail:
+  if (ui != NULL)
+    suscan_gui_decoderui_destroy(ui);
+
+  return SU_FALSE;
 }
 
 SUPRIVATE SUBOOL
@@ -617,6 +883,10 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
 
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
+
+  SU_TRYCATCH(
+      suscan_gui_inspector_populate_decoder_menu(inspector),
+      return SU_FALSE);
 
   gtk_grid_attach(
       inspector->recorderGrid,

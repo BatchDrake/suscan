@@ -55,7 +55,7 @@ suscan_decoder_diff_register(void)
           SUSCAN_FIELD_TYPE_BOOLEAN,
           SU_FALSE,
           "sign",
-          "Difference signedness"),
+          "Invert difference sign"),
       return SU_FALSE);
 
   return SU_TRUE;

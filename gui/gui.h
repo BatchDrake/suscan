@@ -239,6 +239,14 @@ struct suscan_gui_constellation {
   unsigned int p;
 };
 
+struct suscan_gui_decoderui {
+  struct suscan_gui_inspector *inspector;
+  const struct suscan_decoder_desc *desc;
+  suscan_config_t *config;
+  struct suscan_gui_cfgui *ui;
+  GtkWidget *dialog;
+};
+
 #define SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA .5
 #define SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM
 
@@ -318,6 +326,9 @@ struct suscan_gui_inspector {
   SuGtkSymView   *symbolView;
   GtkSpinButton  *offsetSpinButton;
   GtkSpinButton  *widthSpinButton;
+
+  /* DecoderUI objects */
+  PTR_LIST(struct suscan_gui_decoderui, decoderui);
 
   struct sigutils_channel channel;
 };
@@ -461,6 +472,15 @@ SUBOOL suscan_gui_add_inspector(
 struct suscan_gui_inspector *suscan_gui_get_inspector(
     const struct suscan_gui *gui,
     uint32_t inspector_id);
+
+/* DecoderUI functions */
+void suscan_gui_decoderui_destroy(struct suscan_gui_decoderui *ui);
+
+su_encoder_t *suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui);
+
+struct suscan_gui_decoderui *suscan_gui_decoderui_new(
+    struct suscan_gui_inspector *inspector,
+    const struct suscan_decoder_desc *desc);
 
 /* Inspector GUI functions */
 void suscan_gui_inspector_feed_w_batch(

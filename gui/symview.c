@@ -266,6 +266,12 @@ sugtk_sym_get_buffer_size(const SuGtkSymView *view)
   return view->data_size;
 }
 
+GtkMenu *
+sugtk_sym_view_get_menu(const SuGtkSymView *view)
+{
+  return view->menu;
+}
+
 static void
 sugtk_sym_view_dispose(GObject* object)
 {
