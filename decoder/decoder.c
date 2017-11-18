@@ -27,18 +27,22 @@
 
 PTR_LIST_CONST(struct suscan_decoder_desc, desc);
 
-SUBOOL
+struct suscan_decoder_desc *
 suscan_decoder_register(
     const char *desc,
-    const suscan_config_desc_t *config_desc,
-    su_encoder_t *(*ctor) (suscan_config_t *))
+    su_encoder_t *(*ctor) (unsigned int, suscan_config_t *))
 {
   struct suscan_decoder_desc *new = NULL;
+  suscan_config_desc_t *config_desc = NULL;
   char *desc_dup = NULL;
 
   SU_TRYCATCH(desc_dup = strdup(desc), goto fail);
 
   SU_TRYCATCH(new = malloc(sizeof(struct suscan_decoder_desc)), goto fail);
+
+  SU_TRYCATCH(config_desc = suscan_config_desc_new(), goto fail);
+
+  /* Common parameters may be added to config_desc here */
 
   new->desc = desc_dup;
   new->config_desc = config_desc;
@@ -46,7 +50,7 @@ suscan_decoder_register(
 
   SU_TRYCATCH(PTR_LIST_APPEND_CHECK(desc, new) != -1, goto fail);
 
-  return SU_TRUE;
+  return new;
 
 fail:
   if (desc_dup != NULL)
@@ -55,7 +59,10 @@ fail:
   if (new != NULL)
     free(new);
 
-  return SU_FALSE;
+  if (config_desc != NULL)
+    suscan_config_desc_destroy(config_desc);
+
+  return NULL;
 }
 
 void
@@ -73,9 +80,19 @@ suscan_decoder_make_config(const struct suscan_decoder_desc *desc)
   return suscan_config_new(desc->config_desc);
 }
 
-su_encoder_t *suscan_decoder_make_encoder(
+su_encoder_t *
+suscan_decoder_make_encoder(
     const struct suscan_decoder_desc *desc,
+    unsigned int bits,
     suscan_config_t *config)
 {
-  return (desc->ctor) (config);
+  return (desc->ctor) (bits, config);
+}
+
+SUBOOL
+suscan_decoder_register_builtin(void)
+{
+  SU_TRYCATCH(suscan_decoder_diff_register(), return SU_FALSE);
+
+  return SU_TRUE;
 }
