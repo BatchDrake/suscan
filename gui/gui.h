@@ -476,7 +476,7 @@ struct suscan_gui_inspector *suscan_gui_get_inspector(
 /* DecoderUI functions */
 void suscan_gui_decoderui_destroy(struct suscan_gui_decoderui *ui);
 
-su_encoder_t *suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui);
+su_codec_t *suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui);
 
 struct suscan_gui_decoderui *suscan_gui_decoderui_new(
     struct suscan_gui_inspector *inspector,

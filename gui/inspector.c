@@ -365,10 +365,10 @@ fail:
   return NULL;
 }
 
-su_encoder_t *
+su_codec_t *
 suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui)
 {
-  su_encoder_t *result = NULL;
+  su_codec_t *result = NULL;
   gint response;
   unsigned int bits;
 
@@ -380,7 +380,7 @@ suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui)
     suscan_error(
         ui->inspector->gui,
         "Encoder/decoder error",
-        "Cannot run encoder/decoder with manual carrier control");
+        "Cannot run codec/decoder with manual carrier control");
     return NULL;
   }
 
@@ -403,13 +403,13 @@ suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui)
               "Some parameters are incorrect. Please verify that all mandatory "
               "fields have been properly filled and are within a valid range");
         } else {
-          if ((result = suscan_decoder_make_encoder(ui->desc, bits, ui->config))
+          if ((result = suscan_decoder_make_codec(ui->desc, bits, ui->config))
               == NULL) {
             suscan_error(
                 ui->inspector->gui,
                 "Encoder/decoder constructor",
-                "Failed to create encoder/decoder object. This usually means "
-                "that the current encoder/decoder settings are not supported "
+                "Failed to create codec/decoder object. This usually means "
+                "that the current codec/decoder settings are not supported "
                 "by the underlying implementation.\n\n"
                 "You can get additional details on this error in the Log "
                 "Messages tab");
@@ -423,12 +423,12 @@ suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui)
     gtk_widget_hide(ui->dialog);
   } else {
     /* For decoders that do not accept arguments, make decoder directly */
-    if ((result = suscan_decoder_make_encoder(ui->desc, bits, ui->config))
+    if ((result = suscan_decoder_make_codec(ui->desc, bits, ui->config))
         == NULL) {
       suscan_error(
           ui->inspector->gui,
           "Encoder/decoder constructor",
-          "Failed to create encoder/decoder object. Maybe there is problem "
+          "Failed to create codec/decoder object. Maybe there is problem "
           "with the implementation.\n\n"
           "You can get additional details on this error in the Log "
           "Messages tab");
@@ -441,16 +441,16 @@ SUPRIVATE void
 suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui_decoderui *ui = (struct suscan_gui_decoderui *) data;
-  su_encoder_t *encoder;
+  su_codec_t *codec;
 
-  encoder = suscan_gui_decoderui_run(ui);
+  codec = suscan_gui_decoderui_run(ui);
 
-  if (encoder != NULL) {
-    su_encoder_set_direction(encoder, SU_ENCODER_DIRECTION_FORWARDS);
+  if (codec != NULL) {
+    su_codec_set_direction(codec, SU_CODEC_DIRECTION_FORWARDS);
 
     /* TODO: Apply */
 
-    su_encoder_destroy(encoder);
+    su_codec_destroy(codec);
   }
 }
 
@@ -458,16 +458,16 @@ SUPRIVATE void
 suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui_decoderui *ui = (struct suscan_gui_decoderui *) data;
-  su_encoder_t *encoder;
+  su_codec_t *codec;
 
-  encoder = suscan_gui_decoderui_run(ui);
+  codec = suscan_gui_decoderui_run(ui);
 
-  if (encoder != NULL) {
-    su_encoder_set_direction(encoder, SU_ENCODER_DIRECTION_BACKWARDS);
+  if (codec != NULL) {
+    su_codec_set_direction(codec, SU_CODEC_DIRECTION_BACKWARDS);
 
     /* TODO: Apply */
 
-    su_encoder_destroy(encoder);
+    su_codec_destroy(codec);
   }
 }
 

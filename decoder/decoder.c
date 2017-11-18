@@ -30,7 +30,7 @@ PTR_LIST_CONST(struct suscan_decoder_desc, desc);
 struct suscan_decoder_desc *
 suscan_decoder_register(
     const char *desc,
-    su_encoder_t *(*ctor) (unsigned int, suscan_config_t *))
+    su_codec_t *(*ctor) (unsigned int, suscan_config_t *))
 {
   struct suscan_decoder_desc *new = NULL;
   suscan_config_desc_t *config_desc = NULL;
@@ -80,8 +80,8 @@ suscan_decoder_make_config(const struct suscan_decoder_desc *desc)
   return suscan_config_new(desc->config_desc);
 }
 
-su_encoder_t *
-suscan_decoder_make_encoder(
+su_codec_t *
+suscan_decoder_make_codec(
     const struct suscan_decoder_desc *desc,
     unsigned int bits,
     suscan_config_t *config)

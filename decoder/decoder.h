@@ -28,12 +28,12 @@
 struct suscan_decoder_desc {
   const char *desc;
   suscan_config_desc_t *config_desc;
-  su_encoder_t *(*ctor) (unsigned int bits, suscan_config_t *);
+  su_codec_t *(*ctor) (unsigned int bits, suscan_config_t *);
 };
 
 struct suscan_decoder_desc *suscan_decoder_register(
     const char *desc,
-    su_encoder_t *(*ctor) (unsigned int, suscan_config_t *));
+    su_codec_t *(*ctor) (unsigned int, suscan_config_t *));
 
 void suscan_decoder_desc_get_list(
     struct suscan_decoder_desc *const **list,
@@ -42,7 +42,7 @@ void suscan_decoder_desc_get_list(
 suscan_config_t *suscan_decoder_make_config(
     const struct suscan_decoder_desc *desc);
 
-su_encoder_t *suscan_decoder_make_encoder(
+su_codec_t *suscan_decoder_make_codec(
     const struct suscan_decoder_desc *desc,
     unsigned int bits,
     suscan_config_t *config);

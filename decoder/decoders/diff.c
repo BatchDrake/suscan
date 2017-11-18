@@ -25,8 +25,8 @@
 #include <sigutils/log.h>
 #include "decoder.h"
 
-SUPRIVATE su_encoder_t *
-suscan_decoder_diff_make_encoder(unsigned int bits, suscan_config_t *config)
+SUPRIVATE su_codec_t *
+suscan_decoder_diff_make_codec(unsigned int bits, suscan_config_t *config)
 {
   struct suscan_field_value *value = NULL;
 
@@ -35,7 +35,7 @@ suscan_decoder_diff_make_encoder(unsigned int bits, suscan_config_t *config)
       value = suscan_config_get_value(config, "sign"),
       return NULL);
 
-  return su_encoder_new("diff", bits, value->as_bool);
+  return su_codec_new("diff", bits, value->as_bool);
 }
 
 SUBOOL
@@ -45,8 +45,8 @@ suscan_decoder_diff_register(void)
 
   SU_TRYCATCH(
       desc = suscan_decoder_register(
-          "Generic differential encoder",
-          suscan_decoder_diff_make_encoder),
+          "Generic differential codec",
+          suscan_decoder_diff_make_codec),
       return SU_FALSE);
 
   SU_TRYCATCH(
