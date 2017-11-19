@@ -239,7 +239,7 @@ struct suscan_gui_constellation {
   unsigned int p;
 };
 
-struct suscan_gui_decoderui {
+struct suscan_gui_decodercfgui {
   struct suscan_gui_inspector *inspector;
   const struct suscan_decoder_desc *desc;
   suscan_config_t *config;
@@ -328,9 +328,27 @@ struct suscan_gui_inspector {
   GtkSpinButton  *widthSpinButton;
 
   /* DecoderUI objects */
-  PTR_LIST(struct suscan_gui_decoderui, decoderui);
+  PTR_LIST(struct suscan_gui_decodercfgui, decodercfgui);
 
   struct sigutils_channel channel;
+};
+
+struct suscan_gui_decoder {
+  struct suscan_gui_inspector *inspector;
+  const struct suscan_decoder_desc *desc;
+  su_codec_t      *codec;
+  GtkBuilder      *builder;
+
+  SUBITS          *input_buffer;
+  SUSCOUNT         input_size;
+
+  /* Top level widgets */
+  GtkEventBox     *pageLabelEventBox;
+  GtkLabel        *pageLabel;
+  GtkGrid         *decoderGrid;
+
+  /* Symbol view widgets */
+  SuGtkSymView    *symbolView;
 };
 
 void suscan_gui_destroy(struct suscan_gui *gui);
@@ -473,12 +491,12 @@ struct suscan_gui_inspector *suscan_gui_get_inspector(
     const struct suscan_gui *gui,
     uint32_t inspector_id);
 
-/* DecoderUI functions */
-void suscan_gui_decoderui_destroy(struct suscan_gui_decoderui *ui);
+/* Decoder Config UI functions */
+void suscan_gui_decodercfgui_destroy(struct suscan_gui_decodercfgui *ui);
 
-su_codec_t *suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui);
+su_codec_t *suscan_gui_decodercfgui_run(struct suscan_gui_decodercfgui *ui);
 
-struct suscan_gui_decoderui *suscan_gui_decoderui_new(
+struct suscan_gui_decodercfgui *suscan_gui_decodercfgui_new(
     struct suscan_gui_inspector *inspector,
     const struct suscan_decoder_desc *desc);
 

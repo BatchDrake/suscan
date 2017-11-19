@@ -38,8 +38,8 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
         inspector->inshnd,
         rand());
 
-  for (i = 0; i < inspector->decoderui_count; ++i)
-    suscan_gui_decoderui_destroy(inspector->decoderui_list[i]);
+  for (i = 0; i < inspector->decodercfgui_count; ++i)
+    suscan_gui_decodercfgui_destroy(inspector->decodercfgui_list[i]);
 
   if (inspector->channelInspectorGrid != NULL)
     gtk_widget_destroy(GTK_WIDGET(inspector->channelInspectorGrid));
@@ -49,7 +49,8 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 
   suscan_spectrum_finalize(&inspector->spectrum);
 
-  g_object_unref(G_OBJECT(inspector->builder));
+  if (inspector->builder != NULL)
+    g_object_unref(G_OBJECT(inspector->builder));
 
   free(inspector);
 }
@@ -284,7 +285,7 @@ suscan_gui_inspector_to_filename(
 }
 
 void
-suscan_gui_decoderui_destroy(struct suscan_gui_decoderui *ui)
+suscan_gui_decodercfgui_destroy(struct suscan_gui_decodercfgui *ui)
 {
   if (ui->config != NULL)
     suscan_config_destroy(ui->config);
@@ -303,7 +304,7 @@ suscan_gui_decoderui_destroy(struct suscan_gui_decoderui *ui)
  * parent inspector is detached from the main GUI
  */
 SUPRIVATE SUBOOL
-suscan_gui_decoderui_assert_parent_gui(struct suscan_gui_decoderui *ui)
+suscan_gui_decodercfgui_assert_parent_gui(struct suscan_gui_decodercfgui *ui)
 {
   GtkDialogFlags flags = GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT;
   GtkWidget *content;
@@ -317,9 +318,9 @@ suscan_gui_decoderui_assert_parent_gui(struct suscan_gui_decoderui *ui)
         ui->desc->desc,
         ui->inspector->gui->main,
         flags,
-        GTK_STOCK_OK,
+        "_OK",
         GTK_RESPONSE_ACCEPT,
-        GTK_STOCK_CANCEL,
+        "_Cancel",
         GTK_RESPONSE_REJECT,
         NULL);
 
@@ -339,15 +340,15 @@ suscan_gui_decoderui_assert_parent_gui(struct suscan_gui_decoderui *ui)
   return SU_TRUE;
 }
 
-struct suscan_gui_decoderui *
-suscan_gui_decoderui_new(
+struct suscan_gui_decodercfgui *
+suscan_gui_decodercfgui_new(
     struct suscan_gui_inspector *inspector,
     const struct suscan_decoder_desc *desc)
 {
-  struct suscan_gui_decoderui *new = NULL;
+  struct suscan_gui_decodercfgui *new = NULL;
 
 
-  SU_TRYCATCH(new = calloc(1, sizeof (struct suscan_gui_decoderui)), goto fail);
+  SU_TRYCATCH(new = calloc(1, sizeof (struct suscan_gui_decodercfgui)), goto fail);
 
   SU_TRYCATCH(new->config = suscan_decoder_make_config(desc), goto fail);
 
@@ -360,19 +361,19 @@ suscan_gui_decoderui_new(
 
 fail:
   if (new != NULL)
-    suscan_gui_decoderui_destroy(new);
+    suscan_gui_decodercfgui_destroy(new);
 
   return NULL;
 }
 
 su_codec_t *
-suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui)
+suscan_gui_decodercfgui_run(struct suscan_gui_decodercfgui *ui)
 {
   su_codec_t *result = NULL;
   gint response;
   unsigned int bits;
 
-  if (!suscan_gui_decoderui_assert_parent_gui(ui))
+  if (!suscan_gui_decodercfgui_assert_parent_gui(ui))
     return NULL; /* Weird */
 
   if (ui->inspector->params.fc_ctrl
@@ -440,10 +441,10 @@ suscan_gui_decoderui_run(struct suscan_gui_decoderui *ui)
 SUPRIVATE void
 suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
 {
-  struct suscan_gui_decoderui *ui = (struct suscan_gui_decoderui *) data;
+  struct suscan_gui_decodercfgui *ui = (struct suscan_gui_decodercfgui *) data;
   su_codec_t *codec;
 
-  codec = suscan_gui_decoderui_run(ui);
+  codec = suscan_gui_decodercfgui_run(ui);
 
   if (codec != NULL) {
     su_codec_set_direction(codec, SU_CODEC_DIRECTION_FORWARDS);
@@ -457,10 +458,10 @@ suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
 SUPRIVATE void
 suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
 {
-  struct suscan_gui_decoderui *ui = (struct suscan_gui_decoderui *) data;
+  struct suscan_gui_decodercfgui *ui = (struct suscan_gui_decodercfgui *) data;
   su_codec_t *codec;
 
-  codec = suscan_gui_decoderui_run(ui);
+  codec = suscan_gui_decodercfgui_run(ui);
 
   if (codec != NULL) {
     su_codec_set_direction(codec, SU_CODEC_DIRECTION_BACKWARDS);
@@ -473,18 +474,19 @@ suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
 
 SUPRIVATE SUBOOL
 suscan_gui_inspector_populate_decoder_menu(
-    struct suscan_gui_inspector *inspector)
+    struct suscan_gui_inspector *inspector,
+    SuGtkSymView *view)
 {
   GtkWidget *encs, *decs, *item;
   GtkWidget *enc_menu;
   GtkWidget *dec_menu;
   GtkMenu *menu;
   struct suscan_decoder_desc *const *list;
-  struct suscan_gui_decoderui *ui = NULL;
+  struct suscan_gui_decodercfgui *ui, *new_ui = NULL;
   unsigned int count;
   unsigned int i;
 
-  menu = sugtk_sym_view_get_menu(inspector->symbolView);
+  menu = sugtk_sym_view_get_menu(view);
 
   enc_menu = gtk_menu_new();
   dec_menu = gtk_menu_new();
@@ -501,13 +503,24 @@ suscan_gui_inspector_populate_decoder_menu(
   /* Append all available decoders */
   suscan_decoder_desc_get_list(&list, &count);
   for (i = 0; i < count; ++i) {
-    SU_TRYCATCH(
-        ui = suscan_gui_decoderui_new(inspector, list[i]),
-        return SU_FALSE);
+    /*
+     * We will ASSERT this UI, instead of re-creating it
+     * for every SymbolView
+     */
+    if (i < inspector->decodercfgui_count) {
+      ui = inspector->decodercfgui_list[i];
+    } else {
+      SU_TRYCATCH(
+          new_ui = suscan_gui_decodercfgui_new(inspector, list[i]),
+          return SU_FALSE);
 
-    SU_TRYCATCH(
-        PTR_LIST_APPEND_CHECK(inspector->decoderui, ui) != -1,
-        goto fail);
+      SU_TRYCATCH(
+          PTR_LIST_APPEND_CHECK(inspector->decodercfgui, new_ui) != -1,
+          goto fail);
+
+      ui = new_ui;
+      new_ui = NULL;
+    }
 
     /* To be handled by the encoder */
     item = gtk_menu_item_new_with_label(list[i]->desc);
@@ -526,8 +539,6 @@ suscan_gui_inspector_populate_decoder_menu(
         "activate",
         G_CALLBACK(suscan_gui_inspector_run_decoder),
         ui);
-
-    ui = NULL;
   }
 
   /* Show everything */
@@ -536,8 +547,8 @@ suscan_gui_inspector_populate_decoder_menu(
   return SU_TRUE;
 
 fail:
-  if (ui != NULL)
-    suscan_gui_decoderui_destroy(ui);
+  if (new_ui != NULL)
+    suscan_gui_decodercfgui_destroy(new_ui);
 
   return SU_FALSE;
 }
@@ -885,7 +896,9 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
   SU_TRYCATCH(
-      suscan_gui_inspector_populate_decoder_menu(inspector),
+      suscan_gui_inspector_populate_decoder_menu(
+          inspector,
+          inspector->symbolView),
       return SU_FALSE);
 
   gtk_grid_attach(
@@ -1324,18 +1337,8 @@ suscan_inspector_on_save(
     gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
-  GtkWidget *dialog;
-  GtkFileChooser *chooser;
-  gint res;
   char *new_fname = NULL;
-  gchar *filename = NULL;
-  char result;
-  const uint8_t *bytes;
-  size_t size;
-  GtkTextIter istart, iend;
   uint8_t bpsym;
-  FILE *fp = NULL;
-  unsigned int i;
 
   if (insp->params.fc_ctrl == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
     suscan_warning(
@@ -1354,62 +1357,14 @@ suscan_inspector_on_save(
       goto done);
 
   SU_TRYCATCH(
-      dialog = gtk_file_chooser_dialog_new(
-          "Save symbol record",
-          insp->gui->main,
-          GTK_FILE_CHOOSER_ACTION_SAVE,
-          "_Cancel",
-          GTK_RESPONSE_CANCEL,
-          "_Save",
-          GTK_RESPONSE_ACCEPT,
-          NULL),
+      sugtk_sym_view_save_helper(
+          insp->symbolView,
+          "Save symbol view",
+          new_fname,
+          bpsym),
       goto done);
 
-  chooser = GTK_FILE_CHOOSER(dialog);
-
-  gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
-
-  gtk_file_chooser_set_current_name(chooser, new_fname);
-
-  if (gtk_dialog_run(GTK_DIALOG (dialog)) == GTK_RESPONSE_ACCEPT) {
-    SU_TRYCATCH(
-        filename = gtk_file_chooser_get_filename (chooser),
-        goto done);
-    if ((fp = fopen(filename, "wb")) == NULL) {
-      suscan_error(
-          insp->gui,
-          "Save failed",
-          "Cannot save symbols to file: %s",
-          strerror(errno));
-      goto done;
-    }
-
-    bytes = sugtk_sym_get_buffer_bytes(insp->symbolView);
-    size = sugtk_sym_get_buffer_size(insp->symbolView);
-
-    for (i = 0; i < size; i += SUGTK_SYM_VIEW_STRIDE_ALIGN) {
-      result = (bytes[i] >> (8 - bpsym)) + '0';
-      if (fwrite(&result, 1, 1, fp) < 1) {
-        suscan_error(
-            insp->gui,
-            "Write failed",
-            "Failed to write symbol recording to disk: %s",
-            strerror(errno));
-        goto done;
-      }
-    }
-  }
-
 done:
-  if (fp != NULL)
-    fclose(fp);
-
-  if (filename != NULL)
-    g_free (filename);
-
-  if (dialog != NULL)
-    gtk_widget_destroy(dialog);
-
   if (new_fname != NULL)
     free(new_fname);
 }

@@ -102,6 +102,13 @@ GtkMenu *sugtk_sym_view_get_menu(const SuGtkSymView *view);
 gboolean sugtk_sym_view_append(SuGtkSymView *view, uint8_t data);
 void sugtk_sym_view_set_autoscroll(SuGtkSymView *view, gboolean value);
 void sugtk_sym_view_set_autofit(SuGtkSymView *view, gboolean value);
+
+gboolean sugtk_sym_view_save_helper(
+    SuGtkSymView *view,
+    const gchar *title,
+    const gchar *file_name_hint,
+    uint8_t bits_per_symbol);
+
 gboolean sugtk_sym_view_get_selection(
     const SuGtkSymView *view,
     guint *start,

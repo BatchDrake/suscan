@@ -767,6 +767,128 @@ done:
 }
 
 static void
+sugtk_sym_view_error(
+    GtkWindow *toplevel,
+    const char *title,
+    const char *fmt,
+    ...)
+{
+  va_list ap;
+  char *message;
+  GtkWidget *dialog;
+
+  va_start(ap, fmt);
+
+  if ((message = vstrbuild(fmt, ap)) != NULL) {
+    dialog = gtk_message_dialog_new(
+        toplevel,
+        GTK_DIALOG_DESTROY_WITH_PARENT,
+        GTK_MESSAGE_ERROR,
+        GTK_BUTTONS_CLOSE,
+        "%s",
+        message);
+
+    gtk_window_set_title(GTK_WINDOW(dialog), title);
+
+    gtk_dialog_run(GTK_DIALOG(dialog));
+
+    gtk_widget_destroy(dialog);
+
+    free(message);
+  }
+
+  va_end(ap);
+}
+
+gboolean
+sugtk_sym_view_save_helper(
+    SuGtkSymView *view,
+    const gchar *title,
+    const gchar *file_name_hint,
+    uint8_t bits_per_symbol)
+{
+  GtkWidget *toplevel;
+  GtkWindow *window = NULL;
+  GtkWidget *dialog;
+  GtkFileChooser *chooser;
+  gchar *filename = NULL;
+  char result;
+  const uint8_t *bytes;
+  size_t size;
+  FILE *fp = NULL;
+  gboolean ok = FALSE;
+  unsigned int i;
+
+  toplevel = gtk_widget_get_toplevel(GTK_WIDGET(view));
+  if (gtk_widget_is_toplevel(toplevel))
+    window = GTK_WINDOW(toplevel);
+
+  dialog = gtk_file_chooser_dialog_new(
+          title,
+          window,
+          GTK_FILE_CHOOSER_ACTION_SAVE,
+          "_Cancel",
+          GTK_RESPONSE_CANCEL,
+          "_Save",
+          GTK_RESPONSE_ACCEPT,
+          NULL);
+
+  chooser = GTK_FILE_CHOOSER(dialog);
+
+  gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
+
+  gtk_file_chooser_set_current_name(chooser, file_name_hint);
+
+  if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+    if ((filename = gtk_file_chooser_get_filename(chooser)) == NULL) {
+      sugtk_sym_view_error(
+          window,
+          "Save file",
+          "Selected file is not representable in the filesystem");
+      goto done;
+    }
+
+    if ((fp = fopen(filename, "wb")) == NULL) {
+      sugtk_sym_view_error(
+          window,
+          "Save failed",
+          "Cannot save symbols to file: %s",
+          strerror(errno));
+      goto done;
+    }
+
+    bytes = sugtk_sym_get_buffer_bytes(view);
+    size = sugtk_sym_get_buffer_size(view);
+
+    for (i = 0; i < size; i += SUGTK_SYM_VIEW_STRIDE_ALIGN) {
+      result = (bytes[i] >> (8 - bits_per_symbol)) + '0';
+      if (fwrite(&result, 1, 1, fp) < 1) {
+        sugtk_sym_view_error(
+            window,
+            "Write failed",
+            "Failed to write symbol recording to disk: %s",
+            strerror(errno));
+        goto done;
+      }
+    }
+  }
+
+  ok = TRUE;
+
+done:
+  if (fp != NULL)
+    fclose(fp);
+
+  if (filename != NULL)
+    g_free (filename);
+
+  if (dialog != NULL)
+    gtk_widget_destroy(dialog);
+
+  return ok;
+}
+
+static void
 sugtk_sym_view_init(SuGtkSymView *self)
 {
   self->data_alloc = 0;
