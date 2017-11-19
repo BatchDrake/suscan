@@ -23,6 +23,7 @@
 
 #include <sigutils/sigutils.h>
 #include <suscan.h>
+#include <codec.h>
 #include <gtk/gtk.h>
 #include <symview.h>
 #include <transmtx.h>
@@ -239,9 +240,9 @@ struct suscan_gui_constellation {
   unsigned int p;
 };
 
-struct suscan_gui_decodercfgui {
+struct suscan_gui_codec_cfg_ui {
   struct suscan_gui_inspector *inspector;
-  const struct suscan_decoder_desc *desc;
+  const struct suscan_codec_class *desc;
   suscan_config_t *config;
   struct suscan_gui_cfgui *ui;
   GtkWidget *dialog;
@@ -250,7 +251,7 @@ struct suscan_gui_decodercfgui {
 #define SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA .5
 #define SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM
 
-struct suscan_gui_decoder;
+struct suscan_gui_codec;
 
 struct suscan_gui_inspector {
   int index; /* Back reference */
@@ -328,25 +329,26 @@ struct suscan_gui_inspector {
   SuGtkSymView   *symbolView;
   GtkSpinButton  *offsetSpinButton;
   GtkSpinButton  *widthSpinButton;
-  GtkNotebook    *decoderNotebook;
+  GtkNotebook    *codecNotebook;
 
   /* DecoderUI objects */
-  PTR_LIST(struct suscan_gui_decodercfgui, decodercfgui);
+  PTR_LIST(struct suscan_gui_codec_cfg_ui, codec_cfg_ui);
 
   /* Decoder objects */
-  PTR_LIST(struct suscan_gui_decoder, decoder);
+  PTR_LIST(struct suscan_gui_codec, codec);
 
   struct sigutils_channel channel;
 };
 
-struct suscan_gui_decoder_context;
+struct suscan_gui_codec_context;
 
-struct suscan_gui_decoder {
+struct suscan_gui_codec {
   struct suscan_gui_inspector *inspector;
-  const struct suscan_decoder_desc *desc;
+  const struct suscan_codec_class *class;
   int              index;
-  su_codec_t      *codec;
+  suscan_codec_t  *codec;
   GtkBuilder      *builder;
+  unsigned int     direction;
 
   SUBITS          *input_buffer;
   SUSCOUNT         input_size;
@@ -354,7 +356,7 @@ struct suscan_gui_decoder {
   /* Top level widgets */
   GtkEventBox     *pageLabelEventBox;
   GtkLabel        *pageLabel;
-  GtkGrid         *decoderGrid;
+  GtkGrid         *codecGrid;
 
   /* Toolbar widgets */
   GtkToggleToolButton *autoFitToggleButton;
@@ -365,12 +367,12 @@ struct suscan_gui_decoder {
   SuGtkSymView    *symbolView;
 
   /* Decoder contexts, needed to link menus to codec operations */
-  PTR_LIST(struct suscan_gui_decoder_context, context);
+  PTR_LIST(struct suscan_gui_codec_context, context);
 };
 
-struct suscan_gui_decoder_context {
-  struct suscan_gui_decoder *decoder;
-  struct suscan_gui_decodercfgui *ui;
+struct suscan_gui_codec_context {
+  struct suscan_gui_codec *codec;
+  struct suscan_gui_codec_cfg_ui *ui;
 };
 
 void suscan_gui_destroy(struct suscan_gui *gui);
@@ -514,16 +516,16 @@ struct suscan_gui_inspector *suscan_gui_get_inspector(
     uint32_t inspector_id);
 
 /* Decoder Config UI functions */
-void suscan_gui_decodercfgui_destroy(struct suscan_gui_decodercfgui *ui);
+void suscan_gui_codec_cfg_ui_destroy(struct suscan_gui_codec_cfg_ui *ui);
 
-SUBOOL suscan_gui_decodercfgui_assert_parent_gui(
-    struct suscan_gui_decodercfgui *ui);
+SUBOOL suscan_gui_codec_cfg_ui_assert_parent_gui(
+    struct suscan_gui_codec_cfg_ui *ui);
 
-SUBOOL suscan_gui_decodercfgui_run(struct suscan_gui_decodercfgui *ui);
+SUBOOL suscan_gui_codec_cfg_ui_run(struct suscan_gui_codec_cfg_ui *ui);
 
-struct suscan_gui_decodercfgui *suscan_gui_decodercfgui_new(
+struct suscan_gui_codec_cfg_ui *suscan_gui_codec_cfg_ui_new(
     struct suscan_gui_inspector *inspector,
-    const struct suscan_decoder_desc *desc);
+    const struct suscan_codec_class *desc);
 
 /* Inspector GUI functions */
 void suscan_gui_inspector_feed_w_batch(
@@ -542,39 +544,39 @@ void suscan_gui_inspector_detach(struct suscan_gui_inspector *insp);
 
 void suscan_gui_inspector_close(struct suscan_gui_inspector *insp);
 
-SUBOOL suscan_gui_inspector_populate_decoder_menu(
+SUBOOL suscan_gui_inspector_populate_codec_menu(
     struct suscan_gui_inspector *inspector,
     SuGtkSymView *view,
-    void *(*create_priv) (void *, struct suscan_gui_decodercfgui *),
+    void *(*create_priv) (void *, struct suscan_gui_codec_cfg_ui *),
     void *private,
     GCallback on_encode,
     GCallback on_decode);
 
-SUBOOL suscan_gui_inspector_remove_decoder(
+SUBOOL suscan_gui_inspector_remove_codec(
     struct suscan_gui_inspector *gui,
-    struct suscan_gui_decoder *decoder);
+    struct suscan_gui_codec *codec);
 
-SUBOOL suscan_gui_inspector_add_decoder(
+SUBOOL suscan_gui_inspector_add_codec(
     struct suscan_gui_inspector *inspector,
-    struct suscan_gui_decoder *decoder);
+    struct suscan_gui_codec *codec);
 
 SUBOOL suscan_gui_inspector_open_codec_tab(
     struct suscan_gui_inspector *inspector,
-    struct suscan_gui_decodercfgui *ui,
+    struct suscan_gui_codec_cfg_ui *ui,
     unsigned int bits,
     enum su_codec_direction direction);
 
 void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
 
-/* Decoder API */
-struct suscan_gui_decoder *suscan_gui_decoder_new(
+/* Codec API */
+struct suscan_gui_codec *suscan_gui_codec_new(
     struct suscan_gui_inspector *inspector,
-    const struct suscan_decoder_desc *desc,
+    const struct suscan_codec_class *class,
     uint8_t bits_per_symbol,
     suscan_config_t *config,
     enum su_codec_direction direction);
 
-void suscan_gui_decoder_destroy(struct suscan_gui_decoder *decoder);
+void suscan_gui_codec_destroy(struct suscan_gui_codec *codec);
 
 /* Source API */
 struct suscan_gui_src_ui *suscan_gui_lookup_source_config(

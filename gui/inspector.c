@@ -25,7 +25,7 @@
 
 #include "gui.h"
 #include <sigutils/agc.h>
-#include <decoder.h>
+#include "../codec/codec.h"
 
 void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
@@ -38,12 +38,18 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
         inspector->inshnd,
         rand());
 
-  for (i = 0; i < inspector->decoder_count; ++i)
-    if (inspector->decoder_list[i] != NULL)
-      suscan_gui_decoder_destroy(inspector->decoder_list[i]);
+  for (i = 0; i < inspector->codec_count; ++i)
+    if (inspector->codec_list[i] != NULL)
+      suscan_gui_codec_destroy(inspector->codec_list[i]);
 
-  for (i = 0; i < inspector->decodercfgui_count; ++i)
-    suscan_gui_decodercfgui_destroy(inspector->decodercfgui_list[i]);
+  if (inspector->codec_list != NULL)
+    free(inspector->codec_list);
+
+  for (i = 0; i < inspector->codec_cfg_ui_count; ++i)
+    suscan_gui_codec_cfg_ui_destroy(inspector->codec_cfg_ui_list[i]);
+
+  if (inspector->codec_cfg_ui_list != NULL)
+    free(inspector->codec_cfg_ui_list);
 
   /* FIXME: Aren't these destroyed with GtkBuilder? */
   if (inspector->channelInspectorGrid != NULL)
@@ -290,7 +296,7 @@ suscan_gui_inspector_to_filename(
 }
 
 void
-suscan_gui_decodercfgui_destroy(struct suscan_gui_decodercfgui *ui)
+suscan_gui_codec_cfg_ui_destroy(struct suscan_gui_codec_cfg_ui *ui)
 {
   if (ui->config != NULL)
     suscan_config_destroy(ui->config);
@@ -305,11 +311,11 @@ suscan_gui_decodercfgui_destroy(struct suscan_gui_decodercfgui *ui)
 }
 
 /*
- * Has to be done in a lazy way because when a decoder is constructed the
+ * Has to be done in a lazy way because when a codec is constructed the
  * parent inspector is detached from the main GUI
  */
 SUBOOL
-suscan_gui_decodercfgui_assert_parent_gui(struct suscan_gui_decodercfgui *ui)
+suscan_gui_codec_cfg_ui_assert_parent_gui(struct suscan_gui_codec_cfg_ui *ui)
 {
   GtkDialogFlags flags = GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT;
   GtkWidget *content;
@@ -345,17 +351,17 @@ suscan_gui_decodercfgui_assert_parent_gui(struct suscan_gui_decodercfgui *ui)
   return SU_TRUE;
 }
 
-struct suscan_gui_decodercfgui *
-suscan_gui_decodercfgui_new(
+struct suscan_gui_codec_cfg_ui *
+suscan_gui_codec_cfg_ui_new(
     struct suscan_gui_inspector *inspector,
-    const struct suscan_decoder_desc *desc)
+    const struct suscan_codec_class *desc)
 {
-  struct suscan_gui_decodercfgui *new = NULL;
+  struct suscan_gui_codec_cfg_ui *new = NULL;
 
 
-  SU_TRYCATCH(new = calloc(1, sizeof (struct suscan_gui_decodercfgui)), goto fail);
+  SU_TRYCATCH(new = calloc(1, sizeof (struct suscan_gui_codec_cfg_ui)), goto fail);
 
-  SU_TRYCATCH(new->config = suscan_decoder_make_config(desc), goto fail);
+  SU_TRYCATCH(new->config = suscan_codec_class_make_config(desc), goto fail);
 
   SU_TRYCATCH(new->ui = suscan_gui_cfgui_new(new->config), goto fail);
 
@@ -366,13 +372,13 @@ suscan_gui_decodercfgui_new(
 
 fail:
   if (new != NULL)
-    suscan_gui_decodercfgui_destroy(new);
+    suscan_gui_codec_cfg_ui_destroy(new);
 
   return NULL;
 }
 
 SUBOOL
-suscan_gui_decodercfgui_run(struct suscan_gui_decodercfgui *ui)
+suscan_gui_codec_cfg_ui_run(struct suscan_gui_codec_cfg_ui *ui)
 {
   SUBOOL do_run = SU_FALSE;
   gint response;
@@ -389,7 +395,7 @@ suscan_gui_decodercfgui_run(struct suscan_gui_decodercfgui *ui)
         if (!suscan_gui_cfgui_parse(ui->ui)) {
           suscan_error(
               ui->inspector->gui,
-              "Encoder/decoder parameters",
+              "Encoder/codec parameters",
               "Some parameters are incorrect. Please verify that all mandatory "
               "fields have been properly filled and are within a valid range");
         } else {
@@ -412,14 +418,14 @@ suscan_gui_decodercfgui_run(struct suscan_gui_decodercfgui *ui)
 SUBOOL
 suscan_gui_inspector_open_codec_tab(
     struct suscan_gui_inspector *inspector,
-    struct suscan_gui_decodercfgui *ui,
+    struct suscan_gui_codec_cfg_ui *ui,
     unsigned int bits,
     enum su_codec_direction direction)
 {
-  struct suscan_gui_decoder *decoder = NULL;
+  struct suscan_gui_codec *codec = NULL;
 
-  if (suscan_gui_decodercfgui_run(ui)) {
-    if ((decoder = suscan_gui_decoder_new(
+  if (suscan_gui_codec_cfg_ui_run(ui)) {
+    if ((codec = suscan_gui_codec_new(
         ui->inspector,
         ui->desc,
         bits,
@@ -439,8 +445,8 @@ suscan_gui_inspector_open_codec_tab(
         suscan_error(
             ui->inspector->gui,
             "Decoder constructor",
-            "Failed to create decoder object. This usually means "
-            "that the current decoder settings are not supported "
+            "Failed to create codec object. This usually means "
+            "that the current codec settings are not supported "
             "by the underlying implementation.\n\n"
             "You can get additional details on this error in the Log "
             "Messages tab");
@@ -449,15 +455,15 @@ suscan_gui_inspector_open_codec_tab(
     }
 
     SU_TRYCATCH(
-        suscan_gui_inspector_add_decoder(ui->inspector, decoder),
+        suscan_gui_inspector_add_codec(ui->inspector, codec),
         goto fail);
   }
 
   return SU_TRUE;
 
 fail:
-  if (decoder != NULL)
-    suscan_gui_decoder_destroy(decoder);
+  if (codec != NULL)
+    suscan_gui_codec_destroy(codec);
 
   return SU_FALSE;
 }
@@ -465,10 +471,10 @@ fail:
 SUPRIVATE void
 suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
 {
-  struct suscan_gui_decodercfgui *ui = (struct suscan_gui_decodercfgui *) data;
+  struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
   unsigned int bits;
 
-  if (!suscan_gui_decodercfgui_assert_parent_gui(ui))
+  if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ui))
     return;  /* Weird */
 
   if (ui->inspector->params.fc_ctrl
@@ -490,12 +496,12 @@ suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
 }
 
 SUPRIVATE void
-suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
+suscan_gui_inspector_run_codec(GtkWidget *widget, gpointer *data)
 {
-  struct suscan_gui_decodercfgui *ui = (struct suscan_gui_decodercfgui *) data;
+  struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
   unsigned int bits;
 
-  if (!suscan_gui_decodercfgui_assert_parent_gui(ui))
+  if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ui))
     return;  /* Weird */
 
   if (ui->inspector->params.fc_ctrl
@@ -503,7 +509,7 @@ suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
     suscan_error(
         ui->inspector->gui,
         "Decoder error",
-        "Cannot run decoder with manual carrier control");
+        "Cannot run codec with manual carrier control");
     return;
   }
 
@@ -517,10 +523,10 @@ suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
 }
 
 SUBOOL
-suscan_gui_inspector_populate_decoder_menu(
+suscan_gui_inspector_populate_codec_menu(
     struct suscan_gui_inspector *inspector,
     SuGtkSymView *view,
-    void *(*create_priv) (void *, struct suscan_gui_decodercfgui *),
+    void *(*create_priv) (void *, struct suscan_gui_codec_cfg_ui *),
     void *private,
     GCallback on_encode,
     GCallback on_decode)
@@ -529,8 +535,8 @@ suscan_gui_inspector_populate_decoder_menu(
   GtkWidget *enc_menu;
   GtkWidget *dec_menu;
   GtkMenu *menu;
-  struct suscan_decoder_desc *const *list;
-  struct suscan_gui_decodercfgui *ui, *new_ui = NULL;
+  struct suscan_codec_class *const *list;
+  struct suscan_gui_codec_cfg_ui *ui, *new_ui = NULL;
   unsigned int count;
   unsigned int i;
 
@@ -548,22 +554,22 @@ suscan_gui_inspector_populate_decoder_menu(
   gtk_menu_shell_append(GTK_MENU_SHELL(menu), encs);
   gtk_menu_shell_append(GTK_MENU_SHELL(menu), decs);
 
-  /* Append all available decoders */
-  suscan_decoder_desc_get_list(&list, &count);
+  /* Append all available codecs */
+  suscan_codec_class_get_list(&list, &count);
   for (i = 0; i < count; ++i) {
     /*
      * We will ASSERT this UI, instead of re-creating it
      * for every SymbolView
      */
-    if (i < inspector->decodercfgui_count) {
-      ui = inspector->decodercfgui_list[i];
+    if (i < inspector->codec_cfg_ui_count) {
+      ui = inspector->codec_cfg_ui_list[i];
     } else {
       SU_TRYCATCH(
-          new_ui = suscan_gui_decodercfgui_new(inspector, list[i]),
+          new_ui = suscan_gui_codec_cfg_ui_new(inspector, list[i]),
           return SU_FALSE);
 
       SU_TRYCATCH(
-          PTR_LIST_APPEND_CHECK(inspector->decodercfgui, new_ui) != -1,
+          PTR_LIST_APPEND_CHECK(inspector->codec_cfg_ui, new_ui) != -1,
           goto fail);
 
       ui = new_ui;
@@ -571,22 +577,26 @@ suscan_gui_inspector_populate_decoder_menu(
     }
 
     /* To be handled by the encoder */
-    item = gtk_menu_item_new_with_label(list[i]->desc);
-    gtk_menu_shell_append(GTK_MENU_SHELL(enc_menu), item);
-    g_signal_connect(
-        G_OBJECT(item),
-        "activate",
-        on_encode,
-        (create_priv) (private, ui));
+    if (list[i]->directions & SUSCAN_CODEC_DIRECTION_FORWARDS) {
+      item = gtk_menu_item_new_with_label(list[i]->desc);
+      gtk_menu_shell_append(GTK_MENU_SHELL(enc_menu), item);
+      g_signal_connect(
+          G_OBJECT(item),
+          "activate",
+          on_encode,
+          (create_priv) (private, ui));
+    }
 
     /* To be handled by the decoder */
-    item = gtk_menu_item_new_with_label(list[i]->desc);
-    gtk_menu_shell_append(GTK_MENU_SHELL(dec_menu), item);
-    g_signal_connect(
-        G_OBJECT(item),
-        "activate",
-        on_decode,
-        (create_priv) (private, ui));
+    if (list[i]->directions & SUSCAN_CODEC_DIRECTION_BACKWARDS) {
+      item = gtk_menu_item_new_with_label(list[i]->desc);
+      gtk_menu_shell_append(GTK_MENU_SHELL(dec_menu), item);
+      g_signal_connect(
+          G_OBJECT(item),
+          "activate",
+          on_decode,
+          (create_priv) (private, ui));
+    }
   }
 
   /* Show everything */
@@ -596,7 +606,7 @@ suscan_gui_inspector_populate_decoder_menu(
 
 fail:
   if (new_ui != NULL)
-    suscan_gui_decodercfgui_destroy(new_ui);
+    suscan_gui_codec_cfg_ui_destroy(new_ui);
 
   return SU_FALSE;
 }
@@ -604,7 +614,7 @@ fail:
 SUPRIVATE void *
 suscan_gui_inspector_dummy_create_private(
     void *unused,
-    struct suscan_gui_decodercfgui *ui)
+    struct suscan_gui_codec_cfg_ui *ui)
 {
   return ui;
 }
@@ -949,7 +959,7 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      inspector->decoderNotebook =
+      inspector->codecNotebook =
           GTK_NOTEBOOK(gtk_builder_get_object(
               inspector->builder,
               "nbDecoder")),
@@ -959,13 +969,13 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
   SU_TRYCATCH(
-      suscan_gui_inspector_populate_decoder_menu(
+      suscan_gui_inspector_populate_codec_menu(
           inspector,
           inspector->symbolView,
           suscan_gui_inspector_dummy_create_private,
           NULL,
           G_CALLBACK(suscan_gui_inspector_run_encoder),
-          G_CALLBACK(suscan_gui_inspector_run_decoder)),
+          G_CALLBACK(suscan_gui_inspector_run_codec)),
       return SU_FALSE);
 
   gtk_grid_attach(
@@ -1554,66 +1564,66 @@ suscan_inspector_on_set_width(
 
 /************************* Decoder tab handling ******************************/
 SUBOOL
-suscan_gui_inspector_remove_decoder(
+suscan_gui_inspector_remove_codec(
     struct suscan_gui_inspector *gui,
-    struct suscan_gui_decoder *decoder)
+    struct suscan_gui_codec *codec)
 {
   gint num;
-  int index = decoder->index;
-  if (index < 0 || index >= gui->decoder_count)
+  int index = codec->index;
+  if (index < 0 || index >= gui->codec_count)
     return SU_FALSE;
 
-  SU_TRYCATCH(gui->decoder_list[index] == decoder, return SU_FALSE);
+  SU_TRYCATCH(gui->codec_list[index] == codec, return SU_FALSE);
 
   SU_TRYCATCH(
       (num = gtk_notebook_page_num(
-          gui->decoderNotebook,
-          GTK_WIDGET(decoder->decoderGrid))) != -1,
+          gui->codecNotebook,
+          GTK_WIDGET(codec->codecGrid))) != -1,
       return SU_FALSE);
 
-  gtk_notebook_remove_page(gui->decoderNotebook, num);
+  gtk_notebook_remove_page(gui->codecNotebook, num);
 
-  gui->decoder_list[index] = NULL;
+  gui->codec_list[index] = NULL;
 
   return SU_TRUE;
 }
 
 SUBOOL
-suscan_gui_inspector_add_decoder(
+suscan_gui_inspector_add_codec(
     struct suscan_gui_inspector *inspector,
-    struct suscan_gui_decoder *decoder)
+    struct suscan_gui_codec *codec)
 {
   gint page;
-  SUBOOL decoder_added = SU_FALSE;
+  SUBOOL codec_added = SU_FALSE;
 
   SU_TRYCATCH(
-      (decoder->index = PTR_LIST_APPEND_CHECK(
-          inspector->decoder,
-          decoder)) != -1,
+      (codec->index = PTR_LIST_APPEND_CHECK(
+          inspector->codec,
+          codec)) != -1,
       goto fail);
 
-  decoder_added = SU_TRUE;
+  codec_added = SU_TRUE;
 
   SU_TRYCATCH(
       (page = gtk_notebook_append_page_menu(
-          inspector->decoderNotebook,
-          GTK_WIDGET(decoder->decoderGrid),
-          GTK_WIDGET(decoder->pageLabelEventBox),
+          inspector->codecNotebook,
+          GTK_WIDGET(codec->codecGrid),
+          GTK_WIDGET(codec->pageLabelEventBox),
           NULL)) >= 0,
       goto fail);
 
   gtk_notebook_set_tab_reorderable(
-      inspector->decoderNotebook,
-      GTK_WIDGET(decoder->pageLabelEventBox),
+      inspector->codecNotebook,
+      GTK_WIDGET(codec->pageLabelEventBox),
       TRUE);
 
-  gtk_notebook_set_current_page(inspector->decoderNotebook, page);
+  gtk_notebook_set_current_page(inspector->codecNotebook, page);
 
   return TRUE;
 
 fail:
-  if (decoder_added)
-    (void) suscan_gui_inspector_remove_decoder(inspector, decoder);
+  if (codec_added)
+    (void) suscan_gui_inspector_remove_codec(inspector, codec);
 
   return FALSE;
 }

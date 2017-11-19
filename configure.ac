@@ -98,7 +98,7 @@ AC_OUTPUT([
   Makefile
   src/Makefile
   util/Makefile
-  decoder/Makefile
+  codec/Makefile
   analyzer/Makefile
   gui/Makefile
 ])

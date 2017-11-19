@@ -2,13 +2,13 @@
 
 
 bin_PROGRAMS = suscan
-suscan_CFLAGS = -I. -I../util -I../decoder -I../ctk -I.. -g -O0 \
+suscan_CFLAGS = -I. -I../util -I../codec -I../ctk -I.. -g -O0 \
 	@sigutils_CFLAGS@ 					\
 	@fftw3_CFLAGS@     					\
 	@sndfile_CFLAGS@						\
 	@asoundlib_CFLAGS@					\
 	@gtk3_CFLAGS@								\
-	@hackRF_CFLAGS@ 						\	
+	@hackRF_CFLAGS@ 						\
 	@GLOBAL_CFLAGS@
 	
 suscan_LDFLAGS = @GLOBAL_LDFLAGS@ -Wl,--whole-archive \
@@ -17,7 +17,7 @@ suscan_LDFLAGS = @GLOBAL_LDFLAGS@ -Wl,--whole-archive \
 suscan_LDADD = ../util/libutil.la \
 	../gui/libgui.la								\
 	../analyzer/libanalyzer.la	    \
-	../decoder/libdecoder.la	    	\
+	../codec/libcodec.la	    			\
 	@sigutils_LIBS@		 							\
 	@fftw3_LIBS@     								\
 	@sndfile_LIBS@									\
