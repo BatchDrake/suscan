@@ -765,11 +765,34 @@ grow_buf_get_size(const grow_buf_t *buf)
   return buf->size;
 }
 
-void grow_buf_finalize(grow_buf_t *buf)
+void
+grow_buf_finalize(grow_buf_t *buf)
 {
   if (buf->buffer != NULL)
     free(buf->buffer);
 }
 
+void
+grow_buf_clear(grow_buf_t *buf)
+{
+  buf->alloc = 0;
+  buf->size = 0;
+  grow_buf_finalize(buf);
+  buf->buffer = NULL;
+}
 
+int
+grow_buf_transfer(grow_buf_t *dest, grow_buf_t *src)
+{
+  void *new = NULL;
+
+  if ((new = grow_buf_alloc(dest, src->size)) == NULL)
+    return -1;
+
+  memcpy(new, src->buffer, src->size);
+
+  grow_buf_clear(src);
+
+  return 0;
+}
 

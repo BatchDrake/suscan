@@ -800,6 +800,18 @@ sugtk_sym_view_error(
   va_end(ap);
 }
 
+guint
+sugtk_sym_view_pixel_to_code_helper(uint8_t bits_per_symbol, uint8_t pixel)
+{
+  return pixel >> (8 - bits_per_symbol);
+}
+
+guint
+sugtk_sym_view_code_to_pixel_helper(uint8_t bits_per_symbol, uint8_t code)
+{
+  return (0xff * (uint32_t) code) / ((1 << bits_per_symbol) - 1);
+}
+
 gboolean
 sugtk_sym_view_save_helper(
     SuGtkSymView *view,
@@ -861,7 +873,9 @@ sugtk_sym_view_save_helper(
     size = sugtk_sym_get_buffer_size(view);
 
     for (i = 0; i < size; i += SUGTK_SYM_VIEW_STRIDE_ALIGN) {
-      result = (bytes[i] >> (8 - bits_per_symbol)) + '0';
+      result = sugtk_sym_view_pixel_to_code_helper(bits_per_symbol, bytes[i])
+          + '0';
+
       if (fwrite(&result, 1, 1, fp) < 1) {
         sugtk_sym_view_error(
             window,

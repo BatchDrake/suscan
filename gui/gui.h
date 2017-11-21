@@ -263,6 +263,10 @@ struct suscan_gui_inspector {
   struct suscan_gui_spectrum spectrum; /* Spectrum graph */
   struct suscan_inspector_params params; /* Inspector params */
 
+  /* Worker used by codecs */
+  suscan_worker_t *worker;
+  struct suscan_mq mq;
+
   /* Widgets */
   GtkBuilder     *builder;
   GtkEventBox    *pageLabelEventBox;
@@ -342,11 +346,18 @@ struct suscan_gui_inspector {
 
 struct suscan_gui_codec_context;
 
+struct suscan_gui_codec_state;
+
 struct suscan_gui_codec {
-  struct suscan_gui_inspector *inspector;
+  struct suscan_gui_inspector     *inspector;
   const struct suscan_codec_class *class;
+  struct suscan_gui_codec_state   *state; /* Async callback state */
+
+  const char      *desc; /* Borrowed from codec class */
+  unsigned int     input_bits;
+  unsigned int     output_bits;
+
   int              index;
-  suscan_codec_t  *codec;
   GtkBuilder      *builder;
   unsigned int     direction;
 
@@ -532,6 +543,14 @@ void suscan_gui_inspector_feed_w_batch(
     struct suscan_gui_inspector *inspector,
     const struct suscan_analyzer_sample_batch_msg *msg);
 
+SUBOOL suscan_gui_inspector_push_task(
+    struct suscan_gui_inspector *inspector,
+    SUBOOL (*task) (
+        struct suscan_mq *mq_out,
+        void *wk_private,
+        void *cb_private),
+     void *private);
+
 struct suscan_gui_inspector *suscan_gui_inspector_new(
     const struct sigutils_channel *channel,
     SUHANDLE handle);
@@ -564,7 +583,8 @@ SUBOOL suscan_gui_inspector_open_codec_tab(
     struct suscan_gui_inspector *inspector,
     struct suscan_gui_codec_cfg_ui *ui,
     unsigned int bits,
-    enum su_codec_direction direction);
+    unsigned int direction,
+    const SuGtkSymView *source);
 
 void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
 
@@ -574,7 +594,11 @@ struct suscan_gui_codec *suscan_gui_codec_new(
     const struct suscan_codec_class *class,
     uint8_t bits_per_symbol,
     suscan_config_t *config,
-    enum su_codec_direction direction);
+    unsigned int direction,
+    const SuGtkSymView *source);
+
+/* Use this if the worker is dead */
+void suscan_gui_codec_destroy_hard(struct suscan_gui_codec *codec);
 
 void suscan_gui_codec_destroy(struct suscan_gui_codec *codec);
 

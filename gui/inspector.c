@@ -27,10 +27,37 @@
 #include <sigutils/agc.h>
 #include "../codec/codec.h"
 
+SUPRIVATE SUBOOL
+suscan_gui_inspector_halt_worker(suscan_worker_t *worker)
+{
+  uint32_t type;
+
+  while (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
+    suscan_worker_req_halt(worker);
+
+    /* This worker does not push messages */
+    suscan_mq_read(worker->mq_out, &type);
+
+    if (type != SUSCAN_WORKER_MSG_TYPE_HALT) {
+      SU_ERROR("Unexpected inspector worker message type\n");
+      return SU_FALSE;
+    }
+  }
+
+  return suscan_worker_destroy(worker);
+}
+
+
 void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 {
   unsigned int i;
+
+  if (inspector->worker != NULL)
+    if (!suscan_gui_inspector_halt_worker(inspector->worker)) {
+      SU_ERROR("Inspector worker destruction failed, memory leak ahead\n");
+      return;
+    }
 
   if (inspector->inshnd != -1 && inspector->gui != NULL)
     suscan_analyzer_close_async(
@@ -40,7 +67,7 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 
   for (i = 0; i < inspector->codec_count; ++i)
     if (inspector->codec_list[i] != NULL)
-      suscan_gui_codec_destroy(inspector->codec_list[i]);
+      suscan_gui_codec_destroy_hard(inspector->codec_list[i]);
 
   if (inspector->codec_list != NULL)
     free(inspector->codec_list);
@@ -207,11 +234,9 @@ suscan_gui_inspector_feed_w_batch(
 {
   unsigned int sample_count, full_samp_count;
   unsigned int i;
-  unsigned int sym_count;
   GtkTextIter iter;
   char *new_buffer;
-  char sym;
-  char value;
+  SUSYMBOL sym;
 
   /*
    * Push, at most, the last SUSCAN_GUI_CONSTELLATION_HISTORY. We do this
@@ -221,23 +246,20 @@ suscan_gui_inspector_feed_w_batch(
   sample_count = MIN(full_samp_count, SUSCAN_GUI_CONSTELLATION_HISTORY);
 
   /* Check if recording is enabled to assert the symbol buffer */
-  if (insp->recording)
-    sym_count = 1 << insp->params.fc_ctrl;
-
   sugtk_trans_mtx_reset(insp->transMatrix);
 
   for (i = 0; i < full_samp_count; ++i)
     if ((sym = suscan_gui_inspector_decide(insp, msg->samples[i]))
         != SU_NOSYMBOL) {
-      sym -= '0'; /* All symbol IDs start by '0' */
-      if (insp->recording) {
-        /* Append text to buffer */
-        value = (0xff * sym) / (sym_count - 1);
-        sugtk_sym_view_append(insp->symbolView, value);
-      }
+      if (insp->recording)
+        sugtk_sym_view_append(
+            insp->symbolView,
+            sugtk_sym_view_code_to_pixel_helper(
+                insp->params.fc_ctrl,
+                SU_FROMSYM(sym)));
 
       /* Feed transition matrix */
-      sugtk_trans_mtx_feed(insp->transMatrix, sym);
+      sugtk_trans_mtx_feed(insp->transMatrix, SU_FROMSYM(sym));
     }
 
   if (insp->recording)
@@ -415,13 +437,13 @@ suscan_gui_codec_cfg_ui_run(struct suscan_gui_codec_cfg_ui *ui)
   return do_run;
 }
 
-/* TODO: Add source symview, etc */
 SUBOOL
 suscan_gui_inspector_open_codec_tab(
     struct suscan_gui_inspector *inspector,
     struct suscan_gui_codec_cfg_ui *ui,
     unsigned int bits,
-    enum su_codec_direction direction)
+    unsigned int direction,
+    const SuGtkSymView *source)
 {
   struct suscan_gui_codec *codec = NULL;
 
@@ -431,7 +453,8 @@ suscan_gui_inspector_open_codec_tab(
         ui->desc,
         bits,
         ui->config,
-        direction)) == NULL) {
+        direction,
+        source)) == NULL) {
 
       if (direction == SU_CODEC_DIRECTION_FORWARDS) {
         suscan_error(
@@ -464,7 +487,7 @@ suscan_gui_inspector_open_codec_tab(
 
 fail:
   if (codec != NULL)
-    suscan_gui_codec_destroy(codec);
+    suscan_gui_codec_destroy_hard(codec);
 
   return SU_FALSE;
 }
@@ -493,7 +516,8 @@ suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
       ui->inspector,
       ui,
       ui->inspector->params.fc_ctrl,
-      SU_CODEC_DIRECTION_FORWARDS);
+      SUSCAN_CODEC_DIRECTION_FORWARDS,
+      ui->inspector->symbolView);
 }
 
 SUPRIVATE void
@@ -520,7 +544,8 @@ suscan_gui_inspector_run_codec(GtkWidget *widget, gpointer *data)
       ui->inspector,
       ui,
       ui->inspector->params.fc_ctrl,
-      SU_CODEC_DIRECTION_BACKWARDS);
+      SUSCAN_CODEC_DIRECTION_BACKWARDS,
+      ui->inspector->symbolView);
 }
 
 SUBOOL
@@ -1028,6 +1053,18 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
   return SU_TRUE;
 }
 
+SUBOOL
+suscan_gui_inspector_push_task(
+    struct suscan_gui_inspector *inspector,
+    SUBOOL (*task) (
+        struct suscan_mq *mq_out,
+        void *wk_private,
+        void *cb_private),
+     void *private)
+{
+  return suscan_worker_push(inspector->worker, task, private);
+}
+
 struct suscan_gui_inspector *
 suscan_gui_inspector_new(
     const struct sigutils_channel *channel,
@@ -1037,6 +1074,9 @@ suscan_gui_inspector_new(
   char *page_label = NULL;
 
   SU_TRYCATCH(new = calloc(1, sizeof (struct suscan_gui_inspector)), goto fail);
+
+  SU_TRYCATCH(suscan_mq_init(&new->mq), goto fail);
+  SU_TRYCATCH(new->worker = suscan_worker_new(&new->mq, new), goto fail);
 
   new->channel = *channel;
   new->index = -1;

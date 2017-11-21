@@ -77,7 +77,9 @@ suscan_codec_diff_process(
 
     if (SU_ISSYM(ret)) {
       c = SU_FROMSYM(ret);
-      SU_TRYCATCH(grow_buf_append(result, &c, sizeof(SUBITS)), return -1);
+      SU_TRYCATCH(
+          grow_buf_append(result, &c, sizeof(SUBITS)) != -1,
+          return -1);
     }
   }
 

@@ -25,6 +25,13 @@
 
 #include <cfg.h>
 
+/* Process error codes are detailed in suscan_codec_progress */
+
+#define SUSCAN_PROCESS_CODE_NO_DATA  0 /* No data (yet) */
+#define SUSCAN_PROCESS_CODE_ERROR   -1 /* Something went wrong */
+#define SUSCAN_PROCESS_CODE_EOS     -2 /* End of stream */
+#define SUSCAN_PROCESS_CODE_MIN     SUSCAN_PROCESS_CODE_EOS
+
 #define SUSCAN_CODEC_DIRECTION_FORWARDS  1
 #define SUSCAN_CODEC_DIRECTION_BACKWARDS 2
 #define SUSCAN_CODEC_CODEC_BOTH \
@@ -33,7 +40,7 @@
 struct suscan_codec_progress {
   SUBOOL  updated;
   SUFLOAT progress;
-  const char *message;
+  char *message;
 };
 
 struct suscan_codec;
@@ -48,7 +55,7 @@ struct suscan_codec_class {
       unsigned int bits_per_symbol,
       const suscan_config_t *config,
       enum su_codec_direction direction);
-  SUSCOUNT (*process) (
+  SUSDIFF (*process) (
       void *private,
       grow_buf_t *result, /* Out */
       struct suscan_codec_progress *progress, /* Out */
@@ -77,6 +84,9 @@ suscan_config_t *suscan_codec_class_make_config(
 
 void suscan_codec_destroy(suscan_codec_t *codec);
 
+unsigned int suscan_codec_get_input_bits_per_symbol(
+    const suscan_codec_t *codec);
+
 unsigned int suscan_codec_get_output_bits_per_symbol(
     const suscan_codec_t *codec);
 
@@ -86,7 +96,7 @@ suscan_codec_t *suscan_codec_class_make_codec(
     const suscan_config_t *config,
     enum su_codec_direction direction);
 
-SUSCOUNT suscan_codec_feed(
+SUSDIFF suscan_codec_feed(
     suscan_codec_t *codec,
     grow_buf_t *result, /* Out */
     struct suscan_codec_progress *progress, /* Out */

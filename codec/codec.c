@@ -62,6 +62,12 @@ suscan_codec_class_make_config(const struct suscan_codec_class *class)
 }
 
 unsigned int
+suscan_codec_get_input_bits_per_symbol(const suscan_codec_t *codec)
+{
+  return codec->bits_per_symbol;
+}
+
+unsigned int
 suscan_codec_get_output_bits_per_symbol(const suscan_codec_t *codec)
 {
   return codec->output_bits_per_symbol;
@@ -111,7 +117,7 @@ fail:
   return NULL;
 }
 
-SUSCOUNT
+SUSDIFF
 suscan_codec_feed(
     suscan_codec_t *codec,
     grow_buf_t *result, /* Out */

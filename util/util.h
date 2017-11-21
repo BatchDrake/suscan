@@ -185,6 +185,8 @@ int grow_buf_append_null(grow_buf_t *buf);
 void *grow_buf_get_buffer(const grow_buf_t *buf);
 size_t grow_buf_get_size(const grow_buf_t *buf);
 void grow_buf_finalize(grow_buf_t *buf);
+void grow_buf_clear(grow_buf_t *buf);
+int grow_buf_transfer(grow_buf_t *dest, grow_buf_t *src);
 
 void *xmalloc (size_t siz);
 void *xrealloc (void *p, size_t siz);

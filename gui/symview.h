@@ -103,6 +103,14 @@ gboolean sugtk_sym_view_append(SuGtkSymView *view, uint8_t data);
 void sugtk_sym_view_set_autoscroll(SuGtkSymView *view, gboolean value);
 void sugtk_sym_view_set_autofit(SuGtkSymView *view, gboolean value);
 
+guint sugtk_sym_view_pixel_to_code_helper(
+    uint8_t bits_per_symbol,
+    uint8_t pixel);
+
+guint sugtk_sym_view_code_to_pixel_helper(
+    uint8_t bits_per_symbol,
+    uint8_t code);
+
 gboolean sugtk_sym_view_save_helper(
     SuGtkSymView *view,
     const gchar *title,
