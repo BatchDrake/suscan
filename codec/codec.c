@@ -33,7 +33,7 @@ suscan_codec_class_register(
 {
   SU_TRYCATCH(class->desc != NULL, return SU_FALSE);
 
-  SU_TRYCATCH(class->directions & SUSCAN_CODEC_CODEC_BOTH, return SU_FALSE);
+  SU_TRYCATCH(class->directions & SUSCAN_CODEC_DIRECTION_BOTH, return SU_FALSE);
 
   SU_TRYCATCH(class->config_desc != NULL, return SU_FALSE);
 
@@ -95,6 +95,7 @@ suscan_codec_class_make_codec(
 
   new->bits_per_symbol = bits_per_symbol;
   new->output_bits_per_symbol = bits_per_symbol;
+  new->class = class;
 
   if (class->ctor != NULL)
     SU_TRYCATCH(
@@ -104,9 +105,8 @@ suscan_codec_class_make_codec(
             bits_per_symbol,
             config,
             direction),
+        new->class = NULL;
         goto fail);
-
-  new->class = class;
 
   return new;
 
@@ -132,7 +132,13 @@ suscan_codec_feed(
 
   progress->updated = SU_FALSE;
 
-  return (codec->class->process) (codec->private, result, progress, data, len);
+  return (codec->class->process) (
+      codec->private,
+      codec,
+      result,
+      progress,
+      data,
+      len);
 }
 
 SUBOOL

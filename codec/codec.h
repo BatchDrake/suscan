@@ -34,7 +34,7 @@
 
 #define SUSCAN_CODEC_DIRECTION_FORWARDS  1
 #define SUSCAN_CODEC_DIRECTION_BACKWARDS 2
-#define SUSCAN_CODEC_CODEC_BOTH \
+#define SUSCAN_CODEC_DIRECTION_BOTH \
   (SUSCAN_CODEC_DIRECTION_FORWARDS | SUSCAN_CODEC_DIRECTION_BACKWARDS)
 
 struct suscan_codec_progress {
@@ -57,6 +57,7 @@ struct suscan_codec_class {
       enum su_codec_direction direction);
   SUSDIFF (*process) (
       void *private,
+      struct suscan_codec *codec,
       grow_buf_t *result, /* Out */
       struct suscan_codec_progress *progress, /* Out */
       SUBITS *data,

@@ -25,7 +25,8 @@
 #include <sigutils/log.h>
 #include <codec.h>
 
-SUPRIVATE struct suscan_codec_class class;
+SUPRIVATE struct suscan_codec_class diff_class;
+SUPRIVATE struct suscan_codec_class pim_dpsk_class;
 
 SUPRIVATE SUBOOL
 suscan_codec_diff_ctor(
@@ -52,31 +53,40 @@ suscan_codec_diff_ctor(
   else
     su_codec_set_direction(sucodec, SU_CODEC_DIRECTION_BACKWARDS);
 
+  if (codec->class == &pim_dpsk_class)
+    codec->output_bits_per_symbol -= 1;
   *private = sucodec;
 
   return SU_TRUE;
 }
 
-SUSCOUNT
+SUSDIFF
 suscan_codec_diff_process(
     void *private,
+    struct suscan_codec *codec,
     grow_buf_t *result, /* Out */
     struct suscan_codec_progress *progress, /* Out */
     SUBITS *data,
     SUSCOUNT len)
 {
-  su_codec_t *codec = (su_codec_t *) private;
+  su_codec_t *sucodec = (su_codec_t *) private;
   SUSYMBOL ret;
   SUSCOUNT processed;
   SUBITS c;
+  SUBOOL divide = codec->class == &pim_dpsk_class;
 
   processed = len;
 
   while (len--) {
-    ret = su_codec_feed(codec, SU_TOSYM(*data++));
+    ret = su_codec_feed(sucodec, SU_TOSYM(*data++));
 
     if (SU_ISSYM(ret)) {
       c = SU_FROMSYM(ret);
+
+      /* For pi/m-DmPSK, we discard one bit */
+      if (divide)
+        c >>= 1;
+
       SU_TRYCATCH(
           grow_buf_append(result, &c, sizeof(SUBITS)) != -1,
           return -1);
@@ -95,28 +105,54 @@ suscan_codec_diff_dtor(void *private)
 SUBOOL
 suscan_codec_class_diff_register(void)
 {
+  /* Generic differential decoder */
   SU_TRYCATCH(
-      class.config_desc = suscan_config_desc_new(),
+      diff_class.config_desc = suscan_config_desc_new(),
       return SU_FALSE);
 
   SU_TRYCATCH(
       suscan_config_desc_add_field(
-          class.config_desc,
+          diff_class.config_desc,
           SUSCAN_FIELD_TYPE_BOOLEAN,
           SU_FALSE,
           "sign",
           "Invert difference sign"),
       return SU_FALSE);
 
-  class.desc = "Generic differential codec";
-  class.directions = SUSCAN_CODEC_CODEC_BOTH;
+  diff_class.desc = "Generic differential codec";
+  diff_class.directions = SUSCAN_CODEC_DIRECTION_BOTH;
 
-  class.ctor    = suscan_codec_diff_ctor;
-  class.process = suscan_codec_diff_process;
-  class.dtor    = suscan_codec_diff_dtor;
+  diff_class.ctor    = suscan_codec_diff_ctor;
+  diff_class.process = suscan_codec_diff_process;
+  diff_class.dtor    = suscan_codec_diff_dtor;
 
   SU_TRYCATCH(
-      suscan_codec_class_register(&class),
+      suscan_codec_class_register(&diff_class),
+      return SU_FALSE);
+
+  /* Pi/m-mPSK decoder */
+  SU_TRYCATCH(
+      pim_dpsk_class.config_desc = suscan_config_desc_new(),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          pim_dpsk_class.config_desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_FALSE,
+          "sign",
+          "Invert difference sign"),
+      return SU_FALSE);
+
+  pim_dpsk_class.desc = "π/m-mPSK differential decoder";
+  pim_dpsk_class.directions = SUSCAN_CODEC_DIRECTION_BACKWARDS;
+
+  pim_dpsk_class.ctor    = suscan_codec_diff_ctor;
+  pim_dpsk_class.process = suscan_codec_diff_process;
+  pim_dpsk_class.dtor    = suscan_codec_diff_dtor;
+
+  SU_TRYCATCH(
+      suscan_codec_class_register(&pim_dpsk_class),
       return SU_FALSE);
 
   return SU_TRUE;

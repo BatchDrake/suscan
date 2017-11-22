@@ -675,7 +675,7 @@ suscan_gui_codec_new(
   SU_TRYCATCH(
       page_label = strbuild(
           "%s with %s",
-          direction ==  SU_CODEC_DIRECTION_BACKWARDS ? "Decode" : "Encode",
+          direction == SUSCAN_CODEC_DIRECTION_BACKWARDS ? "Decode" : "Encode",
           class->desc),
       goto fail);
 
