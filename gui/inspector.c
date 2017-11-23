@@ -991,6 +991,20 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
               "nbDecoder")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->progressDialog =
+          GTK_DIALOG(gtk_builder_get_object(
+              inspector->builder,
+              "dProgress")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->progressBar =
+          GTK_PROGRESS_BAR(gtk_builder_get_object(
+              inspector->builder,
+              "pProgress")),
+          return SU_FALSE);
+
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 

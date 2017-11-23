@@ -191,8 +191,21 @@ suscan_gui_codec_async_parse_progress(gpointer user_data)
   suscan_gui_codec_state_lock(state);
 
   if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN) {
-    if (state->progress.updated && state->progress.message != NULL)
-      SU_INFO("Progress message: %s\n", state->progress.message);
+    if (state->progress.updated) {
+      gtk_widget_show_all(GTK_WIDGET(state->owner->inspector->progressDialog));
+
+      if (state->progress.progress == SUSCAN_CODEC_PROGRESS_UNDEFINED)
+        gtk_progress_bar_pulse(state->owner->inspector->progressBar);
+      else
+        gtk_progress_bar_set_fraction(
+            state->owner->inspector->progressBar,
+            state->progress.progress);
+
+      if (state->progress.message != NULL)
+        gtk_progress_bar_set_text(
+            state->owner->inspector->progressBar,
+            state->progress.message);
+    }
   }
 
   suscan_gui_codec_state_unlock(state);
@@ -209,9 +222,17 @@ suscan_gui_codec_async_display_error(gpointer user_data)
   suscan_gui_codec_state_lock(state);
 
   if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN) {
-    SU_ERROR("Decoder worker notifies error!\n");
     if (state->progress.updated && state->progress.message != NULL)
-      SU_ERROR("Progress message: %s\n", state->progress.message);
+      suscan_error(
+          state->owner->inspector->gui,
+          "Codec error",
+          "Codec error: %s",
+          state->progress.message);
+    else
+      suscan_error(
+          state->owner->inspector->gui,
+          "Codec error",
+          "Internal codec error");
   }
 
   suscan_gui_codec_state_unlock(state);
@@ -226,6 +247,9 @@ suscan_gui_codec_async_unref(gpointer user_data)
       (struct suscan_gui_codec_state *) user_data;
 
   suscan_gui_codec_state_lock(state);
+
+  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN)
+    gtk_widget_hide(GTK_WIDGET(state->owner->inspector->progressDialog));
 
   if (!suscan_gui_codec_state_unref_internal(state))
     suscan_gui_codec_state_unlock(state);
@@ -289,6 +313,10 @@ suscan_gui_codec_work(
   size = state->input_len - state->ptr;
   if (size > SUSCAN_GUI_CODEC_MAX_BLOCK_SIZE)
     size = SUSCAN_GUI_CODEC_MAX_BLOCK_SIZE;
+
+  /* Default progress */
+  state->_progress.progress =
+      (SUFLOAT) (state->ptr + 1) / (SUFLOAT) state->input_len;
 
   /* We are dealing with the private part here. No worries about concurrency */
   got = suscan_codec_feed(

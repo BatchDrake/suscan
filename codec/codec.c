@@ -76,8 +76,9 @@ suscan_codec_get_output_bits_per_symbol(const suscan_codec_t *codec)
 void
 suscan_codec_destroy(suscan_codec_t *codec)
 {
-  if (codec->class->ctor != NULL && codec->class->dtor != NULL)
-    (codec->class->dtor) (codec->private);
+  if (codec->class != NULL)
+    if (codec->class->ctor != NULL && codec->class->dtor != NULL)
+      (codec->class->dtor) (codec->private);
 
   free(codec);
 }

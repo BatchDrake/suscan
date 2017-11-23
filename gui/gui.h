@@ -335,6 +335,10 @@ struct suscan_gui_inspector {
   GtkSpinButton  *widthSpinButton;
   GtkNotebook    *codecNotebook;
 
+  /* Progress dialog */
+  GtkDialog      *progressDialog;
+  GtkProgressBar *progressBar;
+
   /* DecoderUI objects */
   PTR_LIST(struct suscan_gui_codec_cfg_ui, codec_cfg_ui);
 
