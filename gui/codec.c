@@ -248,8 +248,10 @@ suscan_gui_codec_async_unref(gpointer user_data)
 
   suscan_gui_codec_state_lock(state);
 
-  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN)
+  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN) {
     gtk_widget_hide(GTK_WIDGET(state->owner->inspector->progressDialog));
+    sugtk_sym_view_set_autoscroll(state->owner->symbolView, FALSE);
+  }
 
   if (!suscan_gui_codec_state_unref_internal(state))
     suscan_gui_codec_state_unlock(state);

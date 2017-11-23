@@ -903,6 +903,31 @@ done:
 }
 
 static void
+sugtk_sym_view_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpointer data)
+{
+  gboolean delta;
+  int delta_int;
+  int new_offset;
+  SuGtkSymView *view = (SuGtkSymView *) widget;
+
+  if (ev->direction == GDK_SCROLL_SMOOTH && !view->autoscroll) {
+    delta = ev->delta_y;
+    if (delta < 0)
+      delta_int = floor(delta);
+    else
+      delta_int = ceil(delta);
+
+    delta_int *= sugtk_sym_view_get_width(view) * 10;
+
+    new_offset = sugtk_sym_view_get_offset(view) + delta_int;
+    if (new_offset < 0)
+      new_offset = 0;
+
+    sugtk_sym_view_set_offset(view, new_offset);
+  }
+}
+
+static void
 sugtk_sym_view_init(SuGtkSymView *self)
 {
   self->data_alloc = 0;
@@ -961,7 +986,6 @@ sugtk_sym_view_init(SuGtkSymView *self)
       G_CALLBACK(sugtk_sym_view_on_fac),
       self);
 
-
   g_signal_connect(
       G_OBJECT(self->apply_bm),
       "activate",
@@ -974,7 +998,8 @@ sugtk_sym_view_init(SuGtkSymView *self)
       | GDK_LEAVE_NOTIFY_MASK
       | GDK_BUTTON_PRESS_MASK
       | GDK_BUTTON_RELEASE_MASK
-      | GDK_POINTER_MOTION_MASK);
+      | GDK_POINTER_MOTION_MASK
+      | GDK_SMOOTH_SCROLL_MASK);
 
 
   g_signal_connect(
@@ -1007,6 +1032,11 @@ sugtk_sym_view_init(SuGtkSymView *self)
       (GCallback) sugtk_sym_view_on_motion_notify_event,
       NULL);
 
+  g_signal_connect(
+      self,
+      "scroll-event",
+      (GCallback) sugtk_sym_view_on_scroll,
+      NULL);
 }
 
 gboolean
