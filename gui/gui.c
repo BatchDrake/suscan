@@ -862,6 +862,20 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
               "rbWinFuncFlatTop")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->titleLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              gui->builder,
+              "lTitle")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->subTitleLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              gui->builder,
+              "lSubTitle")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
@@ -1051,6 +1065,22 @@ suscan_gui_set_freq(struct suscan_gui *gui, uint64_t freq)
   gtk_label_set_text(gui->freqLabel, freq_banner);
 }
 
+SUBOOL
+suscan_gui_set_title(struct suscan_gui *gui, const char *title)
+{
+  char *full_title = NULL;
+
+  SU_TRYCATCH(full_title = strbuild("%s - Suscan", title), return SU_FALSE);
+
+  gtk_label_set_text(gui->titleLabel, title);
+
+  gtk_window_set_title(gui->main, full_title);
+
+  free(full_title);
+
+  return SU_TRUE;
+}
+
 void
 suscan_gui_set_src_ui(
     struct suscan_gui *gui,
@@ -1059,11 +1089,11 @@ suscan_gui_set_src_ui(
   struct suscan_field_value *val;
 
   if (ui == NULL) {
-    gtk_header_bar_set_subtitle(gui->headerBar, "No source selected");
+    (void) suscan_gui_set_title(gui, "No source selected");
     gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
     gui->analyzer_source_config = NULL;
   } else {
-    gtk_header_bar_set_subtitle(gui->headerBar, ui->source->desc);
+    (void) suscan_gui_set_title(gui, ui->source->desc);
     gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
     gui->analyzer_source_config = ui->config;
 
@@ -1099,7 +1129,7 @@ suscan_gui_start(
 
   gtk_widget_show(GTK_WIDGET(gui->main));
 
-  gtk_window_set_title(gui->main, "Sucan");
+  suscan_gui_set_title(gui, "No source selected");
 
   suscan_gui_setup_logging(gui);
 

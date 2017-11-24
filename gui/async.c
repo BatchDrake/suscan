@@ -87,7 +87,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
 
   switch (state) {
     case SUSCAN_GUI_STATE_STOPPED:
-      subtitle = strbuild("%s (Stopped)", source_name);
+      subtitle = "Stopped";
       suscan_gui_change_button_icon(
           GTK_BUTTON(gui->toggleConnect),
           "media-playback-start-symbolic");
@@ -100,7 +100,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
 
     case SUSCAN_GUI_STATE_RUNNING:
       suscan_gui_spectrum_reset(&gui->main_spectrum);
-      subtitle = strbuild("%s (Running)", source_name);
+      subtitle = "Running";
       suscan_gui_change_button_icon(
           GTK_BUTTON(gui->toggleConnect),
           "media-playback-stop-symbolic");
@@ -112,7 +112,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
       break;
 
     case SUSCAN_GUI_STATE_RESTARTING:
-      subtitle = strbuild("%s (Restarting...)", source_name);
+      subtitle = "Restarting...";
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
@@ -122,7 +122,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
 
     case SUSCAN_GUI_STATE_STOPPING:
     case SUSCAN_GUI_STATE_QUITTING:
-      subtitle = strbuild("%s (Stopping...)", source_name);
+      subtitle = "Stopping...";
       suscan_gui_change_button_icon(
           GTK_BUTTON(gui->toggleConnect),
           "media-playback-start-symbolic");
@@ -136,11 +136,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
 
   gui->state = state;
 
-  SU_TRYCATCH(subtitle != NULL, return);
-
-  gtk_header_bar_set_subtitle(gui->headerBar, subtitle);
-
-  free(subtitle);
+  gtk_label_set_text(gui->subTitleLabel, subtitle);
 }
 
 /************************** Async callbacks **********************************/

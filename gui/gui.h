@@ -135,6 +135,8 @@ struct suscan_gui {
   /* Widgets */
   GtkBuilder *builder;
   GtkWindow *main;
+  GtkLabel *titleLabel;
+  GtkLabel *subTitleLabel;
   GtkButton *toggleConnect;
   GtkButton *preferencesButton;
   GtkListStore *sourceListStore;
@@ -438,6 +440,8 @@ SUBOOL suscan_gui_set_selected_src_ui(
 void suscan_gui_src_ui_to_dialog(const struct suscan_gui_src_ui *ui);
 
 SUBOOL suscan_gui_src_ui_from_dialog(struct suscan_gui_src_ui *ui);
+
+SUBOOL suscan_gui_set_title(struct suscan_gui *gui, const char *title);
 
 void suscan_gui_set_src_ui(
     struct suscan_gui *gui,

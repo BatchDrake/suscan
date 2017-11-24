@@ -196,9 +196,8 @@
   <object class="GtkHeaderBar" id="HeaderBar">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="title">The sigutil's channel scanner by BatchDrake</property>
-    <property name="subtitle">No source selected</property>
     <property name="show_close_button">True</property>
+    <property name="decoration_layout">:minimize,maximize,close</property>
     <child>
       <object class="GtkButton" id="bToggleConnect">
         <property name="visible">True</property>
@@ -232,6 +231,43 @@
       <packing>
         <property name="position">1</property>
       </packing>
+    </child>
+    <child type="title">
+      <object class="GtkBox">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkLabel" id="lTitle">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">No source selected</property>
+            <attributes>
+              <attribute name="weight" value="ultrabold"/>
+            </attributes>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="lSubTitle">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">Stopped</property>
+            <attributes>
+              <attribute name="size" value="8000"/>
+            </attributes>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
     </child>
     <child>
       <object class="GtkMenuButton" id="bHeaderMenu">
