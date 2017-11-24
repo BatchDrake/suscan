@@ -1099,7 +1099,7 @@ suscan_gui_start(
 
   gtk_widget_show(GTK_WIDGET(gui->main));
 
-  gtk_window_set_title(gui->main, "SUScan by BatchDrake");
+  gtk_window_set_title(gui->main, "Sucan");
 
   suscan_gui_setup_logging(gui);
 
