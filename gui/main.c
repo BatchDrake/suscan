@@ -188,26 +188,28 @@ suscan_on_source_changed(GtkWidget *widget, gpointer *data)
   struct suscan_gui *gui = (struct suscan_gui *) data;
   struct suscan_gui_src_ui *config;
   GList *list;
-  GtkWidget *prev = NULL;
+  GtkWidget *cfgui = NULL;
 
   config = suscan_gui_get_selected_src_ui(gui);
 
   list = gtk_container_get_children(GTK_CONTAINER(gui->sourceAlignment));
 
   if (list != NULL) {
-    prev = list->data;
+    cfgui = list->data;
 
     g_list_free(list);
   }
 
-  if (prev != NULL)
-    gtk_container_remove(GTK_CONTAINER(gui->sourceAlignment), GTK_WIDGET(prev));
+  if (cfgui != NULL)
+    gtk_container_remove(
+        GTK_CONTAINER(gui->sourceAlignment),
+        GTK_WIDGET(cfgui));
 
-  gtk_container_add(
-      GTK_CONTAINER(gui->sourceAlignment),
-      GTK_WIDGET(config->grid));
+  cfgui = suscan_gui_cfgui_get_root(config->cfgui);
 
-  gtk_widget_show(GTK_WIDGET(config->grid));
+  gtk_container_add(GTK_CONTAINER(gui->sourceAlignment), cfgui);
+
+  gtk_widget_show(cfgui);
 
   gtk_window_resize(GTK_WINDOW(gui->settingsDialog), 1, 1);
 }

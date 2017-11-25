@@ -277,6 +277,18 @@ suscan_analyzer_parse_inspector_msg(
       }
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else {
+        /* Reset equalizer */
+        suscan_inspector_reset_equalizer(insp);
+      }
+      break;
+
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
       if ((insp = suscan_analyzer_get_inspector(
           analyzer,

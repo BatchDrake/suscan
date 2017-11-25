@@ -13,7 +13,8 @@
 #include <sys/types.h>
 #include <sys/select.h>
 
-#include "suscan.h"
+#include <suscan.h>
+#include <codec.h>
 
 SUPRIVATE struct option long_options[] = {
     {"fingerprint", no_argument, NULL, 'f'},
@@ -78,6 +79,14 @@ main(int argc, char *argv[], char *envp[])
 
   if (!suscan_sigutils_init(mode)) {
     fprintf(stderr, "%s: failed to initialize sigutils library\n", argv[0]);
+    goto done;
+  }
+
+  if (!suscan_codec_class_register_builtin()) {
+    fprintf(
+        stderr,
+        "%s: failed to initialize builtin codecs\n",
+        argv[0]);
     goto done;
   }
 

@@ -23,7 +23,10 @@
 
 #include <sigutils/sigutils.h>
 #include <suscan.h>
+#include <codec.h>
 #include <gtk/gtk.h>
+#include <symview.h>
+#include <transmtx.h>
 
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
@@ -32,11 +35,16 @@
 #define SUSCAN_GUI_SETTINGS_ID "org.actinid.SUScan"
 #define SUSCAN_GUI_MAX_CHANNELS 10
 
+struct suscan_gui_cfgui {
+  suscan_config_t *config; /* Borrowed pointer */
+  PTR_LIST(GtkWidget, widget);
+  GtkGrid *grid;
+};
+
 struct suscan_gui_src_ui {
   const struct suscan_source *source;
   struct suscan_source_config *config;
-  PTR_LIST(GtkWidget, widget);
-  GtkGrid *grid;
+  struct suscan_gui_cfgui *cfgui;
 };
 
 enum suscan_gui_state {
@@ -51,7 +59,7 @@ enum suscan_gui_state {
 #define SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT  1
 #define SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT 10
 #define SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT   0
-#define SUSCAN_GUI_SPECTRUM_WATERFALL_AGC_ALPHA .1
+#define SUSCAN_GUI_SPECTRUM_AGC_ALPHA .1
 
 enum suscan_gui_spectrum_param {
   SUSCAN_GUI_SPECTRUM_PARAM_FREQ_OFFSET,
@@ -74,12 +82,14 @@ struct suscan_gui_spectrum {
 
   uint64_t fc;
   SUFLOAT *psd_data;
+  SUFLOAT *psd_data_smooth;
   SUSCOUNT psd_size;
   SUSCOUNT samp_rate;
   SUFLOAT  N0;
   SUSCOUNT updates; /* Number of spectrum updates */
   SUSCOUNT last_update; /* Last update in which waterfall has been repainted */
   SUBOOL   auto_level; /* Automatic reference level */
+  SUFLOAT  agc_alpha; /* AGC alpha for smooth update */
 
   /* Representation properties */
   SUBOOL  show_channels; /* Defaults to TRUE */
@@ -125,6 +135,8 @@ struct suscan_gui {
   /* Widgets */
   GtkBuilder *builder;
   GtkWindow *main;
+  GtkLabel *titleLabel;
+  GtkLabel *subTitleLabel;
   GtkButton *toggleConnect;
   GtkButton *preferencesButton;
   GtkListStore *sourceListStore;
@@ -135,7 +147,7 @@ struct suscan_gui {
   GtkComboBox *sourceCombo;
   GtkHeaderBar *headerBar;
   GtkMenuBar *menuBar;
-  GtkLabel *freqLabels[10];
+  GtkLabel *freqLabel;
   GObject *sourceAlignment;
   GtkMenu *recentMenu;
   GtkMenuItem *emptyMenuItem;
@@ -144,8 +156,6 @@ struct suscan_gui {
   GtkRadioMenuItem    *waterfallMenuItem;
   GtkToggleToolButton *overlayChannelToggleButton;
   GtkToggleToolButton *autoGainToggleButton;
-  GtkAdjustment       *gainAdjustment;
-  GtkAdjustment       *rangeAdjustment;
   GtkScaleButton      *gainScaleButton;
   GtkScaleButton      *rangeScaleButton;
 
@@ -232,25 +242,43 @@ struct suscan_gui_constellation {
   unsigned int p;
 };
 
+struct suscan_gui_codec_cfg_ui {
+  struct suscan_gui_inspector *inspector;
+  const struct suscan_codec_class *desc;
+  suscan_config_t *config;
+  struct suscan_gui_cfgui *ui;
+  GtkWidget *dialog;
+};
+
+#define SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA .5
+#define SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM
+
+struct suscan_gui_codec;
+
 struct suscan_gui_inspector {
   int index; /* Back reference */
   SUHANDLE inshnd; /* Inspector handle (relative to current analyzer) */
   SUBOOL dead; /* Owner analyzer has been destroyed */
   SUBOOL recording; /* Symbol recorder enabled */
-  SUBOOL autoscroll;
   struct suscan_gui *gui; /* Parent GUI */
   struct suscan_gui_constellation constellation; /* Constellation graph */
   struct suscan_gui_spectrum spectrum; /* Spectrum graph */
   struct suscan_inspector_params params; /* Inspector params */
-  char *symbol_text_buffer;
-  size_t symbol_text_buffer_size;
+
+  /* Worker used by codecs */
+  suscan_worker_t *worker;
+  struct suscan_mq mq;
 
   /* Widgets */
-  GtkBuilder  *builder;
-  GtkEventBox *pageLabelEventBox;
-  GtkLabel    *pageLabel;
-  GtkGrid     *channelInspectorGrid;
-  GtkToggleButton *autoScrollToggleButton;
+  GtkBuilder     *builder;
+  GtkEventBox    *pageLabelEventBox;
+  GtkLabel       *pageLabel;
+  GtkGrid        *channelInspectorGrid;
+  GtkToggleToolButton *autoScrollToggleButton;
+  GtkToggleToolButton *autoFitToggleButton;
+  GtkNotebook    *constellationNotebook;
+  SuGtkTransMtx  *transMatrix;
+  GtkAlignment   *transAlignment;
 
   /* Gain control widgets */
   GtkRadioButton *automaticGainRadioButton;
@@ -288,8 +316,14 @@ struct suscan_gui_inspector {
   /* Matched filter widgets */
   GtkRadioButton *matchedFilterBypassRadioButton;
   GtkRadioButton *matchedFilterRRCRadioButton;
-  GtkAlignment   *rootRaisedCosineAlignment;
+  GtkGrid        *rootRaisedCosineGrid;
   GtkScale       *rollOffScale;
+
+  /* Equalizer widgets */
+  GtkRadioButton *eqBypassRadioButton;
+  GtkRadioButton *eqCMARadioButton;
+  GtkGrid        *eqCMAGrid;
+  GtkEntry       *eqMuEntry;
 
   /* Spectrum source widgets */
   GtkRadioButton *powerSpectrumRadioButton;
@@ -297,10 +331,65 @@ struct suscan_gui_inspector {
   GtkRadioButton *noSpectrumRadioButton;
 
   /* Symbol recorder widgets */
-  GtkTextView    *symbolTextView;
-  GtkTextBuffer  *symbolTextBuffer;
+  GtkGrid        *recorderGrid;
+  SuGtkSymView   *symbolView;
+  GtkSpinButton  *offsetSpinButton;
+  GtkSpinButton  *widthSpinButton;
+  GtkNotebook    *codecNotebook;
+
+  /* Progress dialog */
+  GtkDialog      *progressDialog;
+  GtkProgressBar *progressBar;
+
+  /* DecoderUI objects */
+  PTR_LIST(struct suscan_gui_codec_cfg_ui, codec_cfg_ui);
+
+  /* Decoder objects */
+  PTR_LIST(struct suscan_gui_codec, codec);
 
   struct sigutils_channel channel;
+};
+
+struct suscan_gui_codec_context;
+
+struct suscan_gui_codec_state;
+
+struct suscan_gui_codec {
+  struct suscan_gui_inspector     *inspector;
+  const struct suscan_codec_class *class;
+  struct suscan_gui_codec_state   *state; /* Async callback state */
+
+  const char      *desc; /* Borrowed from codec class */
+  unsigned int     input_bits;
+  unsigned int     output_bits;
+
+  int              index;
+  GtkBuilder      *builder;
+  unsigned int     direction;
+
+  SUBITS          *input_buffer;
+  SUSCOUNT         input_size;
+
+  /* Top level widgets */
+  GtkEventBox     *pageLabelEventBox;
+  GtkLabel        *pageLabel;
+  GtkGrid         *codecGrid;
+
+  /* Toolbar widgets */
+  GtkToggleToolButton *autoFitToggleButton;
+  GtkSpinButton       *offsetSpinButton;
+  GtkSpinButton       *widthSpinButton;
+
+  /* Symbol view widgets */
+  SuGtkSymView    *symbolView;
+
+  /* Decoder contexts, needed to link menus to codec operations */
+  PTR_LIST(struct suscan_gui_codec_context, context);
+};
+
+struct suscan_gui_codec_context {
+  struct suscan_gui_codec *codec;
+  struct suscan_gui_codec_cfg_ui *ui;
 };
 
 void suscan_gui_destroy(struct suscan_gui *gui);
@@ -322,6 +411,24 @@ void suscan_gui_msgbox(
 
 void suscan_gui_setup_logging(struct suscan_gui *gui);
 
+/* Generic UI functions */
+void suscan_gui_text_entry_set_float(GtkEntry *entry, SUFLOAT value);
+
+void suscan_gui_text_entry_set_scount(GtkEntry *entry, SUSCOUNT value);
+
+void suscan_gui_text_entry_set_integer(GtkEntry *entry, int64_t value);
+
+/* Generic configuration UI */
+SUBOOL suscan_gui_cfgui_parse(struct suscan_gui_cfgui *ui);
+
+void suscan_gui_cfgui_dump(struct suscan_gui_cfgui *ui);
+
+void suscan_gui_cfgui_destroy(struct suscan_gui_cfgui *ui);
+
+GtkWidget *suscan_gui_cfgui_get_root(const struct suscan_gui_cfgui *ui);
+
+struct suscan_gui_cfgui *suscan_gui_cfgui_new(suscan_config_t *config);
+
 /* Source UI API */
 struct suscan_gui_src_ui *suscan_gui_get_selected_src_ui(
     const struct suscan_gui *gui);
@@ -333,6 +440,8 @@ SUBOOL suscan_gui_set_selected_src_ui(
 void suscan_gui_src_ui_to_dialog(const struct suscan_gui_src_ui *ui);
 
 SUBOOL suscan_gui_src_ui_from_dialog(struct suscan_gui_src_ui *ui);
+
+SUBOOL suscan_gui_set_title(struct suscan_gui *gui, const char *title);
 
 void suscan_gui_set_src_ui(
     struct suscan_gui *gui,
@@ -364,6 +473,8 @@ void suscan_gui_spectrum_set_mode(
     struct suscan_gui_spectrum *spectrum,
     enum suscan_gui_spectrum_mode mode);
 
+void suscan_gui_spectrum_reset(struct suscan_gui_spectrum *spectrum);
+
 void suscan_gui_spectrum_update(
     struct suscan_gui_spectrum *spectrum,
     struct suscan_analyzer_psd_msg *msg);
@@ -393,6 +504,9 @@ void suscan_gui_spectrum_reset_selection(
     struct suscan_gui_spectrum *spectrum);
 
 /* Constellation API */
+void suscan_gui_constellation_finalize(
+    struct suscan_gui_constellation *constellation);
+
 void suscan_gui_constellation_init(
     struct suscan_gui_constellation *constellation);
 
@@ -423,10 +537,30 @@ struct suscan_gui_inspector *suscan_gui_get_inspector(
     const struct suscan_gui *gui,
     uint32_t inspector_id);
 
+/* Decoder Config UI functions */
+void suscan_gui_codec_cfg_ui_destroy(struct suscan_gui_codec_cfg_ui *ui);
+
+SUBOOL suscan_gui_codec_cfg_ui_assert_parent_gui(
+    struct suscan_gui_codec_cfg_ui *ui);
+
+SUBOOL suscan_gui_codec_cfg_ui_run(struct suscan_gui_codec_cfg_ui *ui);
+
+struct suscan_gui_codec_cfg_ui *suscan_gui_codec_cfg_ui_new(
+    struct suscan_gui_inspector *inspector,
+    const struct suscan_codec_class *desc);
+
 /* Inspector GUI functions */
 void suscan_gui_inspector_feed_w_batch(
     struct suscan_gui_inspector *inspector,
     const struct suscan_analyzer_sample_batch_msg *msg);
+
+SUBOOL suscan_gui_inspector_push_task(
+    struct suscan_gui_inspector *inspector,
+    SUBOOL (*task) (
+        struct suscan_mq *mq_out,
+        void *wk_private,
+        void *cb_private),
+     void *private);
 
 struct suscan_gui_inspector *suscan_gui_inspector_new(
     const struct sigutils_channel *channel,
@@ -440,7 +574,44 @@ void suscan_gui_inspector_detach(struct suscan_gui_inspector *insp);
 
 void suscan_gui_inspector_close(struct suscan_gui_inspector *insp);
 
+SUBOOL suscan_gui_inspector_populate_codec_menu(
+    struct suscan_gui_inspector *inspector,
+    SuGtkSymView *view,
+    void *(*create_priv) (void *, struct suscan_gui_codec_cfg_ui *),
+    void *private,
+    GCallback on_encode,
+    GCallback on_decode);
+
+SUBOOL suscan_gui_inspector_remove_codec(
+    struct suscan_gui_inspector *gui,
+    struct suscan_gui_codec *codec);
+
+SUBOOL suscan_gui_inspector_add_codec(
+    struct suscan_gui_inspector *inspector,
+    struct suscan_gui_codec *codec);
+
+SUBOOL suscan_gui_inspector_open_codec_tab(
+    struct suscan_gui_inspector *inspector,
+    struct suscan_gui_codec_cfg_ui *ui,
+    unsigned int bits,
+    unsigned int direction,
+    const SuGtkSymView *source);
+
 void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
+
+/* Codec API */
+struct suscan_gui_codec *suscan_gui_codec_new(
+    struct suscan_gui_inspector *inspector,
+    const struct suscan_codec_class *class,
+    uint8_t bits_per_symbol,
+    suscan_config_t *config,
+    unsigned int direction,
+    const SuGtkSymView *source);
+
+/* Use this if the worker is dead */
+void suscan_gui_codec_destroy_hard(struct suscan_gui_codec *codec);
+
+void suscan_gui_codec_destroy(struct suscan_gui_codec *codec);
 
 /* Source API */
 struct suscan_gui_src_ui *suscan_gui_lookup_source_config(

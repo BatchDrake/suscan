@@ -201,7 +201,10 @@ suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
       break;
 
     default:
-      memcpy(new->psd_data, cd->spect, sizeof(SUFLOAT) * new->psd_size);
+      for (i = 0; i < new->psd_size; ++i) {
+        new->psd_data[i] = SU_C_REAL(cd->fft[i] * SU_C_CONJ(cd->fft[i]));
+        new->psd_data[i] /= cd->params.window_size;;
+      }
   }
 
   return new;
@@ -442,6 +445,7 @@ suscan_inspector_send_psd(
 {
   struct suscan_analyzer_psd_msg *msg = NULL;
   SUBOOL ok = SU_FALSE;
+  unsigned int i;
 
   if ((msg = suscan_analyzer_psd_msg_new(detector)) == NULL) {
     suscan_analyzer_send_status(
@@ -453,8 +457,16 @@ suscan_inspector_send_psd(
     goto done;
   }
 
+  /*
+   * In Inspectors, we set the noise level to the minimum level
+   * of the PSD data
+   */
+  msg->N0 = msg->psd_data[0];
+  for (i = 1; i < msg->psd_size; ++i)
+    if (msg->psd_data[i] < msg->N0)
+      msg->N0 = msg->psd_data[i];
+
   msg->fc = consumer->analyzer->source.fc;
-  msg->N0 = detector->N0;
   msg->inspector_id = insp->params.inspector_id;
 
   if (!suscan_mq_write(

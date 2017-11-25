@@ -26,6 +26,7 @@
 #include <sigutils/pll.h>
 #include <sigutils/clock.h>
 #include <sigutils/detect.h>
+#include <sigutils/equalizer.h>
 
 #define SUHANDLE int32_t
 
@@ -60,6 +61,11 @@ enum suscan_inspector_matched_filter {
   SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL
 };
 
+enum suscan_inspector_equalizer {
+  SUSCAN_INSPECTOR_EQUALIZER_BYPASS,
+  SUSCAN_INSPECTOR_EQUALIZER_CMA
+};
+
 enum suscan_inspector_baudrate_control {
   SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL,
   SUSCAN_INSPECTOR_BAUDRATE_CONTROL_GARDNER
@@ -92,6 +98,10 @@ struct suscan_inspector_params {
   SUFLOAT br_alpha;   /* Baudrate control alpha (linear) */
   SUFLOAT br_beta;    /* Baudrate control beta (linear) */
 
+  /* Channel equalization */
+  enum suscan_inspector_equalizer eq_conf;
+  SUFLOAT eq_mu; /* Mu (learn speed) */
+
   /* Spectrum source configuration */
   enum suscan_inspector_psd_source psd_source; /* Spectrum source */
   SUFLOAT sym_phase;  /* Symbol phase */
@@ -110,6 +120,7 @@ struct suscan_inspector {
   su_costas_t             costas_8; /* 8th order Costas loop */
   su_iir_filt_t           mf;       /* Matched filter (Root Raised Cosine) */
   su_clock_detector_t     cd;       /* Clock detector */
+  su_equalizer_t          eq;       /* Equalizer */
   su_ncqo_t               lo;       /* Oscillator for manual carrier offset */
   SUCOMPLEX               phase;    /* Local oscillator phase */
 
@@ -119,7 +130,7 @@ struct suscan_inspector {
   SUBOOL                  pending;
 
   /* Inspector parameters */
-  pthread_mutex_t params_mutex;
+  pthread_mutex_t mutex;
   struct suscan_inspector_params params;
   struct suscan_inspector_params params_request;
   SUBOOL    params_requested;
@@ -152,6 +163,8 @@ int suscan_inspector_feed_bulk(
 void suscan_inspector_request_params(
     suscan_inspector_t *insp,
     struct suscan_inspector_params *params_request);
+
+void suscan_inspector_reset_equalizer(suscan_inspector_t *insp);
 
 void suscan_inspector_assert_params(suscan_inspector_t *insp);
 

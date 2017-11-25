@@ -110,6 +110,10 @@
   type ** name ## _list = NULL;                      \
   int     name ## _count = 0;
 
+#define PTR_LIST_CONST(type, name)                   \
+  type *const * name ## _list = NULL;                \
+  int           name ## _count = 0;
+
 #define PTR_LIST_EXTERN(type, name)                  \
   extern type ** name ## _list;                      \
   extern int     name ## _count;
@@ -176,9 +180,13 @@ arg_list_t *split_line (const char *);
 
 void *grow_buf_alloc(grow_buf_t *buf, size_t size);
 int grow_buf_append(grow_buf_t *buf, const void *data, size_t size);
+int grow_buf_append_printf(grow_buf_t *buf, const char *fmt, ...);
+int grow_buf_append_null(grow_buf_t *buf);
 void *grow_buf_get_buffer(const grow_buf_t *buf);
 size_t grow_buf_get_size(const grow_buf_t *buf);
 void grow_buf_finalize(grow_buf_t *buf);
+void grow_buf_clear(grow_buf_t *buf);
+int grow_buf_transfer(grow_buf_t *dest, grow_buf_t *src);
 
 void *xmalloc (size_t siz);
 void *xrealloc (void *p, size_t siz);
