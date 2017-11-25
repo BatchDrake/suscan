@@ -504,6 +504,9 @@ void suscan_gui_spectrum_reset_selection(
     struct suscan_gui_spectrum *spectrum);
 
 /* Constellation API */
+void suscan_gui_constellation_finalize(
+    struct suscan_gui_constellation *constellation);
+
 void suscan_gui_constellation_init(
     struct suscan_gui_constellation *constellation);
 

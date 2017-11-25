@@ -78,14 +78,9 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
   if (inspector->codec_cfg_ui_list != NULL)
     free(inspector->codec_cfg_ui_list);
 
-  /* FIXME: Aren't these destroyed with GtkBuilder? */
-  if (inspector->channelInspectorGrid != NULL)
-    gtk_widget_destroy(GTK_WIDGET(inspector->channelInspectorGrid));
-
-  if (inspector->pageLabelEventBox != NULL)
-    gtk_widget_destroy(GTK_WIDGET(inspector->pageLabelEventBox));
-
   suscan_spectrum_finalize(&inspector->spectrum);
+
+  suscan_gui_constellation_finalize(&inspector->constellation);
 
   if (inspector->builder != NULL)
     g_object_unref(G_OBJECT(inspector->builder));

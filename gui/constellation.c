@@ -36,6 +36,14 @@
 #define SUSCAN_CONSTELLATION_POINT_RADIUS 1e-2
 
 void
+suscan_gui_constellation_finalize(
+    struct suscan_gui_constellation *constellation)
+{
+  if (constellation->surface != NULL)
+    cairo_surface_destroy(constellation->surface);
+}
+
+void
 suscan_gui_constellation_clear(struct suscan_gui_constellation *constellation)
 {
   cairo_t *cr;
