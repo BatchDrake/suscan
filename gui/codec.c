@@ -27,6 +27,9 @@
 #include <sigutils/agc.h>
 #include "codec.h"
 
+SUPRIVATE void suscan_gui_codec_update_spin_buttons(
+    struct suscan_gui_codec *codec);
+
 /********************* Asynchronous processing *******************************/
 /*
  * Processing will happen asynchronously in a worker callback depending on
@@ -175,6 +178,9 @@ suscan_gui_codec_async_append_data(gpointer user_data)
 
     /* Clear output buffer */
     grow_buf_clear(&state->output);
+
+    /* Update spin buttons */
+    suscan_gui_codec_update_spin_buttons(state->owner);
   }
 
   suscan_gui_codec_state_unlock(state);
@@ -634,6 +640,7 @@ suscan_gui_codec_load_all_widgets(struct suscan_gui_codec *codec)
 
   /* Add symbol view */
   codec->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
+  sugtk_sym_view_set_autoscroll(codec->symbolView, FALSE);
 
   SU_TRYCATCH(
       suscan_gui_inspector_populate_codec_menu(
