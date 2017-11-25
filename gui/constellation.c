@@ -137,8 +137,8 @@ suscan_gui_constellation_redraw(
         cr,
         SUSCAN_CONSTELLATION_TO_SCR(
             constellation,
-            SU_C_REAL(constellation->history[n] * constellation->phase),
-            SU_C_IMAG(constellation->history[n] * constellation->phase)),
+            SU_C_IMAG(constellation->history[n] * constellation->phase),
+            SU_C_REAL(constellation->history[n] * constellation->phase)),
         SUSCAN_CONSTELLATION_POINT_RADIUS
           * MIN(constellation->width, constellation->height),
         0,

@@ -157,8 +157,8 @@ sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
     for (j = 0; j < mtx->order; ++j) {
       /* Draw decision thresholds */
       phi_j *= phi0;
-      x0 = w_half * (1 + 2 * creal(phi_j));
-      y0 = h_half * (1 + 2 * cimag(phi_j));
+      x0 = w_half * (1 + 2 * cimag(phi_j));
+      y0 = h_half * (1 + 2 * creal(phi_j));
 
       cairo_set_line_width(cr, 1);
       cairo_set_source_rgb(cr, .5, .5, .5);
@@ -169,8 +169,8 @@ sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
 
       /* Draw state transition edges */
       phi_j *= phi0;
-      x0 = w_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * creal(phi_j));
-      y0 = h_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * cimag(phi_j));
+      x0 = w_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * cimag(phi_j));
+      y0 = h_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * creal(phi_j));
 
       if (mtx->coef[ndx] == 0) {
         ndx += mtx->order + 1;
@@ -193,8 +193,8 @@ sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
           cairo_move_to(cr, x0, y0);
           cairo_line_to(
               cr,
-              w_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * creal(phi_i)),
-              h_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * cimag(phi_i)));
+              w_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * cimag(phi_i)),
+              h_half * (1 + SUGTK_TRANS_MTX_GRAPH_REL_RADIUS * creal(phi_i)));
           cairo_stroke(cr);
         } else {
           /* Transition to the same state: draw a circle */
