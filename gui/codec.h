@@ -68,6 +68,7 @@ struct suscan_gui_codec {
   GtkSpinButton       *widthSpinButton;
 
   /* Symbol view widgets */
+  suscan_symbuf_t *symbuf;
   SuGtkSymView    *symbolView;
 
   /* Decoder contexts, needed to link menus to codec operations */

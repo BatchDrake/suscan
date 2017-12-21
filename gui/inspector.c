@@ -55,6 +55,9 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 {
   unsigned int i;
 
+  if (inspector->symbuf != NULL)
+    suscan_symbuf_destroy(inspector->symbuf);
+
   if (inspector->worker != NULL)
     if (!suscan_gui_inspector_halt_worker(inspector->worker)) {
       SU_ERROR("Inspector worker destruction failed, memory leak ahead\n");
@@ -1088,6 +1091,8 @@ suscan_gui_inspector_new(
 
   SU_TRYCATCH(suscan_mq_init(&new->mq), goto fail);
   SU_TRYCATCH(new->worker = suscan_worker_new(&new->mq, new), goto fail);
+
+  SU_TRYCATCH(new->symbuf = suscan_symbuf_new(), goto fail);
 
   new->channel = *channel;
   new->index = -1;

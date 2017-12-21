@@ -21,6 +21,8 @@
 #ifndef _GUI_INSPECTOR_H
 #define _GUI_INSPECTOR_H
 
+#include <analyzer/symbuf.h>
+
 #include "constellation.h"
 #include "spectrum.h"
 #include "codec.h"
@@ -45,6 +47,9 @@ struct suscan_gui_inspector {
   /* Worker used by codecs */
   suscan_worker_t *worker;
   struct suscan_mq mq;
+
+  /* Symbol buffer */
+  suscan_symbuf_t *symbuf;
 
   /* Widgets */
   GtkBuilder     *builder;

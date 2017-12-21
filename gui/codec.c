@@ -471,6 +471,9 @@ suscan_gui_codec_destroy_minimal(struct suscan_gui_codec *codec)
 {
   unsigned int i;
 
+  if (codec->symbuf != NULL)
+    suscan_symbuf_destroy(codec->symbuf);
+
   if (codec->input_buffer != NULL)
     free(codec->input_buffer);
 
@@ -700,6 +703,8 @@ suscan_gui_codec_new(
   new->index = -1;
   new->class = class;
   new->inspector = inspector;
+
+  SU_TRYCATCH(new->symbuf = suscan_symbuf_new(), goto fail);
 
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(
