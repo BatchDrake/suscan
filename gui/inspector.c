@@ -23,9 +23,11 @@
 
 #define SU_LOG_DOMAIN "inspector-gui"
 
-#include "gui.h"
 #include <sigutils/agc.h>
-#include "../codec/codec.h"
+#include <codec/codec.h>
+
+#include "gui.h"
+#include "inspector.h"
 
 SUPRIVATE SUBOOL
 suscan_gui_inspector_halt_worker(suscan_worker_t *worker)

@@ -24,8 +24,9 @@
 #define SU_LOG_DOMAIN "codec-gui"
 
 #include "gui.h"
-#include <sigutils/agc.h>
 #include "codec.h"
+
+#include <sigutils/agc.h>
 
 SUPRIVATE void suscan_gui_codec_update_spin_buttons(
     struct suscan_gui_codec *codec);
