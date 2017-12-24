@@ -58,6 +58,9 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
   if (inspector->symbuf != NULL)
     suscan_symbuf_destroy(inspector->symbuf);
 
+  if (inspector->curr_dec_buf != NULL)
+    free(inspector->curr_dec_buf);
+
   if (inspector->worker != NULL)
     if (!suscan_gui_inspector_halt_worker(inspector->worker)) {
       SU_ERROR("Inspector worker destruction failed, memory leak ahead\n");
@@ -227,16 +230,37 @@ suscan_gui_inspector_update_spin_buttons(struct suscan_gui_inspector *insp)
         sugtk_sym_view_get_width(insp->symbolView));
 }
 
-void
+SUPRIVATE SUBOOL
+suscan_gui_inspector_assert_dec_buf(
+    struct suscan_gui_inspector *insp,
+    SUSCOUNT len)
+{
+  SUBITS *new;
+
+  if (len > insp->curr_dec_len) {
+    SU_TRYCATCH(
+        new = realloc(insp->curr_dec_buf, len * sizeof(SUBITS)),
+        return SU_FALSE);
+
+    insp->curr_dec_buf = new;
+    insp->curr_dec_len = len;
+  }
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_gui_inspector_feed_w_batch(
     struct suscan_gui_inspector *insp,
     const struct suscan_analyzer_sample_batch_msg *msg)
 {
   unsigned int sample_count, full_samp_count;
-  unsigned int i;
+  unsigned int i, n = 0;
   GtkTextIter iter;
   char *new_buffer;
   SUSYMBOL sym;
+  SUBITS bits;
+  SUBOOL ok = SU_FALSE;
 
   /*
    * Push, at most, the last SUSCAN_GUI_CONSTELLATION_HISTORY. We do this
@@ -245,30 +269,53 @@ suscan_gui_inspector_feed_w_batch(
   full_samp_count = msg->sample_count;
   sample_count = MIN(full_samp_count, SUSCAN_GUI_CONSTELLATION_HISTORY);
 
+  /* Cache decision */
+  if (insp->recording)
+    SU_TRYCATCH(
+        suscan_gui_inspector_assert_dec_buf(insp, full_samp_count),
+        goto done);
+
   /* Check if recording is enabled to assert the symbol buffer */
   sugtk_trans_mtx_reset(insp->transMatrix);
 
   for (i = 0; i < full_samp_count; ++i)
     if ((sym = suscan_gui_inspector_decide(insp, msg->samples[i]))
         != SU_NOSYMBOL) {
-      if (insp->recording)
+      bits = SU_FROMSYM(sym);
+
+      if (insp->recording) {
+        /* Save decision */
+        insp->curr_dec_buf[n++] = bits;
+
+        /* Update symbol view */
         sugtk_sym_view_append(
             insp->symbolView,
-            sugtk_sym_view_code_to_pixel_helper(
-                insp->params.fc_ctrl,
-                SU_FROMSYM(sym)));
+            sugtk_sym_view_code_to_pixel_helper(insp->params.fc_ctrl, bits));
+      }
 
       /* Feed transition matrix */
-      sugtk_trans_mtx_feed(insp->transMatrix, SU_FROMSYM(sym));
+      sugtk_trans_mtx_feed(insp->transMatrix, bits);
     }
 
-  if (insp->recording)
+  if (insp->recording) {
+    /* Update GUI */
     suscan_gui_inspector_update_spin_buttons(insp);
+
+    /* Wake up all listeners with new data */
+    SU_TRYCATCH(
+        suscan_symbuf_append(insp->symbolView, insp->curr_dec_buf, n),
+        goto done);
+  }
 
   for (i = 0; i < sample_count; ++i)
     suscan_gui_constellation_push_sample(
         &insp->constellation,
         msg->samples[msg->sample_count - sample_count + i]);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
 
 char *

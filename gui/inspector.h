@@ -50,6 +50,8 @@ struct suscan_gui_inspector {
 
   /* Symbol buffer */
   suscan_symbuf_t *symbuf;
+  SUBITS  *curr_dec_buf;
+  SUSCOUNT curr_dec_len;
 
   /* Widgets */
   GtkBuilder     *builder;
@@ -133,7 +135,7 @@ struct suscan_gui_inspector {
 };
 
 /* Inspector GUI functions */
-void suscan_gui_inspector_feed_w_batch(
+SUBOOL suscan_gui_inspector_feed_w_batch(
     struct suscan_gui_inspector *inspector,
     const struct suscan_analyzer_sample_batch_msg *msg);
 
