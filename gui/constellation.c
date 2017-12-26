@@ -18,10 +18,11 @@
 
 */
 
-#include "gui.h"
-
 #include <string.h>
 #include <sigutils/agc.h>
+
+#include "gui.h"
+#include "constellation.h"
 
 #define SUSCAN_CONSTELLATION_TO_SCR_X(cons, x) \
   (.5 * ((x) + 1.) * (cons)->width)

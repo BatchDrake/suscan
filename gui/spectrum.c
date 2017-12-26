@@ -18,11 +18,11 @@
 
 */
 
-#include "gui.h"
-
 #include <string.h>
 #include <sigutils/sampling.h>
 
+#include "gui.h"
+#include "spectrum.h"
 #include "gradient.h"
 
 #define SUSCAN_GUI_SPECTRUM_ALPHA .01

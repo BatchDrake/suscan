@@ -335,7 +335,7 @@ suscan_async_parse_sample_batch_msg(gpointer user_data)
       goto done);
 
   /* Append all these samples to the inspector GUI */
-  suscan_gui_inspector_feed_w_batch(insp, msg);
+  SU_TRYCATCH(suscan_gui_inspector_feed_w_batch(insp, msg), goto done);
 
 done:
   suscan_gui_msg_envelope_destroy(envelope);

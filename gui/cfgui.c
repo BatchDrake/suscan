@@ -89,9 +89,6 @@ suscan_field_to_widget(
   }
 
 done:
-  if (widget != NULL)
-    g_object_ref(G_OBJECT(widget));
-
   return widget;
 }
 
@@ -250,9 +247,6 @@ suscan_gui_cfgui_destroy(struct suscan_gui_cfgui *ui)
 
   if (ui->grid != NULL)
     gtk_widget_destroy(GTK_WIDGET(ui->grid));
-
-  for (i = 0; i < ui->widget_count; ++i)
-    gtk_widget_destroy(ui->widget_list[i]);
 
   if (ui->widget_list != NULL)
     free(ui->widget_list);

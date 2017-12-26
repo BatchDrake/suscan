@@ -23,9 +23,11 @@
 
 #define SU_LOG_DOMAIN "inspector-gui"
 
-#include "gui.h"
 #include <sigutils/agc.h>
-#include "../codec/codec.h"
+#include <codec/codec.h>
+
+#include "gui.h"
+#include "inspector.h"
 
 SUPRIVATE SUBOOL
 suscan_gui_inspector_halt_worker(suscan_worker_t *worker)
@@ -52,6 +54,12 @@ void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 {
   unsigned int i;
+
+  if (inspector->symbuf != NULL)
+    suscan_symbuf_destroy(inspector->symbuf);
+
+  if (inspector->curr_dec_buf != NULL)
+    free(inspector->curr_dec_buf);
 
   if (inspector->worker != NULL)
     if (!suscan_gui_inspector_halt_worker(inspector->worker)) {
@@ -222,16 +230,37 @@ suscan_gui_inspector_update_spin_buttons(struct suscan_gui_inspector *insp)
         sugtk_sym_view_get_width(insp->symbolView));
 }
 
-void
+SUPRIVATE SUBOOL
+suscan_gui_inspector_assert_dec_buf(
+    struct suscan_gui_inspector *insp,
+    SUSCOUNT len)
+{
+  SUBITS *new;
+
+  if (len > insp->curr_dec_len) {
+    SU_TRYCATCH(
+        new = realloc(insp->curr_dec_buf, len * sizeof(SUBITS)),
+        return SU_FALSE);
+
+    insp->curr_dec_buf = new;
+    insp->curr_dec_len = len;
+  }
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_gui_inspector_feed_w_batch(
     struct suscan_gui_inspector *insp,
     const struct suscan_analyzer_sample_batch_msg *msg)
 {
   unsigned int sample_count, full_samp_count;
-  unsigned int i;
+  unsigned int i, n = 0;
   GtkTextIter iter;
   char *new_buffer;
   SUSYMBOL sym;
+  SUBITS bits;
+  SUBOOL ok = SU_FALSE;
 
   /*
    * Push, at most, the last SUSCAN_GUI_CONSTELLATION_HISTORY. We do this
@@ -240,30 +269,53 @@ suscan_gui_inspector_feed_w_batch(
   full_samp_count = msg->sample_count;
   sample_count = MIN(full_samp_count, SUSCAN_GUI_CONSTELLATION_HISTORY);
 
+  /* Cache decision */
+  if (insp->recording)
+    SU_TRYCATCH(
+        suscan_gui_inspector_assert_dec_buf(insp, full_samp_count),
+        goto done);
+
   /* Check if recording is enabled to assert the symbol buffer */
   sugtk_trans_mtx_reset(insp->transMatrix);
 
   for (i = 0; i < full_samp_count; ++i)
     if ((sym = suscan_gui_inspector_decide(insp, msg->samples[i]))
         != SU_NOSYMBOL) {
-      if (insp->recording)
+      bits = SU_FROMSYM(sym);
+
+      if (insp->recording) {
+        /* Save decision */
+        insp->curr_dec_buf[n++] = bits;
+
+        /* Update symbol view */
         sugtk_sym_view_append(
             insp->symbolView,
-            sugtk_sym_view_code_to_pixel_helper(
-                insp->params.fc_ctrl,
-                SU_FROMSYM(sym)));
+            sugtk_sym_view_code_to_pixel_helper(insp->params.fc_ctrl, bits));
+      }
 
       /* Feed transition matrix */
-      sugtk_trans_mtx_feed(insp->transMatrix, SU_FROMSYM(sym));
+      sugtk_trans_mtx_feed(insp->transMatrix, bits);
     }
 
-  if (insp->recording)
+  if (insp->recording) {
+    /* Update GUI */
     suscan_gui_inspector_update_spin_buttons(insp);
+
+    /* Wake up all listeners with new data */
+    SU_TRYCATCH(
+        suscan_symbuf_append(insp->symbuf, insp->curr_dec_buf, n),
+        goto done);
+  }
 
   for (i = 0; i < sample_count; ++i)
     suscan_gui_constellation_push_sample(
         &insp->constellation,
         msg->samples[msg->sample_count - sample_count + i]);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
 
 char *
@@ -438,18 +490,32 @@ suscan_gui_inspector_open_codec_tab(
     struct suscan_gui_codec_cfg_ui *ui,
     unsigned int bits,
     unsigned int direction,
-    const SuGtkSymView *source)
+    const SuGtkSymView *view,
+    suscan_symbuf_t *source)
 {
   struct suscan_gui_codec *codec = NULL;
+  struct suscan_gui_codec_params params = suscan_gui_codec_params_INITIALIZER;
+  guint start;
+  guint end;
+
+  params.inspector = ui->inspector;
+  params.class = ui->desc;
+  params.bits_per_symbol = bits;
+  params.config = ui->config;
+  params.direction = direction;
+  params.source = source;
+
+  /* In selection mode, live update is disabled */
+  if (sugtk_sym_view_get_selection(view, &start, &end)) {
+    params.live = SU_FALSE;
+    params.start = start;
+    params.end = end;
+  } else {
+    params.live = SU_TRUE;
+  }
 
   if (suscan_gui_codec_cfg_ui_run(ui)) {
-    if ((codec = suscan_gui_codec_new(
-        ui->inspector,
-        ui->desc,
-        bits,
-        ui->config,
-        direction,
-        source)) == NULL) {
+    if ((codec = suscan_gui_codec_new(&params)) == NULL) {
 
       if (direction == SU_CODEC_DIRECTION_FORWARDS) {
         suscan_error(
@@ -512,7 +578,8 @@ suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
       ui,
       ui->inspector->params.fc_ctrl,
       SUSCAN_CODEC_DIRECTION_FORWARDS,
-      ui->inspector->symbolView);
+      ui->inspector->symbolView,
+      ui->inspector->symbuf);
 }
 
 SUPRIVATE void
@@ -540,7 +607,8 @@ suscan_gui_inspector_run_codec(GtkWidget *widget, gpointer *data)
       ui,
       ui->inspector->params.fc_ctrl,
       SUSCAN_CODEC_DIRECTION_BACKWARDS,
-      ui->inspector->symbolView);
+      ui->inspector->symbolView,
+      ui->inspector->symbuf);
 }
 
 SUBOOL
@@ -1086,6 +1154,8 @@ suscan_gui_inspector_new(
 
   SU_TRYCATCH(suscan_mq_init(&new->mq), goto fail);
   SU_TRYCATCH(new->worker = suscan_worker_new(&new->mq, new), goto fail);
+
+  SU_TRYCATCH(new->symbuf = suscan_symbuf_new(), goto fail);
 
   new->channel = *channel;
   new->index = -1;

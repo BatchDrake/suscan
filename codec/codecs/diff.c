@@ -71,7 +71,7 @@ suscan_codec_diff_process(
     struct suscan_codec *codec,
     grow_buf_t *result, /* Out */
     struct suscan_codec_progress *progress, /* Out */
-    SUBITS *data,
+    const SUBITS *data,
     SUSCOUNT len)
 {
   su_codec_t *sucodec = (su_codec_t *) private;
