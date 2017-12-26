@@ -206,6 +206,9 @@ suscan_symbuf_destroy(suscan_symbuf_t *symbuf)
     if (symbuf->listener_list[i] != NULL)
       (void) suscan_symbuf_unplug_listener(symbuf, symbuf->listener_list[i]);
 
+  if (symbuf->listener_list != NULL)
+    free(symbuf->listener_list);
+
   grow_buf_finalize(&symbuf->buffer);
 
   free(symbuf);
