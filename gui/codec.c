@@ -160,7 +160,7 @@ suscan_gui_codec_async_append_data(gpointer user_data)
       (struct suscan_gui_codec_state *) user_data;
 
   unsigned int i, len;
-  uint8_t *bytes;
+  const SUBITS *bytes;
   unsigned int bits_per_sym;
 
   suscan_gui_codec_state_lock(state);
@@ -171,20 +171,38 @@ suscan_gui_codec_async_append_data(gpointer user_data)
     len = grow_buf_get_size(&state->output);
     bytes = grow_buf_get_buffer(&state->output);
 
+    /* Update current symbuf (and signal all listeners) */
+    SU_TRYCATCH(
+        suscan_symbuf_append(state->owner->symbuf, bytes, len),
+        goto done);
+
     /* Transfer all bytes from the current output to the symbol view */
     for (i = 0; i < len; ++i)
       sugtk_sym_view_append(
           state->owner->symbolView,
           sugtk_sym_view_code_to_pixel_helper(bits_per_sym, bytes[i]));
 
+done:
     /* Clear output buffer */
-    grow_buf_clear(&state->output);
+    grow_buf_shrink(&state->output);
 
     /* Update spin buttons */
     suscan_gui_codec_update_spin_buttons(state->owner);
   }
 
   suscan_gui_codec_state_unlock(state);
+
+  return G_SOURCE_REMOVE;
+}
+
+SUPRIVATE gboolean
+suscan_gui_codec_async_set_done(gpointer user_data)
+{
+  struct suscan_gui_codec_state *state =
+      (struct suscan_gui_codec_state *) user_data;
+
+  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN)
+    state->owner->pending_done = SU_TRUE;
 
   return G_SOURCE_REMOVE;
 }
@@ -279,6 +297,11 @@ suscan_gui_codec_notify_data(struct suscan_gui_codec_state *state)
   g_idle_add(suscan_gui_codec_async_append_data, state);
 }
 
+SUPRIVATE void
+suscan_gui_codec_notify_done(struct suscan_gui_codec_state *state)
+{
+  g_idle_add(suscan_gui_codec_async_set_done, state);
+}
 
 SUPRIVATE void
 suscan_gui_codec_notify_error(struct suscan_gui_codec_state *state)
@@ -396,6 +419,7 @@ suscan_gui_codec_work(
     /* Size equals to len, processing has finished. Notify GUI? */
     if (state->ptr == state->input_len) {
       state->state = SUSCAN_GUI_CODEC_STATE_DONE;
+      suscan_gui_codec_notify_done(state);
       busy = SU_FALSE;
     }
   }
@@ -414,14 +438,10 @@ done:
 struct suscan_gui_codec_state *
 suscan_gui_codec_state_new(
     suscan_codec_t *codec,
-    struct suscan_gui_codec *owner,
-    const SuGtkSymView *source)
+    struct suscan_gui_codec *owner)
 {
   struct suscan_gui_codec_state *new = NULL;
-  guint start;
-  guint end;
-  const uint8_t *bytes;
-
+  const SUBITS *syms;
   unsigned int i, j;
 
   SU_TRYCATCH(
@@ -435,25 +455,22 @@ suscan_gui_codec_state_new(
   new->owner = owner;
   new->codec = codec;
 
-  bytes = sugtk_sym_get_buffer_bytes(source);
-  if (!sugtk_sym_view_get_selection(source, &start, &end)) {
-    start = 0;
-    end = sugtk_sym_get_buffer_size(source) / SUGTK_SYM_VIEW_STRIDE_ALIGN;
+  syms = suscan_symbuf_get_buffer(owner->params.source);
+
+  if (owner->params.live) {
+    new->input_len = suscan_symbuf_get_size(owner->params.source);
+  } else {
+    new->input_len = owner->params.end - owner->params.start;
+    syms += owner->params.start;
   }
 
-  new->input_len = end - start;
-
-  /* Copy all symbols to input */
+  /*
+   * Copy all symbols to input. We perform this copy because the symbuf
+   * may be destroyed before this processing is completed
+   */
   SU_TRYCATCH(new->input = malloc(new->input_len * sizeof (SUBITS)), goto fail);
 
-  j = start * SUGTK_SYM_VIEW_STRIDE_ALIGN;
-
-  for (i = 0; i < new->input_len; ++i) {
-    new->input[i] = sugtk_sym_view_pixel_to_code_helper(
-        suscan_codec_get_input_bits_per_symbol(codec),
-        bytes[j]);
-    j += SUGTK_SYM_VIEW_STRIDE_ALIGN;
-  }
+  memcpy(new->input, syms, new->input_len * sizeof (SUBITS));
 
   return new;
 
@@ -475,6 +492,9 @@ suscan_gui_codec_destroy_minimal(struct suscan_gui_codec *codec)
   if (codec->symbuf != NULL)
     suscan_symbuf_destroy(codec->symbuf);
 
+  if (codec->listener != NULL)
+    suscan_symbuf_listener_destroy(codec->listener);
+
   if (codec->input_buffer != NULL)
     free(codec->input_buffer);
 
@@ -487,6 +507,8 @@ suscan_gui_codec_destroy_minimal(struct suscan_gui_codec *codec)
 
   if (codec->builder != NULL)
     g_object_unref(G_OBJECT(codec->builder));
+
+  grow_buf_finalize(&codec->livebuf);
 
   free(codec);
 }
@@ -547,7 +569,8 @@ suscan_gui_codec_run_encoder(GtkWidget *widget, gpointer *data)
       ctx->ui,
       ctx->codec->output_bits,
       SUSCAN_CODEC_DIRECTION_FORWARDS,
-      ctx->codec->symbolView);
+      ctx->codec->symbolView,
+      ctx->codec->symbuf);
 }
 
 SUPRIVATE void
@@ -568,7 +591,8 @@ suscan_gui_codec_run_codec(GtkWidget *widget, gpointer *data)
       ctx->ui,
       ctx->codec->output_bits,
       SUSCAN_CODEC_DIRECTION_BACKWARDS,
-      ctx->codec->symbolView);
+      ctx->codec->symbolView,
+      ctx->codec->symbuf);
 }
 
 
@@ -673,6 +697,50 @@ suscan_gui_codec_load_all_widgets(struct suscan_gui_codec *codec)
   return SU_TRUE;
 }
 
+SUPRIVATE SUSDIFF
+suscan_gui_codec_data_func(void *priv, const SUBITS *new_data, SUSCOUNT size)
+{
+  struct suscan_gui_codec *guicodec = (struct suscan_gui_codec *) priv;
+  unsigned int i;
+  SUSDIFF got = 0;
+  const SUBITS *syms;
+  SUSCOUNT len;
+
+  /* We process new data after all pending data has been processed */
+  if (guicodec->pending_done) {
+    SU_TRYCATCH(
+        (got = suscan_codec_feed(
+            guicodec->state->codec,
+            &guicodec->livebuf,
+            NULL,
+            new_data,
+            size)) > 0,
+        goto done);
+
+    syms = grow_buf_get_buffer(&guicodec->livebuf);
+    len  = grow_buf_get_size(&guicodec->livebuf);
+
+    /* Feed symbol buffer */
+    SU_TRYCATCH(
+        suscan_symbuf_append(guicodec->symbuf, syms, len),
+        goto done);
+
+    /* Update symbol view */
+    for (i = 0; i < len; ++i)
+      sugtk_sym_view_append(
+          guicodec->symbolView,
+          sugtk_sym_view_code_to_pixel_helper(
+              guicodec->output_bits,
+              syms[i]));
+  }
+
+done:
+  /* Shrink buffer to zero, keep allocation */
+  grow_buf_shrink(&guicodec->livebuf);
+
+  return got;
+}
+
 struct suscan_gui_codec *
 suscan_gui_codec_new(const struct suscan_gui_codec_params *params)
 {
@@ -694,6 +762,7 @@ suscan_gui_codec_new(const struct suscan_gui_codec_params *params)
   new->params = *params;
   new->output_bits = suscan_codec_get_output_bits_per_symbol(codec);
   new->index = -1;
+  new->desc = params->class->desc;
 
   SU_TRYCATCH(new->symbuf = suscan_symbuf_new(), goto fail);
 
@@ -721,10 +790,34 @@ suscan_gui_codec_new(const struct suscan_gui_codec_params *params)
   free(page_label);
   page_label = NULL;
 
-  /* Create codec state. This is what actually does the job */
-  SU_TRYCATCH(
-      new->state = suscan_gui_codec_state_new(codec, new, params->source),
-      goto fail);
+  /*
+   * Create codec state. Used for background processing of pending
+   * symbols in the current symbol source
+   */
+  SU_TRYCATCH(new->state = suscan_gui_codec_state_new(codec, new), goto fail);
+
+  /*
+   * If running in live mode, we must listen to new data added after
+   * the creation of this object, and update the GUI accordingly
+   */
+  if (params->live) {
+    SU_TRYCATCH(
+        new->listener = suscan_symbuf_listener_new(
+            suscan_gui_codec_data_func,
+            NULL,
+            new),
+        goto fail);
+
+    /* Skip input that will be processed by the state thread */
+    suscan_symbuf_listener_seek(
+        new->listener,
+        suscan_symbuf_get_size(params->source));
+
+    /* Plug listener */
+    SU_TRYCATCH(
+        suscan_symbuf_plug_listener(params->source, new->listener),
+        goto fail);
+  }
 
   codec = NULL;
 

@@ -47,6 +47,10 @@ suscan_symbuf_listener_t *suscan_symbuf_listener_new(
     void    (*eos_func) (void *priv, const SUBITS *new_data, SUSCOUNT size),
     void *private);
 
+void suscan_symbuf_listener_seek(
+    suscan_symbuf_listener_t *listener,
+    SUSCOUNT ptr);
+
 SUBOOL suscan_symbuf_listener_is_plugged(
     const suscan_symbuf_listener_t *listener);
 
@@ -71,6 +75,10 @@ SUBOOL suscan_symbuf_append(
     suscan_symbuf_t *symbuf,
     const SUBITS *data,
     SUSCOUNT size);
+
+const SUBITS *suscan_symbuf_get_buffer(const suscan_symbuf_t *symbuf);
+
+SUSCOUNT suscan_symbuf_get_size(const suscan_symbuf_t *symbuf);
 
 suscan_symbuf_t *suscan_symbuf_new(void);
 

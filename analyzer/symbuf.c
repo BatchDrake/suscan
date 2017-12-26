@@ -53,6 +53,12 @@ fail:
 }
 
 void
+suscan_symbuf_listener_seek(suscan_symbuf_listener_t *listener, SUSCOUNT ptr)
+{
+  listener->ptr = ptr;
+}
+
+void
 suscan_symbuf_listener_destroy(suscan_symbuf_listener_t *listener)
 {
   /* If plugged to a source, unplug first */
@@ -154,7 +160,8 @@ suscan_symbuf_append(
   buffer_size = grow_buf_get_size(&symbuf->buffer) / sizeof(SUBITS);
 
   for (i = 0; i < symbuf->listener_count; ++i)
-    if (symbuf->listener_list[i] != NULL) {
+    if (symbuf->listener_list[i] != NULL
+        && buffer_size > symbuf->listener_list[i]->ptr) {
       got = (symbuf->listener_list[i]->data_func) (
           symbuf->listener_list[i]->private,
           buffer_data + symbuf->listener_list[i]->ptr,
@@ -165,6 +172,18 @@ suscan_symbuf_append(
     }
 
   return SU_TRUE;
+}
+
+const SUBITS *
+suscan_symbuf_get_buffer(const suscan_symbuf_t *symbuf)
+{
+  return grow_buf_get_buffer(&symbuf->buffer);
+}
+
+SUSCOUNT
+suscan_symbuf_get_size(const suscan_symbuf_t *symbuf)
+{
+  return grow_buf_get_size(&symbuf->buffer);
 }
 
 suscan_symbuf_t *

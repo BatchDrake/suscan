@@ -62,7 +62,7 @@ struct suscan_codec_class {
       struct suscan_codec *codec,
       grow_buf_t *result, /* Out */
       struct suscan_codec_progress *progress, /* Out */
-      SUBITS *data,
+      const SUBITS *data,
       SUSCOUNT len);
   void (*dtor) (void *private);
 };
@@ -103,7 +103,7 @@ SUSDIFF suscan_codec_feed(
     suscan_codec_t *codec,
     grow_buf_t *result, /* Out */
     struct suscan_codec_progress *progress, /* Out */
-    SUBITS *data,
+    const SUBITS *data,
     SUSCOUNT len);
 
 SUBOOL suscan_codec_class_register_builtin(void);

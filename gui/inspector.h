@@ -180,7 +180,8 @@ SUBOOL suscan_gui_inspector_open_codec_tab(
     struct suscan_gui_codec_cfg_ui *ui,
     unsigned int bits,
     unsigned int direction,
-    const SuGtkSymView *source);
+    const SuGtkSymView *view,
+    suscan_symbuf_t *source);
 
 void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
 

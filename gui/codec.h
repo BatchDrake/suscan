@@ -43,7 +43,10 @@ struct suscan_gui_codec_params {
   uint8_t bits_per_symbol;
   suscan_config_t *config;
   unsigned int direction;
-  const SuGtkSymView *source;
+  suscan_symbuf_t *source;
+  unsigned int start;
+  unsigned int end;
+  SUBOOL live;
 };
 
 #define suscan_gui_codec_params_INITIALIZER \
@@ -54,6 +57,9 @@ struct suscan_gui_codec_params {
   NULL, /* config */                        \
   0, /* direction */                        \
   NULL, /* source */                        \
+  0, /* start */                            \
+  0, /* end */                              \
+  SU_FALSE, /* live */                      \
 }
 
 struct suscan_gui_codec_context;
@@ -84,8 +90,13 @@ struct suscan_gui_codec {
   GtkSpinButton       *widthSpinButton;
 
   /* Symbol view widgets */
-  suscan_symbuf_t *symbuf;
   SuGtkSymView    *symbolView;
+
+  /* Live decoding */
+  SUBOOL          pending_done;
+  suscan_symbuf_listener_t *listener;
+  grow_buf_t      livebuf;
+  suscan_symbuf_t *symbuf;
 
   /* Decoder contexts, needed to link menus to codec operations */
   PTR_LIST(struct suscan_gui_codec_context, context);

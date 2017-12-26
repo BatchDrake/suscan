@@ -490,10 +490,13 @@ suscan_gui_inspector_open_codec_tab(
     struct suscan_gui_codec_cfg_ui *ui,
     unsigned int bits,
     unsigned int direction,
-    const SuGtkSymView *source)
+    const SuGtkSymView *view,
+    suscan_symbuf_t *source)
 {
   struct suscan_gui_codec *codec = NULL;
   struct suscan_gui_codec_params params = suscan_gui_codec_params_INITIALIZER;
+  guint start;
+  guint end;
 
   params.inspector = ui->inspector;
   params.class = ui->desc;
@@ -501,6 +504,15 @@ suscan_gui_inspector_open_codec_tab(
   params.config = ui->config;
   params.direction = direction;
   params.source = source;
+
+  /* In selection mode, live update is disabled */
+  if (sugtk_sym_view_get_selection(view, &start, &end)) {
+    params.live = SU_FALSE;
+    params.start = start;
+    params.end = end;
+  } else {
+    params.live = SU_TRUE;
+  }
 
   if (suscan_gui_codec_cfg_ui_run(ui)) {
     if ((codec = suscan_gui_codec_new(&params)) == NULL) {
@@ -566,7 +578,8 @@ suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
       ui,
       ui->inspector->params.fc_ctrl,
       SUSCAN_CODEC_DIRECTION_FORWARDS,
-      ui->inspector->symbolView);
+      ui->inspector->symbolView,
+      ui->inspector->symbuf);
 }
 
 SUPRIVATE void
@@ -594,7 +607,8 @@ suscan_gui_inspector_run_codec(GtkWidget *widget, gpointer *data)
       ui,
       ui->inspector->params.fc_ctrl,
       SUSCAN_CODEC_DIRECTION_BACKWARDS,
-      ui->inspector->symbolView);
+      ui->inspector->symbolView,
+      ui->inspector->symbuf);
 }
 
 SUBOOL
