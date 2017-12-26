@@ -274,10 +274,8 @@ suscan_gui_codec_async_unref(gpointer user_data)
 
   suscan_gui_codec_state_lock(state);
 
-  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN) {
+  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN)
     gtk_widget_hide(GTK_WIDGET(state->owner->params.inspector->progressDialog));
-    sugtk_sym_view_set_autoscroll(state->owner->symbolView, FALSE);
-  }
 
   if (!suscan_gui_codec_state_unref_internal(state))
     suscan_gui_codec_state_unlock(state);
@@ -654,6 +652,13 @@ suscan_gui_codec_load_all_widgets(struct suscan_gui_codec *codec)
           return SU_FALSE);
 
   SU_TRYCATCH(
+      codec->autoScrollToggleButton =
+          GTK_TOGGLE_TOOL_BUTTON(gtk_builder_get_object(
+              codec->builder,
+              "tbAutoScroll")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
       codec->offsetSpinButton =
           GTK_SPIN_BUTTON(gtk_builder_get_object(
               codec->builder,
@@ -669,7 +674,7 @@ suscan_gui_codec_load_all_widgets(struct suscan_gui_codec *codec)
 
   /* Add symbol view */
   codec->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
-  sugtk_sym_view_set_autoscroll(codec->symbolView, FALSE);
+  sugtk_sym_view_set_autoscroll(codec->symbolView, TRUE);
 
   SU_TRYCATCH(
       suscan_gui_inspector_populate_codec_menu(
@@ -732,6 +737,9 @@ suscan_gui_codec_data_func(void *priv, const SUBITS *new_data, SUSCOUNT size)
           sugtk_sym_view_code_to_pixel_helper(
               guicodec->output_bits,
               syms[i]));
+
+    /* Update spin buttons */
+    suscan_gui_codec_update_spin_buttons(guicodec);
   }
 
 done:
@@ -902,10 +910,26 @@ SUPRIVATE void
 suscan_gui_codec_update_spin_buttons(struct suscan_gui_codec *codec)
 {
   if (gtk_toggle_tool_button_get_active(
+      GTK_TOGGLE_TOOL_BUTTON(codec->autoScrollToggleButton)))
+    gtk_spin_button_set_value(
+        codec->offsetSpinButton,
+        sugtk_sym_view_get_offset(codec->symbolView));
+
+  if (gtk_toggle_tool_button_get_active(
       GTK_TOGGLE_TOOL_BUTTON(codec->autoFitToggleButton)))
     gtk_spin_button_set_value(
         codec->widthSpinButton,
         sugtk_sym_view_get_width(codec->symbolView));
+}
+
+void
+suscan_codec_on_clear(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_codec *codec = (struct suscan_gui_codec *) data;
+
+  sugtk_sym_view_clear(codec->symbolView);
 }
 
 void
@@ -945,6 +969,20 @@ suscan_codec_on_zoom_out(
   sugtk_sym_view_set_zoom(codec->symbolView, curr_zoom);
 
   suscan_gui_codec_update_spin_buttons(codec);
+}
+
+void
+suscan_codec_on_toggle_autoscroll(
+    GtkWidget *widget,
+    gpointer data)
+{
+  struct suscan_gui_codec *codec = (struct suscan_gui_codec *) data;
+  gboolean active;
+
+  active = gtk_toggle_tool_button_get_active(GTK_TOGGLE_TOOL_BUTTON(widget));
+
+  sugtk_sym_view_set_autoscroll(codec->symbolView, active);
+  gtk_widget_set_sensitive(GTK_WIDGET(codec->offsetSpinButton), !active);
 }
 
 void

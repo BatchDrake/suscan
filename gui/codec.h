@@ -86,6 +86,7 @@ struct suscan_gui_codec {
 
   /* Toolbar widgets */
   GtkToggleToolButton *autoFitToggleButton;
+  GtkToggleToolButton *autoScrollToggleButton;
   GtkSpinButton       *offsetSpinButton;
   GtkSpinButton       *widthSpinButton;
 
