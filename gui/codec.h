@@ -37,22 +37,38 @@ struct suscan_gui_codec_cfg_ui {
   GtkWidget *dialog;
 };
 
+struct suscan_gui_codec_params {
+  struct suscan_gui_inspector *inspector;
+  const struct suscan_codec_class *class;
+  uint8_t bits_per_symbol;
+  suscan_config_t *config;
+  unsigned int direction;
+  const SuGtkSymView *source;
+};
+
+#define suscan_gui_codec_params_INITIALIZER \
+{                                           \
+  NULL, /* inspector */                     \
+  NULL, /* class */                         \
+  0, /* bits_per_symbol */                  \
+  NULL, /* config */                        \
+  0, /* direction */                        \
+  NULL, /* source */                        \
+}
+
 struct suscan_gui_codec_context;
 
 struct suscan_gui_codec_state;
 
 struct suscan_gui_codec {
-  struct suscan_gui_inspector     *inspector;
-  const struct suscan_codec_class *class;
-  struct suscan_gui_codec_state   *state; /* Async callback state */
+  struct suscan_gui_codec_params params;
+  struct suscan_gui_codec_state *state;
 
   const char      *desc; /* Borrowed from codec class */
-  unsigned int     input_bits;
   unsigned int     output_bits;
 
   int              index;
   GtkBuilder      *builder;
-  unsigned int     direction;
 
   SUBITS          *input_buffer;
   SUSCOUNT         input_size;
@@ -94,12 +110,7 @@ struct suscan_gui_codec_cfg_ui *suscan_gui_codec_cfg_ui_new(
 
 /* Codec API */
 struct suscan_gui_codec *suscan_gui_codec_new(
-    struct suscan_gui_inspector *inspector,
-    const struct suscan_codec_class *class,
-    uint8_t bits_per_symbol,
-    suscan_config_t *config,
-    unsigned int direction,
-    const SuGtkSymView *source);
+    const struct suscan_gui_codec_params *params);
 
 /* Use this if the worker is dead */
 void suscan_gui_codec_destroy_hard(struct suscan_gui_codec *codec);

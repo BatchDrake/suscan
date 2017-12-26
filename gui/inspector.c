@@ -303,7 +303,7 @@ suscan_gui_inspector_feed_w_batch(
 
     /* Wake up all listeners with new data */
     SU_TRYCATCH(
-        suscan_symbuf_append(insp->symbolView, insp->curr_dec_buf, n),
+        suscan_symbuf_append(insp->symbuf, insp->curr_dec_buf, n),
         goto done);
   }
 
@@ -493,15 +493,17 @@ suscan_gui_inspector_open_codec_tab(
     const SuGtkSymView *source)
 {
   struct suscan_gui_codec *codec = NULL;
+  struct suscan_gui_codec_params params = suscan_gui_codec_params_INITIALIZER;
+
+  params.inspector = ui->inspector;
+  params.class = ui->desc;
+  params.bits_per_symbol = bits;
+  params.config = ui->config;
+  params.direction = direction;
+  params.source = source;
 
   if (suscan_gui_codec_cfg_ui_run(ui)) {
-    if ((codec = suscan_gui_codec_new(
-        ui->inspector,
-        ui->desc,
-        bits,
-        ui->config,
-        direction,
-        source)) == NULL) {
+    if ((codec = suscan_gui_codec_new(&params)) == NULL) {
 
       if (direction == SU_CODEC_DIRECTION_FORWARDS) {
         suscan_error(

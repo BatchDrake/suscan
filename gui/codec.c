@@ -199,18 +199,19 @@ suscan_gui_codec_async_parse_progress(gpointer user_data)
 
   if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN) {
     if (state->progress.updated) {
-      gtk_widget_show_all(GTK_WIDGET(state->owner->inspector->progressDialog));
+      gtk_widget_show_all(
+          GTK_WIDGET(state->owner->params.inspector->progressDialog));
 
       if (state->progress.progress == SUSCAN_CODEC_PROGRESS_UNDEFINED)
-        gtk_progress_bar_pulse(state->owner->inspector->progressBar);
+        gtk_progress_bar_pulse(state->owner->params.inspector->progressBar);
       else
         gtk_progress_bar_set_fraction(
-            state->owner->inspector->progressBar,
+            state->owner->params.inspector->progressBar,
             state->progress.progress);
 
       if (state->progress.message != NULL)
         gtk_progress_bar_set_text(
-            state->owner->inspector->progressBar,
+            state->owner->params.inspector->progressBar,
             state->progress.message);
     }
   }
@@ -231,13 +232,13 @@ suscan_gui_codec_async_display_error(gpointer user_data)
   if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN) {
     if (state->progress.updated && state->progress.message != NULL)
       suscan_error(
-          state->owner->inspector->gui,
+          state->owner->params.inspector->gui,
           "Codec error",
           "Codec error: %s",
           state->progress.message);
     else
       suscan_error(
-          state->owner->inspector->gui,
+          state->owner->params.inspector->gui,
           "Codec error",
           "Internal codec error");
   }
@@ -256,7 +257,7 @@ suscan_gui_codec_async_unref(gpointer user_data)
   suscan_gui_codec_state_lock(state);
 
   if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN) {
-    gtk_widget_hide(GTK_WIDGET(state->owner->inspector->progressDialog));
+    gtk_widget_hide(GTK_WIDGET(state->owner->params.inspector->progressDialog));
     sugtk_sym_view_set_autoscroll(state->owner->symbolView, FALSE);
   }
 
@@ -648,7 +649,7 @@ suscan_gui_codec_load_all_widgets(struct suscan_gui_codec *codec)
 
   SU_TRYCATCH(
       suscan_gui_inspector_populate_codec_menu(
-          codec->inspector,
+          codec->params.inspector,
           codec->symbolView,
           suscan_gui_codec_create_context,
           codec,
@@ -673,13 +674,7 @@ suscan_gui_codec_load_all_widgets(struct suscan_gui_codec *codec)
 }
 
 struct suscan_gui_codec *
-suscan_gui_codec_new(
-    struct suscan_gui_inspector *inspector,
-    const struct suscan_codec_class *class,
-    uint8_t bits_per_symbol,
-    suscan_config_t *config,
-    unsigned int direction,
-    const SuGtkSymView *source)
+suscan_gui_codec_new(const struct suscan_gui_codec_params *params)
 {
   struct suscan_gui_codec *new = NULL;
   suscan_codec_t *codec = NULL;
@@ -690,19 +685,15 @@ suscan_gui_codec_new(
   /* This is the underlying codec object used by suscan_gui_codec */
   SU_TRYCATCH(
       codec = suscan_codec_class_make_codec(
-          class,
-          bits_per_symbol,
-          config,
-          direction),
+          params->class,
+          params->bits_per_symbol,
+          params->config,
+          params->direction),
       goto fail);
 
-  new->input_bits = bits_per_symbol;
+  new->params = *params;
   new->output_bits = suscan_codec_get_output_bits_per_symbol(codec);
-  new->desc = class->desc;
-  new->direction = direction;
   new->index = -1;
-  new->class = class;
-  new->inspector = inspector;
 
   SU_TRYCATCH(new->symbuf = suscan_symbuf_new(), goto fail);
 
@@ -718,8 +709,10 @@ suscan_gui_codec_new(
   SU_TRYCATCH(
       page_label = strbuild(
           "%s with %s",
-          direction == SUSCAN_CODEC_DIRECTION_BACKWARDS ? "Decode" : "Encode",
-          class->desc),
+          params->direction == SUSCAN_CODEC_DIRECTION_BACKWARDS
+          ? "Decode"
+          : "Encode",
+          params->class->desc),
       goto fail);
 
 
@@ -730,7 +723,7 @@ suscan_gui_codec_new(
 
   /* Create codec state. This is what actually does the job */
   SU_TRYCATCH(
-      new->state = suscan_gui_codec_state_new(codec, new, source),
+      new->state = suscan_gui_codec_state_new(codec, new, params->source),
       goto fail);
 
   codec = NULL;
@@ -741,7 +734,7 @@ suscan_gui_codec_new(
   /* Must be the last thing to be added */
   SU_TRYCATCH(
       suscan_gui_inspector_push_task(
-          inspector,
+          params->inspector,
           suscan_gui_codec_work,
           new->state),
       goto fail);
@@ -771,7 +764,7 @@ suscan_on_close_codec_tab(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui_codec *codec = (struct suscan_gui_codec *) data;
 
-  suscan_gui_inspector_remove_codec(codec->inspector, codec);
+  suscan_gui_inspector_remove_codec(codec->params.inspector, codec);
 
   /*
    * Use soft destroy: the worker is running, and a decoder task
@@ -792,9 +785,9 @@ suscan_codec_on_save(
   SU_TRYCATCH(
       new_fname = strbuild(
           "%s-output-%s-%dbpp.log",
-          codec->direction == SUSCAN_CODEC_DIRECTION_BACKWARDS ?
-              "codec" :
-              "encoder",
+          codec->params.direction == SUSCAN_CODEC_DIRECTION_BACKWARDS
+          ? "codec"
+          : "encoder",
           codec->desc,
           codec->output_bits),
       goto done);
