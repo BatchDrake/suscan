@@ -930,7 +930,7 @@ suscan_gui_add_inspector(
       goto fail);
 
   inspector_added = SU_TRUE;
-  insp->gui = gui;
+  insp->_parent.gui = gui;
 
   SU_TRYCATCH(
       (page = gtk_notebook_append_page_menu(

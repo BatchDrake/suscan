@@ -22,6 +22,7 @@
 #define _GUI_INSPECTOR_H
 
 #include <analyzer/symbuf.h>
+#include "symsrc.h"
 
 #include "constellation.h"
 #include "spectrum.h"
@@ -34,24 +35,17 @@
 
 struct suscan_gui;
 
+#define SUSCAN_GUI_INSPECTOR_AS_SYMSRC(insp) &(insp)->_parent;
+
 struct suscan_gui_inspector {
+  struct suscan_gui_symsrc _parent; /* Inherits from symbol source */
   int index; /* Back reference */
   SUHANDLE inshnd; /* Inspector handle (relative to current analyzer) */
   SUBOOL dead; /* Owner analyzer has been destroyed */
   SUBOOL recording; /* Symbol recorder enabled */
-  struct suscan_gui *gui; /* Parent GUI */
   struct suscan_gui_constellation constellation; /* Constellation graph */
   struct suscan_gui_spectrum spectrum; /* Spectrum graph */
   struct suscan_inspector_params params; /* Inspector params */
-
-  /* Worker used by codecs */
-  suscan_worker_t *worker;
-  struct suscan_mq mq;
-
-  /* Symbol buffer */
-  suscan_symbuf_t *symbuf;
-  SUBITS  *curr_dec_buf;
-  SUSCOUNT curr_dec_len;
 
   /* Widgets */
   GtkBuilder     *builder;
@@ -125,9 +119,6 @@ struct suscan_gui_inspector {
   GtkDialog      *progressDialog;
   GtkProgressBar *progressBar;
 
-  /* DecoderUI objects */
-  PTR_LIST(struct suscan_gui_codec_cfg_ui, codec_cfg_ui);
-
   /* Decoder objects */
   PTR_LIST(struct suscan_gui_codec, codec);
 
@@ -138,14 +129,6 @@ struct suscan_gui_inspector {
 SUBOOL suscan_gui_inspector_feed_w_batch(
     struct suscan_gui_inspector *inspector,
     const struct suscan_analyzer_sample_batch_msg *msg);
-
-SUBOOL suscan_gui_inspector_push_task(
-    struct suscan_gui_inspector *inspector,
-    SUBOOL (*task) (
-        struct suscan_mq *mq_out,
-        void *wk_private,
-        void *cb_private),
-     void *private);
 
 struct suscan_gui_inspector *suscan_gui_inspector_new(
     const struct sigutils_channel *channel,

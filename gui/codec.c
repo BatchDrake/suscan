@@ -215,24 +215,11 @@ suscan_gui_codec_async_parse_progress(gpointer user_data)
 
   suscan_gui_codec_state_lock(state);
 
-  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN) {
-    if (state->progress.updated) {
-      gtk_widget_show_all(
-          GTK_WIDGET(state->owner->params.inspector->progressDialog));
-
-      if (state->progress.progress == SUSCAN_CODEC_PROGRESS_UNDEFINED)
-        gtk_progress_bar_pulse(state->owner->params.inspector->progressBar);
-      else
-        gtk_progress_bar_set_fraction(
-            state->owner->params.inspector->progressBar,
-            state->progress.progress);
-
-      if (state->progress.message != NULL)
-        gtk_progress_bar_set_text(
-            state->owner->params.inspector->progressBar,
-            state->progress.message);
-    }
-  }
+  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN)
+    if (state->owner->params.on_parse_progress != NULL)
+      (state->owner->params.on_parse_progress)(
+          state->owner->params.symsrc,
+          &state->progress);
 
   suscan_gui_codec_state_unlock(state);
 
@@ -247,19 +234,12 @@ suscan_gui_codec_async_display_error(gpointer user_data)
 
   suscan_gui_codec_state_lock(state);
 
-  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN) {
-    if (state->progress.updated && state->progress.message != NULL)
-      suscan_error(
-          state->owner->params.inspector->gui,
-          "Codec error",
-          "Codec error: %s",
-          state->progress.message);
-    else
-      suscan_error(
-          state->owner->params.inspector->gui,
-          "Codec error",
-          "Internal codec error");
-  }
+  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN)
+    if (state->owner->params.on_display_error != NULL)
+      (state->owner->params.on_display_error)(
+          state->owner->params.symsrc,
+          &state->progress);
+
 
   suscan_gui_codec_state_unlock(state);
 
@@ -275,7 +255,11 @@ suscan_gui_codec_async_unref(gpointer user_data)
   suscan_gui_codec_state_lock(state);
 
   if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN)
-    gtk_widget_hide(GTK_WIDGET(state->owner->params.inspector->progressDialog));
+    if (state->owner->params.on_unref != NULL)
+      (state->owner->params.on_unref)(
+          state->owner->params.symsrc,
+          &state->progress);
+
 
   if (!suscan_gui_codec_state_unref_internal(state))
     suscan_gui_codec_state_unlock(state);
@@ -562,13 +546,7 @@ suscan_gui_codec_run_encoder(GtkWidget *widget, gpointer *data)
   if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ctx->ui))
     return;  /* Weird */
 
-  (void) suscan_gui_inspector_open_codec_tab(
-      ctx->ui->inspector,
-      ctx->ui,
-      ctx->codec->output_bits,
-      SUSCAN_CODEC_DIRECTION_FORWARDS,
-      ctx->codec->symbolView,
-      ctx->codec->symbuf);
+  (ctx->codec->params.on_activate_codec)(ctx, SUSCAN_CODEC_DIRECTION_FORWARDS);
 }
 
 SUPRIVATE void
@@ -584,13 +562,7 @@ suscan_gui_codec_run_codec(GtkWidget *widget, gpointer *data)
   if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ctx->ui))
     return;  /* Weird */
 
-  (void) suscan_gui_inspector_open_codec_tab(
-      ctx->ui->inspector,
-      ctx->ui,
-      ctx->codec->output_bits,
-      SUSCAN_CODEC_DIRECTION_BACKWARDS,
-      ctx->codec->symbolView,
-      ctx->codec->symbuf);
+  (ctx->codec->params.on_activate_codec)(ctx, SUSCAN_CODEC_DIRECTION_BACKWARDS);
 }
 
 
@@ -677,8 +649,8 @@ suscan_gui_codec_load_all_widgets(struct suscan_gui_codec *codec)
   sugtk_sym_view_set_autoscroll(codec->symbolView, TRUE);
 
   SU_TRYCATCH(
-      suscan_gui_inspector_populate_codec_menu(
-          codec->params.inspector,
+      suscan_gui_symsrc_populate_codec_menu(
+          codec->params.symsrc,
           codec->symbolView,
           suscan_gui_codec_create_context,
           codec,
@@ -834,8 +806,8 @@ suscan_gui_codec_new(const struct suscan_gui_codec_params *params)
 
   /* Must be the last thing to be added */
   SU_TRYCATCH(
-      suscan_gui_inspector_push_task(
-          params->inspector,
+      suscan_gui_symsrc_push_task(
+          params->symsrc,
           suscan_gui_codec_work,
           new->state),
       goto fail);
@@ -865,7 +837,7 @@ suscan_on_close_codec_tab(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui_codec *codec = (struct suscan_gui_codec *) data;
 
-  suscan_gui_inspector_remove_codec(codec->params.inspector, codec);
+  (codec->params.on_close_codec) (codec->params.symsrc, codec);
 
   /*
    * Use soft destroy: the worker is running, and a decoder task

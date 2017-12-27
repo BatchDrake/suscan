@@ -29,62 +29,21 @@
 #include "gui.h"
 #include "inspector.h"
 
-SUPRIVATE SUBOOL
-suscan_gui_inspector_halt_worker(suscan_worker_t *worker)
-{
-  uint32_t type;
-
-  while (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
-    suscan_worker_req_halt(worker);
-
-    /* This worker does not push messages */
-    suscan_mq_read(worker->mq_out, &type);
-
-    if (type != SUSCAN_WORKER_MSG_TYPE_HALT) {
-      SU_ERROR("Unexpected inspector worker message type\n");
-      return SU_FALSE;
-    }
-  }
-
-  return suscan_worker_destroy(worker);
-}
-
-
 void
 suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 {
   unsigned int i;
 
-  if (inspector->symbuf != NULL)
-    suscan_symbuf_destroy(inspector->symbuf);
+  if (!suscan_gui_symsrc_finalize(&inspector->_parent)) {
+    SU_ERROR("Inspector destruction failed somehow\n");
+    return;
+  }
 
-  if (inspector->curr_dec_buf != NULL)
-    free(inspector->curr_dec_buf);
-
-  if (inspector->worker != NULL)
-    if (!suscan_gui_inspector_halt_worker(inspector->worker)) {
-      SU_ERROR("Inspector worker destruction failed, memory leak ahead\n");
-      return;
-    }
-
-  if (inspector->inshnd != -1 && inspector->gui != NULL)
+  if (inspector->inshnd != -1 && inspector->_parent.gui != NULL)
     suscan_analyzer_close_async(
-        inspector->gui->analyzer,
+        inspector->_parent.gui->analyzer,
         inspector->inshnd,
         rand());
-
-  for (i = 0; i < inspector->codec_count; ++i)
-    if (inspector->codec_list[i] != NULL)
-      suscan_gui_codec_destroy_hard(inspector->codec_list[i]);
-
-  if (inspector->codec_list != NULL)
-    free(inspector->codec_list);
-
-  for (i = 0; i < inspector->codec_cfg_ui_count; ++i)
-    suscan_gui_codec_cfg_ui_destroy(inspector->codec_cfg_ui_list[i]);
-
-  if (inspector->codec_cfg_ui_list != NULL)
-    free(inspector->codec_cfg_ui_list);
 
   suscan_spectrum_finalize(&inspector->spectrum);
 
@@ -155,7 +114,7 @@ suscan_gui_inspector_close(struct suscan_gui_inspector *insp)
   if (handle != -1) {
     /* Send close message */
     insp->inshnd = -1;
-    suscan_analyzer_close_async(insp->gui->analyzer, handle, rand());
+    suscan_analyzer_close_async(insp->_parent.gui->analyzer, handle, rand());
   }
 
   gtk_widget_set_sensitive(GTK_WIDGET(insp->channelInspectorGrid), FALSE);
@@ -230,25 +189,6 @@ suscan_gui_inspector_update_spin_buttons(struct suscan_gui_inspector *insp)
         sugtk_sym_view_get_width(insp->symbolView));
 }
 
-SUPRIVATE SUBOOL
-suscan_gui_inspector_assert_dec_buf(
-    struct suscan_gui_inspector *insp,
-    SUSCOUNT len)
-{
-  SUBITS *new;
-
-  if (len > insp->curr_dec_len) {
-    SU_TRYCATCH(
-        new = realloc(insp->curr_dec_buf, len * sizeof(SUBITS)),
-        return SU_FALSE);
-
-    insp->curr_dec_buf = new;
-    insp->curr_dec_len = len;
-  }
-
-  return SU_TRUE;
-}
-
 SUBOOL
 suscan_gui_inspector_feed_w_batch(
     struct suscan_gui_inspector *insp,
@@ -257,7 +197,7 @@ suscan_gui_inspector_feed_w_batch(
   unsigned int sample_count, full_samp_count;
   unsigned int i, n = 0;
   GtkTextIter iter;
-  char *new_buffer;
+  SUBITS *decbuf;
   SUSYMBOL sym;
   SUBITS bits;
   SUBOOL ok = SU_FALSE;
@@ -272,7 +212,7 @@ suscan_gui_inspector_feed_w_batch(
   /* Cache decision */
   if (insp->recording)
     SU_TRYCATCH(
-        suscan_gui_inspector_assert_dec_buf(insp, full_samp_count),
+        decbuf = suscan_gui_symsrc_assert(&insp->_parent, full_samp_count),
         goto done);
 
   /* Check if recording is enabled to assert the symbol buffer */
@@ -285,7 +225,7 @@ suscan_gui_inspector_feed_w_batch(
 
       if (insp->recording) {
         /* Save decision */
-        insp->curr_dec_buf[n++] = bits;
+        decbuf[n++] = bits;
 
         /* Update symbol view */
         sugtk_sym_view_append(
@@ -302,9 +242,7 @@ suscan_gui_inspector_feed_w_batch(
     suscan_gui_inspector_update_spin_buttons(insp);
 
     /* Wake up all listeners with new data */
-    SU_TRYCATCH(
-        suscan_symbuf_append(insp->symbuf, insp->curr_dec_buf, n),
-        goto done);
+    SU_TRYCATCH(suscan_gui_symsrc_commit(&insp->_parent), goto done);
   }
 
   for (i = 0; i < sample_count; ++i)
@@ -380,108 +318,86 @@ suscan_gui_codec_cfg_ui_destroy(struct suscan_gui_codec_cfg_ui *ui)
   free(ui);
 }
 
-/*
- * Has to be done in a lazy way because when a codec is constructed the
- * parent inspector is detached from the main GUI
- */
-SUBOOL
-suscan_gui_codec_cfg_ui_assert_parent_gui(struct suscan_gui_codec_cfg_ui *ui)
+SUPRIVATE void
+suscan_gui_inspector_on_codec_progress(
+    struct suscan_gui_symsrc *symsrc,
+    const struct suscan_codec_progress *progress)
 {
-  GtkDialogFlags flags = GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT;
-  GtkWidget *content;
-  GtkWidget *root;
+  struct suscan_gui_inspector *as_inspector =
+      (struct suscan_gui_inspector *) symsrc;
 
-  if (ui->dialog == NULL) {
-    if (ui->inspector->gui == NULL)
-      return SU_FALSE;
+  if (progress->updated) {
+    gtk_widget_show_all(GTK_WIDGET(as_inspector->progressDialog));
 
-    ui->dialog = gtk_dialog_new_with_buttons(
-        ui->desc->desc,
-        ui->inspector->gui->main,
-        flags,
-        "_OK",
-        GTK_RESPONSE_ACCEPT,
-        "_Cancel",
-        GTK_RESPONSE_REJECT,
-        NULL);
+    if (progress->progress == SUSCAN_CODEC_PROGRESS_UNDEFINED)
+      gtk_progress_bar_pulse(as_inspector->progressBar);
+    else
+      gtk_progress_bar_set_fraction(
+          as_inspector->progressBar,
+          progress->progress);
 
-    content = gtk_dialog_get_content_area(GTK_DIALOG(ui->dialog));
-    root = suscan_gui_cfgui_get_root(ui->ui);
-
-    gtk_widget_set_margin_start(root, 20);
-    gtk_widget_set_margin_end(root, 20);
-    gtk_widget_set_margin_top(root, 20);
-    gtk_widget_set_margin_bottom(root, 20);
-
-    gtk_container_add(GTK_CONTAINER(content), root);
-
-    gtk_widget_show(root);
+    if (progress->message != NULL)
+      gtk_progress_bar_set_text(
+          as_inspector->progressBar,
+          progress->message);
   }
-
-  return SU_TRUE;
 }
 
-struct suscan_gui_codec_cfg_ui *
-suscan_gui_codec_cfg_ui_new(
-    struct suscan_gui_inspector *inspector,
-    const struct suscan_codec_class *desc)
+SUPRIVATE void
+suscan_gui_inspector_on_codec_error(
+    struct suscan_gui_symsrc *symsrc,
+    const struct suscan_codec_progress *progress)
 {
-  struct suscan_gui_codec_cfg_ui *new = NULL;
-
-
-  SU_TRYCATCH(new = calloc(1, sizeof (struct suscan_gui_codec_cfg_ui)), goto fail);
-
-  SU_TRYCATCH(new->config = suscan_codec_class_make_config(desc), goto fail);
-
-  SU_TRYCATCH(new->ui = suscan_gui_cfgui_new(new->config), goto fail);
-
-  new->inspector = inspector;
-  new->desc = desc;
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_gui_codec_cfg_ui_destroy(new);
-
-  return NULL;
+  if (progress->updated && progress->message != NULL)
+    suscan_error(
+        symsrc->gui,
+        "Codec error",
+        "Codec error: %s",
+        progress->message);
+  else
+    suscan_error(
+        symsrc->gui,
+        "Codec error",
+        "Internal codec error");
 }
 
-SUBOOL
-suscan_gui_codec_cfg_ui_run(struct suscan_gui_codec_cfg_ui *ui)
+SUPRIVATE void
+suscan_gui_inspector_on_codec_unref(
+    struct suscan_gui_symsrc *symsrc,
+    const struct suscan_codec_progress *progress)
 {
-  SUBOOL do_run = SU_FALSE;
-  gint response;
+  struct suscan_gui_inspector *as_inspector =
+      (struct suscan_gui_inspector *) symsrc;
 
-  if (ui->ui->widget_count > 0) {
-    gtk_dialog_set_default_response(
-        GTK_DIALOG(ui->dialog),
-        GTK_RESPONSE_ACCEPT);
+  gtk_widget_hide(GTK_WIDGET(as_inspector->progressDialog));
+}
 
-    do {
-      response = gtk_dialog_run(GTK_DIALOG(ui->dialog));
+SUPRIVATE void
+suscan_gui_inspector_on_activate_codec(
+    struct suscan_gui_codec_context *ctx,
+    unsigned int direction)
+{
+  struct suscan_gui_inspector *as_inspector =
+      (struct suscan_gui_inspector *) ctx->ui->symsrc;
 
-      if (response == GTK_RESPONSE_ACCEPT) {
-        if (!suscan_gui_cfgui_parse(ui->ui)) {
-          suscan_error(
-              ui->inspector->gui,
-              "Encoder/codec parameters",
-              "Some parameters are incorrect. Please verify that all mandatory "
-              "fields have been properly filled and are within a valid range");
-        } else {
-          do_run = SU_TRUE;
-          break;
-        }
-      }
-    } while (response == GTK_RESPONSE_ACCEPT);
+  (void) suscan_gui_inspector_open_codec_tab(
+      as_inspector,
+      ctx->ui,
+      ctx->codec->output_bits,
+      direction,
+      ctx->codec->symbolView,
+      ctx->codec->symbuf);
+}
 
-    gtk_widget_hide(ui->dialog);
-  } else {
-    /* No parameters, create alwats */
-    do_run = SU_TRUE;
-  }
+SUPRIVATE void
+suscan_gui_inspector_on_close_codec(
+    struct suscan_gui_symsrc *symsrc,
+    struct suscan_gui_codec *codec)
+{
+  struct suscan_gui_inspector *as_inspector =
+      (struct suscan_gui_inspector *) symsrc;
 
-  return do_run;
+  suscan_gui_inspector_remove_codec(as_inspector, codec);
 }
 
 SUBOOL
@@ -498,12 +414,19 @@ suscan_gui_inspector_open_codec_tab(
   guint start;
   guint end;
 
-  params.inspector = ui->inspector;
+  params.symsrc = ui->symsrc;
   params.class = ui->desc;
   params.bits_per_symbol = bits;
   params.config = ui->config;
   params.direction = direction;
   params.source = source;
+
+  /* GUI integration callbacks */
+  params.on_parse_progress = suscan_gui_inspector_on_codec_progress;
+  params.on_display_error  = suscan_gui_inspector_on_codec_error;
+  params.on_unref          = suscan_gui_inspector_on_codec_unref;
+  params.on_activate_codec = suscan_gui_inspector_on_activate_codec;
+  params.on_close_codec    = suscan_gui_inspector_on_close_codec;
 
   /* In selection mode, live update is disabled */
   if (sugtk_sym_view_get_selection(view, &start, &end)) {
@@ -519,7 +442,7 @@ suscan_gui_inspector_open_codec_tab(
 
       if (direction == SU_CODEC_DIRECTION_FORWARDS) {
         suscan_error(
-            ui->inspector->gui,
+            ui->symsrc->gui,
             "Encoder constructor",
             "Failed to create encoder object. This usually means "
             "that the current encoder settings are not supported "
@@ -528,7 +451,7 @@ suscan_gui_inspector_open_codec_tab(
             "Messages tab");
       } else {
         suscan_error(
-            ui->inspector->gui,
+            ui->symsrc->gui,
             "Decoder constructor",
             "Failed to create codec object. This usually means "
             "that the current codec settings are not supported "
@@ -539,9 +462,7 @@ suscan_gui_inspector_open_codec_tab(
       goto fail;
     }
 
-    SU_TRYCATCH(
-        suscan_gui_inspector_add_codec(ui->inspector, codec),
-        goto fail);
+    SU_TRYCATCH(suscan_gui_inspector_add_codec(inspector, codec), goto fail);
   }
 
   return SU_TRUE;
@@ -557,147 +478,68 @@ SUPRIVATE void
 suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
+  struct suscan_gui_inspector *as_inspector;
+
   unsigned int bits;
 
   if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ui))
     return;  /* Weird */
 
-  if (ui->inspector->params.fc_ctrl
+  /* We can do this because this symsrc is actually an inspector tab */
+  as_inspector = (struct suscan_gui_inspector *) ui->symsrc;
+
+  if (as_inspector->params.fc_ctrl
       == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
     suscan_error(
-        ui->inspector->gui,
+        ui->symsrc->gui,
         "Encoder error",
         "Cannot run encoder with manual carrier control");
     return;
   }
 
-  bits = ui->inspector->params.fc_ctrl;
+  bits = as_inspector->params.fc_ctrl;
 
   (void) suscan_gui_inspector_open_codec_tab(
-      ui->inspector,
+      as_inspector,
       ui,
-      ui->inspector->params.fc_ctrl,
+      as_inspector->params.fc_ctrl,
       SUSCAN_CODEC_DIRECTION_FORWARDS,
-      ui->inspector->symbolView,
-      ui->inspector->symbuf);
+      as_inspector->symbolView,
+      ui->symsrc->symbuf);
 }
 
 SUPRIVATE void
 suscan_gui_inspector_run_codec(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
+  struct suscan_gui_inspector *as_inspector;
+
   unsigned int bits;
 
   if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ui))
     return;  /* Weird */
 
-  if (ui->inspector->params.fc_ctrl
+  /* We can do this because this symsrc is actually an inspector tab */
+  as_inspector = (struct suscan_gui_inspector *) ui->symsrc;
+
+  if (as_inspector->params.fc_ctrl
       == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
     suscan_error(
-        ui->inspector->gui,
+        ui->symsrc->gui,
         "Decoder error",
-        "Cannot run codec with manual carrier control");
+        "Cannot run decoder with manual carrier control");
     return;
   }
 
-  bits = ui->inspector->params.fc_ctrl;
+  bits = as_inspector->params.fc_ctrl;
 
   (void) suscan_gui_inspector_open_codec_tab(
-      ui->inspector,
+      as_inspector,
       ui,
-      ui->inspector->params.fc_ctrl,
+      as_inspector->params.fc_ctrl,
       SUSCAN_CODEC_DIRECTION_BACKWARDS,
-      ui->inspector->symbolView,
-      ui->inspector->symbuf);
-}
-
-SUBOOL
-suscan_gui_inspector_populate_codec_menu(
-    struct suscan_gui_inspector *inspector,
-    SuGtkSymView *view,
-    void *(*create_priv) (void *, struct suscan_gui_codec_cfg_ui *),
-    void *private,
-    GCallback on_encode,
-    GCallback on_decode)
-{
-  GtkWidget *encs, *decs, *item;
-  GtkWidget *enc_menu;
-  GtkWidget *dec_menu;
-  GtkMenu *menu;
-  struct suscan_codec_class *const *list;
-  struct suscan_gui_codec_cfg_ui *ui, *new_ui = NULL;
-  unsigned int count;
-  unsigned int i;
-
-  menu = sugtk_sym_view_get_menu(view);
-
-  enc_menu = gtk_menu_new();
-  dec_menu = gtk_menu_new();
-
-  encs = gtk_menu_item_new_with_label("Encode with...");
-  decs = gtk_menu_item_new_with_label("Decode with...");
-
-  gtk_menu_item_set_submenu(GTK_MENU_ITEM(encs), enc_menu);
-  gtk_menu_item_set_submenu(GTK_MENU_ITEM(decs), dec_menu);
-
-  gtk_menu_shell_append(GTK_MENU_SHELL(menu), encs);
-  gtk_menu_shell_append(GTK_MENU_SHELL(menu), decs);
-
-  /* Append all available codecs */
-  suscan_codec_class_get_list(&list, &count);
-  for (i = 0; i < count; ++i) {
-    /*
-     * We will ASSERT this UI, instead of re-creating it
-     * for every SymbolView
-     */
-    if (i < inspector->codec_cfg_ui_count) {
-      ui = inspector->codec_cfg_ui_list[i];
-    } else {
-      SU_TRYCATCH(
-          new_ui = suscan_gui_codec_cfg_ui_new(inspector, list[i]),
-          return SU_FALSE);
-
-      SU_TRYCATCH(
-          PTR_LIST_APPEND_CHECK(inspector->codec_cfg_ui, new_ui) != -1,
-          goto fail);
-
-      ui = new_ui;
-      new_ui = NULL;
-    }
-
-    /* To be handled by the encoder */
-    if (list[i]->directions & SUSCAN_CODEC_DIRECTION_FORWARDS) {
-      item = gtk_menu_item_new_with_label(list[i]->desc);
-      gtk_menu_shell_append(GTK_MENU_SHELL(enc_menu), item);
-      g_signal_connect(
-          G_OBJECT(item),
-          "activate",
-          on_encode,
-          (create_priv) (private, ui));
-    }
-
-    /* To be handled by the decoder */
-    if (list[i]->directions & SUSCAN_CODEC_DIRECTION_BACKWARDS) {
-      item = gtk_menu_item_new_with_label(list[i]->desc);
-      gtk_menu_shell_append(GTK_MENU_SHELL(dec_menu), item);
-      g_signal_connect(
-          G_OBJECT(item),
-          "activate",
-          on_decode,
-          (create_priv) (private, ui));
-    }
-  }
-
-  /* Show everything */
-  gtk_widget_show_all(GTK_WIDGET(menu));
-
-  return SU_TRUE;
-
-fail:
-  if (new_ui != NULL)
-    suscan_gui_codec_cfg_ui_destroy(new_ui);
-
-  return SU_FALSE;
+      as_inspector->symbolView,
+      ui->symsrc->symbuf);
 }
 
 SUPRIVATE void *
@@ -1072,8 +914,8 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
   SU_TRYCATCH(
-      suscan_gui_inspector_populate_codec_menu(
-          inspector,
+      suscan_gui_symsrc_populate_codec_menu(
+          &inspector->_parent,
           inspector->symbolView,
           suscan_gui_inspector_dummy_create_private,
           NULL,
@@ -1130,18 +972,6 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
   return SU_TRUE;
 }
 
-SUBOOL
-suscan_gui_inspector_push_task(
-    struct suscan_gui_inspector *inspector,
-    SUBOOL (*task) (
-        struct suscan_mq *mq_out,
-        void *wk_private,
-        void *cb_private),
-     void *private)
-{
-  return suscan_worker_push(inspector->worker, task, private);
-}
-
 struct suscan_gui_inspector *
 suscan_gui_inspector_new(
     const struct sigutils_channel *channel,
@@ -1152,10 +982,8 @@ suscan_gui_inspector_new(
 
   SU_TRYCATCH(new = calloc(1, sizeof (struct suscan_gui_inspector)), goto fail);
 
-  SU_TRYCATCH(suscan_mq_init(&new->mq), goto fail);
-  SU_TRYCATCH(new->worker = suscan_worker_new(&new->mq, new), goto fail);
-
-  SU_TRYCATCH(new->symbuf = suscan_symbuf_new(), goto fail);
+  /* Superclass constructor */
+  SU_TRYCATCH(suscan_gui_symsrc_init(&new->_parent, NULL), goto fail);
 
   new->channel = *channel;
   new->index = -1;
@@ -1212,7 +1040,7 @@ suscan_on_get_baudrate_fac(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
-  suscan_analyzer_get_info_async(insp->gui->analyzer, insp->inshnd, 0);
+  suscan_analyzer_get_info_async(insp->_parent.gui->analyzer, insp->inshnd, 0);
 }
 
 void
@@ -1220,7 +1048,7 @@ suscan_on_get_baudrate_nln(GtkWidget *widget, gpointer data)
 {
   struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
 
-  suscan_analyzer_get_info_async(insp->gui->analyzer, insp->inshnd, 1);
+  suscan_analyzer_get_info_async(insp->_parent.gui->analyzer, insp->inshnd, 1);
 }
 
 SUPRIVATE void
@@ -1400,7 +1228,7 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
 
   SU_TRYCATCH(
       suscan_analyzer_set_inspector_params_async(
-          insp->gui->analyzer,
+          insp->_parent.gui->analyzer,
           insp->inshnd,
           &insp->params,
           rand()),
@@ -1418,7 +1246,7 @@ suscan_on_set_baudrate(GtkWidget *widget, gpointer data)
 
   if (sscanf(text, SUFLOAT_FMT, &baud) < 1) {
     suscan_error(
-        insp->gui,
+        insp->_parent.gui,
         "Set baudrate", "Invalid baudrate string `%s'",
         text);
   } else {
@@ -1427,7 +1255,7 @@ suscan_on_set_baudrate(GtkWidget *widget, gpointer data)
 
     SU_TRYCATCH(
         suscan_analyzer_set_inspector_params_async(
-            insp->gui->analyzer,
+            insp->_parent.gui->analyzer,
             insp->inshnd,
             &insp->params,
             rand()),
@@ -1442,7 +1270,7 @@ suscan_on_reset_equalizer(GtkWidget *widget, gpointer data)
 
   SU_TRYCATCH(
       suscan_analyzer_reset_equalizer_async(
-          insp->gui->analyzer,
+          insp->_parent.gui->analyzer,
           insp->inshnd,
           rand()),
       return);
@@ -1464,7 +1292,7 @@ suscan_on_close_inspector_tab(GtkWidget *widget, gpointer data)
      * Inspector is dead (because its analyzer has disappeared). Just
      * remove the page and free allocated memory
      */
-    suscan_gui_remove_inspector(insp->gui, insp);
+    suscan_gui_remove_inspector(insp->_parent.gui, insp);
 
     suscan_gui_inspector_destroy(insp);
   }
@@ -1539,7 +1367,7 @@ suscan_inspector_on_save(
 
   if (insp->params.fc_ctrl == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
     suscan_warning(
-        insp->gui,
+        insp->_parent.gui,
         "Save symbol view",
         "Cannot save current symbol recording is carrier control is set to manual. "
         "Please specify an appropriate constellation type in the demodulation "
@@ -1689,11 +1517,10 @@ suscan_gui_inspector_remove_codec(
     struct suscan_gui_codec *codec)
 {
   gint num;
-  int index = codec->index;
-  if (index < 0 || index >= gui->codec_count)
-    return SU_FALSE;
 
-  SU_TRYCATCH(gui->codec_list[index] == codec, return SU_FALSE);
+  SU_TRYCATCH(
+      suscan_gui_symsrc_unregister_codec(&gui->_parent, codec),
+      return SU_FALSE);
 
   SU_TRYCATCH(
       (num = gtk_notebook_page_num(
@@ -1702,8 +1529,6 @@ suscan_gui_inspector_remove_codec(
       return SU_FALSE);
 
   gtk_notebook_remove_page(gui->codecNotebook, num);
-
-  gui->codec_list[index] = NULL;
 
   return SU_TRUE;
 }
@@ -1717,9 +1542,7 @@ suscan_gui_inspector_add_codec(
   SUBOOL codec_added = SU_FALSE;
 
   SU_TRYCATCH(
-      (codec->index = PTR_LIST_APPEND_CHECK(
-          inspector->codec,
-          codec)) != -1,
+      suscan_gui_symsrc_register_codec(&inspector->_parent, codec),
       goto fail);
 
   codec_added = SU_TRUE;
