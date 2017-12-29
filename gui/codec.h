@@ -129,8 +129,10 @@ struct suscan_gui_codec {
   PTR_LIST(struct suscan_gui_codec_context, context);
 };
 
+typedef struct suscan_gui_codec suscan_gui_codec_t;
+
 struct suscan_gui_codec_context {
-  struct suscan_gui_codec *codec;
+  suscan_gui_codec_t *codec;
   struct suscan_gui_codec_cfg_ui *ui;
 };
 
@@ -147,12 +149,12 @@ struct suscan_gui_codec_cfg_ui *suscan_gui_codec_cfg_ui_new(
     const struct suscan_codec_class *desc);
 
 /* Codec API */
-struct suscan_gui_codec *suscan_gui_codec_new(
+suscan_gui_codec_t *suscan_gui_codec_new(
     const struct suscan_gui_codec_params *params);
 
 /* Use this if the worker is dead */
-void suscan_gui_codec_destroy_hard(struct suscan_gui_codec *codec);
+void suscan_gui_codec_destroy_hard(suscan_gui_codec_t *codec);
 
-void suscan_gui_codec_destroy(struct suscan_gui_codec *codec);
+void suscan_gui_codec_destroy(suscan_gui_codec_t *codec);
 
 #endif /* _GUI_CODEC_H */

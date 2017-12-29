@@ -75,11 +75,11 @@ suscan_gui_symsrc_populate_codec_menu(
 
 SUBOOL suscan_gui_symsrc_register_codec(
     suscan_gui_symsrc_t *this,
-    struct suscan_gui_codec *codec);
+    suscan_gui_codec_t *codec);
 
 SUBOOL suscan_gui_symsrc_unregister_codec(
     suscan_gui_symsrc_t *this,
-    struct suscan_gui_codec *codec);
+    suscan_gui_codec_t *codec);
 
 SUBOOL suscan_gui_symsrc_init(
     suscan_gui_symsrc_t *this,

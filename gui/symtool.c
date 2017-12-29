@@ -42,7 +42,7 @@ SUBOOL suscan_gui_symtool_open_codec_tab(
 SUBOOL
 suscan_gui_symtool_remove_codec(
     suscan_gui_symtool_t *gui,
-    struct suscan_gui_codec *codec)
+    suscan_gui_codec_t *codec)
 {
   gint num;
 
@@ -64,7 +64,7 @@ suscan_gui_symtool_remove_codec(
 SUBOOL
 suscan_gui_symtool_add_codec(
     suscan_gui_symtool_t *inspector,
-    struct suscan_gui_codec *codec)
+    suscan_gui_codec_t *codec)
 {
   gint page;
   SUBOOL codec_added = SU_FALSE;
@@ -160,7 +160,7 @@ suscan_gui_symtool_on_activate_codec(
 SUPRIVATE void
 suscan_gui_symtool_on_close_codec(
     suscan_gui_symsrc_t *symsrc,
-    struct suscan_gui_codec *codec)
+    suscan_gui_codec_t *codec)
 {
   suscan_gui_symtool_t *as_symtool =
       (suscan_gui_symtool_t *) symsrc;
@@ -177,7 +177,7 @@ suscan_gui_symtool_open_codec_tab(
     const SuGtkSymView *view,
     suscan_symbuf_t *source)
 {
-  struct suscan_gui_codec *codec = NULL;
+  suscan_gui_codec_t *codec = NULL;
   struct suscan_gui_codec_params params = suscan_gui_codec_params_INITIALIZER;
   guint start;
   guint end;

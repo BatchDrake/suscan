@@ -150,11 +150,11 @@ SUBOOL suscan_gui_inspector_populate_codec_menu(
 
 SUBOOL suscan_gui_inspector_remove_codec(
     suscan_gui_inspector_t *gui,
-    struct suscan_gui_codec *codec);
+    suscan_gui_codec_t *codec);
 
 SUBOOL suscan_gui_inspector_add_codec(
     suscan_gui_inspector_t *inspector,
-    struct suscan_gui_codec *codec);
+    suscan_gui_codec_t *codec);
 
 SUBOOL suscan_gui_inspector_open_codec_tab(
     suscan_gui_inspector_t *inspector,

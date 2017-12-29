@@ -203,7 +203,7 @@ suscan_gui_codec_cfg_ui_destroy(struct suscan_gui_codec_cfg_ui *ui)
 SUBOOL
 suscan_gui_symsrc_register_codec(
     suscan_gui_symsrc_t *this,
-    struct suscan_gui_codec *codec)
+    suscan_gui_codec_t *codec)
 {
   SU_TRYCATCH(
       (codec->index = PTR_LIST_APPEND_CHECK(this->codec, codec)) != -1,
@@ -215,7 +215,7 @@ suscan_gui_symsrc_register_codec(
 SUBOOL
 suscan_gui_symsrc_unregister_codec(
     suscan_gui_symsrc_t *this,
-    struct suscan_gui_codec *codec)
+    suscan_gui_codec_t *codec)
 {
   int index = codec->index;
 
