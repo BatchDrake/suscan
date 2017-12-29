@@ -23,7 +23,7 @@
 #include "gui.h"
 
 struct suscan_log_message_envelope {
-  struct suscan_gui *gui;
+  suscan_gui_t *gui;
   struct sigutils_log_message *msg;
 };
 
@@ -38,7 +38,7 @@ suscan_log_message_envelope_destroy(struct suscan_log_message_envelope *env)
 
 struct suscan_log_message_envelope *
 suscan_log_message_envelope_new(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     const struct sigutils_log_message *msg)
 {
   struct suscan_log_message_envelope *new = NULL;
@@ -165,14 +165,14 @@ SUPRIVATE void
 suscan_gui_log_func(void *private, const struct sigutils_log_message *logmsg)
 {
   struct suscan_log_message_envelope *env;
-  struct suscan_gui *gui = (struct suscan_gui *) private;
+  suscan_gui_t *gui = (suscan_gui_t *) private;
 
   if ((env = suscan_log_message_envelope_new(gui, logmsg)) != NULL)
     g_idle_add(suscan_log_new_message_cb, env);
 }
 
 void
-suscan_gui_setup_logging(struct suscan_gui *gui)
+suscan_gui_setup_logging(suscan_gui_t *gui)
 {
   struct sigutils_log_config config = sigutils_log_config_INITIALIZER;
 

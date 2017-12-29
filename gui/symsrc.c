@@ -316,7 +316,7 @@ fail:
 }
 
 SUBOOL
-suscan_gui_symsrc_init(suscan_gui_symsrc_t *this, struct suscan_gui *gui)
+suscan_gui_symsrc_init(suscan_gui_symsrc_t *this, suscan_gui_t *gui)
 {
   memset(this, 0, sizeof (struct suscan_gui_symsrc));
 
