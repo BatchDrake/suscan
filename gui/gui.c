@@ -891,7 +891,7 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
 SUBOOL
 suscan_gui_remove_inspector(
     struct suscan_gui *gui,
-    struct suscan_gui_inspector *insp)
+    suscan_gui_inspector_t *insp)
 {
   gint num;
   int index = insp->index;
@@ -916,7 +916,7 @@ suscan_gui_remove_inspector(
 SUBOOL
 suscan_gui_add_inspector(
     struct suscan_gui *gui,
-    struct suscan_gui_inspector *insp)
+    suscan_gui_inspector_t *insp)
 {
   struct suscan_inspector_params params;
   gint page;
@@ -971,7 +971,7 @@ fail:
   return FALSE;
 }
 
-struct suscan_gui_inspector *
+suscan_gui_inspector_t *
 suscan_gui_get_inspector(const struct suscan_gui *gui, uint32_t inspector_id)
 {
   if (inspector_id >= gui->inspector_count)

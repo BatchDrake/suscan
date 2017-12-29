@@ -293,7 +293,7 @@ suscan_async_update_inspector_spectrum_cb(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_psd_msg *msg;
-  struct suscan_gui_inspector *insp = NULL;
+  suscan_gui_inspector_t *insp = NULL;
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_psd_msg *) envelope->private;
@@ -322,7 +322,7 @@ suscan_async_parse_sample_batch_msg(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_sample_batch_msg *msg;
-  struct suscan_gui_inspector *insp = NULL;
+  suscan_gui_inspector_t *insp = NULL;
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_sample_batch_msg *) envelope->private;
@@ -348,8 +348,8 @@ suscan_async_parse_inspector_msg(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_inspector_msg *msg;
-  struct suscan_gui_inspector *new_insp = NULL;
-  struct suscan_gui_inspector *insp = NULL;
+  suscan_gui_inspector_t *new_insp = NULL;
+  suscan_gui_inspector_t *insp = NULL;
   char text[64];
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;

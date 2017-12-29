@@ -30,7 +30,7 @@
 #include "inspector.h"
 
 void
-suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
+suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
 {
   unsigned int i;
 
@@ -57,7 +57,7 @@ suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector)
 
 SUBOOL
 suscan_gui_inspector_update_sensitiveness(
-    struct suscan_gui_inspector *insp,
+    suscan_gui_inspector_t *insp,
     const struct suscan_inspector_params *params)
 {
   gtk_widget_set_sensitive(GTK_WIDGET(insp->channelInspectorGrid), TRUE);
@@ -98,7 +98,7 @@ suscan_gui_inspector_update_sensitiveness(
 
 /* Just marks it as detached: it doesn not refer to any existing inspector */
 void
-suscan_gui_inspector_detach(struct suscan_gui_inspector *insp)
+suscan_gui_inspector_detach(suscan_gui_inspector_t *insp)
 {
   insp->dead = SU_TRUE;
   insp->inshnd = -1;
@@ -107,7 +107,7 @@ suscan_gui_inspector_detach(struct suscan_gui_inspector *insp)
 
 /* Sends a close signal to the analyzer */
 void
-suscan_gui_inspector_close(struct suscan_gui_inspector *insp)
+suscan_gui_inspector_close(suscan_gui_inspector_t *insp)
 {
   SUHANDLE handle = insp->inshnd;
 
@@ -122,7 +122,7 @@ suscan_gui_inspector_close(struct suscan_gui_inspector *insp)
 
 SUSYMBOL
 suscan_gui_inspector_decide(
-    const struct suscan_gui_inspector *inspector,
+    const suscan_gui_inspector_t *inspector,
     SUCOMPLEX sample)
 {
   SUFLOAT arg = SU_C_ARG(sample);
@@ -174,7 +174,7 @@ suscan_gui_inspector_decide(
 }
 
 SUPRIVATE void
-suscan_gui_inspector_update_spin_buttons(struct suscan_gui_inspector *insp)
+suscan_gui_inspector_update_spin_buttons(suscan_gui_inspector_t *insp)
 {
   if (gtk_toggle_tool_button_get_active(
       GTK_TOGGLE_TOOL_BUTTON(insp->autoScrollToggleButton)))
@@ -191,7 +191,7 @@ suscan_gui_inspector_update_spin_buttons(struct suscan_gui_inspector *insp)
 
 SUBOOL
 suscan_gui_inspector_feed_w_batch(
-    struct suscan_gui_inspector *insp,
+    suscan_gui_inspector_t *insp,
     const struct suscan_analyzer_sample_batch_msg *msg)
 {
   unsigned int sample_count, full_samp_count;
@@ -258,7 +258,7 @@ done:
 
 char *
 suscan_gui_inspector_to_filename(
-    const struct suscan_gui_inspector *inspector,
+    const suscan_gui_inspector_t *inspector,
     const char *prefix,
     const char *suffix)
 {
@@ -323,8 +323,8 @@ suscan_gui_inspector_on_codec_progress(
     struct suscan_gui_symsrc *symsrc,
     const struct suscan_codec_progress *progress)
 {
-  struct suscan_gui_inspector *as_inspector =
-      (struct suscan_gui_inspector *) symsrc;
+  suscan_gui_inspector_t *as_inspector =
+      (suscan_gui_inspector_t *) symsrc;
 
   if (progress->updated) {
     gtk_widget_show_all(GTK_WIDGET(as_inspector->progressDialog));
@@ -366,8 +366,8 @@ suscan_gui_inspector_on_codec_unref(
     struct suscan_gui_symsrc *symsrc,
     const struct suscan_codec_progress *progress)
 {
-  struct suscan_gui_inspector *as_inspector =
-      (struct suscan_gui_inspector *) symsrc;
+  suscan_gui_inspector_t *as_inspector =
+      (suscan_gui_inspector_t *) symsrc;
 
   gtk_widget_hide(GTK_WIDGET(as_inspector->progressDialog));
 }
@@ -377,8 +377,8 @@ suscan_gui_inspector_on_activate_codec(
     struct suscan_gui_codec_context *ctx,
     unsigned int direction)
 {
-  struct suscan_gui_inspector *as_inspector =
-      (struct suscan_gui_inspector *) ctx->ui->symsrc;
+  suscan_gui_inspector_t *as_inspector =
+      (suscan_gui_inspector_t *) ctx->ui->symsrc;
 
   (void) suscan_gui_inspector_open_codec_tab(
       as_inspector,
@@ -394,15 +394,15 @@ suscan_gui_inspector_on_close_codec(
     struct suscan_gui_symsrc *symsrc,
     struct suscan_gui_codec *codec)
 {
-  struct suscan_gui_inspector *as_inspector =
-      (struct suscan_gui_inspector *) symsrc;
+  suscan_gui_inspector_t *as_inspector =
+      (suscan_gui_inspector_t *) symsrc;
 
   suscan_gui_inspector_remove_codec(as_inspector, codec);
 }
 
 SUBOOL
 suscan_gui_inspector_open_codec_tab(
-    struct suscan_gui_inspector *inspector,
+    suscan_gui_inspector_t *inspector,
     struct suscan_gui_codec_cfg_ui *ui,
     unsigned int bits,
     unsigned int direction,
@@ -478,7 +478,7 @@ SUPRIVATE void
 suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
-  struct suscan_gui_inspector *as_inspector;
+  suscan_gui_inspector_t *as_inspector;
 
   unsigned int bits;
 
@@ -486,7 +486,7 @@ suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
     return;  /* Weird */
 
   /* We can do this because this symsrc is actually an inspector tab */
-  as_inspector = (struct suscan_gui_inspector *) ui->symsrc;
+  as_inspector = (suscan_gui_inspector_t *) ui->symsrc;
 
   if (as_inspector->params.fc_ctrl
       == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
@@ -512,7 +512,7 @@ SUPRIVATE void
 suscan_gui_inspector_run_codec(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
-  struct suscan_gui_inspector *as_inspector;
+  suscan_gui_inspector_t *as_inspector;
 
   unsigned int bits;
 
@@ -520,7 +520,7 @@ suscan_gui_inspector_run_codec(GtkWidget *widget, gpointer *data)
     return;  /* Weird */
 
   /* We can do this because this symsrc is actually an inspector tab */
-  as_inspector = (struct suscan_gui_inspector *) ui->symsrc;
+  as_inspector = (suscan_gui_inspector_t *) ui->symsrc;
 
   if (as_inspector->params.fc_ctrl
       == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
@@ -551,7 +551,7 @@ suscan_gui_inspector_dummy_create_private(
 }
 
 SUPRIVATE SUBOOL
-suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
+suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 {
   SU_TRYCATCH(
       inspector->channelInspectorGrid =
@@ -972,15 +972,15 @@ suscan_gui_inspector_load_all_widgets(struct suscan_gui_inspector *inspector)
   return SU_TRUE;
 }
 
-struct suscan_gui_inspector *
+suscan_gui_inspector_t *
 suscan_gui_inspector_new(
     const struct sigutils_channel *channel,
     SUHANDLE handle)
 {
-  struct suscan_gui_inspector *new = NULL;
+  suscan_gui_inspector_t *new = NULL;
   char *page_label = NULL;
 
-  SU_TRYCATCH(new = calloc(1, sizeof (struct suscan_gui_inspector)), goto fail);
+  SU_TRYCATCH(new = calloc(1, sizeof (suscan_gui_inspector_t)), goto fail);
 
   /* Superclass constructor */
   SU_TRYCATCH(suscan_gui_symsrc_init(&new->_parent, NULL), goto fail);
@@ -1038,7 +1038,7 @@ fail:
 void
 suscan_on_get_baudrate_fac(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   suscan_analyzer_get_info_async(insp->_parent.gui->analyzer, insp->inshnd, 0);
 }
@@ -1046,7 +1046,7 @@ suscan_on_get_baudrate_fac(GtkWidget *widget, gpointer data)
 void
 suscan_on_get_baudrate_nln(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   suscan_analyzer_get_info_async(insp->_parent.gui->analyzer, insp->inshnd, 1);
 }
@@ -1070,7 +1070,7 @@ suscan_attempt_to_read_entry(GtkEntry *entry, SUFLOAT *result)
 void
 suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
   enum suscan_inspector_psd_source old_source;
 
   SUFLOAT freq;
@@ -1238,7 +1238,7 @@ suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
 void
 suscan_on_set_baudrate(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
   const gchar *text;
   SUFLOAT baud;
 
@@ -1266,7 +1266,7 @@ suscan_on_set_baudrate(GtkWidget *widget, gpointer data)
 void
 suscan_on_reset_equalizer(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   SU_TRYCATCH(
       suscan_analyzer_reset_equalizer_async(
@@ -1279,7 +1279,7 @@ suscan_on_reset_equalizer(GtkWidget *widget, gpointer data)
 void
 suscan_on_close_inspector_tab(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   if (!insp->dead) {
     /*
@@ -1304,7 +1304,7 @@ suscan_inspector_spectrum_on_configure_event(
     GdkEventConfigure *event,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   suscan_gui_spectrum_configure(&insp->spectrum, widget);
 
@@ -1318,7 +1318,7 @@ suscan_inspector_spectrum_on_draw(
     cairo_t *cr,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   suscan_gui_spectrum_redraw(&insp->spectrum, cr);
 
@@ -1331,7 +1331,7 @@ suscan_inspector_spectrum_on_scroll(
     GdkEventScroll *ev,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   suscan_gui_spectrum_parse_scroll(&insp->spectrum, ev);
 }
@@ -1342,7 +1342,7 @@ suscan_inspector_spectrum_on_motion(
     GdkEventMotion *ev,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   suscan_gui_spectrum_parse_motion(&insp->spectrum, ev);
 }
@@ -1361,7 +1361,7 @@ suscan_inspector_on_save(
     GtkWidget *widget,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
   char *new_fname = NULL;
   uint8_t bpsym;
 
@@ -1399,7 +1399,7 @@ suscan_inspector_on_toggle_record(
     GtkWidget *widget,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   insp->recording = gtk_toggle_tool_button_get_active(
       GTK_TOGGLE_TOOL_BUTTON(widget));
@@ -1410,7 +1410,7 @@ suscan_inspector_on_clear(
     GtkWidget *widget,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   sugtk_sym_view_clear(insp->symbolView);
 }
@@ -1420,7 +1420,7 @@ suscan_inspector_on_zoom_in(
     GtkWidget *widget,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
   guint curr_width = sugtk_sym_view_get_width(insp->symbolView);
   guint curr_zoom = sugtk_sym_view_get_zoom(insp->symbolView);
 
@@ -1440,7 +1440,7 @@ suscan_inspector_on_zoom_out(
     GtkWidget *widget,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
   guint curr_width = sugtk_sym_view_get_width(insp->symbolView);
   guint curr_zoom = sugtk_sym_view_get_zoom(insp->symbolView);
 
@@ -1459,7 +1459,7 @@ suscan_inspector_on_toggle_autoscroll(
     GtkWidget *widget,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
   gboolean active;
 
   active = gtk_toggle_tool_button_get_active(GTK_TOGGLE_TOOL_BUTTON(widget));
@@ -1473,7 +1473,7 @@ suscan_inspector_on_toggle_autofit(
     GtkWidget *widget,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
   gboolean active;
 
   active = gtk_toggle_tool_button_get_active(GTK_TOGGLE_TOOL_BUTTON(widget));
@@ -1487,7 +1487,7 @@ suscan_inspector_on_set_offset(
     GtkWidget *widget,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   if (!gtk_toggle_tool_button_get_active(
       GTK_TOGGLE_TOOL_BUTTON(insp->autoScrollToggleButton)))
@@ -1501,7 +1501,7 @@ suscan_inspector_on_set_width(
     GtkWidget *widget,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp = (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   if (!gtk_toggle_tool_button_get_active(
       GTK_TOGGLE_TOOL_BUTTON(insp->autoFitToggleButton)))
@@ -1513,7 +1513,7 @@ suscan_inspector_on_set_width(
 /************************* Decoder tab handling ******************************/
 SUBOOL
 suscan_gui_inspector_remove_codec(
-    struct suscan_gui_inspector *gui,
+    suscan_gui_inspector_t *gui,
     struct suscan_gui_codec *codec)
 {
   gint num;
@@ -1535,7 +1535,7 @@ suscan_gui_inspector_remove_codec(
 
 SUBOOL
 suscan_gui_inspector_add_codec(
-    struct suscan_gui_inspector *inspector,
+    suscan_gui_inspector_t *inspector,
     struct suscan_gui_codec *codec)
 {
   gint page;

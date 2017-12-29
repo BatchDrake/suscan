@@ -158,7 +158,7 @@ struct suscan_gui {
   struct suscan_gui_spectrum main_spectrum;
 
   /* Keep list of inspector tabs */
-  PTR_LIST(struct suscan_gui_inspector, inspector);
+  PTR_LIST(suscan_gui_inspector_t, inspector);
 
   /* Keep a list of the last configurations used */
   PTR_LIST(struct suscan_gui_recent, recent);
@@ -247,13 +247,13 @@ void suscan_gui_quit(struct suscan_gui *gui);
 /* Main GUI inspector list handling methods */
 SUBOOL suscan_gui_remove_inspector(
     struct suscan_gui *gui,
-    struct suscan_gui_inspector *insp);
+    suscan_gui_inspector_t *insp);
 
 SUBOOL suscan_gui_add_inspector(
     struct suscan_gui *gui,
-    struct suscan_gui_inspector *insp);
+    suscan_gui_inspector_t *insp);
 
-struct suscan_gui_inspector *suscan_gui_get_inspector(
+suscan_gui_inspector_t *suscan_gui_get_inspector(
     const struct suscan_gui *gui,
     uint32_t inspector_id);
 

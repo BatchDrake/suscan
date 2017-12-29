@@ -121,25 +121,27 @@ struct suscan_gui_inspector {
   struct sigutils_channel channel;
 };
 
+typedef struct suscan_gui_inspector suscan_gui_inspector_t;
+
 /* Inspector GUI functions */
 SUBOOL suscan_gui_inspector_feed_w_batch(
-    struct suscan_gui_inspector *inspector,
+    suscan_gui_inspector_t *inspector,
     const struct suscan_analyzer_sample_batch_msg *msg);
 
-struct suscan_gui_inspector *suscan_gui_inspector_new(
+suscan_gui_inspector_t *suscan_gui_inspector_new(
     const struct sigutils_channel *channel,
     SUHANDLE handle);
 
 SUBOOL suscan_gui_inspector_update_sensitiveness(
-    struct suscan_gui_inspector *insp,
+    suscan_gui_inspector_t *insp,
     const struct suscan_inspector_params *params);
 
-void suscan_gui_inspector_detach(struct suscan_gui_inspector *insp);
+void suscan_gui_inspector_detach(suscan_gui_inspector_t *insp);
 
-void suscan_gui_inspector_close(struct suscan_gui_inspector *insp);
+void suscan_gui_inspector_close(suscan_gui_inspector_t *insp);
 
 SUBOOL suscan_gui_inspector_populate_codec_menu(
-    struct suscan_gui_inspector *inspector,
+    suscan_gui_inspector_t *inspector,
     SuGtkSymView *view,
     void *(*create_priv) (void *, struct suscan_gui_codec_cfg_ui *),
     void *private,
@@ -147,21 +149,21 @@ SUBOOL suscan_gui_inspector_populate_codec_menu(
     GCallback on_decode);
 
 SUBOOL suscan_gui_inspector_remove_codec(
-    struct suscan_gui_inspector *gui,
+    suscan_gui_inspector_t *gui,
     struct suscan_gui_codec *codec);
 
 SUBOOL suscan_gui_inspector_add_codec(
-    struct suscan_gui_inspector *inspector,
+    suscan_gui_inspector_t *inspector,
     struct suscan_gui_codec *codec);
 
 SUBOOL suscan_gui_inspector_open_codec_tab(
-    struct suscan_gui_inspector *inspector,
+    suscan_gui_inspector_t *inspector,
     struct suscan_gui_codec_cfg_ui *ui,
     unsigned int bits,
     unsigned int direction,
     const SuGtkSymView *view,
     suscan_symbuf_t *source);
 
-void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
+void suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector);
 
 #endif /* _GUI_INSPECTOR_H */
