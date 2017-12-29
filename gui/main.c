@@ -213,3 +213,4 @@ suscan_on_source_changed(GtkWidget *widget, gpointer *data)
 
   gtk_window_resize(GTK_WINDOW(gui->settingsDialog), 1, 1);
 }
+

@@ -28,6 +28,7 @@
 
 #include "spectrum.h"
 #include "inspector.h"
+#include "symtool.h"
 
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
@@ -128,6 +129,9 @@ struct suscan_gui {
   GtkTreeView *logMessagesTreeView;
   GtkListStore *logMessagesListStore;
 
+  /* Symtool widgets */
+  GtkNotebook *symToolNotebook;
+
   /* Settings widgets */
   GtkEntry *alphaEntry;
   GtkEntry *betaEntry;
@@ -159,8 +163,11 @@ struct suscan_gui {
   struct sigutils_channel selected_channel;
   struct suscan_gui_spectrum main_spectrum;
 
-  /* Keep list of inspector tabs */
+  /* Inspector tab list */
   PTR_LIST(suscan_gui_inspector_t, inspector);
+
+  /* Symbol tool tab list */
+  PTR_LIST(suscan_gui_symtool_t, symtool);
 
   /* Keep a list of the last configurations used */
   PTR_LIST(struct suscan_gui_recent, recent);
@@ -259,6 +266,19 @@ SUBOOL suscan_gui_add_inspector(
 suscan_gui_inspector_t *suscan_gui_get_inspector(
     const suscan_gui_t *gui,
     uint32_t inspector_id);
+
+/* Main GUI symtool list handling methods */
+SUBOOL suscan_gui_remove_symtool(
+    suscan_gui_t *gui,
+    suscan_gui_symtool_t *symtool);
+
+SUBOOL suscan_gui_add_symtool(
+    suscan_gui_t *gui,
+    suscan_gui_symtool_t *symtool);
+
+suscan_gui_symtool_t *suscan_gui_get_symtool(
+    const suscan_gui_t *gui,
+    uint32_t symtool_id);
 
 /* Source API */
 struct suscan_gui_src_ui *suscan_gui_lookup_source_config(

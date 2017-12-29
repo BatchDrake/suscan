@@ -876,6 +876,13 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "lSubTitle")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->symToolNotebook =
+          GTK_NOTEBOOK(gtk_builder_get_object(
+              gui->builder,
+              "nbSymTool")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
@@ -980,6 +987,81 @@ suscan_gui_get_inspector(const suscan_gui_t *gui, uint32_t inspector_id)
   return gui->inspector_list[inspector_id];
 }
 
+/*************************** Symbol tool handling ****************************/
+SUBOOL
+suscan_gui_remove_symtool(
+    suscan_gui_t *gui,
+    suscan_gui_symtool_t *symtool)
+{
+  gint num;
+  int index = symtool->index;
+  if (index < 0 || index >= gui->symtool_count)
+    return SU_FALSE;
+
+  SU_TRYCATCH(gui->symtool_list[index] == symtool, return SU_FALSE);
+
+  SU_TRYCATCH(
+      (num = gtk_notebook_page_num(
+          gui->symToolNotebook,
+          suscan_gui_symtool_get_root(symtool))) != -1,
+      return SU_FALSE);
+
+  gtk_notebook_remove_page(gui->symToolNotebook, num);
+
+  gui->symtool_list[index] = NULL;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_gui_add_symtool(
+    suscan_gui_t *gui,
+    suscan_gui_symtool_t *symtool)
+{
+  gint page;
+  SUBOOL symtool_added = SU_FALSE;
+
+  SU_TRYCATCH(
+      (symtool->index = PTR_LIST_APPEND_CHECK(gui->symtool, symtool)) != -1,
+      goto fail);
+
+  symtool_added = SU_TRUE;
+  symtool->_parent.gui = gui;
+
+  SU_TRYCATCH(
+      (page = gtk_notebook_append_page_menu(
+          gui->symToolNotebook,
+          suscan_gui_symtool_get_root(symtool),
+          suscan_gui_symtool_get_label(symtool),
+          NULL)) >= 0,
+      goto fail);
+
+  gtk_notebook_set_tab_reorderable(
+      gui->symToolNotebook,
+      suscan_gui_symtool_get_label(symtool),
+      TRUE);
+
+  gtk_notebook_set_current_page(gui->symToolNotebook, page);
+
+  return TRUE;
+
+fail:
+  if (symtool_added)
+    (void) suscan_gui_remove_symtool(gui, symtool);
+
+  return FALSE;
+}
+
+suscan_gui_symtool_t *
+suscan_gui_get_symtool(const suscan_gui_t *gui, uint32_t symtool_id)
+{
+  if (symtool_id >= gui->symtool_count)
+    return NULL;
+
+  return gui->symtool_list[symtool_id];
+}
+
+/**************************** Generic GUI methods ****************************/
 SUPRIVATE void
 suscan_quit_cb(GtkWidget *obj, gpointer data)
 {

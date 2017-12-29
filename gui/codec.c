@@ -28,6 +28,8 @@
 
 #include <sigutils/agc.h>
 
+void suscan_codec_on_reshape(GtkWidget *widget, gpointer data);
+
 SUPRIVATE void suscan_gui_codec_update_spin_buttons(
     struct suscan_gui_codec *codec);
 
@@ -185,9 +187,6 @@ suscan_gui_codec_async_append_data(gpointer user_data)
 done:
     /* Clear output buffer */
     grow_buf_shrink(&state->output);
-
-    /* Update spin buttons */
-    suscan_gui_codec_update_spin_buttons(state->owner);
   }
 
   suscan_gui_codec_state_unlock(state);
@@ -646,17 +645,14 @@ suscan_gui_codec_load_all_widgets(struct suscan_gui_codec *codec)
 
   /* Add symbol view */
   codec->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
+
   sugtk_sym_view_set_autoscroll(codec->symbolView, TRUE);
 
-  SU_TRYCATCH(
-      suscan_gui_symsrc_populate_codec_menu(
-          codec->params.symsrc,
-          codec->symbolView,
-          suscan_gui_codec_create_context,
-          codec,
-          G_CALLBACK(suscan_gui_codec_run_encoder),
-          G_CALLBACK(suscan_gui_codec_run_codec)),
-      return SU_FALSE);
+  g_signal_connect(
+      G_OBJECT(codec->symbolView),
+      "reshape",
+      G_CALLBACK(suscan_codec_on_reshape),
+      codec);
 
   gtk_grid_attach(
       codec->codecGrid,
@@ -670,6 +666,16 @@ suscan_gui_codec_load_all_widgets(struct suscan_gui_codec *codec)
   gtk_widget_set_vexpand(GTK_WIDGET(codec->symbolView), TRUE);
 
   gtk_widget_show(GTK_WIDGET(codec->symbolView));
+
+  SU_TRYCATCH(
+      suscan_gui_symsrc_populate_codec_menu(
+          codec->params.symsrc,
+          codec->symbolView,
+          suscan_gui_codec_create_context,
+          codec,
+          G_CALLBACK(suscan_gui_codec_run_encoder),
+          G_CALLBACK(suscan_gui_codec_run_codec)),
+      return SU_FALSE);
 
   return SU_TRUE;
 }
@@ -709,9 +715,6 @@ suscan_gui_codec_data_func(void *priv, const SUBITS *new_data, SUSCOUNT size)
           sugtk_sym_view_code_to_pixel_helper(
               guicodec->output_bits,
               syms[i]));
-
-    /* Update spin buttons */
-    suscan_gui_codec_update_spin_buttons(guicodec);
   }
 
 done:
@@ -919,8 +922,6 @@ suscan_codec_on_zoom_in(
     curr_zoom = curr_width;
 
   sugtk_sym_view_set_zoom(codec->symbolView, curr_zoom);
-
-  suscan_gui_codec_update_spin_buttons(codec);
 }
 
 
@@ -939,8 +940,6 @@ suscan_codec_on_zoom_out(
     curr_zoom = 1;
 
   sugtk_sym_view_set_zoom(codec->symbolView, curr_zoom);
-
-  suscan_gui_codec_update_spin_buttons(codec);
 }
 
 void
@@ -969,6 +968,14 @@ suscan_codec_on_toggle_autofit(
 
   sugtk_sym_view_set_autofit(codec->symbolView, active);
   gtk_widget_set_sensitive(GTK_WIDGET(codec->widthSpinButton), !active);
+}
+
+void
+suscan_codec_on_reshape(GtkWidget *widget, gpointer data)
+{
+  struct suscan_gui_codec *codec = (struct suscan_gui_codec *) data;
+
+  suscan_gui_codec_update_spin_buttons(codec);
 }
 
 void

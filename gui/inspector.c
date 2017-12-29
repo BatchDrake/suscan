@@ -29,6 +29,8 @@
 #include "gui.h"
 #include "inspector.h"
 
+void suscan_inspector_on_reshape(GtkWidget *widget, gpointer data);
+
 void
 suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
 {
@@ -238,9 +240,6 @@ suscan_gui_inspector_feed_w_batch(
     }
 
   if (insp->recording) {
-    /* Update GUI */
-    suscan_gui_inspector_update_spin_buttons(insp);
-
     /* Wake up all listeners with new data */
     SU_TRYCATCH(suscan_gui_symsrc_commit(&insp->_parent), goto done);
   }
@@ -913,6 +912,12 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
+  g_signal_connect(
+      G_OBJECT(inspector->symbolView),
+      "reshape",
+      G_CALLBACK(suscan_inspector_on_reshape),
+      inspector);
+
   gtk_grid_attach(
       inspector->recorderGrid,
       GTK_WIDGET(inspector->symbolView),
@@ -1430,8 +1435,6 @@ suscan_inspector_on_zoom_in(
     curr_zoom = curr_width;
 
   sugtk_sym_view_set_zoom(insp->symbolView, curr_zoom);
-
-  suscan_gui_inspector_update_spin_buttons(insp);
 }
 
 
@@ -1450,8 +1453,6 @@ suscan_inspector_on_zoom_out(
     curr_zoom = 1;
 
   sugtk_sym_view_set_zoom(insp->symbolView, curr_zoom);
-
-  suscan_gui_inspector_update_spin_buttons(insp);
 }
 
 void
@@ -1509,6 +1510,15 @@ suscan_inspector_on_set_width(
         insp->symbolView,
         gtk_spin_button_get_value(insp->widthSpinButton));
 }
+
+void
+suscan_inspector_on_reshape(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
+
+  suscan_gui_inspector_update_spin_buttons(insp);
+}
+
 
 /************************* Decoder tab handling ******************************/
 SUBOOL
