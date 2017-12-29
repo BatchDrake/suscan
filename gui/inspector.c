@@ -34,11 +34,6 @@ suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
 {
   unsigned int i;
 
-  if (!suscan_gui_symsrc_finalize(&inspector->_parent)) {
-    SU_ERROR("Inspector destruction failed somehow\n");
-    return;
-  }
-
   if (inspector->inshnd != -1 && inspector->_parent.gui != NULL)
     suscan_analyzer_close_async(
         inspector->_parent.gui->analyzer,
@@ -51,6 +46,11 @@ suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
 
   if (inspector->builder != NULL)
     g_object_unref(G_OBJECT(inspector->builder));
+
+  if (!suscan_gui_symsrc_finalize(&inspector->_parent)) {
+    SU_ERROR("Inspector destruction failed somehow\n");
+    return;
+  }
 
   free(inspector);
 }
