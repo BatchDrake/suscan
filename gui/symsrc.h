@@ -48,6 +48,8 @@ struct suscan_gui_symsrc {
   PTR_LIST(struct suscan_gui_codec, codec);
 };
 
+typedef struct suscan_gui_symsrc suscan_gui_symsrc_t;
+
 SUBOOL suscan_gui_symsrc_push_task(
     struct suscan_gui_symsrc *symsrc,
     SUBOOL (*task) (

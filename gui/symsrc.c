@@ -27,7 +27,7 @@
 
 /************************* Symbol source operations **************************/
 SUBITS *
-suscan_gui_symsrc_assert(struct suscan_gui_symsrc *symsrc, SUSCOUNT len)
+suscan_gui_symsrc_assert(suscan_gui_symsrc_t *symsrc, SUSCOUNT len)
 {
   SUBITS *new;
 
@@ -46,7 +46,7 @@ suscan_gui_symsrc_assert(struct suscan_gui_symsrc *symsrc, SUSCOUNT len)
 }
 
 SUBOOL
-suscan_gui_symsrc_commit(struct suscan_gui_symsrc *symsrc)
+suscan_gui_symsrc_commit(suscan_gui_symsrc_t *symsrc)
 {
   SU_TRYCATCH(
       suscan_symbuf_append(
@@ -123,7 +123,7 @@ suscan_gui_codec_cfg_ui_assert_parent_gui(struct suscan_gui_codec_cfg_ui *ui)
 
 struct suscan_gui_codec_cfg_ui *
 suscan_gui_codec_cfg_ui_new(
-    struct suscan_gui_symsrc *symsrc,
+    suscan_gui_symsrc_t *symsrc,
     const struct suscan_codec_class *desc)
 {
   struct suscan_gui_codec_cfg_ui *new = NULL;
@@ -186,7 +186,7 @@ suscan_gui_codec_cfg_ui_run(struct suscan_gui_codec_cfg_ui *ui)
 
 SUBOOL
 suscan_gui_symsrc_register_codec(
-    struct suscan_gui_symsrc *this,
+    suscan_gui_symsrc_t *this,
     struct suscan_gui_codec *codec)
 {
   SU_TRYCATCH(
@@ -198,7 +198,7 @@ suscan_gui_symsrc_register_codec(
 
 SUBOOL
 suscan_gui_symsrc_unregister_codec(
-    struct suscan_gui_symsrc *this,
+    suscan_gui_symsrc_t *this,
     struct suscan_gui_codec *codec)
 {
   int index = codec->index;
@@ -216,7 +216,7 @@ suscan_gui_symsrc_unregister_codec(
 
 SUBOOL
 suscan_gui_symsrc_push_task(
-    struct suscan_gui_symsrc *symsrc,
+    suscan_gui_symsrc_t *symsrc,
     SUBOOL (*task) (
         struct suscan_mq *mq_out,
         void *wk_private,
@@ -228,7 +228,7 @@ suscan_gui_symsrc_push_task(
 
 SUBOOL
 suscan_gui_symsrc_populate_codec_menu(
-    struct suscan_gui_symsrc *symsrc,
+    suscan_gui_symsrc_t *symsrc,
     SuGtkSymView *view,
     void *(*create_priv) (void *, struct suscan_gui_codec_cfg_ui *),
     void *private,
@@ -316,7 +316,7 @@ fail:
 }
 
 SUBOOL
-suscan_gui_symsrc_init(struct suscan_gui_symsrc *this, struct suscan_gui *gui)
+suscan_gui_symsrc_init(suscan_gui_symsrc_t *this, struct suscan_gui *gui)
 {
   memset(this, 0, sizeof (struct suscan_gui_symsrc));
 
@@ -336,7 +336,7 @@ fail:
 }
 
 SUBOOL
-suscan_gui_symsrc_finalize(struct suscan_gui_symsrc *this)
+suscan_gui_symsrc_finalize(suscan_gui_symsrc_t *this)
 {
   unsigned int i;
 
