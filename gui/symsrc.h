@@ -51,7 +51,7 @@ struct suscan_gui_symsrc {
 typedef struct suscan_gui_symsrc suscan_gui_symsrc_t;
 
 SUBOOL suscan_gui_symsrc_push_task(
-    struct suscan_gui_symsrc *symsrc,
+    suscan_gui_symsrc_t *symsrc,
     SUBOOL (*task) (
         struct suscan_mq *mq_out,
         void *wk_private,
@@ -59,14 +59,14 @@ SUBOOL suscan_gui_symsrc_push_task(
      void *private);
 
 SUBITS *suscan_gui_symsrc_assert(
-    struct suscan_gui_symsrc *symsrc,
+    suscan_gui_symsrc_t *symsrc,
     SUSCOUNT len);
 
-SUBOOL suscan_gui_symsrc_commit(struct suscan_gui_symsrc *symsrc);
+SUBOOL suscan_gui_symsrc_commit(suscan_gui_symsrc_t *symsrc);
 
 SUBOOL
 suscan_gui_symsrc_populate_codec_menu(
-    struct suscan_gui_symsrc *symsrc,
+    suscan_gui_symsrc_t *symsrc,
     SuGtkSymView *view,
     void *(*create_priv) (void *, struct suscan_gui_codec_cfg_ui *),
     void *private,
@@ -74,17 +74,17 @@ suscan_gui_symsrc_populate_codec_menu(
     GCallback on_decode);
 
 SUBOOL suscan_gui_symsrc_register_codec(
-    struct suscan_gui_symsrc *this,
+    suscan_gui_symsrc_t *this,
     struct suscan_gui_codec *codec);
 
 SUBOOL suscan_gui_symsrc_unregister_codec(
-    struct suscan_gui_symsrc *this,
+    suscan_gui_symsrc_t *this,
     struct suscan_gui_codec *codec);
 
 SUBOOL suscan_gui_symsrc_init(
-    struct suscan_gui_symsrc *this,
+    suscan_gui_symsrc_t *this,
     struct suscan_gui *gui);
 
-SUBOOL suscan_gui_symsrc_finalize(struct suscan_gui_symsrc *);
+SUBOOL suscan_gui_symsrc_finalize(suscan_gui_symsrc_t *);
 
 #endif /* _GUI_SYMSRC_H */
