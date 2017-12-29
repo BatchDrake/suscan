@@ -178,17 +178,45 @@ suscan_gui_inspector_decide(
 SUPRIVATE void
 suscan_gui_inspector_update_spin_buttons(suscan_gui_inspector_t *insp)
 {
-  if (gtk_toggle_tool_button_get_active(
-      GTK_TOGGLE_TOOL_BUTTON(insp->autoScrollToggleButton)))
-    gtk_spin_button_set_value(
-        insp->offsetSpinButton,
-        sugtk_sym_view_get_offset(insp->symbolView));
+  unsigned int total_rows;
+  unsigned int page_rows;
+
+  gtk_spin_button_set_value(
+      insp->offsetSpinButton,
+      sugtk_sym_view_get_offset(insp->symbolView));
 
   if (gtk_toggle_tool_button_get_active(
       GTK_TOGGLE_TOOL_BUTTON(insp->autoFitToggleButton)))
     gtk_spin_button_set_value(
         insp->widthSpinButton,
         sugtk_sym_view_get_width(insp->symbolView));
+
+  /* This is not totally correct */
+  total_rows =
+      sugtk_sym_view_get_buffer_size(insp->symbolView)
+      / (SUGTK_SYM_VIEW_STRIDE_ALIGN
+          * sugtk_sym_view_get_width(insp->symbolView)) + 1;
+
+  page_rows = sugtk_sym_view_get_height(insp->symbolView);
+
+  if (total_rows < page_rows) {
+    gtk_widget_set_sensitive(GTK_WIDGET(insp->symViewScrollbar), FALSE);
+    gtk_adjustment_set_page_size(insp->symViewScrollAdjustment, page_rows);
+    gtk_adjustment_set_upper(
+        insp->symViewScrollAdjustment,
+        page_rows);
+    gtk_adjustment_set_value(insp->symViewScrollAdjustment, 0);
+  } else {
+    gtk_adjustment_set_page_size(insp->symViewScrollAdjustment, page_rows);
+    gtk_adjustment_set_upper(
+        insp->symViewScrollAdjustment,
+        total_rows);
+    gtk_adjustment_set_value(
+        insp->symViewScrollAdjustment,
+        sugtk_sym_view_get_offset(insp->symbolView)
+        / sugtk_sym_view_get_width(insp->symbolView));
+    gtk_widget_set_sensitive(GTK_WIDGET(insp->symViewScrollbar), TRUE);
+  }
 }
 
 SUBOOL
@@ -893,6 +921,20 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
               "pProgress")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->symViewScrollbar =
+          GTK_SCROLLBAR(gtk_builder_get_object(
+              inspector->builder,
+              "sbSymView")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->symViewScrollAdjustment =
+          GTK_ADJUSTMENT(gtk_builder_get_object(
+              inspector->builder,
+              "aSymViewScroll")),
+          return SU_FALSE);
+
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
@@ -906,7 +948,7 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
       inspector->recorderGrid,
       GTK_WIDGET(inspector->symbolView),
       0, /* left */
-      1, /* top */
+      0, /* top */
       1, /* width */
       1 /* height */);
 
@@ -1564,3 +1606,15 @@ fail:
 
   return FALSE;
 }
+
+void
+suscan_inspector_on_scroll(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+
+  sugtk_sym_view_set_offset(
+      inspector->symbolView,
+      floor(gtk_adjustment_get_value(inspector->symViewScrollAdjustment))
+      * sugtk_sym_view_get_width(inspector->symbolView));
+}
+

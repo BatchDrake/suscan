@@ -113,6 +113,8 @@ struct suscan_gui_inspector {
   GtkSpinButton  *offsetSpinButton;
   GtkSpinButton  *widthSpinButton;
   GtkNotebook    *codecNotebook;
+  GtkScrollbar   *symViewScrollbar;
+  GtkAdjustment  *symViewScrollAdjustment;
 
   /* Progress dialog */
   GtkDialog      *progressDialog;
