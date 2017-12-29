@@ -184,6 +184,22 @@ suscan_gui_codec_cfg_ui_run(struct suscan_gui_codec_cfg_ui *ui)
   return do_run;
 }
 
+void
+suscan_gui_codec_cfg_ui_destroy(struct suscan_gui_codec_cfg_ui *ui)
+{
+  /*
+   * We don't need to free ui->dialog: is attached to gui->main
+   * and it will be disposed automatically on close
+   */
+  if (ui->config != NULL)
+    suscan_config_destroy(ui->config);
+
+  if (ui->ui != NULL)
+    suscan_gui_cfgui_destroy(ui->ui);
+
+  free(ui);
+}
+
 SUBOOL
 suscan_gui_symsrc_register_codec(
     suscan_gui_symsrc_t *this,

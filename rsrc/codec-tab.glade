@@ -38,7 +38,7 @@
             <property name="homogeneous">True</property>
           </packing>
         </child>
-	<child>
+        <child>
           <object class="GtkToolButton">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
@@ -77,8 +77,8 @@
             <property name="homogeneous">True</property>
           </packing>
         </child>
-	<child>
-	  <object class="GtkToggleToolButton" id="tbAutoScroll">
+        <child>
+          <object class="GtkToggleToolButton" id="tbAutoScroll">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="use_underline">True</property>
@@ -86,7 +86,11 @@
             <property name="active">True</property>
             <signal name="toggled" handler="suscan_codec_on_toggle_autoscroll" swapped="no"/>
           </object>
-	</child>
+          <packing>
+            <property name="expand">False</property>
+            <property name="homogeneous">True</property>
+          </packing>
+        </child>
         <child>
           <object class="GtkToolItem">
             <property name="visible">True</property>

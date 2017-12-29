@@ -177,6 +177,7 @@ sugtk_sym_view_append(SuGtkSymView *view, uint8_t data)
           width * (1 + view->data_size / width - height)
           / SUGTK_SYM_VIEW_STRIDE_ALIGN;
       g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+      gtk_widget_queue_draw(GTK_WIDGET(view));
     }
   }
 
@@ -211,6 +212,7 @@ sugtk_sym_view_set_width(SuGtkSymView *view, guint width)
   if (view->window_width != width) {
     view->window_width = width;
     g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    gtk_widget_queue_draw(GTK_WIDGET(view));
   }
 
   return TRUE;
@@ -235,6 +237,9 @@ sugtk_sym_view_set_zoom(SuGtkSymView *view, guint zoom)
       sugtk_sym_view_set_width(
           view,
           gtk_widget_get_allocated_width(GTK_WIDGET(view)) / view->window_zoom);
+
+    g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    gtk_widget_queue_draw(GTK_WIDGET(view));
   }
 
   return TRUE;
@@ -265,6 +270,7 @@ sugtk_sym_view_set_offset(SuGtkSymView *view, guint offset)
   if (view->window_offset != offset) {
     view->window_offset = offset;
     g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    gtk_widget_queue_draw(GTK_WIDGET(view));
   }
 
   return TRUE;

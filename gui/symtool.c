@@ -29,18 +29,259 @@
 #include "gui.h"
 #include "symtool.h"
 
-void suscan_symtool_on_reshape(GtkWidget *wdiget, gpointer data);
+void suscan_symtool_on_reshape(GtkWidget *widget, gpointer data);
+
+SUBOOL suscan_gui_symtool_open_codec_tab(
+    suscan_gui_symtool_t *symtool,
+    struct suscan_gui_codec_cfg_ui *ui,
+    unsigned int bits,
+    unsigned int direction,
+    const SuGtkSymView *view,
+    suscan_symbuf_t *source);
+
+SUBOOL
+suscan_gui_symtool_remove_codec(
+    suscan_gui_symtool_t *gui,
+    struct suscan_gui_codec *codec)
+{
+  gint num;
+
+  SU_TRYCATCH(
+      suscan_gui_symsrc_unregister_codec(&gui->_parent, codec),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      (num = gtk_notebook_page_num(
+          gui->codecNotebook,
+          GTK_WIDGET(codec->codecGrid))) != -1,
+      return SU_FALSE);
+
+  gtk_notebook_remove_page(gui->codecNotebook, num);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_gui_symtool_add_codec(
+    suscan_gui_symtool_t *inspector,
+    struct suscan_gui_codec *codec)
+{
+  gint page;
+  SUBOOL codec_added = SU_FALSE;
+
+  SU_TRYCATCH(
+      suscan_gui_symsrc_register_codec(&inspector->_parent, codec),
+      goto fail);
+
+  codec_added = SU_TRUE;
+
+  SU_TRYCATCH(
+      (page = gtk_notebook_append_page_menu(
+          inspector->codecNotebook,
+          GTK_WIDGET(codec->codecGrid),
+          GTK_WIDGET(codec->pageLabelEventBox),
+          NULL)) >= 0,
+      goto fail);
+
+  gtk_notebook_set_tab_reorderable(
+      inspector->codecNotebook,
+      GTK_WIDGET(codec->pageLabelEventBox),
+      TRUE);
+
+  gtk_notebook_set_current_page(inspector->codecNotebook, page);
+
+  return TRUE;
+
+fail:
+  if (codec_added)
+    (void) suscan_gui_symtool_remove_codec(inspector, codec);
+
+  return FALSE;
+}
+
+
+SUPRIVATE void
+suscan_gui_symtool_on_codec_progress(
+    suscan_gui_symsrc_t *symsrc,
+    const struct suscan_codec_progress *progress)
+{
+  suscan_gui_symtool_t *as_symtool =
+      (suscan_gui_symtool_t *) symsrc;
+
+  /* no-op (for now) */
+}
+
+SUPRIVATE void
+suscan_gui_symtool_on_codec_error(
+    suscan_gui_symsrc_t *symsrc,
+    const struct suscan_codec_progress *progress)
+{
+  if (progress->updated && progress->message != NULL)
+    suscan_error(
+        symsrc->gui,
+        "Codec error",
+        "Codec error: %s",
+        progress->message);
+  else
+    suscan_error(
+        symsrc->gui,
+        "Codec error",
+        "Internal codec error");
+}
+
+SUPRIVATE void
+suscan_gui_symtool_on_codec_unref(
+    suscan_gui_symsrc_t *symsrc,
+    const struct suscan_codec_progress *progress)
+{
+  suscan_gui_symtool_t *as_symtool =
+      (suscan_gui_symtool_t *) symsrc;
+
+  /* no-op (for now) */
+}
+
+SUPRIVATE void
+suscan_gui_symtool_on_activate_codec(
+    struct suscan_gui_codec_context *ctx,
+    unsigned int direction)
+{
+  suscan_gui_symtool_t *as_symtool =
+      (suscan_gui_symtool_t *) ctx->ui->symsrc;
+
+  (void) suscan_gui_symtool_open_codec_tab(
+      as_symtool,
+      ctx->ui,
+      ctx->codec->output_bits,
+      direction,
+      ctx->codec->symbolView,
+      ctx->codec->symbuf);
+}
+
+SUPRIVATE void
+suscan_gui_symtool_on_close_codec(
+    suscan_gui_symsrc_t *symsrc,
+    struct suscan_gui_codec *codec)
+{
+  suscan_gui_symtool_t *as_symtool =
+      (suscan_gui_symtool_t *) symsrc;
+
+  suscan_gui_symtool_remove_codec(as_symtool, codec);
+}
+
+SUBOOL
+suscan_gui_symtool_open_codec_tab(
+    suscan_gui_symtool_t *symtool,
+    struct suscan_gui_codec_cfg_ui *ui,
+    unsigned int bits,
+    unsigned int direction,
+    const SuGtkSymView *view,
+    suscan_symbuf_t *source)
+{
+  struct suscan_gui_codec *codec = NULL;
+  struct suscan_gui_codec_params params = suscan_gui_codec_params_INITIALIZER;
+  guint start;
+  guint end;
+
+  params.symsrc = ui->symsrc;
+  params.class = ui->desc;
+  params.bits_per_symbol = bits;
+  params.config = ui->config;
+  params.direction = direction;
+  params.source = source;
+
+  /* GUI integration callbacks */
+  params.on_parse_progress = suscan_gui_symtool_on_codec_progress;
+  params.on_display_error  = suscan_gui_symtool_on_codec_error;
+  params.on_unref          = suscan_gui_symtool_on_codec_unref;
+  params.on_activate_codec = suscan_gui_symtool_on_activate_codec;
+  params.on_close_codec    = suscan_gui_symtool_on_close_codec;
+
+  /* In selection mode, live update is disabled */
+  if (sugtk_sym_view_get_selection(view, &start, &end)) {
+    params.live = SU_FALSE;
+    params.start = start;
+    params.end = end;
+  } else {
+    params.live = SU_TRUE;
+  }
+
+  if (suscan_gui_codec_cfg_ui_run(ui)) {
+    if ((codec = suscan_gui_codec_new(&params)) == NULL) {
+
+      if (direction == SU_CODEC_DIRECTION_FORWARDS) {
+        suscan_error(
+            ui->symsrc->gui,
+            "Encoder constructor",
+            "Failed to create encoder object. This usually means "
+            "that the current encoder settings are not supported "
+            "by the underlying implementation.\n\n"
+            "You can get additional details on this error in the Log "
+            "Messages tab");
+      } else {
+        suscan_error(
+            ui->symsrc->gui,
+            "Decoder constructor",
+            "Failed to create codec object. This usually means "
+            "that the current codec settings are not supported "
+            "by the underlying implementation.\n\n"
+            "You can get additional details on this error in the Log "
+            "Messages tab");
+      }
+      goto fail;
+    }
+
+    SU_TRYCATCH(suscan_gui_symtool_add_codec(symtool, codec), goto fail);
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (codec != NULL)
+    suscan_gui_codec_destroy_hard(codec);
+
+  return SU_FALSE;
+}
 
 SUPRIVATE void
 suscan_gui_symtool_run_encoder(GtkWidget *widget, gpointer *data)
 {
-  /* Do nothing */
+  struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
+  suscan_gui_symtool_t *as_symtool;
+
+  if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ui))
+    return;  /* Weird */
+
+  /* We can do this because this symsrc is actually an inspector tab */
+  as_symtool = (suscan_gui_symtool_t *) ui->symsrc;
+
+  (void) suscan_gui_symtool_open_codec_tab(
+      as_symtool,
+      ui,
+      as_symtool->properties.bits_per_symbol,
+      SUSCAN_CODEC_DIRECTION_FORWARDS,
+      as_symtool->symbolView,
+      ui->symsrc->symbuf);
 }
 
 SUPRIVATE void
 suscan_gui_symtool_run_decoder(GtkWidget *widget, gpointer *data)
 {
-  /* Do nothing */
+  struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
+  suscan_gui_symtool_t *as_symtool;
+
+  if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ui))
+    return;  /* Weird */
+
+  /* We can do this because this symsrc is actually an inspector tab */
+  as_symtool = (suscan_gui_symtool_t *) ui->symsrc;
+
+  (void) suscan_gui_symtool_open_codec_tab(
+      as_symtool,
+      ui,
+      as_symtool->properties.bits_per_symbol,
+      SUSCAN_CODEC_DIRECTION_BACKWARDS,
+      as_symtool->symbolView,
+      ui->symsrc->symbuf);
 }
 
 SUPRIVATE void *
@@ -574,7 +815,7 @@ suscan_symtool_on_toggle_autofit(GtkWidget *widget, gpointer data)
 }
 
 void
-suscan_symtool_on_reshape(GtkWidget *wdiget, gpointer data)
+suscan_symtool_on_reshape(GtkWidget *widget, gpointer data)
 {
   suscan_gui_symtool_t *symtool = (suscan_gui_symtool_t *) data;
 
