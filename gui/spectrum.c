@@ -1239,7 +1239,7 @@ suscan_spectrum_on_configure_event(
     GdkEventConfigure *event,
     gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
 
   suscan_gui_spectrum_configure(&gui->main_spectrum, widget);
 
@@ -1249,7 +1249,7 @@ suscan_spectrum_on_configure_event(
 gboolean
 suscan_spectrum_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
 
   char text[32];
 
@@ -1267,7 +1267,7 @@ suscan_spectrum_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 void
 suscan_spectrum_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
   char text[32];
 
   suscan_gui_spectrum_parse_scroll(&gui->main_spectrum, ev);
@@ -1282,7 +1282,7 @@ suscan_spectrum_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpointer data)
 void
 suscan_spectrum_on_motion(GtkWidget *widget, GdkEventMotion *ev, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
   char text[32];
 
   suscan_gui_spectrum_parse_motion(&gui->main_spectrum, ev);
@@ -1312,7 +1312,7 @@ suscan_spectrum_on_button_press(
   SUFLOAT freq;
   char header[64];
   const struct sigutils_channel *channel;
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
 
   if (ev->type == GDK_BUTTON_PRESS) {
     switch (ev->button) {
@@ -1362,7 +1362,7 @@ suscan_spectrum_on_settings_changed(
     GtkWidget *widget,
     gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
 
   gui->main_spectrum.show_channels =
       gtk_toggle_tool_button_get_active(gui->overlayChannelToggleButton);

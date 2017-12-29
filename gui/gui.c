@@ -28,7 +28,7 @@ PTR_LIST_EXTERN(struct suscan_source, source); /* Declared in source.c */
 
 void
 suscan_gui_msgbox(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     GtkMessageType type,
     const char *title,
     const char *fmt,
@@ -62,7 +62,7 @@ suscan_gui_msgbox(
 }
 
 void
-suscan_gui_destroy(struct suscan_gui *gui)
+suscan_gui_destroy(suscan_gui_t *gui)
 {
   unsigned int i;
 
@@ -131,7 +131,7 @@ suscan_gui_text_entry_set_integer(GtkEntry *entry, int64_t value)
 }
 
 void
-suscan_gui_analyzer_params_to_dialog(struct suscan_gui *gui)
+suscan_gui_analyzer_params_to_dialog(suscan_gui_t *gui)
 {
   suscan_gui_text_entry_set_float(
       gui->alphaEntry,
@@ -220,7 +220,7 @@ suscan_gui_text_entry_get_scount(GtkEntry *entry, SUSCOUNT *result)
 }
 
 SUBOOL
-suscan_gui_analyzer_params_from_dialog(struct suscan_gui *gui)
+suscan_gui_analyzer_params_from_dialog(suscan_gui_t *gui)
 {
   struct suscan_analyzer_params params = gui->analyzer_params;
   SUFLOAT snr;
@@ -359,7 +359,7 @@ fail:
 }
 
 SUBOOL
-suscan_gui_populate_source_list(struct suscan_gui *gui)
+suscan_gui_populate_source_list(suscan_gui_t *gui)
 {
   unsigned int i;
   GtkTreeIter new_element;
@@ -385,7 +385,7 @@ suscan_gui_populate_source_list(struct suscan_gui *gui)
 
 struct suscan_gui_src_ui *
 suscan_gui_lookup_source_config(
-    const struct suscan_gui *gui,
+    const suscan_gui_t *gui,
     const struct suscan_source *src)
 {
   GtkTreeIter iter;
@@ -438,7 +438,7 @@ suscan_gui_double_data_func(
 }
 
 void
-suscan_setup_column_formats(struct suscan_gui *gui)
+suscan_setup_column_formats(suscan_gui_t *gui)
 {
   gtk_tree_view_column_set_cell_data_func(
       gui->centerFrequencyCol,
@@ -478,7 +478,7 @@ suscan_setup_column_formats(struct suscan_gui *gui)
 }
 
 SUBOOL
-suscan_gui_load_all_widgets(struct suscan_gui *gui)
+suscan_gui_load_all_widgets(suscan_gui_t *gui)
 {
   SU_TRYCATCH(
       gui->main = GTK_WINDOW(gtk_builder_get_object(gui->builder, "wMain")),
@@ -876,6 +876,13 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
               "lSubTitle")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->symToolNotebook =
+          GTK_NOTEBOOK(gtk_builder_get_object(
+              gui->builder,
+              "nbSymTool")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
@@ -890,8 +897,8 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
 /************************ Inspector handling methods *************************/
 SUBOOL
 suscan_gui_remove_inspector(
-    struct suscan_gui *gui,
-    struct suscan_gui_inspector *insp)
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp)
 {
   gint num;
   int index = insp->index;
@@ -915,8 +922,8 @@ suscan_gui_remove_inspector(
 
 SUBOOL
 suscan_gui_add_inspector(
-    struct suscan_gui *gui,
-    struct suscan_gui_inspector *insp)
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp)
 {
   struct suscan_inspector_params params;
   gint page;
@@ -930,7 +937,7 @@ suscan_gui_add_inspector(
       goto fail);
 
   inspector_added = SU_TRUE;
-  insp->gui = gui;
+  insp->_parent.gui = gui;
 
   SU_TRYCATCH(
       (page = gtk_notebook_append_page_menu(
@@ -971,8 +978,8 @@ fail:
   return FALSE;
 }
 
-struct suscan_gui_inspector *
-suscan_gui_get_inspector(const struct suscan_gui *gui, uint32_t inspector_id)
+suscan_gui_inspector_t *
+suscan_gui_get_inspector(const suscan_gui_t *gui, uint32_t inspector_id)
 {
   if (inspector_id >= gui->inspector_count)
     return NULL;
@@ -980,18 +987,93 @@ suscan_gui_get_inspector(const struct suscan_gui *gui, uint32_t inspector_id)
   return gui->inspector_list[inspector_id];
 }
 
+/*************************** Symbol tool handling ****************************/
+SUBOOL
+suscan_gui_remove_symtool(
+    suscan_gui_t *gui,
+    suscan_gui_symtool_t *symtool)
+{
+  gint num;
+  int index = symtool->index;
+  if (index < 0 || index >= gui->symtool_count)
+    return SU_FALSE;
+
+  SU_TRYCATCH(gui->symtool_list[index] == symtool, return SU_FALSE);
+
+  SU_TRYCATCH(
+      (num = gtk_notebook_page_num(
+          gui->symToolNotebook,
+          suscan_gui_symtool_get_root(symtool))) != -1,
+      return SU_FALSE);
+
+  gtk_notebook_remove_page(gui->symToolNotebook, num);
+
+  gui->symtool_list[index] = NULL;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_gui_add_symtool(
+    suscan_gui_t *gui,
+    suscan_gui_symtool_t *symtool)
+{
+  gint page;
+  SUBOOL symtool_added = SU_FALSE;
+
+  SU_TRYCATCH(
+      (symtool->index = PTR_LIST_APPEND_CHECK(gui->symtool, symtool)) != -1,
+      goto fail);
+
+  symtool_added = SU_TRUE;
+  symtool->_parent.gui = gui;
+
+  SU_TRYCATCH(
+      (page = gtk_notebook_append_page_menu(
+          gui->symToolNotebook,
+          suscan_gui_symtool_get_root(symtool),
+          suscan_gui_symtool_get_label(symtool),
+          NULL)) >= 0,
+      goto fail);
+
+  gtk_notebook_set_tab_reorderable(
+      gui->symToolNotebook,
+      suscan_gui_symtool_get_label(symtool),
+      TRUE);
+
+  gtk_notebook_set_current_page(gui->symToolNotebook, page);
+
+  return TRUE;
+
+fail:
+  if (symtool_added)
+    (void) suscan_gui_remove_symtool(gui, symtool);
+
+  return FALSE;
+}
+
+suscan_gui_symtool_t *
+suscan_gui_get_symtool(const suscan_gui_t *gui, uint32_t symtool_id)
+{
+  if (symtool_id >= gui->symtool_count)
+    return NULL;
+
+  return gui->symtool_list[symtool_id];
+}
+
+/**************************** Generic GUI methods ****************************/
 SUPRIVATE void
 suscan_quit_cb(GtkWidget *obj, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
 
   suscan_gui_quit(gui);
 }
 
-struct suscan_gui *
+suscan_gui_t *
 suscan_gui_new(int argc, char **argv)
 {
-  struct suscan_gui *gui = NULL;
+  suscan_gui_t *gui = NULL;
   GtkCssProvider *provider;
   GError *err = NULL;
 
@@ -1011,7 +1093,7 @@ suscan_gui_new(int argc, char **argv)
       GTK_STYLE_PROVIDER(provider),
       GTK_STYLE_PROVIDER_PRIORITY_USER);
 
-  SU_TRYCATCH(gui = calloc(1, sizeof(struct suscan_gui)), goto fail);
+  SU_TRYCATCH(gui = calloc(1, sizeof(suscan_gui_t)), goto fail);
 
   SU_TRYCATCH(
       gui->settings = g_settings_new(SUSCAN_GUI_SETTINGS_ID),
@@ -1047,7 +1129,7 @@ fail:
 }
 
 void
-suscan_gui_set_freq(struct suscan_gui *gui, uint64_t freq)
+suscan_gui_set_freq(suscan_gui_t *gui, uint64_t freq)
 {
   int i;
   char freq_banner[] = "0,000.000.000 MHz";
@@ -1066,7 +1148,7 @@ suscan_gui_set_freq(struct suscan_gui *gui, uint64_t freq)
 }
 
 SUBOOL
-suscan_gui_set_title(struct suscan_gui *gui, const char *title)
+suscan_gui_set_title(suscan_gui_t *gui, const char *title)
 {
   char *full_title = NULL;
 
@@ -1083,7 +1165,7 @@ suscan_gui_set_title(struct suscan_gui *gui, const char *title)
 
 void
 suscan_gui_set_src_ui(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     struct suscan_gui_src_ui *ui)
 {
   struct suscan_field_value *val;
@@ -1107,7 +1189,7 @@ suscan_gui_set_src_ui(
 }
 
 void
-suscan_gui_detach_all_inspectors(struct suscan_gui *gui)
+suscan_gui_detach_all_inspectors(suscan_gui_t *gui)
 {
   unsigned int i;
 
@@ -1123,7 +1205,7 @@ suscan_gui_start(
     struct suscan_source_config **config_list,
     unsigned int config_count)
 {
-  struct suscan_gui *gui = NULL;
+  suscan_gui_t *gui = NULL;
 
   SU_TRYCATCH(gui = suscan_gui_new(argc, argv), return SU_FALSE);
 

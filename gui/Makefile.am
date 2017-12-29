@@ -12,4 +12,5 @@ libgui_la_LDFLAGS = @GLOBAL_LDFLAGS@
 
 libgui_la_SOURCES = async.c cfgui.c constellation.c gui.c gui.h inspector.c \
 	log.c main.c spectrum.c recent.c gradient.h settings.c symview.c symview.h \
-	transmtx.c transmtx.h codec.c inspector.h spectrum.h constellation.h codec.h
+	transmtx.c transmtx.h codec.c inspector.h spectrum.h constellation.h codec.h \
+	symsrc.c symsrc.h symtool.c symtool.h

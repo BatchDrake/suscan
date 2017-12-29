@@ -150,7 +150,7 @@ fail:
   return ok;
 }
 
-static guint
+guint
 sugtk_sym_view_get_height(SuGtkSymView *view)
 {
   return gtk_widget_get_allocated_height(GTK_WIDGET(view))
@@ -172,11 +172,16 @@ sugtk_sym_view_append(SuGtkSymView *view, uint8_t data)
     width = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_width;
     height = sugtk_sym_view_get_height(view);
 
-    if (width * height < view->data_size)
+    if (width * height < view->data_size) {
       view->window_offset =
           width * (1 + view->data_size / width - height)
           / SUGTK_SYM_VIEW_STRIDE_ALIGN;
+      g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+      gtk_widget_queue_draw(GTK_WIDGET(view));
+    }
   }
+
+  gtk_widget_queue_draw(GTK_WIDGET(view));
 
   return TRUE;
 }
@@ -204,7 +209,11 @@ sugtk_sym_view_set_width(SuGtkSymView *view, guint width)
   if (width < 1)
     return FALSE;
 
-  view->window_width = width;
+  if (view->window_width != width) {
+    view->window_width = width;
+    g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    gtk_widget_queue_draw(GTK_WIDGET(view));
+  }
 
   return TRUE;
 }
@@ -221,12 +230,17 @@ sugtk_sym_view_set_zoom(SuGtkSymView *view, guint zoom)
   if (zoom < 1)
     return FALSE;
 
-  view->window_zoom = zoom;
+  if (view->window_zoom != zoom) {
+    view->window_zoom = zoom;
 
-  if (view->autofit)
-    sugtk_sym_view_set_width(
-        view,
-        gtk_widget_get_allocated_width(GTK_WIDGET(view)) / view->window_zoom);
+    if (view->autofit)
+      sugtk_sym_view_set_width(
+          view,
+          gtk_widget_get_allocated_width(GTK_WIDGET(view)) / view->window_zoom);
+
+    g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    gtk_widget_queue_draw(GTK_WIDGET(view));
+  }
 
   return TRUE;
 }
@@ -240,10 +254,24 @@ sugtk_sym_view_get_zoom(const SuGtkSymView *view)
 gboolean
 sugtk_sym_view_set_offset(SuGtkSymView *view, guint offset)
 {
-  if (offset >= view->data_size)
+  int max_offset;
+  int32_t data_size;
+  data_size = view->data_size / SUGTK_SYM_VIEW_STRIDE_ALIGN;
+
+  max_offset = data_size
+      - sugtk_sym_view_get_width(view) * (sugtk_sym_view_get_height(view) - 1);
+
+  if (max_offset < 0)
+    max_offset = 0;
+
+  if (offset > (guint) max_offset)
     return FALSE;
 
-  view->window_offset = offset;
+  if (view->window_offset != offset) {
+    view->window_offset = offset;
+    g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    gtk_widget_queue_draw(GTK_WIDGET(view));
+  }
 
   return TRUE;
 }
@@ -255,13 +283,13 @@ sugtk_sym_view_get_offset(const SuGtkSymView *view)
 }
 
 const uint8_t *
-sugtk_sym_get_buffer_bytes(const SuGtkSymView *view)
+sugtk_sym_view_get_buffer_bytes(const SuGtkSymView *view)
 {
   return view->data_buf;
 }
 
 size_t
-sugtk_sym_get_buffer_size(const SuGtkSymView *view)
+sugtk_sym_view_get_buffer_size(const SuGtkSymView *view)
 {
   return view->data_size;
 }
@@ -311,6 +339,17 @@ sugtk_sym_view_class_init(SuGtkSymViewClass *class)
   g_object_class = G_OBJECT_CLASS(class);
 
   g_object_class->dispose = sugtk_sym_view_dispose;
+
+  class->sig_reshape =  g_signal_new(
+      "reshape",
+      G_TYPE_FROM_CLASS (g_object_class),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_NO_RECURSE | G_SIGNAL_NO_HOOKS,
+      0, /* class offset */
+      NULL /* accumulator */,
+      NULL /* accu_data */,
+      NULL, /* marshaller */
+      G_TYPE_NONE /* return_type */,
+      0);     /* n_params */
 }
 
 static gboolean
@@ -527,6 +566,7 @@ sugtk_sym_view_on_button_press_event(
       view->sel_started = TRUE;
       view->sel_off0 = offset;
       view->sel_off1 = view->sel_off0;
+      gtk_widget_queue_draw(widget);
       break;
 
     case GDK_BUTTON_SECONDARY:
@@ -549,6 +589,7 @@ sugtk_sym_view_on_button_release_event(
   switch (event->button.button) {
     case GDK_BUTTON_PRIMARY:
       view->sel_started = FALSE;
+      gtk_widget_queue_draw(widget);
       break;
   }
 
@@ -569,6 +610,8 @@ sugtk_sym_view_on_motion_notify_event(
 
     view->sel_off1 = offset;
     view->selection = TRUE;
+
+    gtk_widget_queue_draw(widget);
   }
 
   return TRUE;
@@ -869,8 +912,8 @@ sugtk_sym_view_save_helper(
       goto done;
     }
 
-    bytes = sugtk_sym_get_buffer_bytes(view);
-    size = sugtk_sym_get_buffer_size(view);
+    bytes = sugtk_sym_view_get_buffer_bytes(view);
+    size = sugtk_sym_view_get_buffer_size(view);
 
     for (i = 0; i < size; i += SUGTK_SYM_VIEW_STRIDE_ALIGN) {
       result = sugtk_sym_view_pixel_to_code_helper(bits_per_symbol, bytes[i])
@@ -908,6 +951,7 @@ sugtk_sym_view_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpointer data)
   gboolean delta;
   int delta_int;
   int new_offset;
+
   SuGtkSymView *view = (SuGtkSymView *) widget;
 
   if (ev->direction == GDK_SCROLL_SMOOTH && !view->autoscroll) {
@@ -924,6 +968,8 @@ sugtk_sym_view_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpointer data)
       new_offset = 0;
 
     sugtk_sym_view_set_offset(view, new_offset);
+
+    gtk_widget_queue_draw(widget);
   }
 }
 

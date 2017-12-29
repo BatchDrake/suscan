@@ -167,8 +167,7 @@ suscan_constellation_on_configure_event(
     GdkEventConfigure *event,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp =
-      (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   suscan_gui_constellation_configure(&insp->constellation, widget);
 
@@ -178,8 +177,7 @@ suscan_constellation_on_configure_event(
 gboolean
 suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
-  struct suscan_gui_inspector *insp =
-      (struct suscan_gui_inspector *) data;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
   suscan_gui_constellation_redraw(&insp->constellation, cr);
 

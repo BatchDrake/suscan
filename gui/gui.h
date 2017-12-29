@@ -28,6 +28,7 @@
 
 #include "spectrum.h"
 #include "inspector.h"
+#include "symtool.h"
 
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
@@ -55,6 +56,8 @@ enum suscan_gui_state {
   SUSCAN_GUI_STATE_STOPPING,
   SUSCAN_GUI_STATE_QUITTING
 };
+
+struct suscan_gui;
 
 struct suscan_gui_recent {
   struct suscan_gui *gui;
@@ -126,6 +129,9 @@ struct suscan_gui {
   GtkTreeView *logMessagesTreeView;
   GtkListStore *logMessagesListStore;
 
+  /* Symtool widgets */
+  GtkNotebook *symToolNotebook;
+
   /* Settings widgets */
   GtkEntry *alphaEntry;
   GtkEntry *betaEntry;
@@ -157,17 +163,21 @@ struct suscan_gui {
   struct sigutils_channel selected_channel;
   struct suscan_gui_spectrum main_spectrum;
 
-  /* Keep list of inspector tabs */
-  PTR_LIST(struct suscan_gui_inspector, inspector);
+  /* Inspector tab list */
+  PTR_LIST(suscan_gui_inspector_t, inspector);
+
+  /* Symbol tool tab list */
+  PTR_LIST(suscan_gui_symtool_t, symtool);
 
   /* Keep a list of the last configurations used */
   PTR_LIST(struct suscan_gui_recent, recent);
 };
 
+typedef struct suscan_gui suscan_gui_t;
 
-void suscan_gui_destroy(struct suscan_gui *gui);
+void suscan_gui_destroy(suscan_gui_t *gui);
 
-struct suscan_gui *suscan_gui_new(int argc, char **argv);
+suscan_gui_t *suscan_gui_new(int argc, char **argv);
 
 SUBOOL suscan_gui_start(
     int argc,
@@ -176,13 +186,13 @@ SUBOOL suscan_gui_start(
     unsigned int config_count);
 
 void suscan_gui_msgbox(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     GtkMessageType type,
     const char *title,
     const char *fmt,
     ...);
 
-void suscan_gui_setup_logging(struct suscan_gui *gui);
+void suscan_gui_setup_logging(suscan_gui_t *gui);
 
 /* Generic UI functions */
 void suscan_gui_text_entry_set_float(GtkEntry *entry, SUFLOAT value);
@@ -204,38 +214,38 @@ struct suscan_gui_cfgui *suscan_gui_cfgui_new(suscan_config_t *config);
 
 /* Source UI API */
 struct suscan_gui_src_ui *suscan_gui_get_selected_src_ui(
-    const struct suscan_gui *gui);
+    const suscan_gui_t *gui);
 
 SUBOOL suscan_gui_set_selected_src_ui(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     const struct suscan_gui_src_ui *ui);
 
 void suscan_gui_src_ui_to_dialog(const struct suscan_gui_src_ui *ui);
 
 SUBOOL suscan_gui_src_ui_from_dialog(struct suscan_gui_src_ui *ui);
 
-SUBOOL suscan_gui_set_title(struct suscan_gui *gui, const char *title);
+SUBOOL suscan_gui_set_title(suscan_gui_t *gui, const char *title);
 
 void suscan_gui_set_src_ui(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     struct suscan_gui_src_ui *ui);
 
 /* Analyzer params API */
-void suscan_gui_analyzer_params_to_dialog(struct suscan_gui *gui);
+void suscan_gui_analyzer_params_to_dialog(suscan_gui_t *gui);
 
-SUBOOL suscan_gui_analyzer_params_from_dialog(struct suscan_gui *gui);
+SUBOOL suscan_gui_analyzer_params_from_dialog(suscan_gui_t *gui);
 
 /* GUI State */
 void suscan_gui_update_state(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     enum suscan_gui_state state);
 
-void suscan_gui_detach_all_inspectors(struct suscan_gui *gui);
+void suscan_gui_detach_all_inspectors(suscan_gui_t *gui);
 
-SUBOOL suscan_gui_connect(struct suscan_gui *gui);
-void suscan_gui_reconnect(struct suscan_gui *gui);
-void suscan_gui_disconnect(struct suscan_gui *gui);
-void suscan_gui_quit(struct suscan_gui *gui);
+SUBOOL suscan_gui_connect(suscan_gui_t *gui);
+void suscan_gui_reconnect(suscan_gui_t *gui);
+void suscan_gui_disconnect(suscan_gui_t *gui);
+void suscan_gui_quit(suscan_gui_t *gui);
 
 /* Some message dialogs */
 #define suscan_error(gui, title, fmt, arg...) \
@@ -246,39 +256,52 @@ void suscan_gui_quit(struct suscan_gui *gui);
 
 /* Main GUI inspector list handling methods */
 SUBOOL suscan_gui_remove_inspector(
-    struct suscan_gui *gui,
-    struct suscan_gui_inspector *insp);
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp);
 
 SUBOOL suscan_gui_add_inspector(
-    struct suscan_gui *gui,
-    struct suscan_gui_inspector *insp);
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp);
 
-struct suscan_gui_inspector *suscan_gui_get_inspector(
-    const struct suscan_gui *gui,
+suscan_gui_inspector_t *suscan_gui_get_inspector(
+    const suscan_gui_t *gui,
     uint32_t inspector_id);
+
+/* Main GUI symtool list handling methods */
+SUBOOL suscan_gui_remove_symtool(
+    suscan_gui_t *gui,
+    suscan_gui_symtool_t *symtool);
+
+SUBOOL suscan_gui_add_symtool(
+    suscan_gui_t *gui,
+    suscan_gui_symtool_t *symtool);
+
+suscan_gui_symtool_t *suscan_gui_get_symtool(
+    const suscan_gui_t *gui,
+    uint32_t symtool_id);
 
 /* Source API */
 struct suscan_gui_src_ui *suscan_gui_lookup_source_config(
-    const struct suscan_gui *gui,
+    const suscan_gui_t *gui,
     const struct suscan_source *src);
 
 /* Recent source configuration management */
 SUBOOL suscan_gui_append_recent(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     const struct suscan_source_config *config);
 
 struct suscan_gui_recent *suscan_gui_recent_new(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     char *conf_string);
 
 void suscan_gui_recent_destroy(struct suscan_gui_recent *recent);
 
-void suscan_gui_retrieve_recent(struct suscan_gui *gui);
+void suscan_gui_retrieve_recent(suscan_gui_t *gui);
 
-void suscan_gui_store_recent(struct suscan_gui *gui);
+void suscan_gui_store_recent(suscan_gui_t *gui);
 
-void suscan_gui_retrieve_analyzer_params(struct suscan_gui *gui);
+void suscan_gui_retrieve_analyzer_params(suscan_gui_t *gui);
 
-void suscan_gui_store_analyzer_params(struct suscan_gui *gui);
+void suscan_gui_store_analyzer_params(suscan_gui_t *gui);
 
 #endif /* _GUI_GUI_H */

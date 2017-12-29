@@ -70,7 +70,7 @@ suscan_gui_window_to_str(enum sigutils_channel_detector_window window)
 }
 
 void
-suscan_gui_retrieve_analyzer_params(struct suscan_gui *gui)
+suscan_gui_retrieve_analyzer_params(suscan_gui_t *gui)
 {
   gchar *win = NULL;
   SUPRIVATE struct suscan_analyzer_params analyzer_params =
@@ -121,7 +121,7 @@ done:
 }
 
 void
-suscan_gui_store_analyzer_params(struct suscan_gui *gui)
+suscan_gui_store_analyzer_params(suscan_gui_t *gui)
 {
   g_settings_set_double(
       gui->settings,

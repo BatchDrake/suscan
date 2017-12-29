@@ -25,7 +25,7 @@
 
 /* Asynchronous thread: take messages from analyzer and parse them */
 struct suscan_gui_msg_envelope {
-  struct suscan_gui *gui;
+  suscan_gui_t *gui;
   uint32_t type;
   void *private;
 };
@@ -42,7 +42,7 @@ suscan_gui_msg_envelope_destroy(struct suscan_gui_msg_envelope *data)
 
 struct suscan_gui_msg_envelope *
 suscan_gui_msg_envelope_new(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     uint32_t type,
     void *private)
 {
@@ -77,7 +77,7 @@ suscan_gui_change_button_icon(GtkButton *button, const char *icon)
 }
 
 void
-suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
+suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
 {
   const char *source_name = "No source selected";
   char *subtitle = NULL;
@@ -143,7 +143,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
 SUPRIVATE gboolean
 suscan_async_stopped_cb(gpointer user_data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) user_data;
+  suscan_gui_t *gui = (suscan_gui_t *) user_data;
   unsigned int i;
 
   g_thread_join(gui->async_thread);
@@ -293,7 +293,7 @@ suscan_async_update_inspector_spectrum_cb(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_psd_msg *msg;
-  struct suscan_gui_inspector *insp = NULL;
+  suscan_gui_inspector_t *insp = NULL;
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_psd_msg *) envelope->private;
@@ -322,7 +322,7 @@ suscan_async_parse_sample_batch_msg(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_sample_batch_msg *msg;
-  struct suscan_gui_inspector *insp = NULL;
+  suscan_gui_inspector_t *insp = NULL;
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_sample_batch_msg *) envelope->private;
@@ -348,8 +348,8 @@ suscan_async_parse_inspector_msg(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_inspector_msg *msg;
-  struct suscan_gui_inspector *new_insp = NULL;
-  struct suscan_gui_inspector *insp = NULL;
+  suscan_gui_inspector_t *new_insp = NULL;
+  suscan_gui_inspector_t *insp = NULL;
   char text[64];
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
@@ -453,7 +453,7 @@ done:
 SUPRIVATE gpointer
 suscan_gui_async_thread(gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
   struct suscan_gui_msg_envelope *envelope;
   void *private;
   uint32_t type;
@@ -551,7 +551,7 @@ done:
 
 /************************** GUI Thread functions *****************************/
 SUBOOL
-suscan_gui_connect(struct suscan_gui *gui)
+suscan_gui_connect(suscan_gui_t *gui)
 {
   unsigned int i;
 
@@ -604,7 +604,7 @@ fail:
 }
 
 void
-suscan_gui_reconnect(struct suscan_gui *gui)
+suscan_gui_reconnect(suscan_gui_t *gui)
 {
   assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
   assert(gui->analyzer != NULL);
@@ -614,7 +614,7 @@ suscan_gui_reconnect(struct suscan_gui *gui)
 }
 
 void
-suscan_gui_disconnect(struct suscan_gui *gui)
+suscan_gui_disconnect(suscan_gui_t *gui)
 {
   assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
   assert(gui->analyzer != NULL);
@@ -624,7 +624,7 @@ suscan_gui_disconnect(struct suscan_gui *gui)
 }
 
 void
-suscan_gui_quit(struct suscan_gui *gui)
+suscan_gui_quit(suscan_gui_t *gui)
 {
   switch (gui->state) {
     case SUSCAN_GUI_STATE_RUNNING:

@@ -27,10 +27,16 @@
 
 #include "symview.h"
 
-struct suscan_gui_inspector;
+struct suscan_gui_symsrc;
+
+struct suscan_gui_codec_context;
+
+struct suscan_gui_codec_state;
+
+struct suscan_gui_codec;
 
 struct suscan_gui_codec_cfg_ui {
-  struct suscan_gui_inspector *inspector;
+  struct suscan_gui_symsrc *symsrc;
   const struct suscan_codec_class *desc;
   suscan_config_t *config;
   struct suscan_gui_cfgui *ui;
@@ -38,7 +44,7 @@ struct suscan_gui_codec_cfg_ui {
 };
 
 struct suscan_gui_codec_params {
-  struct suscan_gui_inspector *inspector;
+  struct suscan_gui_symsrc *symsrc;
   const struct suscan_codec_class *class;
   uint8_t bits_per_symbol;
   suscan_config_t *config;
@@ -47,11 +53,31 @@ struct suscan_gui_codec_params {
   unsigned int start;
   unsigned int end;
   SUBOOL live;
+
+  void (*on_parse_progress) (
+      struct suscan_gui_symsrc *symsrc,
+      const struct suscan_codec_progress *progress);
+
+  void (*on_display_error) (
+      struct suscan_gui_symsrc *symsrc,
+      const struct suscan_codec_progress *progress);
+
+  void (*on_unref) (
+      struct suscan_gui_symsrc *symsrc,
+      const struct suscan_codec_progress *progress);
+
+  void (*on_activate_codec) (
+      struct suscan_gui_codec_context *ctx,
+      unsigned int direction);
+
+  void (*on_close_codec) (
+      struct suscan_gui_symsrc *symsrc,
+      struct suscan_gui_codec *codec);
 };
 
 #define suscan_gui_codec_params_INITIALIZER \
 {                                           \
-  NULL, /* inspector */                     \
+  NULL, /* symsrc */                        \
   NULL, /* class */                         \
   0, /* bits_per_symbol */                  \
   NULL, /* config */                        \
@@ -60,11 +86,11 @@ struct suscan_gui_codec_params {
   0, /* start */                            \
   0, /* end */                              \
   SU_FALSE, /* live */                      \
+  NULL, /* on_parse_progress */             \
+  NULL, /* on_display_error */              \
+  NULL, /* on_unref */                      \
 }
 
-struct suscan_gui_codec_context;
-
-struct suscan_gui_codec_state;
 
 struct suscan_gui_codec {
   struct suscan_gui_codec_params params;
@@ -83,6 +109,7 @@ struct suscan_gui_codec {
   GtkEventBox     *pageLabelEventBox;
   GtkLabel        *pageLabel;
   GtkGrid         *codecGrid;
+  GtkGrid         *rootGrid;
 
   /* Toolbar widgets */
   GtkToggleToolButton *autoFitToggleButton;
@@ -92,6 +119,8 @@ struct suscan_gui_codec {
 
   /* Symbol view widgets */
   SuGtkSymView    *symbolView;
+  GtkScrollbar    *symViewScrollbar;
+  GtkAdjustment   *symViewScrollAdjustment;
 
   /* Live decoding */
   SUBOOL          pending_done;
@@ -103,8 +132,10 @@ struct suscan_gui_codec {
   PTR_LIST(struct suscan_gui_codec_context, context);
 };
 
+typedef struct suscan_gui_codec suscan_gui_codec_t;
+
 struct suscan_gui_codec_context {
-  struct suscan_gui_codec *codec;
+  suscan_gui_codec_t *codec;
   struct suscan_gui_codec_cfg_ui *ui;
 };
 
@@ -117,16 +148,20 @@ SUBOOL suscan_gui_codec_cfg_ui_assert_parent_gui(
 SUBOOL suscan_gui_codec_cfg_ui_run(struct suscan_gui_codec_cfg_ui *ui);
 
 struct suscan_gui_codec_cfg_ui *suscan_gui_codec_cfg_ui_new(
-    struct suscan_gui_inspector *inspector,
+    struct suscan_gui_symsrc *symsrc,
     const struct suscan_codec_class *desc);
 
 /* Codec API */
-struct suscan_gui_codec *suscan_gui_codec_new(
+suscan_gui_codec_t *suscan_gui_codec_new(
     const struct suscan_gui_codec_params *params);
 
-/* Use this if the worker is dead */
-void suscan_gui_codec_destroy_hard(struct suscan_gui_codec *codec);
+GtkWidget *suscan_gui_codec_get_root(const suscan_gui_codec_t *codec);
 
-void suscan_gui_codec_destroy(struct suscan_gui_codec *codec);
+GtkWidget *suscan_gui_codec_get_label(const suscan_gui_codec_t *codec);
+
+/* Use this if the worker is dead */
+void suscan_gui_codec_destroy_hard(suscan_gui_codec_t *codec);
+
+void suscan_gui_codec_destroy(suscan_gui_codec_t *codec);
 
 #endif /* _GUI_CODEC_H */

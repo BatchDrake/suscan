@@ -21,7 +21,7 @@
 #ifndef _GUI_INSPECTOR_H
 #define _GUI_INSPECTOR_H
 
-#include <analyzer/symbuf.h>
+#include "symsrc.h"
 
 #include "constellation.h"
 #include "spectrum.h"
@@ -34,24 +34,17 @@
 
 struct suscan_gui;
 
+#define SUSCAN_GUI_INSPECTOR_AS_SYMSRC(insp) &(insp)->_parent;
+
 struct suscan_gui_inspector {
+  struct suscan_gui_symsrc _parent; /* Inherits from symbol source */
   int index; /* Back reference */
   SUHANDLE inshnd; /* Inspector handle (relative to current analyzer) */
   SUBOOL dead; /* Owner analyzer has been destroyed */
   SUBOOL recording; /* Symbol recorder enabled */
-  struct suscan_gui *gui; /* Parent GUI */
   struct suscan_gui_constellation constellation; /* Constellation graph */
   struct suscan_gui_spectrum spectrum; /* Spectrum graph */
   struct suscan_inspector_params params; /* Inspector params */
-
-  /* Worker used by codecs */
-  suscan_worker_t *worker;
-  struct suscan_mq mq;
-
-  /* Symbol buffer */
-  suscan_symbuf_t *symbuf;
-  SUBITS  *curr_dec_buf;
-  SUSCOUNT curr_dec_len;
 
   /* Widgets */
   GtkBuilder     *builder;
@@ -120,47 +113,37 @@ struct suscan_gui_inspector {
   GtkSpinButton  *offsetSpinButton;
   GtkSpinButton  *widthSpinButton;
   GtkNotebook    *codecNotebook;
+  GtkScrollbar   *symViewScrollbar;
+  GtkAdjustment  *symViewScrollAdjustment;
 
   /* Progress dialog */
   GtkDialog      *progressDialog;
   GtkProgressBar *progressBar;
 
-  /* DecoderUI objects */
-  PTR_LIST(struct suscan_gui_codec_cfg_ui, codec_cfg_ui);
-
-  /* Decoder objects */
-  PTR_LIST(struct suscan_gui_codec, codec);
-
   struct sigutils_channel channel;
 };
 
+typedef struct suscan_gui_inspector suscan_gui_inspector_t;
+
 /* Inspector GUI functions */
 SUBOOL suscan_gui_inspector_feed_w_batch(
-    struct suscan_gui_inspector *inspector,
+    suscan_gui_inspector_t *inspector,
     const struct suscan_analyzer_sample_batch_msg *msg);
 
-SUBOOL suscan_gui_inspector_push_task(
-    struct suscan_gui_inspector *inspector,
-    SUBOOL (*task) (
-        struct suscan_mq *mq_out,
-        void *wk_private,
-        void *cb_private),
-     void *private);
-
-struct suscan_gui_inspector *suscan_gui_inspector_new(
+suscan_gui_inspector_t *suscan_gui_inspector_new(
     const struct sigutils_channel *channel,
     SUHANDLE handle);
 
 SUBOOL suscan_gui_inspector_update_sensitiveness(
-    struct suscan_gui_inspector *insp,
+    suscan_gui_inspector_t *insp,
     const struct suscan_inspector_params *params);
 
-void suscan_gui_inspector_detach(struct suscan_gui_inspector *insp);
+void suscan_gui_inspector_detach(suscan_gui_inspector_t *insp);
 
-void suscan_gui_inspector_close(struct suscan_gui_inspector *insp);
+void suscan_gui_inspector_close(suscan_gui_inspector_t *insp);
 
 SUBOOL suscan_gui_inspector_populate_codec_menu(
-    struct suscan_gui_inspector *inspector,
+    suscan_gui_inspector_t *inspector,
     SuGtkSymView *view,
     void *(*create_priv) (void *, struct suscan_gui_codec_cfg_ui *),
     void *private,
@@ -168,21 +151,21 @@ SUBOOL suscan_gui_inspector_populate_codec_menu(
     GCallback on_decode);
 
 SUBOOL suscan_gui_inspector_remove_codec(
-    struct suscan_gui_inspector *gui,
-    struct suscan_gui_codec *codec);
+    suscan_gui_inspector_t *gui,
+    suscan_gui_codec_t *codec);
 
 SUBOOL suscan_gui_inspector_add_codec(
-    struct suscan_gui_inspector *inspector,
-    struct suscan_gui_codec *codec);
+    suscan_gui_inspector_t *inspector,
+    suscan_gui_codec_t *codec);
 
 SUBOOL suscan_gui_inspector_open_codec_tab(
-    struct suscan_gui_inspector *inspector,
+    suscan_gui_inspector_t *inspector,
     struct suscan_gui_codec_cfg_ui *ui,
     unsigned int bits,
     unsigned int direction,
     const SuGtkSymView *view,
     suscan_symbuf_t *source);
 
-void suscan_gui_inspector_destroy(struct suscan_gui_inspector *inspector);
+void suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector);
 
 #endif /* _GUI_INSPECTOR_H */
