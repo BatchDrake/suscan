@@ -21,7 +21,6 @@
 #ifndef _GUI_INSPECTOR_H
 #define _GUI_INSPECTOR_H
 
-#include <analyzer/symbuf.h>
 #include "symsrc.h"
 
 #include "constellation.h"
@@ -118,9 +117,6 @@ struct suscan_gui_inspector {
   /* Progress dialog */
   GtkDialog      *progressDialog;
   GtkProgressBar *progressBar;
-
-  /* Decoder objects */
-  PTR_LIST(struct suscan_gui_codec, codec);
 
   struct sigutils_channel channel;
 };
