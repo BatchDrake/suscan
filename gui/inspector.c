@@ -509,7 +509,7 @@ suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
 }
 
 SUPRIVATE void
-suscan_gui_inspector_run_codec(GtkWidget *widget, gpointer *data)
+suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
 {
   struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
   suscan_gui_inspector_t *as_inspector;
@@ -913,16 +913,6 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
-  SU_TRYCATCH(
-      suscan_gui_symsrc_populate_codec_menu(
-          &inspector->_parent,
-          inspector->symbolView,
-          suscan_gui_inspector_dummy_create_private,
-          NULL,
-          G_CALLBACK(suscan_gui_inspector_run_encoder),
-          G_CALLBACK(suscan_gui_inspector_run_codec)),
-      return SU_FALSE);
-
   gtk_grid_attach(
       inspector->recorderGrid,
       GTK_WIDGET(inspector->symbolView),
@@ -930,6 +920,16 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
       1, /* top */
       1, /* width */
       1 /* height */);
+
+  SU_TRYCATCH(
+      suscan_gui_symsrc_populate_codec_menu(
+          &inspector->_parent,
+          inspector->symbolView,
+          suscan_gui_inspector_dummy_create_private,
+          NULL,
+          G_CALLBACK(suscan_gui_inspector_run_encoder),
+          G_CALLBACK(suscan_gui_inspector_run_decoder)),
+      return SU_FALSE);
 
   gtk_widget_set_hexpand(GTK_WIDGET(inspector->symbolView), TRUE);
   gtk_widget_set_vexpand(GTK_WIDGET(inspector->symbolView), TRUE);
