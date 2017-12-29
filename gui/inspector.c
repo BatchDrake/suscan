@@ -1519,7 +1519,7 @@ suscan_gui_inspector_remove_codec(
   SU_TRYCATCH(
       (num = gtk_notebook_page_num(
           gui->codecNotebook,
-          GTK_WIDGET(codec->codecGrid))) != -1,
+          suscan_gui_codec_get_root(codec))) != -1,
       return SU_FALSE);
 
   gtk_notebook_remove_page(gui->codecNotebook, num);
@@ -1544,14 +1544,14 @@ suscan_gui_inspector_add_codec(
   SU_TRYCATCH(
       (page = gtk_notebook_append_page_menu(
           inspector->codecNotebook,
-          GTK_WIDGET(codec->codecGrid),
-          GTK_WIDGET(codec->pageLabelEventBox),
+          suscan_gui_codec_get_root(codec),
+          suscan_gui_codec_get_label(codec),
           NULL)) >= 0,
       goto fail);
 
   gtk_notebook_set_tab_reorderable(
       inspector->codecNotebook,
-      GTK_WIDGET(codec->pageLabelEventBox),
+      suscan_gui_codec_get_root(codec),
       TRUE);
 
   gtk_notebook_set_current_page(inspector->codecNotebook, page);

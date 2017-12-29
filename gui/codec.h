@@ -109,6 +109,7 @@ struct suscan_gui_codec {
   GtkEventBox     *pageLabelEventBox;
   GtkLabel        *pageLabel;
   GtkGrid         *codecGrid;
+  GtkGrid         *rootGrid;
 
   /* Toolbar widgets */
   GtkToggleToolButton *autoFitToggleButton;
@@ -118,6 +119,8 @@ struct suscan_gui_codec {
 
   /* Symbol view widgets */
   SuGtkSymView    *symbolView;
+  GtkScrollbar    *symViewScrollbar;
+  GtkAdjustment   *symViewScrollAdjustment;
 
   /* Live decoding */
   SUBOOL          pending_done;
@@ -151,6 +154,10 @@ struct suscan_gui_codec_cfg_ui *suscan_gui_codec_cfg_ui_new(
 /* Codec API */
 suscan_gui_codec_t *suscan_gui_codec_new(
     const struct suscan_gui_codec_params *params);
+
+GtkWidget *suscan_gui_codec_get_root(const suscan_gui_codec_t *codec);
+
+GtkWidget *suscan_gui_codec_get_label(const suscan_gui_codec_t *codec);
 
 /* Use this if the worker is dead */
 void suscan_gui_codec_destroy_hard(suscan_gui_codec_t *codec);

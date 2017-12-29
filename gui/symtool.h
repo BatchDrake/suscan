@@ -52,7 +52,7 @@ struct suscan_gui_symtool {
   GtkGrid             *mainSymViewGrid;
   SuGtkSymView        *symbolView;
   GtkAdjustment       *symViewScrollAdjustment;
-  GtkScrollbar        *symViewScrollBar;
+  GtkScrollbar        *symViewScrollbar;
   GtkNotebook         *codecNotebook;
   GtkSpinButton       *widthSpinButton;
   GtkToggleToolButton *autoFitToggleButton;

@@ -53,7 +53,7 @@ suscan_gui_symtool_remove_codec(
   SU_TRYCATCH(
       (num = gtk_notebook_page_num(
           gui->codecNotebook,
-          GTK_WIDGET(codec->codecGrid))) != -1,
+          suscan_gui_codec_get_root(codec))) != -1,
       return SU_FALSE);
 
   gtk_notebook_remove_page(gui->codecNotebook, num);
@@ -78,14 +78,14 @@ suscan_gui_symtool_add_codec(
   SU_TRYCATCH(
       (page = gtk_notebook_append_page_menu(
           inspector->codecNotebook,
-          GTK_WIDGET(codec->codecGrid),
-          GTK_WIDGET(codec->pageLabelEventBox),
+          suscan_gui_codec_get_root(codec),
+          suscan_gui_codec_get_label(codec),
           NULL)) >= 0,
       goto fail);
 
   gtk_notebook_set_tab_reorderable(
       inspector->codecNotebook,
-      GTK_WIDGET(codec->pageLabelEventBox),
+      suscan_gui_codec_get_root(codec),
       TRUE);
 
   gtk_notebook_set_current_page(inspector->codecNotebook, page);
@@ -352,7 +352,7 @@ suscan_gui_symtool_load_all_widgets(suscan_gui_symtool_t *symtool)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      symtool->symViewScrollBar =
+      symtool->symViewScrollbar =
           GTK_SCROLLBAR(gtk_builder_get_object(
               symtool->builder,
               "sbSymView")),
@@ -471,7 +471,7 @@ suscan_gui_symtool_update_spin_buttons(suscan_gui_symtool_t *symtool)
   page_rows = sugtk_sym_view_get_height(symtool->symbolView);
 
   if (total_rows < page_rows) {
-    gtk_widget_set_sensitive(GTK_WIDGET(symtool->symViewScrollBar), FALSE);
+    gtk_widget_set_sensitive(GTK_WIDGET(symtool->symViewScrollbar), FALSE);
     gtk_adjustment_set_page_size(symtool->symViewScrollAdjustment, page_rows);
     gtk_adjustment_set_upper(
         symtool->symViewScrollAdjustment,
@@ -486,7 +486,7 @@ suscan_gui_symtool_update_spin_buttons(suscan_gui_symtool_t *symtool)
         symtool->symViewScrollAdjustment,
         sugtk_sym_view_get_offset(symtool->symbolView)
         / sugtk_sym_view_get_width(symtool->symbolView));
-    gtk_widget_set_sensitive(GTK_WIDGET(symtool->symViewScrollBar), TRUE);
+    gtk_widget_set_sensitive(GTK_WIDGET(symtool->symViewScrollbar), TRUE);
   }
 }
 
