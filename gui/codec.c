@@ -676,6 +676,26 @@ suscan_gui_codec_load_all_widgets(suscan_gui_codec_t *codec)
               "grRoot")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      codec->offsetLabelToolItem =
+          GTK_TOOL_ITEM(gtk_builder_get_object(
+              codec->builder,
+              "tiLOffset")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      codec->offsetSpinButtonToolItem =
+          GTK_TOOL_ITEM(gtk_builder_get_object(
+              codec->builder,
+              "tiSbOffset")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      codec->clearToolButton =
+          GTK_TOOL_BUTTON(gtk_builder_get_object(
+              codec->builder,
+              "tbClear")),
+          return SU_FALSE);
 
   /* Add symbol view */
   codec->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
@@ -834,6 +854,15 @@ suscan_gui_codec_new(const struct suscan_gui_codec_params *params)
     SU_TRYCATCH(
         suscan_symbuf_plug_listener(params->source, new->listener),
         goto fail);
+  }
+
+  if (params->no_live_widgets) {
+    gtk_widget_destroy(GTK_WIDGET(new->offsetLabelToolItem));
+    gtk_widget_destroy(GTK_WIDGET(new->offsetSpinButtonToolItem));
+    gtk_widget_destroy(GTK_WIDGET(new->autoScrollToggleButton));
+    gtk_widget_destroy(GTK_WIDGET(new->clearToolButton));
+
+    sugtk_sym_view_set_autoscroll(new->symbolView, FALSE);
   }
 
   codec = NULL;
