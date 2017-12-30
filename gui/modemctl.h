@@ -30,7 +30,7 @@ struct suscan_gui_modemctl;
 struct suscan_gui_modemctl_class {
   const char *name;
   SUBOOL (*applicable) (const suscan_config_desc_t *desc);
-  void *(*ctor) (const suscan_config_t *config);
+  void *(*ctor) (const suscan_config_t *config, void *opaque);
 
   GtkWidget * (*get_root) (
       const struct suscan_gui_modemctl *this,
@@ -102,6 +102,8 @@ SUBOOL suscan_gui_modemctl_set_init(
     suscan_config_t *config,
     void (*on_update_config) (struct suscan_gui_modemctl *ctl, void *user_data),
     void *user_data);
+
+SUBOOL suscan_gui_modemctl_set_refresh(struct suscan_gui_modemctl_set *set);
 
 void suscan_gui_modemctl_set_finalize(struct suscan_gui_modemctl_set *set);
 

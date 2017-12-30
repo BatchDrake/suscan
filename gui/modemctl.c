@@ -101,7 +101,7 @@ suscan_gui_modemctl_new(
   new->on_update_config = on_update_config;
   new->user_data = user_data;
 
-  SU_TRYCATCH(new->private = (class->ctor) (config), goto fail);
+  SU_TRYCATCH(new->private = (class->ctor) (config, new), goto fail);
 
   return new;
 
@@ -198,9 +198,35 @@ fail:
   return SU_FALSE;
 }
 
+SUBOOL
+suscan_gui_modemctl_set_refresh(struct suscan_gui_modemctl_set *set)
+{
+  unsigned int i;
+
+  for (i = 0; i < set->modemctl_count; ++i)
+    SU_TRYCATCH(
+        suscan_gui_modemctl_set(set->modemctl_list[i]),
+        return SU_FALSE);
+
+  return SU_TRUE;
+}
+
 /****************************** GUI Callbacks ********************************/
 void
 suscan_gui_modemctl_on_change_generic(GtkWidget *widget, gpointer user_data)
+{
+  suscan_gui_modemctl_t *ctl = (suscan_gui_modemctl_t *) user_data;
+
+  SU_TRYCATCH(suscan_gui_modemctl_get(ctl), return);
+
+  suscan_gui_modemctl_trigger_update(ctl);
+}
+
+void
+suscan_gui_modemctl_on_change_event(
+    GtkWidget *widget,
+    GdkEvent *event,
+    gpointer user_data)
 {
   suscan_gui_modemctl_t *ctl = (suscan_gui_modemctl_t *) user_data;
 

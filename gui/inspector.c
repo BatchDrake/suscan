@@ -683,13 +683,15 @@ suscan_inspector_on_update_config(suscan_gui_modemctl_t *ctl, void *data)
 {
   suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
-  SU_TRYCATCH(
-      suscan_analyzer_set_inspector_config_async(
-          insp->_parent.gui->analyzer,
-          insp->inshnd,
-          insp->config,
-          rand()),
-      return);
+  /* This only makes sense if the inspector is tied to a GUI */
+  if (insp->index != -1)
+    SU_TRYCATCH(
+        suscan_analyzer_set_inspector_config_async(
+            insp->_parent.gui->analyzer,
+            insp->inshnd,
+            insp->config,
+            rand()),
+        return);
 }
 
 SUBOOL
@@ -697,12 +699,11 @@ suscan_gui_inspector_set_config(
     suscan_gui_inspector_t *insp,
     const suscan_config_t *config)
 {
-  if (insp->config == NULL)
-    SU_TRYCATCH(
-        insp->config = suscan_config_new(config->desc),
-        return SU_FALSE);
-
   SU_TRYCATCH(suscan_config_copy(insp->config, config), return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_gui_modemctl_set_refresh(&insp->modemctl_set),
+      return SU_FALSE);
 
   return SU_TRUE;
 }
@@ -726,6 +727,8 @@ suscan_gui_inspector_new(
   new->index = -1;
   new->inshnd = handle;
 
+  SU_TRYCATCH(new->config = suscan_config_new(config->desc), return SU_FALSE);
+
   suscan_gui_constellation_init(&new->constellation);
   suscan_gui_spectrum_init(&new->spectrum);
   suscan_gui_spectrum_set_mode(
@@ -735,8 +738,6 @@ suscan_gui_inspector_new(
   new->spectrum.auto_level = SU_FALSE;
   new->spectrum.agc_alpha  = SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA;
   new->spectrum.show_channels = SU_FALSE;
-
-  SU_TRYCATCH(suscan_gui_inspector_set_config(new, config), goto fail);
 
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(
@@ -776,6 +777,9 @@ suscan_gui_inspector_new(
         i, /* top */
         1, /* width */
         1 /* height */);
+
+  /* Set config */
+  SU_TRYCATCH(suscan_gui_inspector_set_config(new, config), goto fail);
 
   return new;
 

@@ -233,7 +233,7 @@ suscan_inspector_params_initialize_from_config(
 
   SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
 
-  params->gc_gain = SU_MAG(value->as_float);
+  params->gc_gain = SU_MAG_RAW(value->as_float);
 
   SU_TRYCATCH(
       value = suscan_config_get_value(
@@ -259,7 +259,7 @@ suscan_inspector_params_populate_config(
       suscan_config_set_float(
           config,
           "agc.gain",
-          SU_DB(params->gc_gain)),
+          SU_DB_RAW(params->gc_gain)),
       return SU_FALSE);
 
   SU_TRYCATCH(

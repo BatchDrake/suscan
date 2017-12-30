@@ -85,6 +85,8 @@ suscan_gui_modemctl_agc_set(
 
   agc->gain = value->as_float;
 
+  suscan_gui_modemctl_helper_write_float(agc->agcGainEntry, agc->gain);
+
   SU_TRYCATCH(
       value = suscan_config_get_value(
           config,
@@ -92,6 +94,8 @@ suscan_gui_modemctl_agc_set(
       return SU_FALSE);
 
   gtk_toggle_button_set_active(agc->agcAutoToggleButton, value->as_bool);
+
+  gtk_widget_set_sensitive(GTK_WIDGET(agc->agcGainEntry), !value->as_bool);
 
   return SU_TRUE;
 }
@@ -124,7 +128,7 @@ suscan_gui_modemctl_agc_load_all_widgets(struct suscan_gui_modemctl_agc *agc)
 }
 
 struct suscan_gui_modemctl_agc *
-suscan_gui_modemctl_agc_new(const suscan_config_t *config)
+suscan_gui_modemctl_agc_new(const suscan_config_t *config, void *opaque)
 {
   struct suscan_gui_modemctl_agc *new = NULL;
 
@@ -138,6 +142,8 @@ suscan_gui_modemctl_agc_new(const suscan_config_t *config)
       goto fail);
 
   SU_TRYCATCH(suscan_gui_modemctl_agc_load_all_widgets(new), goto fail);
+
+  gtk_builder_connect_signals(new->builder, opaque);
 
   return new;
 
@@ -156,9 +162,9 @@ suscan_gui_modemctl_agc_applicable(const suscan_config_desc_t *desc)
 }
 
 void *
-suscan_gui_modemctl_agc_ctor(const suscan_config_t *config)
+suscan_gui_modemctl_agc_ctor(const suscan_config_t *config, void *opaque)
 {
-  return suscan_gui_modemctl_agc_new(config);
+  return suscan_gui_modemctl_agc_new(config, opaque);
 }
 
 GtkWidget *

@@ -8,6 +8,107 @@
     <property name="page_increment">10</property>
     <property name="page_size">0.10000000000000001</property>
   </object>
+  <object class="GtkFrame" id="fMatchedFilter">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="margin_left">3</property>
+    <property name="margin_right">3</property>
+    <property name="margin_top">3</property>
+    <property name="margin_bottom">3</property>
+    <property name="label_xalign">0</property>
+    <property name="shadow_type">in</property>
+    <child>
+      <object class="GtkAlignment">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="margin_top">3</property>
+        <property name="margin_bottom">3</property>
+        <property name="left_padding">12</property>
+        <child>
+          <object class="GtkGrid">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <child>
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
+                <property name="margin_top">3</property>
+                <property name="margin_bottom">3</property>
+                <property name="label" translatable="yes">Type</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
+                <property name="margin_top">3</property>
+                <property name="margin_bottom">3</property>
+                <property name="label" translatable="yes">Roll-off</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkComboBoxText">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
+                <property name="margin_top">3</property>
+                <property name="margin_bottom">3</property>
+                <items>
+                  <item translatable="yes">None</item>
+                  <item translatable="yes">Square root of Raised-Cosine</item>
+                </items>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkScale">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
+                <property name="margin_top">3</property>
+                <property name="margin_bottom">3</property>
+                <property name="adjustment">adjustment1</property>
+                <property name="show_fill_level">True</property>
+                <property name="round_digits">2</property>
+                <property name="digits">2</property>
+                <property name="value_pos">right</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child type="label">
+      <object class="GtkLabel">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Matched filtering</property>
+      </object>
+    </child>
+  </object>
   <object class="GtkAdjustment" id="adjustment2">
     <property name="lower">-0.5</property>
     <property name="upper">0.5</property>
@@ -188,239 +289,6 @@
       </object>
     </child>
   </object>
-  <object class="GtkFrame" id="fEqualization">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="margin_left">3</property>
-    <property name="margin_right">3</property>
-    <property name="margin_top">3</property>
-    <property name="margin_bottom">3</property>
-    <property name="label_xalign">0</property>
-    <property name="shadow_type">in</property>
-    <child>
-      <object class="GtkAlignment">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="margin_top">3</property>
-        <property name="margin_bottom">3</property>
-        <property name="left_padding">12</property>
-        <child>
-          <object class="GtkGrid">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="margin_top">3</property>
-            <property name="margin_bottom">3</property>
-            <child>
-              <object class="GtkLabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">start</property>
-                <property name="margin_left">3</property>
-                <property name="margin_right">3</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-                <property name="label" translatable="yes">Type</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">start</property>
-                <property name="margin_left">3</property>
-                <property name="margin_right">3</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-                <property name="label" translatable="yes">Rate</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton">
-                <property name="label" translatable="yes">Reset</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="margin_left">3</property>
-                <property name="margin_right">3</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkToggleButton">
-                <property name="label" translatable="yes">Lock</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="margin_left">3</property>
-                <property name="margin_right">3</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="margin_left">3</property>
-                <property name="margin_right">3</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-                <items>
-                  <item translatable="yes">None</item>
-                  <item translatable="yes">Blind (CMA)</item>
-                </items>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-                <property name="width">3</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkEntry">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="margin_left">3</property>
-                <property name="margin_right">3</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-                <property name="text" translatable="yes">1e-3</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child type="label">
-      <object class="GtkLabel">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Equalization</property>
-      </object>
-    </child>
-  </object>
-  <object class="GtkFrame" id="fMatchedFilter">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="margin_left">3</property>
-    <property name="margin_right">3</property>
-    <property name="margin_top">3</property>
-    <property name="margin_bottom">3</property>
-    <property name="label_xalign">0</property>
-    <property name="shadow_type">in</property>
-    <child>
-      <object class="GtkAlignment">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="margin_top">3</property>
-        <property name="margin_bottom">3</property>
-        <property name="left_padding">12</property>
-        <child>
-          <object class="GtkGrid">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <child>
-              <object class="GtkLabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">start</property>
-                <property name="margin_left">3</property>
-                <property name="margin_right">3</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-                <property name="label" translatable="yes">Type</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="halign">start</property>
-                <property name="margin_left">3</property>
-                <property name="margin_right">3</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-                <property name="label" translatable="yes">Roll-off</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="margin_left">3</property>
-                <property name="margin_right">3</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-                <items>
-                  <item translatable="yes">None</item>
-                  <item translatable="yes">Square root of Raised-Cosine</item>
-                </items>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkScale">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="margin_left">3</property>
-                <property name="margin_right">3</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-                <property name="adjustment">adjustment1</property>
-                <property name="show_fill_level">True</property>
-                <property name="round_digits">2</property>
-                <property name="digits">2</property>
-                <property name="value_pos">right</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child type="label">
-      <object class="GtkLabel">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Matched filtering</property>
-      </object>
-    </child>
-  </object>
   <object class="GtkFrame" id="fCarrierRecovery">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -585,6 +453,138 @@
       </object>
     </child>
   </object>
+  <object class="GtkFrame" id="fEqualization">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="margin_left">3</property>
+    <property name="margin_right">3</property>
+    <property name="margin_top">3</property>
+    <property name="margin_bottom">3</property>
+    <property name="label_xalign">0</property>
+    <property name="shadow_type">in</property>
+    <child>
+      <object class="GtkAlignment">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="margin_top">3</property>
+        <property name="margin_bottom">3</property>
+        <property name="left_padding">12</property>
+        <child>
+          <object class="GtkGrid">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin_top">3</property>
+            <property name="margin_bottom">3</property>
+            <child>
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
+                <property name="margin_top">3</property>
+                <property name="margin_bottom">3</property>
+                <property name="label" translatable="yes">Type</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
+                <property name="margin_top">3</property>
+                <property name="margin_bottom">3</property>
+                <property name="label" translatable="yes">Rate</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton">
+                <property name="label" translatable="yes">Reset</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
+                <property name="margin_top">3</property>
+                <property name="margin_bottom">3</property>
+              </object>
+              <packing>
+                <property name="left_attach">2</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToggleButton">
+                <property name="label" translatable="yes">Lock</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
+                <property name="margin_top">3</property>
+                <property name="margin_bottom">3</property>
+              </object>
+              <packing>
+                <property name="left_attach">3</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkComboBoxText">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
+                <property name="margin_top">3</property>
+                <property name="margin_bottom">3</property>
+                <items>
+                  <item translatable="yes">None</item>
+                  <item translatable="yes">Blind (CMA)</item>
+                </items>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+                <property name="width">3</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkEntry">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
+                <property name="margin_top">3</property>
+                <property name="margin_bottom">3</property>
+                <property name="text" translatable="yes">1e-3</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child type="label">
+      <object class="GtkLabel">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Equalization</property>
+      </object>
+    </child>
+  </object>
   <object class="GtkFrame" id="fGainControl">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -634,7 +634,7 @@
                 <property name="margin_bottom">3</property>
                 <property name="input_purpose">number</property>
                 <signal name="activate" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
-                <signal name="focus-out-event" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
+                <signal name="focus-out-event" handler="suscan_gui_modemctl_on_change_event" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
