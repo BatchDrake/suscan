@@ -22,6 +22,7 @@
 
 #define SU_LOG_DOMAIN "gui"
 
+#include "modemctl.h"
 #include "gui.h"
 
 PTR_LIST_EXTERN(struct suscan_source, source); /* Declared in source.c */
@@ -1199,6 +1200,14 @@ suscan_gui_detach_all_inspectors(suscan_gui_t *gui)
 }
 
 SUBOOL
+suscan_gui_helper_preload(void)
+{
+  SU_TRYCATCH(suscan_gui_modemctl_agc_init(), return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_gui_start(
     int argc,
     char **argv,
@@ -1207,7 +1216,9 @@ suscan_gui_start(
 {
   suscan_gui_t *gui = NULL;
 
-  SU_TRYCATCH(gui = suscan_gui_new(argc, argv), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_helper_preload(), goto fail);
+
+  SU_TRYCATCH(gui = suscan_gui_new(argc, argv), goto fail);
 
   gtk_widget_show(GTK_WIDGET(gui->main));
 
