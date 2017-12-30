@@ -159,6 +159,12 @@ SUBOOL suscan_analyzer_set_inspector_params_async(
     const struct suscan_inspector_params *params,
     uint32_t req_id);
 
+SUBOOL suscan_analyzer_set_inspector_config_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    const suscan_config_t *config,
+    uint32_t req_id);
+
 SUBOOL suscan_analyzer_reset_equalizer_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,

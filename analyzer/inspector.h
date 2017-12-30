@@ -28,6 +28,8 @@
 #include <sigutils/detect.h>
 #include <sigutils/equalizer.h>
 
+#include <cfg.h>
+
 #define SUHANDLE int32_t
 
 #define SUSCAN_ANALYZER_CPU_USAGE_UPDATE_ALPHA .025
@@ -151,6 +153,14 @@ void suscan_inspector_destroy(suscan_inspector_t *chanal);
 void suscan_inspector_params_initialize(
     struct suscan_inspector_params *params);
 
+SUBOOL suscan_inspector_params_initialize_from_config(
+    struct suscan_inspector_params *params,
+    const suscan_config_t *config);
+
+SUBOOL suscan_inspector_params_populate_config(
+    const struct suscan_inspector_params *params,
+    suscan_config_t *config);
+
 suscan_inspector_t *suscan_inspector_new(
     SUSCOUNT fs,
     const struct sigutils_channel *channel);
@@ -167,5 +177,7 @@ void suscan_inspector_request_params(
 void suscan_inspector_reset_equalizer(suscan_inspector_t *insp);
 
 void suscan_inspector_assert_params(suscan_inspector_t *insp);
+
+SUBOOL suscan_init_inspectors(void);
 
 #endif /* _INSPECTOR_H */

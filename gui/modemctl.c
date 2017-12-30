@@ -112,7 +112,6 @@ fail:
   return NULL;
 }
 
-
 GtkWidget *
 suscan_gui_modemctl_get_root(const suscan_gui_modemctl_t *ctl)
 {

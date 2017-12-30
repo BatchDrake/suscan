@@ -926,12 +926,8 @@ suscan_gui_add_inspector(
     suscan_gui_t *gui,
     suscan_gui_inspector_t *insp)
 {
-  struct suscan_inspector_params params;
   gint page;
   SUBOOL inspector_added = SU_FALSE;
-
-  /* Local copy of parameters */
-  suscan_inspector_params_initialize(&params);
 
   SU_TRYCATCH(
       (insp->index = PTR_LIST_APPEND_CHECK(gui->inspector, insp)) != -1,
@@ -954,21 +950,6 @@ suscan_gui_add_inspector(
       TRUE);
 
   gtk_notebook_set_current_page(gui->analyzerViewsNotebook, page);
-
-  /*
-   * Page added. Set initial params. Interface will be unlocked as soon
-   * as we received the response of this message
-   */
-  params.inspector_id = insp->index;
-  insp->params = params;
-
-  SU_TRYCATCH(
-      suscan_analyzer_set_inspector_params_async(
-          gui->analyzer,
-          insp->inshnd,
-          &params,
-          rand()),
-      goto fail);
 
   return TRUE;
 

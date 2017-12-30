@@ -333,6 +333,47 @@ done:
 }
 
 SUBOOL
+suscan_analyzer_set_inspector_config_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    const suscan_config_t *config,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_inspector_msg *req = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG,
+          req_id),
+      goto done);
+
+  req->handle = handle;
+
+  SU_TRYCATCH(req->config = suscan_config_new(config->desc), goto done);
+
+  SU_TRYCATCH(suscan_config_copy(req->config, config), goto done);
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+      req)) {
+    SU_ERROR("Failed to send set_inspector_config command\n");
+    goto done;
+  }
+
+  req = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (req != NULL)
+    suscan_analyzer_inspector_msg_destroy(req);
+
+  return ok;
+}
+
+SUBOOL
 suscan_analyzer_reset_equalizer_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,

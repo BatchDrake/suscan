@@ -365,6 +365,7 @@ suscan_async_parse_inspector_msg(gpointer user_data)
       SU_TRYCATCH(
           new_insp = suscan_gui_inspector_new(
               &msg->channel,
+              msg->config,
               msg->handle),
           goto done);
 
@@ -378,32 +379,13 @@ suscan_async_parse_inspector_msg(gpointer user_data)
       new_insp = NULL;
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO:
-      SU_TRYCATCH(
-          insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
-          goto done);
-
-      if (msg->req_id == 0) {
-        /* Update from FAC */
-        snprintf(text, sizeof(text), "%lg", msg->baud.fac);
-        gtk_entry_set_text(insp->baudRateEntry, text);
-      } else {
-        /* Update from non-linear */
-        snprintf(text, sizeof(text), "%lg", msg->baud.nln);
-        gtk_entry_set_text(insp->baudRateEntry, text);
-      }
-
-      gtk_widget_set_sensitive(GTK_WIDGET(insp->baudRateEntry), TRUE);
-
-      break;
-
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
       /* TODO: update GUI according to params */
       SU_TRYCATCH(
           insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
           goto done);
       SU_TRYCATCH(
-          suscan_gui_inspector_update_sensitiveness(insp, &msg->insp_params),
+          suscan_gui_inspector_set_config(insp, msg->config),
           goto done);
       break;
 

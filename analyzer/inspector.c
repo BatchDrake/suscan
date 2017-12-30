@@ -37,6 +37,8 @@
 #define SUSCAN_INSPECTOR_DEFAULT_EQ_LENGTH 20
 #define SUSCAN_INSPECTOR_MAX_MF_SPAN       1024
 
+suscan_config_desc_t *psk_inspector_desc;
+
 SUPRIVATE SUSCOUNT
 suscan_inspector_mf_span(SUSCOUNT span)
 {
@@ -212,6 +214,62 @@ suscan_inspector_params_initialize(struct suscan_inspector_params *params)
 
   params->eq_conf = SUSCAN_INSPECTOR_EQUALIZER_BYPASS;
   params->eq_mu = SUSCAN_INSPECTOR_DEFAULT_EQ_MU;
+}
+
+SUBOOL
+suscan_inspector_params_initialize_from_config(
+    struct suscan_inspector_params *params,
+    const suscan_config_t *config)
+{
+  struct suscan_field_value *value;
+
+  suscan_inspector_params_initialize(params);
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "agc.gain"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->gc_gain = SU_MAG(value->as_float);
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "agc.enabled"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_BOOLEAN, return SU_FALSE);
+
+  params->gc_ctrl = value->as_bool
+      ? SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC
+      : SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_params_populate_config(
+    const struct suscan_inspector_params *params,
+    suscan_config_t *config)
+{
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "agc.gain",
+          SU_DB(params->gc_gain)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_bool(
+          config,
+          "agc.enabled",
+          params->gc_ctrl == SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC),
+      return SU_FALSE);
+
+  return SU_TRUE;
 }
 
 suscan_inspector_t *
@@ -466,5 +524,33 @@ suscan_inspector_feed_bulk(
 
 done:
   return ok ? i : -1;
+}
+
+SUBOOL
+suscan_init_inspectors(void)
+{
+  SU_TRYCATCH(
+      psk_inspector_desc = suscan_config_desc_new(),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "agc.enabled",
+          "Automatic Gain Control is enabled"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "agc.gain",
+          "Manual gain (dB)"),
+      return SU_FALSE);
+
+  return SU_TRUE;
 }
 

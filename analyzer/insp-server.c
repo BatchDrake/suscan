@@ -37,6 +37,8 @@
 #include "mq.h"
 #include "msg.h"
 
+extern suscan_config_desc_t *psk_inspector_desc;
+
 /*
  * TODO: Store *one port* only per worker. This port is read once all
  * consumers have finished with their buffer.
@@ -219,6 +221,7 @@ suscan_analyzer_parse_inspector_msg(
 {
   suscan_inspector_t *new = NULL;
   suscan_inspector_t *insp = NULL;
+  struct suscan_inspector_params params;
   SUHANDLE handle = -1;
   SUBOOL ok = SU_FALSE;
   SUBOOL update_baud;
@@ -233,9 +236,21 @@ suscan_analyzer_parse_inspector_msg(
       handle = suscan_analyzer_register_inspector(analyzer, new);
       if (handle == -1)
         goto done;
+
+      /* Create generic config */
+      SU_TRYCATCH(
+          msg->config = suscan_config_new(psk_inspector_desc),
+          goto done);
+
+      /* Populate config from params */
+      SU_TRYCATCH(
+          suscan_inspector_params_populate_config(&new->params, msg->config),
+          goto done);
+
       new = NULL;
 
       msg->handle = handle;
+
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO:
@@ -276,6 +291,46 @@ suscan_analyzer_parse_inspector_msg(
         suscan_inspector_request_params(insp, &msg->insp_params);
       }
       break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else {
+        /* Retrieve current inspector params */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG;
+
+        /* Convert them to generic config */
+        SU_TRYCATCH(
+            msg->config = suscan_config_new(psk_inspector_desc),
+            goto done);
+
+        /* Populate config from params */
+        SU_TRYCATCH(
+            suscan_inspector_params_populate_config(&insp->params, msg->config),
+            goto done);
+      }
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else {
+        /* Parse config and extract parameters */
+        SU_TRYCATCH(
+            suscan_inspector_params_initialize_from_config(&params, msg->config),
+            goto done);
+
+        /* Store the parameter update request */
+        suscan_inspector_request_params(insp, &params);
+      }
+      break;
+
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
       if ((insp = suscan_analyzer_get_inspector(
@@ -336,6 +391,8 @@ suscan_analyzer_parse_inspector_msg(
       SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
       msg))
     goto done;
+
+  msg = NULL;
 
   ok = SU_TRUE;
 

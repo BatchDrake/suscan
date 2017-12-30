@@ -158,9 +158,14 @@ suscan_analyzer_inspector_msg_new(
 }
 
 void
-suscan_analyzer_inspector_msg_destroy(
-    struct suscan_analyzer_inspector_msg *msg)
+suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
 {
+  if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG
+      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG
+      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN)
+    if (msg->config != NULL)
+      suscan_config_destroy(msg->config);
+
   free(msg);
 }
 
