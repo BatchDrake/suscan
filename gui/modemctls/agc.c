@@ -44,6 +44,15 @@ suscan_gui_modemctl_agc_destroy(struct suscan_gui_modemctl_agc *agc)
   free(agc);
 }
 
+SUPRIVATE void
+suscan_gui_modemctl_agc_update_sensitiveness(
+    struct suscan_gui_modemctl_agc *agc)
+{
+  gtk_widget_set_sensitive(
+      GTK_WIDGET(agc->agcGainEntry),
+      !gtk_toggle_button_get_active(agc->agcAutoToggleButton));
+}
+
 SUPRIVATE SUBOOL
 suscan_gui_modemctl_agc_get(
     struct suscan_gui_modemctl_agc *agc,
@@ -66,6 +75,8 @@ suscan_gui_modemctl_agc_get(
           SUSCAN_GUI_MODEMCTL_PREFIX "enabled",
           gtk_toggle_button_get_active(agc->agcAutoToggleButton)),
       return SU_FALSE);
+
+  suscan_gui_modemctl_agc_update_sensitiveness(agc);
 
   return SU_TRUE;
 }
@@ -95,7 +106,7 @@ suscan_gui_modemctl_agc_set(
 
   gtk_toggle_button_set_active(agc->agcAutoToggleButton, value->as_bool);
 
-  gtk_widget_set_sensitive(GTK_WIDGET(agc->agcGainEntry), !value->as_bool);
+  suscan_gui_modemctl_agc_update_sensitiveness(agc);
 
   return SU_TRUE;
 }

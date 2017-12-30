@@ -247,6 +247,26 @@ suscan_inspector_params_initialize_from_config(
       ? SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC
       : SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL;
 
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "afc.costas-order"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->fc_ctrl = value->as_int;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "afc.offset"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->fc_off = value->as_float;
+
   return SU_TRUE;
 }
 
@@ -267,6 +287,28 @@ suscan_inspector_params_populate_config(
           config,
           "agc.enabled",
           params->gc_ctrl == SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "afc.costas-order",
+          SU_DB_RAW(params->fc_ctrl)),
+      return SU_FALSE);
+
+  if (params->fc_ctrl != SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL)
+    SU_TRYCATCH(
+        suscan_config_set_integer(
+            config,
+            "afc.bits-per-symbol",
+            SU_DB_RAW(params->fc_ctrl)),
+        return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "afc.offset",
+          SU_DB_RAW(params->fc_off)),
       return SU_FALSE);
 
   return SU_TRUE;
@@ -549,6 +591,33 @@ suscan_init_inspectors(void)
           SU_TRUE,
           "agc.gain",
           "Manual gain (dB)"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "afc.costas-order",
+          "Constellation order (Costas loop)"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "afc.bits-per-symbol",
+          "Bits per symbol"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "afc.offset",
+          "Carrier offset (Hz)"),
       return SU_FALSE);
 
   return SU_TRUE;

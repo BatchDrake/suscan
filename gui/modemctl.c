@@ -48,6 +48,29 @@ suscan_gui_modemctl_helper_try_read_float(GtkEntry *entry, SUFLOAT *result)
     *result = value;
 }
 
+int
+suscan_gui_modemctl_helper_try_read_combo_id(GtkComboBox *box)
+{
+  const gchar *text;
+  int id;
+
+  text = gtk_combo_box_get_active_id(box);
+
+  if (sscanf(text, "%d", &id) < 1)
+    id = 0;
+
+  return id;
+}
+
+void
+suscan_gui_modemctl_helper_write_combo_id(GtkComboBox *box, int id)
+{
+  gchar id_str[32];
+
+  snprintf(id_str, sizeof(id_str), "%d", id);
+
+  gtk_combo_box_set_active_id(box, id_str);
+}
 
 const struct suscan_gui_modemctl_class *
 suscan_gui_modemctl_class_lookup(const char *name)
@@ -234,3 +257,4 @@ suscan_gui_modemctl_on_change_event(
 
   suscan_gui_modemctl_trigger_update(ctl);
 }
+

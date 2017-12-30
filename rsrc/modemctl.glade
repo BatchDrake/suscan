@@ -359,7 +359,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkSpinButton">
+              <object class="GtkSpinButton" id="sbFCOffset">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="margin_left">3</property>
@@ -372,6 +372,8 @@
                 <property name="climb_rate">0.01</property>
                 <property name="digits">2</property>
                 <property name="numeric">True</property>
+                <signal name="focus-out-event" handler="suscan_gui_modemctl_on_change_event" swapped="no"/>
+                <signal name="value-changed" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -394,7 +396,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkComboBoxText">
+              <object class="GtkComboBoxText" id="cbFCType">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="margin_left">3</property>
@@ -411,6 +413,7 @@
                   <item id="2" translatable="yes">QPSK</item>
                   <item id="3" translatable="yes">8PSK</item>
                 </items>
+                <signal name="changed" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -419,7 +422,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkComboBoxText">
+              <object class="GtkComboBoxText" id="cbFCOrder">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="margin_left">3</property>
@@ -434,6 +437,7 @@
                   <item id="2" translatable="yes">2</item>
                   <item id="3" translatable="yes">3</item>
                 </items>
+                <signal name="changed" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>

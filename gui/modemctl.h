@@ -73,6 +73,10 @@ void suscan_gui_modemctl_helper_try_read_float(
     GtkEntry *entry,
     SUFLOAT *result);
 
+int suscan_gui_modemctl_helper_try_read_combo_id(GtkComboBox *box);
+
+void suscan_gui_modemctl_helper_write_combo_id(GtkComboBox *box, int id);
+
 /************************ Modemctl API ***************************************/
 const struct suscan_gui_modemctl_class *suscan_gui_modemctl_class_lookup(
     const char *name);
@@ -109,5 +113,6 @@ void suscan_gui_modemctl_set_finalize(struct suscan_gui_modemctl_set *set);
 
 /************************** Registration methods *****************************/
 SUBOOL suscan_gui_modemctl_agc_init(void);
+SUBOOL suscan_gui_modemctl_afc_init(void);
 
 #endif /* _GUI_MODEMCTL_H */
