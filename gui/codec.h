@@ -53,6 +53,7 @@ struct suscan_gui_codec_params {
   unsigned int start;
   unsigned int end;
   SUBOOL live;
+  SUBOOL no_live_widgets;
 
   void (*on_parse_progress) (
       struct suscan_gui_symsrc *symsrc,
@@ -86,6 +87,7 @@ struct suscan_gui_codec_params {
   0, /* start */                            \
   0, /* end */                              \
   SU_FALSE, /* live */                      \
+  SU_FALSE, /* hide_live_widgets */         \
   NULL, /* on_parse_progress */             \
   NULL, /* on_display_error */              \
   NULL, /* on_unref */                      \
@@ -116,6 +118,9 @@ struct suscan_gui_codec {
   GtkToggleToolButton *autoScrollToggleButton;
   GtkSpinButton       *offsetSpinButton;
   GtkSpinButton       *widthSpinButton;
+  GtkToolItem         *offsetLabelToolItem;
+  GtkToolItem         *offsetSpinButtonToolItem;
+  GtkToolButton       *clearToolButton;
 
   /* Symbol view widgets */
   SuGtkSymView    *symbolView;

@@ -66,6 +66,20 @@
                   </packing>
                 </child>
                 <child>
+                  <object class="GtkToggleToolButton" id="tbAutoFit">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="icon_name">format-justify-fill-symbolic</property>
+                    <property name="active">True</property>
+                    <signal name="toggled" handler="suscan_symtool_on_toggle_autofit" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="homogeneous">True</property>
+                  </packing>
+                </child>
+                <child>
                   <object class="GtkToolItem">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
@@ -105,20 +119,6 @@
                         </style>
                       </object>
                     </child>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="homogeneous">True</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkToggleToolButton" id="tbAutoFit">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="use_underline">True</property>
-                    <property name="icon_name">format-justify-fill-symbolic</property>
-                    <property name="active">True</property>
-                    <signal name="toggled" handler="suscan_symtool_on_toggle_autofit" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>

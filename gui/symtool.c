@@ -188,6 +188,7 @@ suscan_gui_symtool_open_codec_tab(
   params.config = ui->config;
   params.direction = direction;
   params.source = source;
+  params.no_live_widgets = SU_TRUE;
 
   /* GUI integration callbacks */
   params.on_parse_progress = suscan_gui_symtool_on_codec_progress;

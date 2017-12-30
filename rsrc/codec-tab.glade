@@ -44,7 +44,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkToolButton">
+          <object class="GtkToolButton" id="tbClear">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="use_underline">True</property>
@@ -97,7 +97,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkToolItem">
+          <object class="GtkToolItem" id="tiLOffset">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
@@ -117,7 +117,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkToolItem">
+          <object class="GtkToolItem" id="tiSbOffset">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
@@ -189,6 +189,8 @@
                 <property name="sensitive">False</property>
                 <property name="can_focus">True</property>
                 <property name="text" translatable="yes">1</property>
+                <property name="secondary_icon_activatable">False</property>
+                <property name="secondary_icon_sensitive">False</property>
                 <property name="input_purpose">digits</property>
                 <property name="adjustment">aSymViewWidth</property>
                 <property name="numeric">True</property>
