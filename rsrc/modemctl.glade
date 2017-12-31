@@ -6,7 +6,7 @@
     <property name="upper">1</property>
     <property name="value">0.34999999999999998</property>
     <property name="page_increment">10</property>
-    <property name="page_size">0.10000000000000001</property>
+    <property name="page_size">2.2351741811588166e-10</property>
   </object>
   <object class="GtkFrame" id="fMatchedFilter">
     <property name="visible">True</property>
@@ -114,7 +114,6 @@
   <object class="GtkAdjustment" id="adjustment2">
     <property name="lower">-0.5</property>
     <property name="upper">0.5</property>
-    <property name="step_increment">0.01</property>
     <property name="page_increment">0.10000000000000001</property>
   </object>
   <object class="GtkFrame" id="fClockRecovery">
@@ -225,6 +224,7 @@
                 <property name="can_focus">True</property>
                 <property name="adjustment">adjustment2</property>
                 <property name="round_digits">1</property>
+                <property name="digits">3</property>
                 <signal name="value-changed" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
               </object>
               <packing>
