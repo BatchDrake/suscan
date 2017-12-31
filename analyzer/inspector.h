@@ -99,6 +99,7 @@ struct suscan_inspector_params {
   enum suscan_inspector_baudrate_control br_ctrl;
   SUFLOAT br_alpha;   /* Baudrate control alpha (linear) */
   SUFLOAT br_beta;    /* Baudrate control beta (linear) */
+  SUBOOL  br_running; /* Sampler enabled */
 
   /* Channel equalization */
   enum suscan_inspector_equalizer eq_conf;

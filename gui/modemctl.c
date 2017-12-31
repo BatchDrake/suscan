@@ -150,14 +150,26 @@ suscan_gui_modemctl_get(suscan_gui_modemctl_t *ctl)
 SUBOOL
 suscan_gui_modemctl_set(suscan_gui_modemctl_t *ctl)
 {
-  return (ctl->class->set) (ctl, ctl->config, ctl->private);
+  SUBOOL old, result;
+
+  old = ctl->changed_from_code;
+  ctl->changed_from_code = SU_TRUE;
+
+  result = (ctl->class->set) (ctl, ctl->config, ctl->private);
+  ctl->changed_from_code = old;
+
+  return result;
 }
 
 void
 suscan_gui_modemctl_trigger_update(suscan_gui_modemctl_t *ctl)
 {
-  if (ctl->on_update_config != NULL)
-    (ctl->on_update_config) (ctl, ctl->user_data);
+  if (!ctl->changed_from_code) {
+    SU_TRYCATCH(suscan_gui_modemctl_get(ctl), return);
+
+    if (ctl->on_update_config != NULL)
+      (ctl->on_update_config) (ctl, ctl->user_data);
+  }
 }
 
 void
@@ -181,6 +193,8 @@ suscan_gui_modemctl_set_finalize(struct suscan_gui_modemctl_set *set)
 
   if (set->modemctl_list != NULL)
     free(set->modemctl_list);
+
+  memset(set, 0, sizeof(struct suscan_gui_modemctl_set));
 }
 
 SUBOOL
@@ -240,8 +254,6 @@ suscan_gui_modemctl_on_change_generic(GtkWidget *widget, gpointer user_data)
 {
   suscan_gui_modemctl_t *ctl = (suscan_gui_modemctl_t *) user_data;
 
-  SU_TRYCATCH(suscan_gui_modemctl_get(ctl), return);
-
   suscan_gui_modemctl_trigger_update(ctl);
 }
 
@@ -252,8 +264,6 @@ suscan_gui_modemctl_on_change_event(
     gpointer user_data)
 {
   suscan_gui_modemctl_t *ctl = (suscan_gui_modemctl_t *) user_data;
-
-  SU_TRYCATCH(suscan_gui_modemctl_get(ctl), return);
 
   suscan_gui_modemctl_trigger_update(ctl);
 }

@@ -105,6 +105,8 @@ suscan_gui_modemctl_mf_set(
 
   gtk_range_set_value(GTK_RANGE(mf->mfRollOffScale), value->as_float);
 
+  suscan_gui_modemctl_mf_update_sensitiveness(mf);
+
   return SU_TRUE;
 }
 

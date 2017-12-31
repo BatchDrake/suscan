@@ -188,13 +188,15 @@
               </packing>
             </child>
             <child>
-              <object class="GtkEntry">
+              <object class="GtkEntry" id="eCRBaud">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="margin_left">3</property>
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
+                <signal name="activate" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
+                <signal name="focus-out-event" handler="suscan_gui_modemctl_on_change_event" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -202,15 +204,15 @@
               </packing>
             </child>
             <child>
-              <object class="GtkEntry">
+              <object class="GtkEntry" id="eCRGain">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="margin_left">3</property>
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
-                <property name="text" translatable="yes">-14</property>
-                <property name="input_purpose">number</property>
+                <signal name="activate" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
+                <signal name="focus-out-event" handler="suscan_gui_modemctl_on_change_event" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -218,11 +220,12 @@
               </packing>
             </child>
             <child>
-              <object class="GtkScale">
+              <object class="GtkScale" id="sCRPhase">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="adjustment">adjustment2</property>
                 <property name="round_digits">1</property>
+                <signal name="value-changed" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -235,6 +238,8 @@
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="halign">start</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
                 <property name="label" translatable="yes">dB</property>
@@ -245,7 +250,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkComboBoxText">
+              <object class="GtkComboBoxText" id="cbCRType">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="margin_left">3</property>
@@ -253,9 +258,10 @@
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
                 <items>
-                  <item translatable="yes">Manual</item>
-                  <item translatable="yes">Gardner's method</item>
+                  <item id="0" translatable="yes">Manual</item>
+                  <item id="1" translatable="yes">Gardner's method</item>
                 </items>
+                <signal name="changed" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -264,7 +270,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkToggleButton">
+              <object class="GtkToggleButton" id="tbCRRunning">
                 <property name="label" translatable="yes">Start</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -273,6 +279,7 @@
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
+                <signal name="toggled" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">2</property>

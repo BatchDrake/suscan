@@ -93,21 +93,27 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
 {
   SUFLOAT fs;
   SUBOOL mf_changed;
+  SUFLOAT actual_baud;
   su_iir_filt_t mf = su_iir_filt_INITIALIZER;
 
   if (insp->params_requested) {
     suscan_inspector_lock(insp);
 
+    actual_baud = insp->params_request.br_running
+        ? insp->params_request.baud
+        : 0;
+
     mf_changed =
-        (insp->params.baud != insp->params_request.baud)
+        (insp->params.baud != actual_baud)
         || (insp->params.mf_rolloff != insp->params_request.mf_rolloff);
+
     insp->params = insp->params_request;
 
     fs = insp->equiv_fs; /* Use equivalent sample rate after dectimation */
 
     /* Update inspector according to params */
-    if (insp->params.baud > 0)
-      insp->sym_period = 1. / SU_ABS2NORM_BAUD(fs, insp->params.baud);
+    if (actual_baud > 0)
+      insp->sym_period = 1. / SU_ABS2NORM_BAUD(fs, actual_baud);
     else
       insp->sym_period = 0;
 
@@ -118,9 +124,7 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
     insp->phase = SU_C_EXP(I * insp->params.fc_phi);
 
     /* Update baudrate */
-    su_clock_detector_set_baud(
-        &insp->cd,
-        SU_ABS2NORM_BAUD(fs, insp->params.baud));
+    su_clock_detector_set_baud(&insp->cd, SU_ABS2NORM_BAUD(fs, actual_baud));
 
     insp->cd.alpha = insp->params.br_alpha;
     insp->cd.beta = insp->params.br_beta;
@@ -225,6 +229,7 @@ suscan_inspector_params_initialize_from_config(
 
   suscan_inspector_params_initialize(params);
 
+  /***************************** Gain control ******************************/
   SU_TRYCATCH(
       value = suscan_config_get_value(
           config,
@@ -247,6 +252,7 @@ suscan_inspector_params_initialize_from_config(
       ? SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC
       : SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL;
 
+  /***************************** Freq control ******************************/
   SU_TRYCATCH(
       value = suscan_config_get_value(
           config,
@@ -267,6 +273,7 @@ suscan_inspector_params_initialize_from_config(
 
   params->fc_off = value->as_float;
 
+  /*************************** Matched filter ******************************/
   SU_TRYCATCH(
       value = suscan_config_get_value(
           config,
@@ -287,6 +294,7 @@ suscan_inspector_params_initialize_from_config(
 
   params->mf_rolloff = value->as_float;
 
+  /***************************** Equalization *****************************/
   SU_TRYCATCH(
       value = suscan_config_get_value(
           config,
@@ -317,6 +325,57 @@ suscan_inspector_params_initialize_from_config(
 
   params->eq_locked = value->as_bool;
 
+  /**************************** Clock recovery ****************************/
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "clock.type"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->br_ctrl = value->as_int;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "clock.gain"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->br_alpha = SU_MAG_RAW(value->as_float);
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "clock.baud"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->baud = value->as_float;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "clock.phase"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->sym_phase = value->as_float;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "clock.running"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_BOOLEAN, return SU_FALSE);
+
+  params->br_running = value->as_bool;
+
   return SU_TRUE;
 }
 
@@ -325,6 +384,7 @@ suscan_inspector_params_populate_config(
     const struct suscan_inspector_params *params,
     suscan_config_t *config)
 {
+  /***************************** Gain control ******************************/
   SU_TRYCATCH(
       suscan_config_set_float(
           config,
@@ -339,11 +399,12 @@ suscan_inspector_params_populate_config(
           params->gc_ctrl == SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC),
       return SU_FALSE);
 
+  /***************************** Freq control ******************************/
   SU_TRYCATCH(
       suscan_config_set_integer(
           config,
           "afc.costas-order",
-          SU_DB_RAW(params->fc_ctrl)),
+          params->fc_ctrl),
       return SU_FALSE);
 
   if (params->fc_ctrl != SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL)
@@ -351,50 +412,90 @@ suscan_inspector_params_populate_config(
         suscan_config_set_integer(
             config,
             "afc.bits-per-symbol",
-            SU_DB_RAW(params->fc_ctrl)),
+            params->fc_ctrl),
         return SU_FALSE);
 
   SU_TRYCATCH(
       suscan_config_set_float(
           config,
           "afc.offset",
-          SU_DB_RAW(params->fc_off)),
+          params->fc_off),
       return SU_FALSE);
 
+  /*************************** Matched filter ******************************/
   SU_TRYCATCH(
       suscan_config_set_integer(
           config,
           "mf.type",
-          SU_DB_RAW(params->mf_conf)),
+          params->mf_conf),
       return SU_FALSE);
 
   SU_TRYCATCH(
       suscan_config_set_float(
           config,
           "mf.roll-off",
-          SU_DB_RAW(params->mf_rolloff)),
+          params->mf_rolloff),
       return SU_FALSE);
 
+  /***************************** Equalization *****************************/
   SU_TRYCATCH(
       suscan_config_set_integer(
           config,
           "equalizer.type",
-          SU_DB_RAW(params->eq_conf)),
+          params->eq_conf),
       return SU_FALSE);
 
   SU_TRYCATCH(
       suscan_config_set_float(
           config,
           "equalizer.rate",
-          SU_DB_RAW(params->eq_mu)),
+          params->eq_mu),
       return SU_FALSE);
 
   SU_TRYCATCH(
       suscan_config_set_bool(
           config,
           "equalizer.locked",
-          SU_DB_RAW(params->eq_locked)),
+          params->eq_locked),
       return SU_FALSE);
+
+  /**************************** Clock recovery ****************************/
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "clock.type",
+          params->br_ctrl),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "clock.gain",
+          SU_DB_RAW(params->br_alpha)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "clock.baud",
+          params->baud),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "clock.phase",
+          params->sym_phase),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_bool(
+          config,
+          "clock.running",
+          params->br_running),
+      return SU_FALSE);
+
+  printf("Config clock alpha: %lg\n", SU_DB_RAW(params->br_alpha));
 
   return SU_TRUE;
 }
@@ -660,6 +761,7 @@ suscan_init_inspectors(void)
       psk_inspector_desc = suscan_config_desc_new(),
       return SU_FALSE);
 
+  /*********************** Gain control configuration *******************/
   SU_TRYCATCH(
       suscan_config_desc_add_field(
           psk_inspector_desc,
@@ -678,6 +780,7 @@ suscan_init_inspectors(void)
           "Manual gain (dB)"),
       return SU_FALSE);
 
+  /******************** Frequency control configurations *****************/
   SU_TRYCATCH(
       suscan_config_desc_add_field(
           psk_inspector_desc,
@@ -705,6 +808,7 @@ suscan_init_inspectors(void)
           "Carrier offset (Hz)"),
       return SU_FALSE);
 
+  /********************** Matched filtering ******************************/
   SU_TRYCATCH(
       suscan_config_desc_add_field(
           psk_inspector_desc,
@@ -723,6 +827,7 @@ suscan_init_inspectors(void)
           "Roll-off factor"),
       return SU_FALSE);
 
+  /************************* Equalizer configuration *********************/
   SU_TRYCATCH(
       suscan_config_desc_add_field(
           psk_inspector_desc,
@@ -748,6 +853,52 @@ suscan_init_inspectors(void)
           SU_TRUE,
           "equalizer.locked",
           "Equalizer has corrected channel distortion"),
+      return SU_FALSE);
+
+  /***************************** Clock Recovery **************************/
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "clock.type",
+          "Clock recovery method"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "clock.baud",
+          "Symbol rate (baud)"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "clock.gain",
+          "Gardner's algorithm loop gain"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "clock.phase",
+          "Symbol phase"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "clock.running",
+          "Clock recovery is running"),
       return SU_FALSE);
 
   return SU_TRUE;

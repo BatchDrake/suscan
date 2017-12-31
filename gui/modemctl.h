@@ -57,6 +57,7 @@ struct suscan_gui_modemctl {
   suscan_config_t *config; /* Borrowed */
   void *user_data;
   void (*on_update_config) (struct suscan_gui_modemctl *ctl, void *user_data);
+  SUBOOL changed_from_code;
 };
 
 typedef struct suscan_gui_modemctl suscan_gui_modemctl_t;
@@ -116,5 +117,6 @@ SUBOOL suscan_gui_modemctl_agc_init(void);
 SUBOOL suscan_gui_modemctl_afc_init(void);
 SUBOOL suscan_gui_modemctl_mf_init(void);
 SUBOOL suscan_gui_modemctl_equalizer_init(void);
+SUBOOL suscan_gui_modemctl_clock_init(void);
 
 #endif /* _GUI_MODEMCTL_H */
