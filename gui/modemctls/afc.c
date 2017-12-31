@@ -97,8 +97,6 @@ suscan_gui_modemctl_afc_set(
 {
   struct suscan_field_value *value;
 
-  gchar id_str[32];
-
   SU_TRYCATCH(
       value = suscan_config_get_value(
           config,

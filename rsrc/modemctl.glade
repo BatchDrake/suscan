@@ -514,7 +514,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton">
+              <object class="GtkButton" id="bEQReset">
                 <property name="label" translatable="yes">Reset</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -530,7 +530,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkToggleButton">
+              <object class="GtkToggleButton" id="tbEQLock">
                 <property name="label" translatable="yes">Lock</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -539,6 +539,7 @@
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
+                <signal name="toggled" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">3</property>
@@ -546,7 +547,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkComboBoxText">
+              <object class="GtkComboBoxText" id="cbEQType">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="margin_left">3</property>
@@ -554,9 +555,10 @@
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
                 <items>
-                  <item translatable="yes">None</item>
-                  <item translatable="yes">Blind (CMA)</item>
+                  <item id="0" translatable="yes">None</item>
+                  <item id="1" translatable="yes">Blind (CMA)</item>
                 </items>
+                <signal name="changed" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -565,7 +567,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkEntry">
+              <object class="GtkEntry" id="eEQRate">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="margin_left">3</property>
@@ -573,6 +575,8 @@
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
                 <property name="text" translatable="yes">1e-3</property>
+                <signal name="activate" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
+                <signal name="focus-out-event" handler="suscan_gui_modemctl_on_change_event" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>

@@ -126,7 +126,7 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
     insp->cd.beta = insp->params.br_beta;
 
     /* Update equalizer */
-    insp->eq.params.mu = insp->params.eq_mu;
+    insp->eq.params.mu = insp->params.eq_locked ? 0 : insp->params.eq_mu;
 
     /* Update matched filter */
     if (mf_changed) {
@@ -287,6 +287,36 @@ suscan_inspector_params_initialize_from_config(
 
   params->mf_rolloff = value->as_float;
 
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "equalizer.type"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->eq_conf = value->as_int;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "equalizer.rate"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->eq_mu = value->as_float;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "equalizer.locked"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_BOOLEAN, return SU_FALSE);
+
+  params->eq_locked = value->as_bool;
+
   return SU_TRUE;
 }
 
@@ -343,6 +373,27 @@ suscan_inspector_params_populate_config(
           config,
           "mf.roll-off",
           SU_DB_RAW(params->mf_rolloff)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "equalizer.type",
+          SU_DB_RAW(params->eq_conf)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "equalizer.rate",
+          SU_DB_RAW(params->eq_mu)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_bool(
+          config,
+          "equalizer.locked",
+          SU_DB_RAW(params->eq_locked)),
       return SU_FALSE);
 
   return SU_TRUE;
@@ -670,6 +721,33 @@ suscan_init_inspectors(void)
           SU_TRUE,
           "mf.roll-off",
           "Roll-off factor"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "equalizer.type",
+          "Equalizer configuration"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "equalizer.rate",
+          "Equalizer update rate"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "equalizer.locked",
+          "Equalizer has corrected channel distortion"),
       return SU_FALSE);
 
   return SU_TRUE;

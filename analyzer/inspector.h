@@ -103,6 +103,7 @@ struct suscan_inspector_params {
   /* Channel equalization */
   enum suscan_inspector_equalizer eq_conf;
   SUFLOAT eq_mu; /* Mu (learn speed) */
+  SUBOOL  eq_locked; /* Locked (equivalent to setting mu to 0) */
 
   /* Spectrum source configuration */
   enum suscan_inspector_psd_source psd_source; /* Spectrum source */
