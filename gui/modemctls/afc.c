@@ -49,12 +49,20 @@ suscan_gui_modemctl_afc_update_sensitiveness(
     struct suscan_gui_modemctl_afc *afc)
 {
   SUBOOL manual;
+  int id;
 
-  manual = suscan_gui_modemctl_helper_try_read_combo_id(
-      GTK_COMBO_BOX(afc->fcTypeComboBoxText)) == 0;
+  id = suscan_gui_modemctl_helper_try_read_combo_id(
+      GTK_COMBO_BOX(afc->fcTypeComboBoxText));
+
+  manual = id == 0;
 
   gtk_widget_set_sensitive(GTK_WIDGET(afc->fcOrderComboBoxText), manual);
   gtk_widget_set_sensitive(GTK_WIDGET(afc->fcOffsetSpinButton), manual);
+
+  if (!manual)
+    suscan_gui_modemctl_helper_write_combo_id(
+        GTK_COMBO_BOX(afc->fcOrderComboBoxText),
+        id);
 }
 
 SUPRIVATE SUBOOL

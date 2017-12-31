@@ -678,8 +678,27 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   return SU_TRUE;
 }
 
+SUBOOL
+suscan_gui_inspector_on_config_changed(suscan_gui_inspector_t *insp)
+{
+  struct suscan_field_value *value;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          insp->config,
+          "afc.bits-per-symbol"),
+      return SU_FALSE);
+
+  insp->bits_per_symbol = value->as_int;
+
+  sugtk_trans_mtx_set_order(insp->transMatrix, 1 << insp->bits_per_symbol);
+
+  return SU_TRUE;
+}
+
+/* Used for outcoming configuration */
 void
-suscan_inspector_on_update_config(suscan_gui_modemctl_t *ctl, void *data)
+suscan_gui_inspector_on_update_config(suscan_gui_modemctl_t *ctl, void *data)
 {
   suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
@@ -692,8 +711,11 @@ suscan_inspector_on_update_config(suscan_gui_modemctl_t *ctl, void *data)
             insp->config,
             rand()),
         return);
+
+  SU_TRYCATCH(suscan_gui_inspector_on_config_changed(insp), return);
 }
 
+/* Used for incoming configuration */
 SUBOOL
 suscan_gui_inspector_set_config(
     suscan_gui_inspector_t *insp,
@@ -704,6 +726,8 @@ suscan_gui_inspector_set_config(
   SU_TRYCATCH(
       suscan_gui_modemctl_set_refresh(&insp->modemctl_set),
       return SU_FALSE);
+
+  SU_TRYCATCH(suscan_gui_inspector_on_config_changed(insp), return SU_FALSE);
 
   return SU_TRUE;
 }
@@ -764,7 +788,7 @@ suscan_gui_inspector_new(
       suscan_gui_modemctl_set_init(
           &new->modemctl_set,
           new->config,
-          suscan_inspector_on_update_config,
+          suscan_gui_inspector_on_update_config,
           new),
       goto fail);
 
