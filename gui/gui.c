@@ -1185,6 +1185,7 @@ suscan_gui_helper_preload(void)
 {
   SU_TRYCATCH(suscan_gui_modemctl_agc_init(), return SU_FALSE);
   SU_TRYCATCH(suscan_gui_modemctl_afc_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_mf_init(), return SU_FALSE);
 
   return SU_TRUE;
 }

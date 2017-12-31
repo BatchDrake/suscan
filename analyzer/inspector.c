@@ -267,6 +267,26 @@ suscan_inspector_params_initialize_from_config(
 
   params->fc_off = value->as_float;
 
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "mf.type"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->mf_conf = value->as_int;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "mf.roll-off"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->mf_rolloff = value->as_float;
+
   return SU_TRUE;
 }
 
@@ -309,6 +329,20 @@ suscan_inspector_params_populate_config(
           config,
           "afc.offset",
           SU_DB_RAW(params->fc_off)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "mf.type",
+          SU_DB_RAW(params->mf_conf)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "mf.roll-off",
+          SU_DB_RAW(params->mf_rolloff)),
       return SU_FALSE);
 
   return SU_TRUE;
@@ -618,6 +652,24 @@ suscan_init_inspectors(void)
           SU_TRUE,
           "afc.offset",
           "Carrier offset (Hz)"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "mf.type",
+          "Matched filter configuration"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "mf.roll-off",
+          "Roll-off factor"),
       return SU_FALSE);
 
   return SU_TRUE;

@@ -114,5 +114,6 @@ void suscan_gui_modemctl_set_finalize(struct suscan_gui_modemctl_set *set);
 /************************** Registration methods *****************************/
 SUBOOL suscan_gui_modemctl_agc_init(void);
 SUBOOL suscan_gui_modemctl_afc_init(void);
+SUBOOL suscan_gui_modemctl_mf_init(void);
 
 #endif /* _GUI_MODEMCTL_H */
