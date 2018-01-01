@@ -61,10 +61,7 @@ suscan_estimator_class_register(const struct suscan_estimator_class *class)
 }
 
 suscan_estimator_t *
-suscan_estimator_new(
-    const struct suscan_estimator_class *class,
-    SUSCOUNT fs,
-    const struct sigutils_channel *channel)
+suscan_estimator_new(const struct suscan_estimator_class *class, SUSCOUNT fs)
 {
   suscan_estimator_t *new = NULL;
 
@@ -72,7 +69,7 @@ suscan_estimator_new(
 
   new->class = class;
 
-  SU_TRYCATCH(new->private = (class->ctor) (fs, channel), goto fail);
+  SU_TRYCATCH(new->private = (class->ctor) (fs), goto fail);
 
   return new;
 
@@ -105,4 +102,13 @@ suscan_estimator_destroy(suscan_estimator_t *estimator)
     (estimator->class->dtor) (estimator->private);
 
   free(estimator);
+}
+
+SUBOOL
+suscan_init_estimators(void)
+{
+  SU_TRYCATCH(suscan_estimator_fac_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_estimator_nonlinear_register(), return SU_FALSE);
+
+  return SU_TRUE;
 }

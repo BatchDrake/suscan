@@ -25,10 +25,12 @@
 #include <sigutils/agc.h>
 #include <sigutils/pll.h>
 #include <sigutils/clock.h>
-#include <sigutils/detect.h>
 #include <sigutils/equalizer.h>
+#include <sigutils/softtune.h>
 
 #include <cfg.h>
+
+#include "estimator.h"
 
 #define SUHANDLE int32_t
 
@@ -119,9 +121,7 @@ struct suscan_inspector_params {
 struct suscan_inspector {
   struct sigutils_channel channel;
   SUFLOAT                 equiv_fs; /* Equivalent sample rate */
-  su_softtuner_t           tuner;   /* Common tuner */
-  su_channel_detector_t  *fac_baud_det; /* FAC baud detector */
-  su_channel_detector_t  *nln_baud_det; /* Non-linear baud detector */
+  su_softtuner_t          tuner;   /* Common tuner */
   su_agc_t                agc;      /* AGC, for sampler */
   su_costas_t             costas_2; /* 2nd order Costas loop */
   su_costas_t             costas_4; /* 4th order Costas loop */

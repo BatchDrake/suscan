@@ -163,12 +163,6 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
 {
   pthread_mutex_destroy(&insp->mutex);
 
-  if (insp->fac_baud_det != NULL)
-    su_channel_detector_destroy(insp->fac_baud_det);
-
-  if (insp->nln_baud_det != NULL)
-    su_channel_detector_destroy(insp->nln_baud_det);
-
   su_iir_filt_finalize(&insp->mf);
 
   su_agc_finalize(&insp->agc);
@@ -504,8 +498,6 @@ suscan_inspector_t *
 suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
 {
   suscan_inspector_t *new;
-  struct sigutils_channel_detector_params cd_params =
-      sigutils_channel_detector_params_INITIALIZER;
   struct sigutils_equalizer_params eq_params =
       sigutils_equalizer_params_INITIALIZER;
   struct su_agc_params agc_params = su_agc_params_INITIALIZER;
@@ -530,19 +522,6 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   SU_TRYCATCH(su_softtuner_init(&new->tuner, &tuner_params), goto fail);
 
   new->equiv_fs = (SUFLOAT) fs / tuner_params.decimation;
-
-  /* Configure channel detectors */
-  cd_params.samp_rate = new->equiv_fs;
-  cd_params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
-  cd_params.tune = SU_FALSE; /* Inspector already takes care of tuning */
-
-  /* Create generic autocorrelation-based detector */
-  cd_params.mode = SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION;
-  SU_TRYCATCH(new->fac_baud_det = su_channel_detector_new(&cd_params), goto fail);
-
-  /* Create non-linear baud rate detector */
-  cd_params.mode = SU_CHANNEL_DETECTOR_MODE_NONLINEAR_DIFF;
-  SU_TRYCATCH(new->nln_baud_det = su_channel_detector_new(&cd_params), goto fail);
 
   /* Create clock detector */
   SU_TRYCATCH(

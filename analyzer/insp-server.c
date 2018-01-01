@@ -136,6 +136,7 @@ suscan_inspector_wk_cb(
     samp_buf   += fed;
   }
 
+#if 0
   /* Check spectrum update */
   if (insp->interval_psd > 0 && insp->pending)
     if (insp->per_cnt_psd
@@ -161,6 +162,7 @@ suscan_inspector_wk_cb(
 
       insp->pending = SU_FALSE;
     }
+#endif
 
   restart = insp->state == SUSCAN_ASYNC_STATE_RUNNING;
 
@@ -285,17 +287,7 @@ suscan_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO:
-      if ((insp = suscan_analyzer_get_inspector(
-          analyzer,
-          msg->handle)) == NULL) {
-        /* No such handle */
-        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
-      } else {
-        /* Retrieve current esimate for message kind */
-        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO;
-        msg->baud.fac = insp->fac_baud_det->baud;
-        msg->baud.nln = insp->nln_baud_det->baud;
-      }
+      /* Deprecated */
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INSP_PARAMS:

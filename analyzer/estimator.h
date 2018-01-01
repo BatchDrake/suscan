@@ -28,7 +28,7 @@ struct suscan_estimator_class {
   const char *desc;
   const char *field;
 
-  void * (*ctor) (SUSCOUNT fs, const struct sigutils_channel *channel);
+  void * (*ctor) (SUSCOUNT fs);
 
   SUBOOL (*feed) (void *private, const SUCOMPLEX *samples, SUSCOUNT size);
 
@@ -52,8 +52,7 @@ SUBOOL suscan_estimator_class_register(
 
 suscan_estimator_t *suscan_estimator_new(
     const struct suscan_estimator_class *class,
-    SUSCOUNT fs,
-    const struct sigutils_channel *channel);
+    SUSCOUNT fs);
 
 SUBOOL suscan_estimator_feed(
     suscan_estimator_t *estimator,
@@ -65,5 +64,11 @@ SUBOOL suscan_estimator_read(
     SUFLOAT *out);
 
 void suscan_estimator_destroy(suscan_estimator_t *estimator);
+
+/******************** Builtin channel estimators *****************************/
+SUBOOL suscan_estimator_fac_register(void);
+SUBOOL suscan_estimator_nonlinear_register(void);
+
+SUBOOL suscan_init_estimators(void);
 
 #endif /* _ANALYZER_ESTIMATOR_H */

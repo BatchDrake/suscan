@@ -100,6 +100,11 @@ main(int argc, char *argv[], char *envp[])
     goto done;
   }
 
+  if (!suscan_init_estimators()) {
+    fprintf(stderr, "%s: failed to initialize estimators\n", argv[0]);
+    goto done;
+  }
+
   for (i = optind; i < argc; ++i) {
     if ((config = suscan_source_string_to_config(argv[i])) == NULL) {
       fprintf(
