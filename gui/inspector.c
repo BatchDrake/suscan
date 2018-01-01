@@ -48,6 +48,12 @@ suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
 
   suscan_gui_modemctl_set_finalize(&inspector->modemctl_set);
 
+  for (i = 0; i < inspector->estimator_count; ++i)
+    suscan_gui_estimatorui_destroy(inspector->estimator_list[i]);
+
+  if (inspector->estimator_list != NULL)
+    free(inspector->estimator_list);
+
   if (inspector->config != NULL)
     suscan_config_destroy(inspector->config);
 
@@ -507,6 +513,46 @@ suscan_gui_inspector_dummy_create_private(
   return ui;
 }
 
+SUBOOL
+suscan_gui_inspector_add_estimatorui(
+    suscan_gui_inspector_t *inspector,
+    const struct suscan_estimator_class *class,
+    uint32_t estimator_id)
+{
+  suscan_gui_estimatorui_t *ui = NULL;
+  struct suscan_gui_estimatorui_params params;
+  int index;
+
+  params.desc = class->desc;
+  params.field = class->field;
+  params.inspector = inspector;
+  params.estimator_id = estimator_id;
+
+  SU_TRYCATCH(
+      ui = suscan_gui_estimatorui_new(&params),
+      goto fail);
+
+  SU_TRYCATCH(
+      (index = PTR_LIST_APPEND_CHECK(inspector->estimator, ui)) != -1,
+      goto fail);
+
+  gtk_grid_attach(
+      inspector->estimatorGrid,
+      suscan_gui_estimatorui_get_root(ui),
+      0, /* left */
+      index, /* top */
+      1, /* width */
+      1); /* height */
+
+  return SU_TRUE;
+
+fail:
+  if (ui != NULL)
+    suscan_gui_estimatorui_destroy(ui);
+
+  return SU_FALSE;
+}
+
 SUPRIVATE SUBOOL
 suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 {
@@ -515,6 +561,13 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
           GTK_GRID(gtk_builder_get_object(
               inspector->builder,
               "grChannelInspector")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->estimatorGrid =
+          GTK_GRID(gtk_builder_get_object(
+              inspector->builder,
+              "grEstimator")),
           return SU_FALSE);
 
   SU_TRYCATCH(

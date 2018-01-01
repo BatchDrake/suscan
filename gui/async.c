@@ -350,6 +350,7 @@ suscan_async_parse_inspector_msg(gpointer user_data)
   struct suscan_analyzer_inspector_msg *msg;
   suscan_gui_inspector_t *new_insp = NULL;
   suscan_gui_inspector_t *insp = NULL;
+  unsigned int i;
   char text[64];
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
@@ -368,6 +369,15 @@ suscan_async_parse_inspector_msg(gpointer user_data)
               msg->config,
               msg->handle),
           goto done);
+
+      /* Add available estimators */
+      for (i = 0; i < msg->estimator_count; ++i)
+        SU_TRYCATCH(
+            suscan_gui_inspector_add_estimatorui(
+                new_insp,
+                msg->estimator_list[i],
+                i),
+            goto done);
 
       SU_TRYCATCH(
           suscan_gui_add_inspector(
