@@ -10,8 +10,9 @@ libgui_la_CFLAGS = -I. -I..  -I../src -ggdb -DPKGDATADIR=\"$(pkgdatadir)\" \
 
 libgui_la_LDFLAGS = @GLOBAL_LDFLAGS@
 
-libgui_la_SOURCES = async.c cfgui.c constellation.c gui.c gui.h inspector.c \
-	log.c main.c spectrum.c recent.c gradient.h settings.c symview.c symview.h \
+libgui_la_SOURCES = async.c cfgui.c constellation.c gui.c gui.h inspector.c    \
+	log.c main.c spectrum.c recent.c gradient.h settings.c symview.c symview.h   \
 	transmtx.c transmtx.h codec.c inspector.h spectrum.h constellation.h codec.h \
-	symsrc.c symsrc.h symtool.c symtool.h modemctl.c modemctl.h modemctls/agc.c \
-	modemctls/afc.c modemctls/mf.c modemctls/equalizer.c modemctls/clock.c
+	symsrc.c symsrc.h symtool.c symtool.h modemctl.c modemctl.h modemctls/agc.c  \
+	modemctls/afc.c modemctls/mf.c modemctls/equalizer.c modemctls/clock.c       \
+	estimatorui.c estimatorui.h
