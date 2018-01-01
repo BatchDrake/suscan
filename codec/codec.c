@@ -48,7 +48,7 @@ suscan_codec_class_register(
 
 void
 suscan_codec_class_get_list(
-    struct suscan_codec_class *const **list,
+    const struct suscan_codec_class ***list,
     unsigned int *count)
 {
   *list = codec_class_list;

@@ -254,6 +254,7 @@ suscan_analyzer_parse_inspector_msg(
 {
   suscan_inspector_t *new = NULL;
   suscan_inspector_t *insp = NULL;
+  unsigned int i;
   struct suscan_inspector_params params;
   SUHANDLE handle = -1;
   SUBOOL ok = SU_FALSE;
@@ -279,6 +280,14 @@ suscan_analyzer_parse_inspector_msg(
       SU_TRYCATCH(
           suscan_inspector_params_populate_config(&new->params, msg->config),
           goto done);
+
+      /* Add estimator list */
+      for (i = 0; i < new->estimator_count; ++i)
+        SU_TRYCATCH(
+            PTR_LIST_APPEND_CHECK(
+                msg->estimator,
+                (void *) new->estimator_list[i]->class) != -1,
+            goto done);
 
       new = NULL;
 

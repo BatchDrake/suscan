@@ -151,6 +151,9 @@ struct suscan_inspector {
   SUCOMPLEX sampler_prev; /* Used for interpolation */
   SUSCOUNT  sampler_output_size;
 
+  /* Parameter estimators */
+  PTR_LIST(suscan_estimator_t, estimator);
+
   enum suscan_aync_state state; /* Used to remove analyzer from queue */
 };
 

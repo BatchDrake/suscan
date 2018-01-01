@@ -103,6 +103,7 @@ struct suscan_analyzer_inspector_msg {
     struct {
       struct sigutils_channel channel;
       suscan_config_t *config;
+      PTR_LIST_CONST(struct suscan_estimator_class, estimator);
     };
 
     struct suscan_baud_det_result baud;

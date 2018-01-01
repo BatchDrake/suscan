@@ -161,6 +161,8 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
 void
 suscan_inspector_destroy(suscan_inspector_t *insp)
 {
+  unsigned int i;
+
   pthread_mutex_destroy(&insp->mutex);
 
   su_iir_filt_finalize(&insp->mf);
@@ -178,6 +180,12 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
   su_equalizer_finalize(&insp->eq);
 
   su_softtuner_finalize(&insp->tuner);
+
+  for (i = 0; i < insp->estimator_count; ++i)
+    suscan_estimator_destroy(insp->estimator_list[i]);
+
+  if (insp->estimator_list != NULL)
+    free(insp->estimator_list);
 
   free(insp);
 }
@@ -494,6 +502,31 @@ suscan_inspector_params_populate_config(
   return SU_TRUE;
 }
 
+SUPRIVATE SUBOOL
+suscan_inspector_add_estimator(suscan_inspector_t *insp, const char *name)
+{
+  const struct suscan_estimator_class *class;
+  suscan_estimator_t *estimator = NULL;
+
+  SU_TRYCATCH(class = suscan_estimator_class_lookup(name), goto fail);
+
+  SU_TRYCATCH(
+      estimator = suscan_estimator_new(class, insp->equiv_fs),
+      goto fail);
+
+  SU_TRYCATCH(
+      PTR_LIST_APPEND_CHECK(insp->estimator, estimator) != -1,
+      goto fail);
+
+  return SU_TRUE;
+
+fail:
+  if (estimator != NULL)
+    suscan_estimator_destroy(estimator);
+
+  return SU_FALSE;
+}
+
 suscan_inspector_t *
 suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
 {
@@ -597,6 +630,10 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   eq_params.length = SUSCAN_INSPECTOR_DEFAULT_EQ_LENGTH;
 
   SU_TRYCATCH(su_equalizer_init(&new->eq, &eq_params), goto fail);
+
+  /* Add some estimators */
+  SU_TRYCATCH(suscan_inspector_add_estimator(new, "baud-fac"), goto fail);
+  SU_TRYCATCH(suscan_inspector_add_estimator(new, "baud-nonlinear"), goto fail);
 
   return new;
 

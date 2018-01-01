@@ -111,8 +111,8 @@
   int     name ## _count = 0;
 
 #define PTR_LIST_CONST(type, name)                   \
-  type *const * name ## _list = NULL;                \
-  int           name ## _count = 0;
+  const type ** name ## _list;                       \
+  int           name ## _count;
 
 #define PTR_LIST_EXTERN(type, name)                  \
   extern type ** name ## _list;                      \
