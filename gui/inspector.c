@@ -622,6 +622,27 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
               "grControls")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->freqLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              inspector->builder,
+              "lFreq")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->bwLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              inspector->builder,
+              "lBw")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->snrLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              inspector->builder,
+              "lSNR")),
+          return SU_FALSE);
+
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
@@ -732,6 +753,21 @@ suscan_gui_inspector_set_config(
   return SU_TRUE;
 }
 
+SUPRIVATE void
+suscan_gui_inspector_populate_channel_summary(suscan_gui_inspector_t *insp)
+{
+  char text[64];
+
+  snprintf(text, sizeof(text), "%lg Hz", insp->channel.fc);
+  gtk_label_set_text(insp->freqLabel, text);
+
+  snprintf(text, sizeof(text), "%lg Hz", insp->channel.bw);
+  gtk_label_set_text(insp->bwLabel, text);
+
+  snprintf(text, sizeof(text), "%lg dB", insp->channel.snr);
+  gtk_label_set_text(insp->snrLabel, text);
+}
+
 suscan_gui_inspector_t *
 suscan_gui_inspector_new(
     const struct sigutils_channel *channel,
@@ -804,6 +840,9 @@ suscan_gui_inspector_new(
 
   /* Set config */
   SU_TRYCATCH(suscan_gui_inspector_set_config(new, config), goto fail);
+
+  /* Update channel summary */
+  suscan_gui_inspector_populate_channel_summary(new);
 
   return new;
 

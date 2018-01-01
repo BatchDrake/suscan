@@ -130,6 +130,11 @@ struct suscan_gui_inspector {
   GtkScrollbar   *symViewScrollbar;
   GtkAdjustment  *symViewScrollAdjustment;
 
+  /* Channel summary */
+  GtkLabel       *freqLabel;
+  GtkLabel       *bwLabel;
+  GtkLabel       *snrLabel;
+
   /* Progress dialog */
   GtkDialog      *progressDialog;
   GtkProgressBar *progressBar;

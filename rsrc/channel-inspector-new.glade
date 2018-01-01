@@ -661,7 +661,7 @@
                                 <property name="margin_right">3</property>
                                 <property name="margin_top">3</property>
                                 <property name="margin_bottom">3</property>
-                                <property name="label" translatable="yes">Decimation</property>
+                                <property name="label" translatable="yes">SNR</property>
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
@@ -669,7 +669,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel">
+                              <object class="GtkLabel" id="lFreq">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="halign">start</property>
@@ -685,7 +685,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel">
+                              <object class="GtkLabel" id="lBw">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="halign">start</property>
@@ -701,7 +701,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel">
+                              <object class="GtkLabel" id="lSNR">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="halign">start</property>
@@ -709,7 +709,7 @@
                                 <property name="margin_right">3</property>
                                 <property name="margin_top">3</property>
                                 <property name="margin_bottom">3</property>
-                                <property name="label" translatable="yes">1x</property>
+                                <property name="label" translatable="yes">0 dB</property>
                               </object>
                               <packing>
                                 <property name="left_attach">1</property>

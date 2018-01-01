@@ -39,6 +39,53 @@
 
 extern suscan_config_desc_t *psk_inspector_desc;
 
+SUPRIVATE SUBOOL
+suscan_inspector_sampler_loop(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count,
+    struct suscan_mq *mq_out)
+{
+  struct suscan_analyzer_sample_batch_msg *msg = NULL;
+  SUSDIFF fed;
+
+  while (samp_count > 0) {
+    /* Ensure the current inspector parameters are up-to-date */
+    suscan_inspector_assert_params(insp);
+
+    SU_TRYCATCH(
+        (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
+        goto fail);
+
+    if (insp->sampler_output_size > 0) {
+      /* New sampes produced by sampler: send to client */
+      SU_TRYCATCH(
+          msg = suscan_analyzer_sample_batch_msg_new(
+              insp->params.inspector_id,
+              insp->sampler_output,
+              insp->sampler_output_size),
+          goto fail);
+
+      SU_TRYCATCH(
+          suscan_mq_write(mq_out, SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES, msg),
+          goto fail);
+
+      msg = NULL; /* We don't own this anymore */
+    }
+
+    samp_buf   += fed;
+    samp_count -= fed;
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (msg != NULL)
+    suscan_analyzer_sample_batch_msg_destroy(msg);
+
+  return SU_FALSE;
+}
+
 /*
  * TODO: Store *one port* only per worker. This port is read once all
  * consumers have finished with their buffer.
@@ -51,11 +98,12 @@ suscan_inspector_wk_cb(
 {
   suscan_consumer_t *consumer = (suscan_consumer_t *) wk_private;
   suscan_inspector_t *insp = (suscan_inspector_t *) cb_private;
-  unsigned int i;
-  int fed;
+
   SUSCOUNT samp_count;
   const SUCOMPLEX *samp_buf;
-  struct suscan_analyzer_sample_batch_msg *batch_msg = NULL;
+  SUSDIFF fed;
+  SUSDIFF got;
+
   SUBOOL restart = SU_FALSE;
 
   samp_buf   = suscan_consumer_get_buffer(consumer);
@@ -64,31 +112,28 @@ suscan_inspector_wk_cb(
   insp->per_cnt_psd += samp_count;
 
   while (samp_count > 0) {
-    /* Ensure the current inspector parameters are up-to-date */
-    suscan_inspector_assert_params(insp);
-
+    /* Feed tuner */
     SU_TRYCATCH(
-        (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
+        (fed = su_softtuner_feed(&insp->tuner, samp_buf, samp_count)) > 0,
         goto done);
 
-    if (insp->sym_new_sample) {
-      /* Sampler was triggered */
-      if (batch_msg == NULL)
-        SU_TRYCATCH(
-            batch_msg = suscan_analyzer_sample_batch_msg_new(
-                insp->params.inspector_id),
-            goto done);
+    /* Read samples */
+    got = su_softtuner_read(
+        &insp->tuner,
+        insp->tuner_output,
+        SUSCAN_INSPECTOR_TUNER_BUF_SIZE);
 
-      SU_TRYCATCH(
-          suscan_analyzer_sample_batch_msg_append_sample(
-              batch_msg,
-              insp->sym_sampler_output),
-          goto done);
+    /* Feed inspector and return samples to clients */
+    SU_TRYCATCH(
+        suscan_inspector_sampler_loop(
+            insp,
+            insp->tuner_output,
+            got,
+            consumer->analyzer->mq_out),
+        goto done);
 
-    }
-
-    samp_buf   += fed;
     samp_count -= fed;
+    samp_buf   += fed;
   }
 
   /* Check spectrum update */
@@ -117,17 +162,6 @@ suscan_inspector_wk_cb(
       insp->pending = SU_FALSE;
     }
 
-  /* Got samples, send message batch */
-  if (batch_msg != NULL) {
-    SU_TRYCATCH(
-        suscan_mq_write(
-            consumer->analyzer->mq_out,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES,
-            batch_msg),
-        goto done);
-    batch_msg = NULL;
-  }
-
   restart = insp->state == SUSCAN_ASYNC_STATE_RUNNING;
 
 done:
@@ -135,9 +169,6 @@ done:
     insp->state = SUSCAN_ASYNC_STATE_HALTED;
     suscan_consumer_remove_task(consumer);
   }
-
-  if (batch_msg != NULL)
-    suscan_analyzer_sample_batch_msg_destroy(batch_msg);
 
   return restart;
 }

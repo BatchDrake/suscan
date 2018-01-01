@@ -70,7 +70,6 @@ struct suscan_analyzer_sample_batch_msg {
   uint32_t     inspector_id;
   SUCOMPLEX   *samples;
   unsigned int sample_count;
-  unsigned int sample_storage;
 };
 
 /*
@@ -175,11 +174,9 @@ void suscan_analyzer_psd_msg_destroy(struct suscan_analyzer_psd_msg *msg);
 
 /* Sample batch message */
 struct suscan_analyzer_sample_batch_msg *suscan_analyzer_sample_batch_msg_new(
-    uint32_t inspector_id);
-
-SUBOOL suscan_analyzer_sample_batch_msg_append_sample(
-    struct suscan_analyzer_sample_batch_msg *msg,
-    SUCOMPLEX sample);
+    uint32_t inspector_id,
+    const SUCOMPLEX *samples,
+    SUSCOUNT count);
 
 void suscan_analyzer_sample_batch_msg_destroy(
     struct suscan_analyzer_sample_batch_msg *msg);

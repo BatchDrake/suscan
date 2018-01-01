@@ -34,6 +34,9 @@
 
 #define SUSCAN_ANALYZER_CPU_USAGE_UPDATE_ALPHA .025
 
+#define SUSCAN_INSPECTOR_TUNER_BUF_SIZE   512
+#define SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE 512
+
 enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_CREATED,
   SUSCAN_ASYNC_STATE_RUNNING,
@@ -116,6 +119,7 @@ struct suscan_inspector_params {
 struct suscan_inspector {
   struct sigutils_channel channel;
   SUFLOAT                 equiv_fs; /* Equivalent sample rate */
+  su_softtuner_t           tuner;   /* Common tuner */
   su_channel_detector_t  *fac_baud_det; /* FAC baud detector */
   su_channel_detector_t  *nln_baud_det; /* Non-linear baud detector */
   su_agc_t                agc;      /* AGC, for sampler */
@@ -137,12 +141,15 @@ struct suscan_inspector {
   pthread_mutex_t mutex;
   struct suscan_inspector_params params;
   struct suscan_inspector_params params_request;
-  SUBOOL    params_requested;
-  SUBOOL    sym_new_sample;     /* New sample flag */
-  SUCOMPLEX sym_last_sample;    /* Last sample fed to inspector */
-  SUCOMPLEX sym_sampler_output; /* Sampler output */
+  SUBOOL    params_requested;   /* New samples requested */
   SUFLOAT   sym_phase;          /* Current sampling phase, in samples */
   SUFLOAT   sym_period;         /* In samples */
+
+  /* Sampler buffers */
+  SUCOMPLEX tuner_output[SUSCAN_INSPECTOR_TUNER_BUF_SIZE];
+  SUCOMPLEX sampler_output[SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE];
+  SUCOMPLEX sampler_prev; /* Used for interpolation */
+  SUSCOUNT  sampler_output_size;
 
   enum suscan_aync_state state; /* Used to remove analyzer from queue */
 };

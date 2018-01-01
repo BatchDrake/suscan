@@ -183,6 +183,8 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
 
   su_equalizer_finalize(&insp->eq);
 
+  su_softtuner_finalize(&insp->tuner);
+
   free(insp);
 }
 
@@ -495,8 +497,6 @@ suscan_inspector_params_populate_config(
           params->br_running),
       return SU_FALSE);
 
-  printf("Config clock alpha: %lg\n", SU_DB_RAW(params->br_alpha));
-
   return SU_TRUE;
 }
 
@@ -509,29 +509,32 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   struct sigutils_equalizer_params eq_params =
       sigutils_equalizer_params_INITIALIZER;
   struct su_agc_params agc_params = su_agc_params_INITIALIZER;
+  struct sigutils_softtuner_params tuner_params =
+      sigutils_softtuner_params_INITIALIZER;
+
   SUFLOAT tau;
 
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
-
   new->state = SUSCAN_ASYNC_STATE_CREATED;
-
-  /* Initialize inspector parameters */
   SU_TRYCATCH(pthread_mutex_init(&new->mutex, NULL) != -1, goto fail);
 
+  /* Initialize inspector parameters */
   suscan_inspector_params_initialize(&new->params);
-
-  /*
-   * Removed alpha setting. This is now automatically done by
-   * adjust_to_channel
-   */
-  cd_params.samp_rate = fs;
-  cd_params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
-  su_channel_params_adjust_to_channel(&cd_params, channel);
-
-  new->equiv_fs = (SUFLOAT) cd_params.samp_rate / cd_params.decimation;
 
   /* Initialize spectrum parameters */
   new->interval_psd = .1;
+
+  /* Configure tuner from channel parameters */
+  tuner_params.samp_rate = fs;
+  su_softtuner_params_adjust_to_channel(&tuner_params, channel);
+  SU_TRYCATCH(su_softtuner_init(&new->tuner, &tuner_params), goto fail);
+
+  new->equiv_fs = (SUFLOAT) fs / tuner_params.decimation;
+
+  /* Configure channel detectors */
+  cd_params.samp_rate = new->equiv_fs;
+  cd_params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
+  cd_params.tune = SU_FALSE; /* Inspector already takes care of tuning */
 
   /* Create generic autocorrelation-based detector */
   cd_params.mode = SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION;
@@ -546,7 +549,7 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
       su_clock_detector_init(
           &new->cd,
           1.,
-          .5 * SU_ABS2NORM_BAUD(new->equiv_fs, cd_params.bw),
+          .5 * SU_ABS2NORM_BAUD(new->equiv_fs, tuner_params.bw),
           32),
       goto fail);
 
@@ -555,7 +558,7 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   new->phase = 1.;
 
   /* Initialize AGC */
-  tau = new->equiv_fs / cd_params.bw; /* Samples per symbol */
+  tau = new->equiv_fs / tuner_params.bw; /* Samples per symbol */
 
   agc_params.fast_rise_t = tau * SUSCAN_INSPECTOR_FAST_RISE_FRAC;
   agc_params.fast_fall_t = tau * SUSCAN_INSPECTOR_FAST_FALL_FRAC;
@@ -584,9 +587,9 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
           &new->costas_2,
           SU_COSTAS_KIND_BPSK,
           0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw)),
       goto fail);
 
   SU_TRYCATCH(
@@ -594,9 +597,9 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
           &new->costas_4,
           SU_COSTAS_KIND_QPSK,
           0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw)),
       goto fail);
 
 
@@ -605,9 +608,9 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
           &new->costas_8,
           SU_COSTAS_KIND_8PSK,
           0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw)),
       goto fail);
 
   /* Initialize equalizer */
@@ -625,48 +628,25 @@ fail:
   return NULL;
 }
 
-int
-suscan_inspector_feed_bulk(
+SUPRIVATE SUSDIFF
+suscan_inspector_feed_psk_bulk(
     suscan_inspector_t *insp,
     const SUCOMPLEX *x,
-    int count)
+    SUSCOUNT count)
 {
-  int i;
+  SUSCOUNT i;
+  SUSCOUNT osize = 0;
   SUFLOAT alpha;
   SUCOMPLEX det_x;
-  SUCOMPLEX sample;
+  SUCOMPLEX output;
+  SUFLOAT new_sample = SU_FALSE;
   SUCOMPLEX samp_phase_samples = insp->params.sym_phase * insp->sym_period;
-  SUBOOL ok = SU_FALSE;
 
-  insp->sym_new_sample = SU_FALSE;
+  insp->sampler_output_size = 0;
 
-  for (i = 0; i < count && !insp->sym_new_sample; ++i) {
-    /*
-     * Feed channel detectors. TODO: use su_channel_detector_get_last_sample
-     * with nln_baud_det.
-     */
-    SU_TRYCATCH(
-        su_channel_detector_feed(insp->fac_baud_det, x[i]),
-        goto done);
-    SU_TRYCATCH(
-        su_channel_detector_feed(insp->nln_baud_det, x[i]),
-        goto done);
-
-    /*
-     * Verify the detector signal. Skip sample if it was not consumed
-     * due to decimator.
-     */
-    if (!su_channel_detector_sample_was_consumed(insp->fac_baud_det))
-      continue;
-
-    insp->pending =
-           insp->pending
-        || (su_channel_detector_get_window_ptr(insp->fac_baud_det) == 0);
-
-    det_x = su_channel_detector_get_last_sample(insp->fac_baud_det);
-
+  for (i = 0; i < count && osize < SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE; ++i) {
     /* Re-center carrier */
-    det_x *= SU_C_CONJ(su_ncqo_read(&insp->lo)) * insp->phase;
+    det_x = x[i] * SU_C_CONJ(su_ncqo_read(&insp->lo)) * insp->phase;
 
     /* Perform gain control */
     switch (insp->params.gc_ctrl) {
@@ -682,28 +662,28 @@ suscan_inspector_feed_bulk(
     /* Perform frequency correction */
     switch (insp->params.fc_ctrl) {
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL:
-        sample = det_x;
+        /* No-op */
         break;
 
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2:
         su_costas_feed(&insp->costas_2, det_x);
-        sample = insp->costas_2.y;
+        det_x = insp->costas_2.y;
         break;
 
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4:
         su_costas_feed(&insp->costas_4, det_x);
-        sample = insp->costas_4.y;
+        det_x = insp->costas_4.y;
         break;
 
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8:
         su_costas_feed(&insp->costas_8, det_x);
-        sample = insp->costas_8.y;
+        det_x = insp->costas_8.y;
         break;
     }
 
     /* Add matched filter, if enabled */
     if (insp->params.mf_conf == SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL)
-      sample = su_iir_filt_feed(&insp->mf, sample);
+      det_x = su_iir_filt_feed(&insp->mf, det_x);
 
     /* Check if channel sampler is enabled */
     if (insp->params.br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL) {
@@ -712,46 +692,65 @@ suscan_inspector_feed_bulk(
         if (insp->sym_phase >= insp->sym_period)
           insp->sym_phase -= insp->sym_period;
 
-        insp->sym_new_sample =
-            (int) SU_FLOOR(insp->sym_phase - samp_phase_samples) == 0;
+        new_sample = (int) SU_FLOOR(insp->sym_phase - samp_phase_samples) == 0;
 
-        if (insp->sym_new_sample) {
+        /* Interpolate with previos sample for improved accuracy */
+        if (new_sample) {
           alpha = insp->sym_phase - SU_FLOOR(insp->sym_phase);
-
-          insp->sym_sampler_output =
-              ((1 - alpha) * insp->sym_last_sample + alpha * sample);
-
+          output = ((1 - alpha) * insp->sampler_prev + alpha * det_x);
         }
       }
-      insp->sym_last_sample = sample;
+
+      /* Keep last sample for interpolation */
+      insp->sampler_prev = det_x;
     } else {
       /* Automatic baudrate control enabled */
-      su_clock_detector_feed(&insp->cd, sample);
+      su_clock_detector_feed(&insp->cd, det_x);
 
-      insp->sym_new_sample = su_clock_detector_read(&insp->cd, &sample, 1) == 1;
-      if (insp->sym_new_sample)
-        insp->sym_sampler_output = sample;
+      new_sample = su_clock_detector_read(&insp->cd, &det_x, 1) == 1;
+      if (new_sample)
+        output = det_x;
     }
 
     /* Apply channel equalizer, if enabled */
-    if (insp->sym_new_sample) {
+    if (new_sample) {
       if (insp->params.eq_conf == SUSCAN_INSPECTOR_EQUALIZER_CMA) {
         suscan_inspector_lock(insp);
-        insp->sym_sampler_output = su_equalizer_feed(
-            &insp->eq,
-            insp->sym_sampler_output);
+        output = su_equalizer_feed(&insp->eq, output);
         suscan_inspector_unlock(insp);
       }
 
       /* Reduce amplitude so it fits in the constellation window */
-      insp->sym_sampler_output *= .75;
+      insp->sampler_output[osize++] = output * .75;
+      new_sample = SU_FALSE;
     }
   }
 
-  ok = SU_TRUE;
+  insp->sampler_output_size = osize;
 
-done:
-  return ok ? i : -1;
+  return i;
+}
+
+int
+suscan_inspector_feed_bulk(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *x,
+    int count)
+{
+  return suscan_inspector_feed_psk_bulk(insp, x, count);
+
+#if 0
+    /*
+     * Feed channel detectors. TODO: use su_channel_detector_get_last_sample
+     * with nln_baud_det.
+     */
+    SU_TRYCATCH(
+        su_channel_detector_feed(insp->fac_baud_det, x[i]),
+        goto done);
+    SU_TRYCATCH(
+        su_channel_detector_feed(insp->nln_baud_det, x[i]),
+        goto done);
+#endif
 }
 
 SUBOOL

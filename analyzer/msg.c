@@ -232,43 +232,33 @@ suscan_analyzer_psd_msg_take_psd(struct suscan_analyzer_psd_msg *msg)
 }
 
 struct suscan_analyzer_sample_batch_msg *
-suscan_analyzer_sample_batch_msg_new(uint32_t inspector_id)
+suscan_analyzer_sample_batch_msg_new(
+    uint32_t inspector_id,
+    const SUCOMPLEX *samples,
+    SUSCOUNT count)
 {
   struct suscan_analyzer_sample_batch_msg *new = NULL;
 
   SU_TRYCATCH(
       new = calloc(1, sizeof(struct suscan_analyzer_sample_batch_msg)),
-      return NULL);
+      goto fail);
 
+  SU_TRYCATCH(
+      new->samples = malloc(count * sizeof(SUCOMPLEX)),
+      goto fail);
+
+  memcpy(new->samples, samples, count * sizeof(SUCOMPLEX));
+
+  new->sample_count = count;
   new->inspector_id = inspector_id;
 
   return new;
-}
 
-SUBOOL
-suscan_analyzer_sample_batch_msg_append_sample(
-    struct suscan_analyzer_sample_batch_msg *msg,
-    SUCOMPLEX sample)
-{
-  unsigned int storage = msg->sample_storage;
-  void *new;
+fail:
+  if (new != NULL)
+    suscan_analyzer_sample_batch_msg_destroy(new);
 
-  if (storage == 0)
-    storage = 1;
-  else if (msg->sample_count == storage)
-    storage <<= 1;
-
-  if (storage != msg->sample_storage) {
-    SU_TRYCATCH(
-        new = realloc(msg->samples, sizeof(SUCOMPLEX) * storage),
-        return SU_FALSE);
-    msg->samples = new;
-    msg->sample_storage = storage;
-  }
-
-  msg->samples[msg->sample_count++] = sample;
-
-  return SU_TRUE;
+  return NULL;
 }
 
 void
