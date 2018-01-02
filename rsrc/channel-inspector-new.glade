@@ -453,7 +453,7 @@
                   <packing>
                     <property name="left_attach">0</property>
                     <property name="top_attach">1</property>
-                    <property name="width">2</property>
+                    <property name="width">3</property>
                   </packing>
                 </child>
                 <child>
@@ -515,7 +515,7 @@
                       <object class="GtkLabel">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Channel analysis control</property>
+                        <property name="label" translatable="yes">Parameter estimators</property>
                       </object>
                     </child>
                   </object>
@@ -532,6 +532,7 @@
                     <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
+                    <property name="hexpand">True</property>
                     <property name="label_xalign">0</property>
                     <property name="shadow_type">in</property>
                     <child>
@@ -657,6 +658,77 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Summary</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left_attach">2</property>
+                    <property name="top_attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkFrame">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
+                    <property name="margin_top">3</property>
+                    <property name="margin_bottom">3</property>
+                    <property name="label_xalign">0</property>
+                    <property name="shadow_type">in</property>
+                    <child>
+                      <object class="GtkAlignment">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="vexpand">False</property>
+                        <property name="left_padding">12</property>
+                        <child>
+                          <object class="GtkGrid">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="vexpand">False</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="margin_left">3</property>
+                                <property name="margin_right">3</property>
+                                <property name="margin_top">3</property>
+                                <property name="margin_bottom">3</property>
+                                <property name="label" translatable="yes">Spectrum source</property>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkComboBoxText">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="margin_left">3</property>
+                                <property name="margin_right">3</property>
+                                <property name="margin_top">3</property>
+                                <property name="margin_bottom">3</property>
+                                <property name="active">0</property>
+                                <items>
+                                  <item id="0" translatable="yes">None</item>
+                                </items>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="top_attach">0</property>
+                              </packing>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child type="label">
+                      <object class="GtkLabel">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Spectrum config</property>
                       </object>
                     </child>
                   </object>
