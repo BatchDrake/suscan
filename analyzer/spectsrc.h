@@ -24,11 +24,26 @@
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
 
+struct suscan_spectsrc;
+
 struct suscan_spectsrc_class {
   const char *name;
   const char *desc;
-  void * (*ctor) (SUSCOUNT size);
-  SUBOOL (*compute) (void *private, const SUCOMPLEX *data, SUFLOAT *result);
+
+  void * (*ctor) (struct suscan_spectsrc *src);
+
+  SUBOOL (*preproc)  (
+      struct suscan_spectsrc *src,
+      void *private,
+      SUCOMPLEX *buffer,
+      SUSCOUNT size);
+
+  SUBOOL (*postproc) (
+      struct suscan_spectsrc *src,
+      void *private,
+      SUCOMPLEX *buffer,
+      SUSCOUNT size);
+
   void   (*dtor) (void *private);
 };
 
@@ -43,9 +58,15 @@ struct suscan_spectsrc {
   void *private;
 
   enum sigutils_channel_detector_window window_type;
-  SUCOMPLEX *window_func;
-  SUCOMPLEX *window_buffer;
-  SUSCOUNT   window_size;
+  SUFLOAT           *output_buf;
+  SUCOMPLEX         *window_func;
+  SUSCOUNT           window_size;
+  SUSCOUNT           window_ptr;
+
+  SU_FFTW(_plan)     fft_plan;
+  SU_FFTW(_complex) *window_buffer;
+
+  SUBOOL             spectrum_avail;
 };
 
 typedef struct suscan_spectsrc suscan_spectsrc_t;
@@ -55,10 +76,12 @@ suscan_spectsrc_t *suscan_spectsrc_new(
     SUSCOUNT size,
     enum sigutils_channel_detector_window window_type);
 
-SUBOOL suscan_spectsrc_compute(
+SUBOOL suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result);
+
+SUSCOUNT suscan_spectsrc_feed(
     suscan_spectsrc_t *src,
     const SUCOMPLEX *data,
-    SUFLOAT *result);
+    SUSCOUNT size);
 
 void suscan_spectsrc_destroy(suscan_spectsrc_t *src);
 

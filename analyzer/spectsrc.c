@@ -44,7 +44,7 @@ suscan_spectsrc_class_register(const struct suscan_spectsrc_class *class)
 {
   SU_TRYCATCH(class->name    != NULL, return SU_FALSE);
   SU_TRYCATCH(class->desc    != NULL, return SU_FALSE);
-  SU_TRYCATCH(class->compute != NULL, return SU_FALSE);
+  SU_TRYCATCH(class->preproc != NULL, return SU_FALSE);
   SU_TRYCATCH(class->ctor    != NULL, return SU_FALSE);
   SU_TRYCATCH(class->dtor    != NULL, return SU_FALSE);
 
@@ -121,17 +121,29 @@ suscan_spectsrc_new(
 
   if (window_type != SU_CHANNEL_DETECTOR_WINDOW_NONE) {
     SU_TRYCATCH(
-        new->window_func   = malloc(size * sizeof(SUCOMPLEX)),
-        goto fail);
-    SU_TRYCATCH(
-        new->window_buffer = malloc(size * sizeof(SUCOMPLEX)),
+        new->window_func = malloc(size * sizeof(SUCOMPLEX)),
         goto fail);
     SU_TRYCATCH(
         suscan_spectsrc_init_window_func(new),
         goto fail);
   }
 
-  SU_TRYCATCH(new->private = (class->ctor) (size), goto fail);
+  SU_TRYCATCH(
+      new->window_buffer = fftw_malloc(size * sizeof(SU_FFTW(_complex))),
+      goto fail);
+
+  SU_TRYCATCH(
+      new->private = (class->ctor) (new),
+      goto fail);
+
+  SU_TRYCATCH(
+      (new->fft_plan = SU_FFTW(_plan_dft_1d)(
+          new->window_size,
+          new->window_buffer,
+          new->window_buffer,
+          FFTW_FORWARD,
+          FFTW_ESTIMATE)),
+      goto fail);
 
   return new;
 
@@ -143,22 +155,63 @@ fail:
 }
 
 SUBOOL
-suscan_spectsrc_compute(
-    suscan_spectsrc_t *src,
-    const SUCOMPLEX *data,
-    SUFLOAT *result)
+suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
 {
   unsigned int i;
 
-  if (src->window_type != SU_CHANNEL_DETECTOR_WINDOW_NONE) {
-    /* Apply window function first */
-    for (i = 0; i < src->window_size; ++i)
-      src->window_buffer[i] = src->window_func[i] * data[i];
+  SU_TRYCATCH(src->window_ptr == src->window_size, return SU_FALSE);
 
-    data = src->window_buffer;
+  src->window_ptr = 0;
+
+  if (src->class->preproc != NULL) {
+    SU_TRYCATCH(
+        (src->class->preproc) (
+            src,
+            src->private,
+            src->window_buffer,
+            src->window_size),
+        return SU_FALSE);
   }
 
-  return (src->class->compute) (src->private, data, result);
+  /* Apply window function first */
+  for (i = 0; i < src->window_size; ++i)
+    src->window_buffer[i] *= src->window_func[i];
+
+  /* Apply FFT */
+  fftw_execute(src->fft_plan);
+
+  /* Apply postprocessing */
+  SU_TRYCATCH(
+      (src->class->postproc) (
+          src,
+          src->private,
+          src->window_buffer,
+          src->window_size),
+      return SU_FALSE);
+
+  /* Convert to absolute value */
+  for (i = 0; i < src->window_size; ++i)
+    result[i] = SU_ABS(src->window_func[i]);
+
+  return SU_TRUE;
+}
+
+SUSCOUNT
+suscan_spectsrc_feed(
+    suscan_spectsrc_t *spectsrc,
+    const SUCOMPLEX *data,
+    SUSCOUNT size)
+{
+  SUSCOUNT avail = spectsrc->window_size - spectsrc->window_ptr;
+
+  if (size > avail)
+    size = avail;
+
+  memcpy(spectsrc->window_buffer + spectsrc->window_ptr, data, size);
+
+  spectsrc->window_ptr += size;
+
+  return size;
 }
 
 void
@@ -167,11 +220,14 @@ suscan_spectsrc_destroy(suscan_spectsrc_t *spectsrc)
   if (spectsrc != NULL)
     (spectsrc->class->dtor) (spectsrc->private);
 
+  if (spectsrc->fft_plan != NULL)
+    fftw_destroy_plan(spectsrc->fft_plan);
+
   if (spectsrc->window_func != NULL)
     free(spectsrc->window_func);
 
   if (spectsrc->window_buffer != NULL)
-    free(spectsrc->window_buffer);
+    fftw_free(spectsrc->window_buffer);
 
   free(spectsrc);
 }
