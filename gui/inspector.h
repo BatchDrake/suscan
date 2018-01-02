@@ -159,6 +159,10 @@ suscan_gui_inspector_t *suscan_gui_inspector_new(
     const suscan_config_t *config,
     SUHANDLE handle);
 
+SUBOOL suscan_gui_inspector_commit_config(suscan_gui_inspector_t *insp);
+
+SUBOOL suscan_gui_inspector_refresh_on_config(suscan_gui_inspector_t *insp);
+
 SUBOOL suscan_gui_inspector_set_config(
     suscan_gui_inspector_t *insp,
     const suscan_config_t *config);

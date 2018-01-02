@@ -536,6 +536,8 @@ suscan_gui_inspector_add_estimatorui(
       (index = PTR_LIST_APPEND_CHECK(inspector->estimator, ui)) != -1,
       goto fail);
 
+  suscan_gui_estimatorui_set_index(ui, index);
+
   gtk_grid_attach(
       inspector->estimatorGrid,
       suscan_gui_estimatorui_get_root(ui),
@@ -753,6 +755,20 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 }
 
 SUBOOL
+suscan_gui_inspector_commit_config(suscan_gui_inspector_t *insp)
+{
+  SU_TRYCATCH(
+      suscan_analyzer_set_inspector_config_async(
+          insp->_parent.gui->analyzer,
+          insp->inshnd,
+          insp->config,
+          rand()),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_gui_inspector_on_config_changed(suscan_gui_inspector_t *insp)
 {
   struct suscan_field_value *value;
@@ -779,14 +795,22 @@ suscan_gui_inspector_on_update_config(suscan_gui_modemctl_t *ctl, void *data)
   /* This only makes sense if the inspector is tied to a GUI */
   if (insp->index != -1)
     SU_TRYCATCH(
-        suscan_analyzer_set_inspector_config_async(
-            insp->_parent.gui->analyzer,
-            insp->inshnd,
-            insp->config,
-            rand()),
+        suscan_gui_inspector_commit_config(insp),
         return);
 
   SU_TRYCATCH(suscan_gui_inspector_on_config_changed(insp), return);
+}
+
+SUBOOL
+suscan_gui_inspector_refresh_on_config(suscan_gui_inspector_t *insp)
+{
+  SU_TRYCATCH(
+        suscan_gui_modemctl_set_refresh(&insp->modemctl_set),
+        return SU_FALSE);
+
+  SU_TRYCATCH(suscan_gui_inspector_on_config_changed(insp), return SU_FALSE);
+
+  return SU_TRUE;
 }
 
 /* Used for incoming configuration */
@@ -797,11 +821,7 @@ suscan_gui_inspector_set_config(
 {
   SU_TRYCATCH(suscan_config_copy(insp->config, config), return SU_FALSE);
 
-  SU_TRYCATCH(
-      suscan_gui_modemctl_set_refresh(&insp->modemctl_set),
-      return SU_FALSE);
-
-  SU_TRYCATCH(suscan_gui_inspector_on_config_changed(insp), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_inspector_refresh_on_config(insp), return SU_FALSE);
 
   return SU_TRUE;
 }

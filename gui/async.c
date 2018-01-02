@@ -411,6 +411,20 @@ suscan_async_parse_inspector_msg(gpointer user_data)
 
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR:
+      SU_TRYCATCH(
+          insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
+          goto done);
+
+      SU_TRYCATCH (msg->estimator_id < insp->estimator_count, goto done);
+
+      if (msg->enabled)
+        suscan_gui_estimatorui_set_value(
+            insp->estimator_list[msg->estimator_id],
+            msg->value);
+
+      break;
+
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
       /* Okay */
       break;
@@ -420,6 +434,13 @@ suscan_async_parse_inspector_msg(gpointer user_data)
           envelope->gui,
           "Suscan inspector",
           "Invalid inspector handle passed");
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT:
+      suscan_error(
+          envelope->gui,
+          "Suscan inspector",
+          "Referred object inside inspector does not exist");
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:

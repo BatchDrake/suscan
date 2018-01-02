@@ -69,6 +69,7 @@ suscan_gui_estimatorui_new(struct suscan_gui_estimatorui_params *params)
 
   new->estimator_id = params->estimator_id;
   new->inspector = params->inspector;
+  new->index = -1;
 
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(
@@ -93,6 +94,14 @@ fail:
 }
 
 void
+suscan_gui_estimatorui_set_value(suscan_gui_estimatorui_t *ui, SUFLOAT value)
+{
+  ui->value = value;
+
+  suscan_gui_modemctl_helper_write_float(ui->valueEntry, value);
+}
+
+void
 suscan_gui_estimatorui_destroy(suscan_gui_estimatorui_t *ui)
 {
   if (ui->field != NULL)
@@ -102,5 +111,43 @@ suscan_gui_estimatorui_destroy(suscan_gui_estimatorui_t *ui)
     g_object_unref(G_OBJECT(ui->builder));
 
   free(ui);
+}
+
+/******************************* GUI Callbacks *******************************/
+void
+suscan_gui_estimatorui_on_toggle_enable(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_estimatorui_t *ui = (suscan_gui_estimatorui_t *) data;
+
+  SU_TRYCATCH(ui->index != -1, return);
+
+  SU_TRYCATCH(
+      suscan_analyzer_inspector_estimator_cmd_async(
+          ui->inspector->_parent.gui->analyzer,
+          ui->inspector->inshnd,
+          ui->index,
+          gtk_toggle_button_get_active(ui->enableToggleButton),
+          rand()),
+      return);
+}
+
+void
+suscan_gui_estimatorui_on_apply(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_estimatorui_t *ui = (suscan_gui_estimatorui_t *) data;
+  SUFLOAT value = 0;
+
+  SU_TRYCATCH(ui->index != -1, return);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          ui->inspector->config,
+          ui->field,
+          ui->value),
+      return);
+
+  SU_TRYCATCH(suscan_gui_inspector_refresh_on_config(ui->inspector), return);
+
+  SU_TRYCATCH(suscan_gui_inspector_commit_config(ui->inspector), return);
 }
 

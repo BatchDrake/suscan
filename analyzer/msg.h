@@ -85,10 +85,12 @@ enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INSP_PARAMS,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND
 };
 
@@ -106,7 +108,12 @@ struct suscan_analyzer_inspector_msg {
       PTR_LIST_CONST(struct suscan_estimator_class, estimator);
     };
 
-    struct suscan_baud_det_result baud;
+    struct {
+      uint32_t estimator_id;
+      SUBOOL   enabled;
+      SUFLOAT  value;
+    };
+
     struct suscan_analyzer_params params;
     struct suscan_inspector_params insp_params;
   };

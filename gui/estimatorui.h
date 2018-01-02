@@ -44,6 +44,7 @@ struct suscan_gui_estimatorui {
   GtkToggleButton *enableToggleButton;
   GtkEntry *valueEntry;
 
+  int index;
   struct suscan_gui_inspector *inspector;
 
   SUFLOAT value;
@@ -51,11 +52,21 @@ struct suscan_gui_estimatorui {
 
 typedef struct suscan_gui_estimatorui suscan_gui_estimatorui_t;
 
+SUINLINE void
+suscan_gui_estimatorui_set_index(suscan_gui_estimatorui_t *ui, int index)
+{
+  ui->index = index;
+}
+
 suscan_gui_estimatorui_t *suscan_gui_estimatorui_new(
     struct suscan_gui_estimatorui_params *params);
 
 GtkWidget *suscan_gui_estimatorui_get_root(const suscan_gui_estimatorui_t *ui);
 
 void suscan_gui_estimatorui_destroy(suscan_gui_estimatorui_t *ui);
+
+void suscan_gui_estimatorui_set_value(
+    suscan_gui_estimatorui_t *ui,
+    SUFLOAT value);
 
 #endif /* _GUI_ESTIMATORUI_H */

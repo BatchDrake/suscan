@@ -98,8 +98,10 @@ suscan_inspector_wk_cb(
 {
   suscan_consumer_t *consumer = (suscan_consumer_t *) wk_private;
   suscan_inspector_t *insp = (suscan_inspector_t *) cb_private;
-
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  unsigned int i;
   SUSCOUNT samp_count;
+  SUFLOAT value;
   const SUCOMPLEX *samp_buf;
   SUSDIFF fed;
   SUSDIFF got;
@@ -109,7 +111,7 @@ suscan_inspector_wk_cb(
   samp_buf   = suscan_consumer_get_buffer(consumer);
   samp_count = suscan_consumer_get_buffer_size(consumer);
 
-  insp->per_cnt_psd += samp_count;
+  insp->per_cnt_estimator += samp_count;
 
   while (samp_count > 0) {
     /* Feed tuner */
@@ -118,51 +120,63 @@ suscan_inspector_wk_cb(
         goto done);
 
     /* Read samples */
-    got = su_softtuner_read(
+    while ((got = su_softtuner_read(
         &insp->tuner,
         insp->tuner_output,
-        SUSCAN_INSPECTOR_TUNER_BUF_SIZE);
+        SUSCAN_INSPECTOR_TUNER_BUF_SIZE)) > 0) {
+      /* Feed inspector and return samples to clients */
+      SU_TRYCATCH(
+          suscan_inspector_sampler_loop(
+              insp,
+              insp->tuner_output,
+              got,
+              consumer->analyzer->mq_out),
+          goto done);
 
-    /* Feed inspector and return samples to clients */
-    SU_TRYCATCH(
-        suscan_inspector_sampler_loop(
-            insp,
-            insp->tuner_output,
-            got,
-            consumer->analyzer->mq_out),
-        goto done);
+      /* Feed all enabled estimators */
+      for (i = 0; i < insp->estimator_count; ++i)
+        if (suscan_estimator_is_enabled(insp->estimator_list[i]))
+          SU_TRYCATCH(
+              suscan_estimator_feed(
+                  insp->estimator_list[i],
+                  insp->tuner_output,
+                  got),
+              goto done);
+    }
 
     samp_count -= fed;
     samp_buf   += fed;
   }
 
-#if 0
-  /* Check spectrum update */
-  if (insp->interval_psd > 0 && insp->pending)
-    if (insp->per_cnt_psd
-        >= insp->interval_psd
-        * su_channel_detector_get_fs(insp->fac_baud_det)) {
-      insp->per_cnt_psd = 0;
+  /* Check esimator state and update clients */
+  if (insp->interval_estimator > 0) {
+    if (insp->per_cnt_estimator
+        >= insp->interval_estimator * insp->tuner.params.samp_rate) {
+      insp->per_cnt_estimator = 0;
+      for (i = 0; i < insp->estimator_count; ++i)
+        if (suscan_estimator_is_enabled(insp->estimator_list[i])) {
+          if (suscan_estimator_read(insp->estimator_list[i], &value)) {
+            SU_TRYCATCH(
+                msg = suscan_analyzer_inspector_msg_new(
+                    SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR,
+                    rand()),
+                goto done);
 
-      switch (insp->params.psd_source) {
-        case SUSCAN_INSPECTOR_PSD_SOURCE_FAC:
-          if (!suscan_inspector_send_psd(insp, consumer, insp->fac_baud_det))
-            goto done;
-          break;
+            msg->enabled = SU_TRUE;
+            msg->estimator_id = i;
+            msg->value = value;
 
-        case SUSCAN_INSPECTOR_PSD_SOURCE_NLN:
-          if (!suscan_inspector_send_psd(insp, consumer, insp->nln_baud_det))
-            goto done;
-          break;
-
-        default:
-          /* Prevent warnings */
-          break;
-      }
-
-      insp->pending = SU_FALSE;
+            SU_TRYCATCH(
+                suscan_mq_write(
+                    consumer->analyzer->mq_out,
+                    SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+                    msg),
+                goto done);
+            msg = NULL; /* Ownership lost */
+          }
+        }
     }
-#endif
+  }
 
   restart = insp->state == SUSCAN_ASYNC_STATE_RUNNING;
 
@@ -171,6 +185,9 @@ done:
     insp->state = SUSCAN_ASYNC_STATE_HALTED;
     suscan_consumer_remove_task(consumer);
   }
+
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
 
   return restart;
 }
@@ -244,7 +261,7 @@ suscan_analyzer_register_inspector(
  */
 
 /*
- * TODO: Protect access to inspector object!
+ * TODO: !!!!!!!!! Protect access to inspector object !!!!!!!!!!!!!!!
  */
 
 SUBOOL
@@ -295,33 +312,27 @@ suscan_analyzer_parse_inspector_msg(
 
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO:
-      /* Deprecated */
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else if (msg->estimator_id >= insp->estimator_count) {
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT;
+      } else {
+        suscan_estimator_set_enabled(
+            insp->estimator_list[msg->estimator_id],
+            msg->enabled);
+      }
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INSP_PARAMS:
-      if ((insp = suscan_analyzer_get_inspector(
-          analyzer,
-          msg->handle)) == NULL) {
-        /* No such handle */
-        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
-      } else {
-        /* Retrieve current inspector params */
-        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS;
-        msg->insp_params = insp->params;
-      }
+      /* Deprecated */
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS:
-      if ((insp = suscan_analyzer_get_inspector(
-          analyzer,
-          msg->handle)) == NULL) {
-        /* No such handle */
-        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
-      } else {
-        /* Store the parameter update request */
-        suscan_inspector_request_params(insp, &msg->insp_params);
-      }
+      /* Deprecated */
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:

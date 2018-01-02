@@ -547,7 +547,7 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   suscan_inspector_params_initialize(&new->params);
 
   /* Initialize spectrum parameters */
-  new->interval_psd = .1;
+  new->interval_estimator = .1;
 
   /* Configure tuner from channel parameters */
   tuner_params.samp_rate = fs;

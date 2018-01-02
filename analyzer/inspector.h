@@ -46,11 +46,6 @@ enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_HALTED
 };
 
-struct suscan_baud_det_result {
-  SUFLOAT fac;
-  SUFLOAT nln;
-};
-
 enum suscan_inspector_gain_control {
   SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL,
   SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC
@@ -132,10 +127,9 @@ struct suscan_inspector {
   su_ncqo_t               lo;       /* Oscillator for manual carrier offset */
   SUCOMPLEX               phase;    /* Local oscillator phase */
 
-  /* Spectrum state */
-  SUFLOAT                 interval_psd;
-  SUSCOUNT                per_cnt_psd;
-  SUBOOL                  pending;
+  /* Spectrum and estimator state */
+  SUFLOAT                 interval_estimator;
+  SUSCOUNT                per_cnt_estimator;
 
   /* Inspector parameters */
   pthread_mutex_t mutex;

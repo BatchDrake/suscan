@@ -47,7 +47,7 @@ suscan_estimator_fac_feed(void *private, const SUCOMPLEX *x, SUSCOUNT size)
       su_channel_detector_feed_bulk(
           (su_channel_detector_t *) private,
           x,
-          size) == 0,
+          size) == size,
       return SU_FALSE);
 
   return SU_TRUE;
@@ -58,7 +58,7 @@ suscan_estimator_fac_read(const void *private, SUFLOAT *out)
 {
   *out = su_channel_detector_get_baud((const su_channel_detector_t *) private);
 
-  return SU_FALSE;
+  return SU_TRUE;
 }
 
 SUPRIVATE void

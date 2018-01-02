@@ -143,26 +143,17 @@ SUBOOL suscan_analyzer_close(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle);
 
-SUBOOL suscan_analyzer_get_info_async(
-    suscan_analyzer_t *analyzer,
-    SUHANDLE handle,
-    uint32_t req_id);
-
-SUBOOL suscan_analyzer_get_info(
-    suscan_analyzer_t *analyzer,
-    SUHANDLE handle,
-    struct suscan_baud_det_result *result);
-
-SUBOOL suscan_analyzer_set_inspector_params_async(
-    suscan_analyzer_t *analyzer,
-    SUHANDLE handle,
-    const struct suscan_inspector_params *params,
-    uint32_t req_id);
-
 SUBOOL suscan_analyzer_set_inspector_config_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     const suscan_config_t *config,
+    uint32_t req_id);
+
+SUBOOL suscan_analyzer_inspector_estimator_cmd_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    uint32_t estimator_id,
+    SUBOOL enabled,
     uint32_t req_id);
 
 SUBOOL suscan_analyzer_reset_equalizer_async(

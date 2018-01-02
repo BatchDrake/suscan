@@ -217,122 +217,6 @@ done:
 }
 
 SUBOOL
-suscan_analyzer_get_info_async(
-    suscan_analyzer_t *analyzer,
-    SUHANDLE handle,
-    uint32_t req_id)
-{
-  struct suscan_analyzer_inspector_msg *req = NULL;
-  SUBOOL ok = SU_FALSE;
-
-  SU_TRYCATCH(
-      req = suscan_analyzer_inspector_msg_new(
-          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO,
-          req_id),
-      goto done);
-
-  req->handle = handle;
-
-  if (!suscan_analyzer_write(
-      analyzer,
-      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
-      req)) {
-    SU_ERROR("Failed to send get_info command\n");
-    goto done;
-  }
-
-  req = NULL;
-
-  ok = SU_TRUE;
-
-done:
-  if (req != NULL)
-    suscan_analyzer_inspector_msg_destroy(req);
-
-  return ok;
-}
-
-SUBOOL
-suscan_analyzer_get_info(
-    suscan_analyzer_t *analyzer,
-    SUHANDLE handle,
-    struct suscan_baud_det_result *result)
-{
-  struct suscan_analyzer_inspector_msg *resp = NULL;
-  uint32_t req_id = rand();
-  SUBOOL ok = SU_FALSE;
-
-  SU_TRYCATCH(
-      suscan_analyzer_get_info_async(analyzer, handle, req_id),
-      goto done);
-
-  SU_TRYCATCH(
-      resp = suscan_analyzer_read_inspector_msg(analyzer),
-      goto done);
-
-  if (resp->req_id != req_id) {
-    SU_ERROR("Unmatched response received\n");
-    goto done;
-  }
-
-  if (resp->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE) {
-    SU_WARNING("Wrong handle passed to analyzer\n");
-    goto done;
-  } else if (resp->kind != SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO) {
-    SU_ERROR("Unexpected message kind %d\n", resp->kind);
-    goto done;
-  }
-
-  *result = resp->baud;
-
-  ok = SU_TRUE;
-
-done:
-  if (resp != NULL)
-    suscan_analyzer_inspector_msg_destroy(resp);
-
-  return ok;
-}
-
-SUBOOL
-suscan_analyzer_set_inspector_params_async(
-    suscan_analyzer_t *analyzer,
-    SUHANDLE handle,
-    const struct suscan_inspector_params *params,
-    uint32_t req_id)
-{
-  struct suscan_analyzer_inspector_msg *req = NULL;
-  SUBOOL ok = SU_FALSE;
-
-  SU_TRYCATCH(
-      req = suscan_analyzer_inspector_msg_new(
-          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS,
-          req_id),
-      goto done);
-
-  req->handle = handle;
-  req->insp_params = *params;
-
-  if (!suscan_analyzer_write(
-      analyzer,
-      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
-      req)) {
-    SU_ERROR("Failed to send get_inspector_params command\n");
-    goto done;
-  }
-
-  req = NULL;
-
-  ok = SU_TRUE;
-
-done:
-  if (req != NULL)
-    suscan_analyzer_inspector_msg_destroy(req);
-
-  return ok;
-}
-
-SUBOOL
 suscan_analyzer_set_inspector_config_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
@@ -359,6 +243,46 @@ suscan_analyzer_set_inspector_config_async(
       SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
       req)) {
     SU_ERROR("Failed to send set_inspector_config command\n");
+    goto done;
+  }
+
+  req = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (req != NULL)
+    suscan_analyzer_inspector_msg_destroy(req);
+
+  return ok;
+}
+
+SUBOOL
+suscan_analyzer_inspector_estimator_cmd_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    uint32_t estimator_id,
+    SUBOOL enabled,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_inspector_msg *req = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR,
+          req_id),
+      goto done);
+
+  req->handle = handle;
+  req->estimator_id = estimator_id;
+  req->enabled = enabled;
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+      req)) {
+    SU_ERROR("Failed to send estimator_cmd command\n");
     goto done;
   }
 

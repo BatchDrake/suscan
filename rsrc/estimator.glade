@@ -19,6 +19,7 @@
         <property name="margin_right">3</property>
         <property name="margin_top">3</property>
         <property name="margin_bottom">3</property>
+        <signal name="clicked" handler="suscan_gui_estimatorui_on_apply" swapped="no"/>
       </object>
       <packing>
         <property name="left_attach">2</property>
@@ -52,6 +53,7 @@
         <property name="margin_top">3</property>
         <property name="margin_bottom">3</property>
         <property name="hexpand">True</property>
+        <signal name="toggled" handler="suscan_gui_estimatorui_on_toggle_enable" swapped="no"/>
       </object>
       <packing>
         <property name="left_attach">0</property>

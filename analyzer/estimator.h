@@ -40,12 +40,25 @@ struct suscan_estimator_class {
 struct suscan_estimator {
   const struct suscan_estimator_class *class;
   void *private;
+  SUBOOL enabled;
 };
 
 typedef struct suscan_estimator suscan_estimator_t;
 
 const struct suscan_estimator_class *suscan_estimator_class_lookup(
     const char *name);
+
+SUINLINE SUBOOL
+suscan_estimator_is_enabled(const suscan_estimator_t *estimator)
+{
+  return estimator->enabled;
+}
+
+SUINLINE void
+suscan_estimator_set_enabled(suscan_estimator_t *estimator, SUBOOL state)
+{
+  estimator->enabled = state;
+}
 
 SUBOOL suscan_estimator_class_register(
     const struct suscan_estimator_class *class);
