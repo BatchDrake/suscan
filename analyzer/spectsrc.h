@@ -22,11 +22,12 @@
 #define _SPECTSRC_H
 
 #include <sigutils/sigutils.h>
+#include <sigutils/detect.h>
 
 struct suscan_spectsrc_class {
   const char *name;
   const char *desc;
-  void * (*ctor) (SUSCOUNT fs, SUSCOUNT size);
+  void * (*ctor) (SUSCOUNT size);
   SUBOOL (*compute) (void *private, const SUCOMPLEX *data, SUFLOAT *result);
   void   (*dtor) (void *private);
 };
@@ -40,14 +41,19 @@ SUBOOL suscan_spectsrc_class_register(
 struct suscan_spectsrc {
   const struct suscan_spectsrc_class *class;
   void *private;
+
+  enum sigutils_channel_detector_window window_type;
+  SUCOMPLEX *window_func;
+  SUCOMPLEX *window_buffer;
+  SUSCOUNT   window_size;
 };
 
 typedef struct suscan_spectsrc suscan_spectsrc_t;
 
 suscan_spectsrc_t *suscan_spectsrc_new(
     const struct suscan_spectsrc_class *class,
-    SUSCOUNT fs,
-    SUSCOUNT size);
+    SUSCOUNT size,
+    enum sigutils_channel_detector_window window_type);
 
 SUBOOL suscan_spectsrc_compute(
     suscan_spectsrc_t *src,
