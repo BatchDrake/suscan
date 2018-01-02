@@ -327,14 +327,6 @@ suscan_analyzer_parse_inspector_msg(
       }
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INSP_PARAMS:
-      /* Deprecated */
-      break;
-
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS:
-      /* Deprecated */
-      break;
-
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
       if ((insp = suscan_analyzer_get_inspector(
           analyzer,
