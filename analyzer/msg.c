@@ -168,6 +168,9 @@ suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
 
     if (msg->estimator_list != NULL)
       free(msg->estimator_list);
+
+    if (msg->spectsrc_list != NULL)
+      free(msg->spectsrc_list);
   }
 
   free(msg);

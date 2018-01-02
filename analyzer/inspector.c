@@ -187,6 +187,12 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
   if (insp->estimator_list != NULL)
     free(insp->estimator_list);
 
+  for (i = 0; i < insp->spectsrc_count; ++i)
+    suscan_spectsrc_destroy(insp->spectsrc_list[i]);
+
+  if (insp->spectsrc_list != NULL)
+    free(insp->spectsrc_list);
+
   free(insp);
 }
 
@@ -527,6 +533,34 @@ fail:
   return SU_FALSE;
 }
 
+SUPRIVATE SUBOOL
+suscan_inspector_add_spectsrc(suscan_inspector_t *insp, const char *name)
+{
+  const struct suscan_spectsrc_class *class;
+  suscan_spectsrc_t *estimator = NULL;
+
+  SU_TRYCATCH(class = suscan_spectsrc_class_lookup(name), goto fail);
+
+  SU_TRYCATCH(
+      estimator = suscan_spectsrc_new(
+          class,
+          SUSCAN_INSPECTOR_TUNER_BUF_SIZE,
+          SU_CHANNEL_DETECTOR_WINDOW_BLACKMANN_HARRIS),
+      goto fail);
+
+  SU_TRYCATCH(
+      PTR_LIST_APPEND_CHECK(insp->spectsrc, estimator) != -1,
+      goto fail);
+
+  return SU_TRUE;
+
+fail:
+  if (estimator != NULL)
+    suscan_spectsrc_destroy(estimator);
+
+  return SU_FALSE;
+}
+
 suscan_inspector_t *
 suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
 {
@@ -634,6 +668,9 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   /* Add some estimators */
   SU_TRYCATCH(suscan_inspector_add_estimator(new, "baud-fac"), goto fail);
   SU_TRYCATCH(suscan_inspector_add_estimator(new, "baud-nonlinear"), goto fail);
+
+  /* Add applicable spectrum sources */
+  SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "psd"), goto fail);
 
   return new;
 

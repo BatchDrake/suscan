@@ -306,6 +306,14 @@ suscan_analyzer_parse_inspector_msg(
                 (void *) new->estimator_list[i]->class) != -1,
             goto done);
 
+      /* Add applicable spectrum sources */
+      for (i = 0; i < new->spectsrc_count; ++i)
+        SU_TRYCATCH(
+            PTR_LIST_APPEND_CHECK(
+                msg->spectsrc,
+                (void *) new->spectsrc_list[i]->class) != -1,
+            goto done);
+
       new = NULL;
 
       msg->handle = handle;

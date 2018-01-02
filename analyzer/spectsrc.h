@@ -44,7 +44,7 @@ struct suscan_spectsrc_class {
       SUCOMPLEX *buffer,
       SUSCOUNT size);
 
-  void   (*dtor) (void *private);
+  void (*dtor) (void *private);
 };
 
 const struct suscan_spectsrc_class *suscan_spectsrc_class_lookup(
@@ -84,5 +84,9 @@ SUSCOUNT suscan_spectsrc_feed(
     SUSCOUNT size);
 
 void suscan_spectsrc_destroy(suscan_spectsrc_t *src);
+
+SUBOOL suscan_spectsrc_psd_register(void);
+
+SUBOOL suscan_init_spectsrcs(void);
 
 #endif /* _SPECTSRC_H */

@@ -31,6 +31,7 @@
 #include <cfg.h>
 
 #include "estimator.h"
+#include "spectsrc.h"
 
 #define SUHANDLE int32_t
 
@@ -147,6 +148,9 @@ struct suscan_inspector {
 
   /* Parameter estimators */
   PTR_LIST(suscan_estimator_t, estimator);
+
+  /* Spectrum source */
+  PTR_LIST(suscan_spectsrc_t, spectsrc);
 
   enum suscan_aync_state state; /* Used to remove analyzer from queue */
 };

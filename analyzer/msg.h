@@ -101,6 +101,7 @@ struct suscan_analyzer_inspector_msg {
       struct sigutils_channel channel;
       suscan_config_t *config;
       PTR_LIST_CONST(struct suscan_estimator_class, estimator);
+      PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc);
     };
 
     struct {

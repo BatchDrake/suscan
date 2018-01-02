@@ -191,7 +191,7 @@ suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
 
   /* Convert to absolute value */
   for (i = 0; i < src->window_size; ++i)
-    result[i] = SU_ABS(src->window_func[i]);
+    result[i] = SU_C_ABS(src->window_func[i]);
 
   return SU_TRUE;
 }
@@ -235,5 +235,7 @@ suscan_spectsrc_destroy(suscan_spectsrc_t *spectsrc)
 SUBOOL
 suscan_init_spectsrcs(void)
 {
+  SU_TRYCATCH(suscan_spectsrc_psd_register(), return SU_FALSE);
+
   return SU_TRUE;
 }
