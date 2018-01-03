@@ -148,6 +148,7 @@ suscan_gui_spectrum_set_defaults(struct suscan_gui_spectrum *spectrum)
   spectrum->ref_level   = SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT;
   spectrum->dbs_per_div = SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT;
   spectrum->agc_alpha   = SUSCAN_GUI_SPECTRUM_AGC_ALPHA;
+  spectrum->dc_skip     = SU_TRUE;
 }
 
 void
@@ -383,10 +384,15 @@ suscan_gui_spectrum_update(
   } else {
     /* Average against previous update, only if sizes match */
     if (old_size == spectrum_size) {
-      for (i = 0; i < old_size; ++i)
+      if (spectrum->smooth_N0 && old_size > 0)
+        N0 = spectrum->psd_data[0];
+      for (i = 0; i < old_size; ++i) {
         spectrum->psd_data_smooth[i] +=
             SUSCAN_GUI_SPECTRUM_ALPHA *
               (spectrum->psd_data[i] - spectrum->psd_data_smooth[i]);
+        if (spectrum->smooth_N0 && spectrum->psd_data_smooth[i] < N0)
+          N0 = spectrum->psd_data_smooth[i];
+      }
     } else {
       /* Sizes don't match, reset smoothed spectrum */
       free(spectrum->psd_data_smooth);
@@ -399,7 +405,8 @@ suscan_gui_spectrum_update(
   }
 
   if (spectrum->auto_level) {
-    skip = spectrum->psd_size / 8;
+    skip = spectrum->dc_skip ? spectrum->psd_size / 8 : 0;
+
     for (i = skip; i < spectrum->psd_size - skip; ++i)
       if (spectrum->psd_data[i] > max)
         max = spectrum->psd_data[i];

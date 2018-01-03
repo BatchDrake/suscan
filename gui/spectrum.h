@@ -59,6 +59,8 @@ struct suscan_gui_spectrum {
   SUSCOUNT updates; /* Number of spectrum updates */
   SUSCOUNT last_update; /* Last update in which waterfall has been repainted */
   SUBOOL   auto_level; /* Automatic reference level */
+  SUBOOL   dc_skip;   /* Skip DC from autolevel calculation */
+  SUBOOL   smooth_N0; /* Perform N0 computation based on smoothed spectrum */
   SUFLOAT  agc_alpha; /* AGC alpha for smooth update */
 
   /* Representation properties */

@@ -891,10 +891,10 @@ suscan_gui_inspector_new(
           &new->spectrum,
           SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE);
 
-  new->spectrum.auto_level = SU_FALSE;
+  new->spectrum.auto_level = SU_TRUE;
   new->spectrum.agc_alpha  = SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA;
   new->spectrum.show_channels = SU_FALSE;
-
+  new->spectrum.smooth_N0  = SU_TRUE;
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(
           PKGDATADIR "/gui/channel-inspector-new.glade"),
@@ -1259,5 +1259,37 @@ suscan_inspector_on_change_spectrum(GtkWidget *widget, gpointer data)
       inspector->inshnd,
       id,
       rand());
+}
+
+void
+suscan_inspector_on_spectrum_center(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+
+  inspector->spectrum.freq_offset = 0;
+}
+
+void
+suscan_inspector_on_toggle_spectrum_autolevel(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+
+  inspector->spectrum.auto_level =
+      gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+
+void
+suscan_inspector_on_toggle_spectrum_mode(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+  SUBOOL use_wf = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+
+  if (use_wf) {
+    inspector->spectrum.mode = SUSCAN_GUI_SPECTRUM_MODE_WATERFALL;
+    gtk_button_set_label(GTK_BUTTON(widget), "Waterfall");
+  } else {
+    inspector->spectrum.mode = SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM;
+    gtk_button_set_label(GTK_BUTTON(widget), "Spectrogram");
+  }
 }
 

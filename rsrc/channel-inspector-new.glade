@@ -680,6 +680,7 @@
                       <object class="GtkAlignment">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="hexpand">False</property>
                         <property name="vexpand">False</property>
                         <property name="left_padding">12</property>
                         <child>
@@ -691,6 +692,7 @@
                               <object class="GtkLabel">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
+                                <property name="halign">start</property>
                                 <property name="margin_left">3</property>
                                 <property name="margin_right">3</property>
                                 <property name="margin_top">3</property>
@@ -710,6 +712,7 @@
                                 <property name="margin_right">3</property>
                                 <property name="margin_top">3</property>
                                 <property name="margin_bottom">3</property>
+                                <property name="hexpand">True</property>
                                 <property name="active">0</property>
                                 <items>
                                   <item id="0" translatable="yes">None</item>
@@ -719,6 +722,73 @@
                               <packing>
                                 <property name="left_attach">1</property>
                                 <property name="top_attach">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkGrid">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="hexpand">True</property>
+                                <child>
+                                  <object class="GtkButton">
+                                    <property name="label" translatable="yes">Center</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">True</property>
+                                    <property name="margin_left">3</property>
+                                    <property name="margin_right">3</property>
+                                    <property name="margin_top">3</property>
+                                    <property name="margin_bottom">3</property>
+                                    <property name="hexpand">True</property>
+                                    <signal name="clicked" handler="suscan_inspector_on_spectrum_center" swapped="no"/>
+                                  </object>
+                                  <packing>
+                                    <property name="left_attach">0</property>
+                                    <property name="top_attach">0</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkToggleButton">
+                                    <property name="label" translatable="yes">Auto-level</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">True</property>
+                                    <property name="margin_left">3</property>
+                                    <property name="margin_right">3</property>
+                                    <property name="margin_top">3</property>
+                                    <property name="margin_bottom">3</property>
+                                    <property name="hexpand">True</property>
+                                    <property name="active">True</property>
+                                    <signal name="toggled" handler="suscan_inspector_on_toggle_spectrum_autolevel" swapped="no"/>
+                                  </object>
+                                  <packing>
+                                    <property name="left_attach">1</property>
+                                    <property name="top_attach">0</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkToggleButton">
+                                    <property name="label" translatable="yes">Spectrogram</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">True</property>
+                                    <property name="margin_left">3</property>
+                                    <property name="margin_right">3</property>
+                                    <property name="margin_top">3</property>
+                                    <property name="margin_bottom">3</property>
+                                    <property name="hexpand">True</property>
+                                    <signal name="toggled" handler="suscan_inspector_on_toggle_spectrum_mode" swapped="no"/>
+                                  </object>
+                                  <packing>
+                                    <property name="left_attach">2</property>
+                                    <property name="top_attach">0</property>
+                                  </packing>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">1</property>
+                                <property name="width">2</property>
                               </packing>
                             </child>
                           </object>

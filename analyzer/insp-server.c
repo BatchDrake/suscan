@@ -95,6 +95,8 @@ suscan_inspector_spectrum_loop(
 {
   struct suscan_analyzer_inspector_msg *msg = NULL;
   suscan_spectsrc_t *src = NULL;
+  unsigned int i;
+  SUFLOAT N0;
   SUSDIFF fed;
 
   if (insp->spectsrc_index > 0) {
@@ -116,7 +118,6 @@ suscan_inspector_spectrum_loop(
 
           msg->inspector_id = insp->inspector_id;
           msg->spectsrc_id = insp->spectsrc_index;
-          msg->N0 = insp->channel.N0;
           msg->samp_rate = insp->equiv_fs;
           msg->spectrum_size = SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE;
 
@@ -127,6 +128,14 @@ suscan_inspector_spectrum_loop(
           SU_TRYCATCH(
               suscan_spectsrc_calculate(src, msg->spectrum_data),
               goto fail);
+
+          /* Use signal floor as noise level */
+          N0 = msg->spectrum_data[0];
+          for (i = 1; i < msg->spectrum_size; ++i)
+            if (N0 > msg->spectrum_data[i])
+              N0 = msg->spectrum_data[i];
+
+          msg->N0 = N0;
 
           SU_TRYCATCH(
               suscan_mq_write(
