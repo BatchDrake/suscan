@@ -81,6 +81,7 @@ enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO,
@@ -108,6 +109,15 @@ struct suscan_analyzer_inspector_msg {
       uint32_t estimator_id;
       SUBOOL   enabled;
       SUFLOAT  value;
+    };
+
+    struct {
+      uint32_t  spectsrc_id;
+      SUFLOAT  *spectrum_data;
+      SUSCOUNT  spectrum_size;
+      SUSCOUNT  samp_rate;
+      SUFLOAT   fc;
+      SUFLOAT   N0;
     };
 
     struct suscan_analyzer_params params;
@@ -167,13 +177,19 @@ void suscan_analyzer_channel_msg_destroy(struct suscan_analyzer_channel_msg *msg
 struct suscan_analyzer_inspector_msg *suscan_analyzer_inspector_msg_new(
     enum suscan_analyzer_inspector_msgkind kind,
     uint32_t req_id);
+
+SUFLOAT *suscan_analyzer_inspector_msg_take_spectrum(
+    struct suscan_analyzer_inspector_msg *msg);
+
 void suscan_analyzer_inspector_msg_destroy(
     struct suscan_analyzer_inspector_msg *msg);
 
 /* Spectrum update message */
 struct suscan_analyzer_psd_msg *suscan_analyzer_psd_msg_new(
     const su_channel_detector_t *cd);
+
 SUFLOAT *suscan_analyzer_psd_msg_take_psd(struct suscan_analyzer_psd_msg *msg);
+
 void suscan_analyzer_psd_msg_destroy(struct suscan_analyzer_psd_msg *msg);
 
 /* Sample batch message */

@@ -86,6 +86,77 @@ fail:
   return SU_FALSE;
 }
 
+SUPRIVATE SUBOOL
+suscan_inspector_spectrum_loop(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count,
+    struct suscan_mq *mq_out)
+{
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  suscan_spectsrc_t *src = NULL;
+  SUSDIFF fed;
+
+  if (insp->spectsrc_index > 0) {
+    src = insp->spectsrc_list[insp->spectsrc_index - 1];
+
+    while (samp_count > 0) {
+      /* Ensure the current inspector parameters are up-to-date */
+      suscan_inspector_assert_params(insp);
+
+      fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
+
+      if (fed < samp_count) {
+        /* Buffer full */
+
+        if (insp->per_cnt_spectrum >= insp->interval_spectrum) {
+          insp->per_cnt_spectrum = 0;
+          SU_TRYCATCH(
+              msg = suscan_analyzer_inspector_msg_new(
+                  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM,
+                  rand()),
+              goto fail);
+
+          msg->spectsrc_id = insp->spectsrc_index;
+          msg->N0 = insp->channel.N0;
+          msg->samp_rate = insp->equiv_fs;
+          msg->fc = insp->tuner.params.fc;
+          msg->spectrum_size = SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE;
+
+          SU_TRYCATCH(
+              msg->spectrum_data = malloc(msg->spectrum_size * sizeof(SUFLOAT)),
+              goto fail);
+
+          SU_TRYCATCH(
+              suscan_spectsrc_calculate(src, msg->spectrum_data),
+              goto fail);
+
+          SU_TRYCATCH(
+              suscan_mq_write(
+                  mq_out,
+                  SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+                  msg),
+              goto fail);
+
+          msg = NULL; /* We don't own this anymore */
+        } else {
+          SU_TRYCATCH(suscan_spectsrc_drop(src), goto fail);
+        }
+      }
+
+      samp_buf   += fed;
+      samp_count -= fed;
+    }
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+
+  return SU_FALSE;
+}
 /*
  * TODO: Store *one port* only per worker. This port is read once all
  * consumers have finished with their buffer.
@@ -112,6 +183,7 @@ suscan_inspector_wk_cb(
   samp_count = suscan_consumer_get_buffer_size(consumer);
 
   insp->per_cnt_estimator += samp_count;
+  insp->per_cnt_spectrum  += samp_count;
 
   while (samp_count > 0) {
     /* Feed tuner */
@@ -142,6 +214,16 @@ suscan_inspector_wk_cb(
                   insp->tuner_output,
                   got),
               goto done);
+
+      /* Feed spectrum */
+      if (insp->interval_spectrum > 0)
+        SU_TRYCATCH(
+            suscan_inspector_spectrum_loop(
+                insp,
+                insp->tuner_output,
+                got,
+                consumer->analyzer->mq_out),
+            goto done);
     }
 
     samp_count -= fed;
@@ -150,8 +232,7 @@ suscan_inspector_wk_cb(
 
   /* Check esimator state and update clients */
   if (insp->interval_estimator > 0) {
-    if (insp->per_cnt_estimator
-        >= insp->interval_estimator * insp->tuner.params.samp_rate) {
+    if (insp->per_cnt_estimator >= insp->interval_estimator) {
       insp->per_cnt_estimator = 0;
       for (i = 0; i < insp->estimator_count; ++i)
         if (suscan_estimator_is_enabled(insp->estimator_list[i])) {
@@ -332,6 +413,19 @@ suscan_analyzer_parse_inspector_msg(
         suscan_estimator_set_enabled(
             insp->estimator_list[msg->estimator_id],
             msg->enabled);
+      }
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else if (msg->spectsrc_id > insp->spectsrc_count) {
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT;
+      } else {
+        insp->spectsrc_index = msg->spectsrc_id;
       }
       break;
 

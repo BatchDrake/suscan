@@ -513,6 +513,22 @@ suscan_gui_inspector_dummy_create_private(
   return ui;
 }
 
+void
+suscan_gui_inspector_add_spectrum_source(
+    suscan_gui_inspector_t *inspector,
+    const struct suscan_spectsrc_class *class,
+    uint32_t id)
+{
+  char id_str[32];
+
+  snprintf(id_str, sizeof(id_str), "%u", id);
+
+  gtk_combo_box_text_append(
+      inspector->spectrumSourceComboBoxText,
+      id_str,
+      class->desc);
+}
+
 SUBOOL
 suscan_gui_inspector_add_estimatorui(
     suscan_gui_inspector_t *inspector,
@@ -558,6 +574,13 @@ fail:
 SUPRIVATE SUBOOL
 suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 {
+  SU_TRYCATCH(
+      inspector->spectrumSourceComboBoxText =
+          GTK_COMBO_BOX_TEXT(gtk_builder_get_object(
+              inspector->builder,
+              "cbSpectrumSource")),
+          return SU_FALSE);
+
   SU_TRYCATCH(
       inspector->channelInspectorGrid =
           GTK_GRID(gtk_builder_get_object(
@@ -1220,5 +1243,21 @@ suscan_inspector_on_scroll(GtkWidget *widget, gpointer data)
       inspector->symbolView,
       floor(gtk_adjustment_get_value(inspector->symViewScrollAdjustment))
       * sugtk_sym_view_get_width(inspector->symbolView));
+}
+
+void
+suscan_inspector_on_change_spectrum(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+  int id;
+
+  id = suscan_gui_modemctl_helper_try_read_combo_id(
+      GTK_COMBO_BOX(inspector->spectrumSourceComboBoxText));
+
+  suscan_analyzer_inspector_set_spectrum_async(
+      inspector->_parent.gui->analyzer,
+      inspector->inshnd,
+      id,
+      rand());
 }
 

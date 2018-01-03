@@ -157,6 +157,17 @@ suscan_analyzer_inspector_msg_new(
   return new;
 }
 
+SUFLOAT *
+suscan_analyzer_inspector_msg_take_spectrum(
+    struct suscan_analyzer_inspector_msg *msg)
+{
+  SUFLOAT *result = msg->spectrum_data;
+
+  msg->spectrum_data = NULL;
+
+  return result;
+}
+
 void
 suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
 {
@@ -171,6 +182,9 @@ suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
 
     if (msg->spectsrc_list != NULL)
       free(msg->spectsrc_list);
+  } else if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
+    if (msg->spectrum_data != NULL)
+      free(msg->spectrum_data);
   }
 
   free(msg);

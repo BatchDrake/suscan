@@ -37,8 +37,9 @@
 
 #define SUSCAN_ANALYZER_CPU_USAGE_UPDATE_ALPHA .025
 
-#define SUSCAN_INSPECTOR_TUNER_BUF_SIZE   SU_BLOCK_STREAM_BUFFER_SIZE
-#define SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE SU_BLOCK_STREAM_BUFFER_SIZE
+#define SUSCAN_INSPECTOR_TUNER_BUF_SIZE    SU_BLOCK_STREAM_BUFFER_SIZE
+#define SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE  SU_BLOCK_STREAM_BUFFER_SIZE
+#define SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE SUSCAN_INSPECTOR_TUNER_BUF_SIZE
 
 enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_CREATED,
@@ -129,8 +130,12 @@ struct suscan_inspector {
   SUCOMPLEX               phase;    /* Local oscillator phase */
 
   /* Spectrum and estimator state */
-  SUFLOAT                 interval_estimator;
-  SUSCOUNT                per_cnt_estimator;
+  SUSCOUNT                interval_estimator;
+  SUSDIFF                 per_cnt_estimator;
+
+  SUSCOUNT                interval_spectrum;
+  SUSDIFF                 per_cnt_spectrum;
+  uint32_t                spectsrc_index;
 
   /* Inspector parameters */
   pthread_mutex_t mutex;

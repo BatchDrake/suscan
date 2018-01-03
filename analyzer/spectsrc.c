@@ -155,6 +155,16 @@ fail:
 }
 
 SUBOOL
+suscan_spectsrc_drop(suscan_spectsrc_t *src)
+{
+  SU_TRYCATCH(src->window_ptr == src->window_size, return SU_FALSE);
+
+  src->window_ptr = 0;
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
 {
   unsigned int i;
@@ -191,7 +201,7 @@ suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
 
   /* Convert to absolute value */
   for (i = 0; i < src->window_size; ++i)
-    result[i] = SU_C_ABS(src->window_func[i]);
+    result[i] = SU_C_ABS(src->window_buffer[i]);
 
   return SU_TRUE;
 }
@@ -236,6 +246,7 @@ SUBOOL
 suscan_init_spectsrcs(void)
 {
   SU_TRYCATCH(suscan_spectsrc_psd_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_spectsrc_cyclo_register(), return SU_FALSE);
 
   return SU_TRUE;
 }

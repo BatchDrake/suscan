@@ -78,6 +78,8 @@ suscan_spectsrc_t *suscan_spectsrc_new(
 
 SUBOOL suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result);
 
+SUBOOL suscan_spectsrc_drop(suscan_spectsrc_t *src);
+
 SUSCOUNT suscan_spectsrc_feed(
     suscan_spectsrc_t *src,
     const SUCOMPLEX *data,
@@ -86,6 +88,7 @@ SUSCOUNT suscan_spectsrc_feed(
 void suscan_spectsrc_destroy(suscan_spectsrc_t *src);
 
 SUBOOL suscan_spectsrc_psd_register(void);
+SUBOOL suscan_spectsrc_cyclo_register(void);
 
 SUBOOL suscan_init_spectsrcs(void);
 

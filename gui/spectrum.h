@@ -102,9 +102,17 @@ void suscan_gui_spectrum_set_mode(
 
 void suscan_gui_spectrum_reset(struct suscan_gui_spectrum *spectrum);
 
-void suscan_gui_spectrum_update(
+void suscan_gui_spectrum_update_from_psd_msg(
     struct suscan_gui_spectrum *spectrum,
     struct suscan_analyzer_psd_msg *msg);
+
+void suscan_gui_spectrum_update(
+    struct suscan_gui_spectrum *spectrum,
+    SUFLOAT *spectrum_data,
+    SUSCOUNT spectrum_size,
+    SUSCOUNT samp_rate,
+    SUFLOAT fc,
+    SUFLOAT N0);
 
 void suscan_gui_spectrum_update_channels(
     struct suscan_gui_spectrum *spectrum,

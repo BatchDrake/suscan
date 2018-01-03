@@ -537,26 +537,25 @@ SUPRIVATE SUBOOL
 suscan_inspector_add_spectsrc(suscan_inspector_t *insp, const char *name)
 {
   const struct suscan_spectsrc_class *class;
-  suscan_spectsrc_t *estimator = NULL;
+  suscan_spectsrc_t *src = NULL;
 
   SU_TRYCATCH(class = suscan_spectsrc_class_lookup(name), goto fail);
 
   SU_TRYCATCH(
-      estimator = suscan_spectsrc_new(
+      src = suscan_spectsrc_new(
           class,
-          SUSCAN_INSPECTOR_TUNER_BUF_SIZE,
+          SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE,
           SU_CHANNEL_DETECTOR_WINDOW_BLACKMANN_HARRIS),
       goto fail);
 
-  SU_TRYCATCH(
-      PTR_LIST_APPEND_CHECK(insp->spectsrc, estimator) != -1,
-      goto fail);
+
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(insp->spectsrc, src) != -1, goto fail);
 
   return SU_TRUE;
 
 fail:
-  if (estimator != NULL)
-    suscan_spectsrc_destroy(estimator);
+  if (src != NULL)
+    suscan_spectsrc_destroy(src);
 
   return SU_FALSE;
 }
@@ -581,7 +580,8 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   suscan_inspector_params_initialize(&new->params);
 
   /* Initialize spectrum parameters */
-  new->interval_estimator = .1;
+  new->interval_estimator = .1 * fs;
+  new->interval_spectrum  = .1 * fs;
 
   /* Configure tuner from channel parameters */
   tuner_params.samp_rate = fs;
@@ -671,6 +671,7 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
 
   /* Add applicable spectrum sources */
   SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "psd"), goto fail);
+  SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "cyclo"), goto fail);
 
   return new;
 

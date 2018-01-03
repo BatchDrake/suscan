@@ -278,7 +278,7 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
       envelope->gui->main_spectrum.dbs_per_div);
   gtk_label_set_text(envelope->gui->spectrumDbsPerDivLabel, text);
 
-  suscan_gui_spectrum_update(
+  suscan_gui_spectrum_update_from_psd_msg(
       &envelope->gui->main_spectrum,
       msg);
 
@@ -307,7 +307,7 @@ suscan_async_update_inspector_spectrum_cb(gpointer user_data)
 
   msg->fc = 0; /* Frequency reference is wrt channel's carrier */
 
-  suscan_gui_spectrum_update(
+  suscan_gui_spectrum_update_from_psd_msg(
       &insp->spectrum,
       msg);
 
@@ -379,6 +379,13 @@ suscan_async_parse_inspector_msg(gpointer user_data)
                 i),
             goto done);
 
+      /* Add all spectrum sources */
+      for (i = 0; i < msg->spectsrc_count; ++i)
+        suscan_gui_inspector_add_spectrum_source(
+            new_insp,
+            msg->spectsrc_list[i],
+            i + 1);
+
       SU_TRYCATCH(
           suscan_gui_add_inspector(
               envelope->gui,
@@ -423,6 +430,20 @@ suscan_async_parse_inspector_msg(gpointer user_data)
             insp->estimator_list[msg->estimator_id],
             msg->value);
 
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM:
+      SU_TRYCATCH(
+          insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
+          goto done);
+
+      suscan_gui_spectrum_update(
+          &insp->spectrum,
+          suscan_analyzer_inspector_msg_take_spectrum(msg),
+          msg->spectrum_size,
+          msg->samp_rate,
+          msg->fc,
+          msg->N0);
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:

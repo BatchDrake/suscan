@@ -156,6 +156,12 @@ SUBOOL suscan_analyzer_inspector_estimator_cmd_async(
     SUBOOL enabled,
     uint32_t req_id);
 
+SUBOOL suscan_analyzer_inspector_set_spectrum_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    uint32_t spectsrc_id,
+    uint32_t req_id);
+
 SUBOOL suscan_analyzer_reset_equalizer_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
