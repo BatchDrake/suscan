@@ -61,7 +61,7 @@ suscan_inspector_sampler_loop(
       /* New sampes produced by sampler: send to client */
       SU_TRYCATCH(
           msg = suscan_analyzer_sample_batch_msg_new(
-              insp->params.inspector_id,
+              insp->inspector_id,
               insp->sampler_output,
               insp->sampler_output_size),
           goto fail);
@@ -99,7 +99,6 @@ suscan_inspector_spectrum_loop(
 
   if (insp->spectsrc_index > 0) {
     src = insp->spectsrc_list[insp->spectsrc_index - 1];
-
     while (samp_count > 0) {
       /* Ensure the current inspector parameters are up-to-date */
       suscan_inspector_assert_params(insp);
@@ -107,8 +106,6 @@ suscan_inspector_spectrum_loop(
       fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
 
       if (fed < samp_count) {
-        /* Buffer full */
-
         if (insp->per_cnt_spectrum >= insp->interval_spectrum) {
           insp->per_cnt_spectrum = 0;
           SU_TRYCATCH(
@@ -117,10 +114,10 @@ suscan_inspector_spectrum_loop(
                   rand()),
               goto fail);
 
+          msg->inspector_id = insp->inspector_id;
           msg->spectsrc_id = insp->spectsrc_index;
           msg->N0 = insp->channel.N0;
           msg->samp_rate = insp->equiv_fs;
-          msg->fc = insp->tuner.params.fc;
           msg->spectrum_size = SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE;
 
           SU_TRYCATCH(
@@ -246,6 +243,7 @@ suscan_inspector_wk_cb(
             msg->enabled = SU_TRUE;
             msg->estimator_id = i;
             msg->value = value;
+            msg->inspector_id = insp->inspector_id;
 
             SU_TRYCATCH(
                 suscan_mq_write(
@@ -401,6 +399,18 @@ suscan_analyzer_parse_inspector_msg(
 
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else {
+        /* TODO: PROTECT!!!!!!!! */
+        insp->inspector_id = msg->inspector_id;
+      }
+      break;
+
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR:
       if ((insp = suscan_analyzer_get_inspector(
           analyzer,
@@ -487,7 +497,7 @@ suscan_analyzer_parse_inspector_msg(
           msg->handle)) == NULL) {
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
-        msg->inspector_id = insp->params.inspector_id;
+        msg->inspector_id = insp->inspector_id;
 
         if (insp->state == SUSCAN_ASYNC_STATE_HALTED) {
           /*
@@ -521,7 +531,7 @@ suscan_analyzer_parse_inspector_msg(
    * inspector ID in the response.
    */
   if (insp != NULL)
-    msg->inspector_id = insp->params.inspector_id;
+    msg->inspector_id = insp->inspector_id;
 
   if (!suscan_mq_write(
       analyzer->mq_out,

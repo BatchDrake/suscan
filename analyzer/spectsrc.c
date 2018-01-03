@@ -142,7 +142,7 @@ suscan_spectsrc_new(
           new->window_buffer,
           new->window_buffer,
           FFTW_FORWARD,
-          FFTW_ESTIMATE)),
+          FFTW_MEASURE)),
       goto fail);
 
   return new;
@@ -173,7 +173,7 @@ suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
 
   src->window_ptr = 0;
 
-  if (src->class->preproc != NULL) {
+  if (src->class->preproc != NULL)
     SU_TRYCATCH(
         (src->class->preproc) (
             src,
@@ -181,11 +181,11 @@ suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
             src->window_buffer,
             src->window_size),
         return SU_FALSE);
-  }
 
   /* Apply window function first */
-  for (i = 0; i < src->window_size; ++i)
-    src->window_buffer[i] *= src->window_func[i];
+  if (src->window_type != SU_CHANNEL_DETECTOR_WINDOW_NONE)
+    for (i = 0; i < src->window_size; ++i)
+      src->window_buffer[i] *= src->window_func[i];
 
   /* Apply FFT */
   fftw_execute(src->fft_plan);
@@ -201,7 +201,8 @@ suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
 
   /* Convert to absolute value */
   for (i = 0; i < src->window_size; ++i)
-    result[i] = SU_C_ABS(src->window_buffer[i]);
+    result[i] =
+        SU_C_REAL(src->window_buffer[i] * SU_C_CONJ(src->window_buffer[i]));
 
   return SU_TRUE;
 }
@@ -212,12 +213,14 @@ suscan_spectsrc_feed(
     const SUCOMPLEX *data,
     SUSCOUNT size)
 {
+  SUSCOUNT i;
   SUSCOUNT avail = spectsrc->window_size - spectsrc->window_ptr;
 
   if (size > avail)
     size = avail;
 
-  memcpy(spectsrc->window_buffer + spectsrc->window_ptr, data, size);
+  for (i = 0; i < size; ++i)
+    spectsrc->window_buffer[spectsrc->window_ptr + i] = data[i];
 
   spectsrc->window_ptr += size;
 
@@ -247,6 +250,9 @@ suscan_init_spectsrcs(void)
 {
   SU_TRYCATCH(suscan_spectsrc_psd_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_spectsrc_cyclo_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_spectsrc_exp_2_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_spectsrc_exp_4_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_spectsrc_exp_8_register(), return SU_FALSE);
 
   return SU_TRUE;
 }

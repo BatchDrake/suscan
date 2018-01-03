@@ -672,6 +672,9 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   /* Add applicable spectrum sources */
   SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "psd"), goto fail);
   SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "cyclo"), goto fail);
+  SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "exp_2"), goto fail);
+  SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "exp_4"), goto fail);
+  SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "exp_8"), goto fail);
 
   return new;
 

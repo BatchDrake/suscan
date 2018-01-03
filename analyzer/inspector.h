@@ -39,7 +39,7 @@
 
 #define SUSCAN_INSPECTOR_TUNER_BUF_SIZE    SU_BLOCK_STREAM_BUFFER_SIZE
 #define SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE  SU_BLOCK_STREAM_BUFFER_SIZE
-#define SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE SUSCAN_INSPECTOR_TUNER_BUF_SIZE
+#define SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE 2048
 
 enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_CREATED,
@@ -82,8 +82,6 @@ enum suscan_inspector_psd_source {
 };
 
 struct suscan_inspector_params {
-  uint32_t inspector_id;
-
   /* Gain control parameters */
   enum suscan_inspector_gain_control gc_ctrl;
   SUFLOAT gc_gain;    /* Positive gain (linear) */
@@ -139,6 +137,7 @@ struct suscan_inspector {
 
   /* Inspector parameters */
   pthread_mutex_t mutex;
+  uint32_t inspector_id;        /* Set by client */
   struct suscan_inspector_params params;
   struct suscan_inspector_params params_request;
   SUBOOL    params_requested;   /* New samples requested */

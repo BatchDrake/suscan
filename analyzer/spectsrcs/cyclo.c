@@ -42,10 +42,8 @@ suscan_spectsrc_cyclo_preproc(
   SUCOMPLEX diff;
   SUSCOUNT i;
 
-  return SU_TRUE;
-
   for (i = 0; i < size; ++i) {
-    diff = SU_C_ABS(buffer[i] - SU_C_CONJ(prev));
+    diff = buffer[i] * SU_C_CONJ(prev);
     prev = buffer[i];
     buffer[i] = diff;
   }
@@ -62,11 +60,6 @@ suscan_spectsrc_cyclo_postproc(
     SUCOMPLEX *buffer,
     SUSCOUNT size)
 {
-  SUSCOUNT i;
-
-  for (i = 0; i < size; ++i)
-    buffer[i] *= SU_C_CONJ(buffer[i]);
-
   return SU_TRUE;
 }
 

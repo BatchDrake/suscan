@@ -330,9 +330,10 @@ suscan_async_parse_sample_batch_msg(gpointer user_data)
   if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
     goto done;
 
-  SU_TRYCATCH(
-      insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
-      goto done);
+  /* Sample batch messages may arrive out of order */
+  insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id);
+  if (insp == NULL)
+    goto done;
 
   /* Append all these samples to the inspector GUI */
   SU_TRYCATCH(suscan_gui_inspector_feed_w_batch(insp, msg), goto done);
@@ -392,12 +393,29 @@ suscan_async_parse_inspector_msg(gpointer user_data)
               new_insp),
           goto done);
 
-      /* TODO: Set params */
+      /* This is rather delicate and should be rethinked. */
+      SU_TRYCATCH(
+          suscan_analyzer_set_inspector_id_async(
+              envelope->gui->analyzer,
+              msg->handle,
+              new_insp->index,
+              rand()),
+          suscan_gui_remove_inspector(envelope->gui, new_insp);
+          goto done);
+
       new_insp = NULL;
+
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
+      /* Simply check everything is as expected */
+      SU_TRYCATCH(
+          insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
+          goto done);
+      SU_TRYCATCH(insp->index == msg->inspector_id, goto done);
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
-      /* TODO: update GUI according to params */
       SU_TRYCATCH(
           insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
           goto done);

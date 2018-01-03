@@ -258,6 +258,44 @@ done:
 }
 
 SUBOOL
+suscan_analyzer_set_inspector_id_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    uint32_t inspector_id,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_inspector_msg *req = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID,
+          req_id),
+      goto done);
+
+  req->handle = handle;
+  req->inspector_id = inspector_id;
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+      req)) {
+    SU_ERROR("Failed to send set_inspector_id command\n");
+    goto done;
+  }
+
+  req = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (req != NULL)
+    suscan_analyzer_inspector_msg_destroy(req);
+
+  return ok;
+}
+
+SUBOOL
 suscan_analyzer_inspector_estimator_cmd_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,

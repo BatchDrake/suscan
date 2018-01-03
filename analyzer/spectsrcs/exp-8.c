@@ -20,28 +20,33 @@
 
 #include <string.h>
 
-#define SU_LOG_DOMAIN "psd-spectsrc"
+#define SU_LOG_DOMAIN "exp_8-spectsrc"
 
 #include "spectsrc.h"
 
 void *
-suscan_spectsrc_psd_ctor(suscan_spectsrc_t *src)
+suscan_spectsrc_exp_8_ctor(suscan_spectsrc_t *src)
 {
-  return src; /* Anynon-NULL works */
+  return src;
 }
 
 SUBOOL
-suscan_spectsrc_psd_preproc(
+suscan_spectsrc_exp_8_preproc(
     suscan_spectsrc_t *src,
     void *private,
     SUCOMPLEX *buffer,
     SUSCOUNT size)
 {
+  SUSCOUNT i;
+
+  for (i = 0; i < size; ++i)
+    buffer[i] = cpow(buffer[i] / (SU_C_ABS(buffer[i]) + 1e-8), 8);
+
   return SU_TRUE;
 }
 
 SUBOOL
-suscan_spectsrc_psd_postproc(
+suscan_spectsrc_exp_8_postproc(
     suscan_spectsrc_t *src,
     void *private,
     SUCOMPLEX *buffer,
@@ -51,21 +56,21 @@ suscan_spectsrc_psd_postproc(
 }
 
 void
-suscan_spectsrc_psd_dtor(void *private)
+suscan_spectsrc_exp_8_dtor(void *private)
 {
   /* No-op */
 }
 
 SUBOOL
-suscan_spectsrc_psd_register(void)
+suscan_spectsrc_exp_8_register(void)
 {
   static const struct suscan_spectsrc_class class = {
-    .name = "psd",
-    .desc = "Power spectrum",
-    .ctor = suscan_spectsrc_psd_ctor,
-    .preproc  = suscan_spectsrc_psd_preproc,
-    .postproc = suscan_spectsrc_psd_postproc,
-    .dtor = suscan_spectsrc_psd_dtor
+    .name = "exp_8",
+    .desc = "Signal exponentiation (^8)",
+    .ctor = suscan_spectsrc_exp_8_ctor,
+    .preproc  = suscan_spectsrc_exp_8_preproc,
+    .postproc = suscan_spectsrc_exp_8_postproc,
+    .dtor = suscan_spectsrc_exp_8_dtor
   };
 
   SU_TRYCATCH(suscan_spectsrc_class_register(&class), return SU_FALSE);

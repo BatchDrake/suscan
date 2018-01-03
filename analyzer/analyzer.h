@@ -143,6 +143,13 @@ SUBOOL suscan_analyzer_close(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle);
 
+SUBOOL
+suscan_analyzer_set_inspector_id_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    uint32_t inspector_id,
+    uint32_t req_id);
+
 SUBOOL suscan_analyzer_set_inspector_config_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
