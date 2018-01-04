@@ -255,7 +255,7 @@ suscan_gui_symsrc_populate_codec_menu(
   GtkWidget *enc_menu;
   GtkWidget *dec_menu;
   GtkMenu *menu;
-  struct suscan_codec_class *const *list;
+  const struct suscan_codec_class **list;
   struct suscan_gui_codec_cfg_ui *ui, *new_ui = NULL;
   unsigned int count;
   unsigned int i;

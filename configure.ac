@@ -47,6 +47,7 @@ AC_FUNC_FORK
 AC_FUNC_MALLOC
 
 GLOBAL_LDFLAGS="-lm -lpthread -ldl -export-dynamic -rdynamic"
+analyzer_CFLAGS="-O3 -ffast-math"
 
 dnl Macro snippets imported from dependency `sigutils'
 PKG_CHECK_MODULES(sigutils, [sigutils >= 0.1], , [AC_MSG_ERROR([Couldn't find sigutils])])
@@ -93,6 +94,7 @@ AC_SUBST(hackRF_LIBS)
   
 dnl Macro snippets imported from dependency `util'
 AC_SUBST(GLOBAL_CFLAGS)
+AC_SUBST(analyzer_CFLAGS)
 AC_SUBST(GLOBAL_LDFLAGS)
 AC_OUTPUT([
   Makefile

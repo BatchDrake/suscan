@@ -22,6 +22,7 @@
 
 #define SU_LOG_DOMAIN "gui"
 
+#include "modemctl.h"
 #include "gui.h"
 
 PTR_LIST_EXTERN(struct suscan_source, source); /* Declared in source.c */
@@ -925,12 +926,8 @@ suscan_gui_add_inspector(
     suscan_gui_t *gui,
     suscan_gui_inspector_t *insp)
 {
-  struct suscan_inspector_params params;
   gint page;
   SUBOOL inspector_added = SU_FALSE;
-
-  /* Local copy of parameters */
-  suscan_inspector_params_initialize(&params);
 
   SU_TRYCATCH(
       (insp->index = PTR_LIST_APPEND_CHECK(gui->inspector, insp)) != -1,
@@ -953,21 +950,6 @@ suscan_gui_add_inspector(
       TRUE);
 
   gtk_notebook_set_current_page(gui->analyzerViewsNotebook, page);
-
-  /*
-   * Page added. Set initial params. Interface will be unlocked as soon
-   * as we received the response of this message
-   */
-  params.inspector_id = insp->index;
-  insp->params = params;
-
-  SU_TRYCATCH(
-      suscan_analyzer_set_inspector_params_async(
-          gui->analyzer,
-          insp->inshnd,
-          &params,
-          rand()),
-      goto fail);
 
   return TRUE;
 
@@ -1199,6 +1181,18 @@ suscan_gui_detach_all_inspectors(suscan_gui_t *gui)
 }
 
 SUBOOL
+suscan_gui_helper_preload(void)
+{
+  SU_TRYCATCH(suscan_gui_modemctl_agc_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_afc_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_mf_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_equalizer_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_clock_init(), return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_gui_start(
     int argc,
     char **argv,
@@ -1207,7 +1201,9 @@ suscan_gui_start(
 {
   suscan_gui_t *gui = NULL;
 
-  SU_TRYCATCH(gui = suscan_gui_new(argc, argv), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_helper_preload(), goto fail);
+
+  SU_TRYCATCH(gui = suscan_gui_new(argc, argv), goto fail);
 
   gtk_widget_show(GTK_WIDGET(gui->main));
 

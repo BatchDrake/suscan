@@ -157,10 +157,36 @@ suscan_analyzer_inspector_msg_new(
   return new;
 }
 
-void
-suscan_analyzer_inspector_msg_destroy(
+SUFLOAT *
+suscan_analyzer_inspector_msg_take_spectrum(
     struct suscan_analyzer_inspector_msg *msg)
 {
+  SUFLOAT *result = msg->spectrum_data;
+
+  msg->spectrum_data = NULL;
+
+  return result;
+}
+
+void
+suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
+{
+  if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG
+      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG
+      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
+    if (msg->config != NULL)
+      suscan_config_destroy(msg->config);
+
+    if (msg->estimator_list != NULL)
+      free(msg->estimator_list);
+
+    if (msg->spectsrc_list != NULL)
+      free(msg->spectsrc_list);
+  } else if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
+    if (msg->spectrum_data != NULL)
+      free(msg->spectrum_data);
+  }
+
   free(msg);
 }
 
@@ -227,43 +253,33 @@ suscan_analyzer_psd_msg_take_psd(struct suscan_analyzer_psd_msg *msg)
 }
 
 struct suscan_analyzer_sample_batch_msg *
-suscan_analyzer_sample_batch_msg_new(uint32_t inspector_id)
+suscan_analyzer_sample_batch_msg_new(
+    uint32_t inspector_id,
+    const SUCOMPLEX *samples,
+    SUSCOUNT count)
 {
   struct suscan_analyzer_sample_batch_msg *new = NULL;
 
   SU_TRYCATCH(
       new = calloc(1, sizeof(struct suscan_analyzer_sample_batch_msg)),
-      return NULL);
+      goto fail);
 
+  SU_TRYCATCH(
+      new->samples = malloc(count * sizeof(SUCOMPLEX)),
+      goto fail);
+
+  memcpy(new->samples, samples, count * sizeof(SUCOMPLEX));
+
+  new->sample_count = count;
   new->inspector_id = inspector_id;
 
   return new;
-}
 
-SUBOOL
-suscan_analyzer_sample_batch_msg_append_sample(
-    struct suscan_analyzer_sample_batch_msg *msg,
-    SUCOMPLEX sample)
-{
-  unsigned int storage = msg->sample_storage;
-  void *new;
+fail:
+  if (new != NULL)
+    suscan_analyzer_sample_batch_msg_destroy(new);
 
-  if (storage == 0)
-    storage = 1;
-  else if (msg->sample_count == storage)
-    storage <<= 1;
-
-  if (storage != msg->sample_storage) {
-    SU_TRYCATCH(
-        new = realloc(msg->samples, sizeof(SUCOMPLEX) * storage),
-        return SU_FALSE);
-    msg->samples = new;
-    msg->sample_storage = storage;
-  }
-
-  msg->samples[msg->sample_count++] = sample;
-
-  return SU_TRUE;
+  return NULL;
 }
 
 void
@@ -433,63 +449,6 @@ suscan_analyzer_send_psd(
 done:
   if (msg != NULL)
     suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_PSD, msg);
-
-  return ok;
-}
-
-SUBOOL
-suscan_inspector_send_psd(
-    suscan_inspector_t *insp,
-    const suscan_consumer_t *consumer,
-    const su_channel_detector_t *detector)
-{
-  struct suscan_analyzer_psd_msg *msg = NULL;
-  SUBOOL ok = SU_FALSE;
-  unsigned int i;
-
-  if ((msg = suscan_analyzer_psd_msg_new(detector)) == NULL) {
-    suscan_analyzer_send_status(
-        consumer->analyzer,
-        SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
-        -1,
-        "Cannot create message: %s",
-        strerror(errno));
-    goto done;
-  }
-
-  /*
-   * In Inspectors, we set the noise level to the minimum level
-   * of the PSD data
-   */
-  msg->N0 = msg->psd_data[0];
-  for (i = 1; i < msg->psd_size; ++i)
-    if (msg->psd_data[i] < msg->N0)
-      msg->N0 = msg->psd_data[i];
-
-  msg->fc = consumer->analyzer->source.fc;
-  msg->inspector_id = insp->params.inspector_id;
-
-  if (!suscan_mq_write(
-      consumer->analyzer->mq_out,
-      SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD,
-      msg)) {
-    suscan_analyzer_send_status(
-        consumer->analyzer,
-        SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
-        -1,
-        "Cannot write message: %s",
-        strerror(errno));
-    goto done;
-  }
-
-  /* Message queued, forget about it */
-  msg = NULL;
-
-  ok = SU_TRUE;
-
-done:
-  if (msg != NULL)
-    suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD, msg);
 
   return ok;
 }

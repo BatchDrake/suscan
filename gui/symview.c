@@ -105,8 +105,8 @@ done:
   return result;
 }
 
-void
-sugtk_sym_view_clear(SuGtkSymView *view)
+static void
+sugtk_sym_view_clear_internal(SuGtkSymView *view)
 {
   if (view->data_buf != NULL) {
     free(view->data_buf);
@@ -116,6 +116,15 @@ sugtk_sym_view_clear(SuGtkSymView *view)
   view->data_alloc = 0;
   view->data_size = 0;
   view->window_offset = 0;
+}
+
+void
+sugtk_sym_view_clear(SuGtkSymView *view)
+{
+  sugtk_sym_view_clear_internal(view);
+
+  g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+  gtk_widget_queue_draw(GTK_WIDGET(view));
 }
 
 static gboolean
@@ -307,7 +316,7 @@ sugtk_sym_view_dispose(GObject* object)
 
   view = SUGTK_SYM_VIEW(object);
 
-  sugtk_sym_view_clear(view);
+  sugtk_sym_view_clear_internal(view);
 
   /*
    * Remember: this function may be called several times on the

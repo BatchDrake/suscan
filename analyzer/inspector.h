@@ -25,23 +25,27 @@
 #include <sigutils/agc.h>
 #include <sigutils/pll.h>
 #include <sigutils/clock.h>
-#include <sigutils/detect.h>
 #include <sigutils/equalizer.h>
+#include <sigutils/softtune.h>
+
+#include <cfg.h>
+
+#include "estimator.h"
+#include "spectsrc.h"
 
 #define SUHANDLE int32_t
 
 #define SUSCAN_ANALYZER_CPU_USAGE_UPDATE_ALPHA .025
+
+#define SUSCAN_INSPECTOR_TUNER_BUF_SIZE    SU_BLOCK_STREAM_BUFFER_SIZE
+#define SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE  SU_BLOCK_STREAM_BUFFER_SIZE
+#define SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE 2048
 
 enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_CREATED,
   SUSCAN_ASYNC_STATE_RUNNING,
   SUSCAN_ASYNC_STATE_HALTING,
   SUSCAN_ASYNC_STATE_HALTED
-};
-
-struct suscan_baud_det_result {
-  SUFLOAT fac;
-  SUFLOAT nln;
 };
 
 enum suscan_inspector_gain_control {
@@ -78,8 +82,6 @@ enum suscan_inspector_psd_source {
 };
 
 struct suscan_inspector_params {
-  uint32_t inspector_id;
-
   /* Gain control parameters */
   enum suscan_inspector_gain_control gc_ctrl;
   SUFLOAT gc_gain;    /* Positive gain (linear) */
@@ -97,10 +99,12 @@ struct suscan_inspector_params {
   enum suscan_inspector_baudrate_control br_ctrl;
   SUFLOAT br_alpha;   /* Baudrate control alpha (linear) */
   SUFLOAT br_beta;    /* Baudrate control beta (linear) */
+  SUBOOL  br_running; /* Sampler enabled */
 
   /* Channel equalization */
   enum suscan_inspector_equalizer eq_conf;
   SUFLOAT eq_mu; /* Mu (learn speed) */
+  SUBOOL  eq_locked; /* Locked (equivalent to setting mu to 0) */
 
   /* Spectrum source configuration */
   enum suscan_inspector_psd_source psd_source; /* Spectrum source */
@@ -112,8 +116,7 @@ struct suscan_inspector_params {
 struct suscan_inspector {
   struct sigutils_channel channel;
   SUFLOAT                 equiv_fs; /* Equivalent sample rate */
-  su_channel_detector_t  *fac_baud_det; /* FAC baud detector */
-  su_channel_detector_t  *nln_baud_det; /* Non-linear baud detector */
+  su_softtuner_t          tuner;   /* Common tuner */
   su_agc_t                agc;      /* AGC, for sampler */
   su_costas_t             costas_2; /* 2nd order Costas loop */
   su_costas_t             costas_4; /* 4th order Costas loop */
@@ -124,21 +127,34 @@ struct suscan_inspector {
   su_ncqo_t               lo;       /* Oscillator for manual carrier offset */
   SUCOMPLEX               phase;    /* Local oscillator phase */
 
-  /* Spectrum state */
-  SUFLOAT                 interval_psd;
-  SUSCOUNT                per_cnt_psd;
-  SUBOOL                  pending;
+  /* Spectrum and estimator state */
+  SUSCOUNT                interval_estimator;
+  SUSDIFF                 per_cnt_estimator;
+
+  SUSCOUNT                interval_spectrum;
+  SUSDIFF                 per_cnt_spectrum;
+  uint32_t                spectsrc_index;
 
   /* Inspector parameters */
   pthread_mutex_t mutex;
+  uint32_t inspector_id;        /* Set by client */
   struct suscan_inspector_params params;
   struct suscan_inspector_params params_request;
-  SUBOOL    params_requested;
-  SUBOOL    sym_new_sample;     /* New sample flag */
-  SUCOMPLEX sym_last_sample;    /* Last sample fed to inspector */
-  SUCOMPLEX sym_sampler_output; /* Sampler output */
+  SUBOOL    params_requested;   /* New samples requested */
   SUFLOAT   sym_phase;          /* Current sampling phase, in samples */
   SUFLOAT   sym_period;         /* In samples */
+
+  /* Sampler buffers */
+  SUCOMPLEX tuner_output[SUSCAN_INSPECTOR_TUNER_BUF_SIZE];
+  SUCOMPLEX sampler_output[SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE];
+  SUCOMPLEX sampler_prev; /* Used for interpolation */
+  SUSCOUNT  sampler_output_size;
+
+  /* Parameter estimators */
+  PTR_LIST(suscan_estimator_t, estimator);
+
+  /* Spectrum source */
+  PTR_LIST(suscan_spectsrc_t, spectsrc);
 
   enum suscan_aync_state state; /* Used to remove analyzer from queue */
 };
@@ -150,6 +166,14 @@ void suscan_inspector_destroy(suscan_inspector_t *chanal);
 
 void suscan_inspector_params_initialize(
     struct suscan_inspector_params *params);
+
+SUBOOL suscan_inspector_params_initialize_from_config(
+    struct suscan_inspector_params *params,
+    const suscan_config_t *config);
+
+SUBOOL suscan_inspector_params_populate_config(
+    const struct suscan_inspector_params *params,
+    suscan_config_t *config);
 
 suscan_inspector_t *suscan_inspector_new(
     SUSCOUNT fs,
@@ -167,5 +191,7 @@ void suscan_inspector_request_params(
 void suscan_inspector_reset_equalizer(suscan_inspector_t *insp);
 
 void suscan_inspector_assert_params(suscan_inspector_t *insp);
+
+SUBOOL suscan_init_inspectors(void);
 
 #endif /* _INSPECTOR_H */

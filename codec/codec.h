@@ -79,7 +79,7 @@ typedef struct suscan_codec suscan_codec_t;
 SUBOOL suscan_codec_class_register(const struct suscan_codec_class *class);
 
 void suscan_codec_class_get_list(
-    struct suscan_codec_class *const **list,
+    const struct suscan_codec_class ***list,
     unsigned int *count);
 
 suscan_config_t *suscan_codec_class_make_config(

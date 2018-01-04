@@ -46,6 +46,17 @@ suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
 
   suscan_gui_constellation_finalize(&inspector->constellation);
 
+  suscan_gui_modemctl_set_finalize(&inspector->modemctl_set);
+
+  for (i = 0; i < inspector->estimator_count; ++i)
+    suscan_gui_estimatorui_destroy(inspector->estimator_list[i]);
+
+  if (inspector->estimator_list != NULL)
+    free(inspector->estimator_list);
+
+  if (inspector->config != NULL)
+    suscan_config_destroy(inspector->config);
+
   if (inspector->builder != NULL)
     g_object_unref(G_OBJECT(inspector->builder));
 
@@ -55,47 +66,6 @@ suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
   }
 
   free(inspector);
-}
-
-SUBOOL
-suscan_gui_inspector_update_sensitiveness(
-    suscan_gui_inspector_t *insp,
-    const struct suscan_inspector_params *params)
-{
-  gtk_widget_set_sensitive(GTK_WIDGET(insp->channelInspectorGrid), TRUE);
-
-  gtk_widget_set_sensitive(
-      GTK_WIDGET(insp->carrierManualAlignment),
-      params->fc_ctrl == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL);
-
-  gtk_widget_set_sensitive(
-      GTK_WIDGET(insp->clockManualAlignment),
-      params->br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL);
-
-  gtk_widget_set_sensitive(
-      GTK_WIDGET(insp->clockGardnerAlignment),
-      params->br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_GARDNER);
-
-  gtk_widget_set_sensitive(
-      GTK_WIDGET(insp->gardnerBetaEntry),
-      params->br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_GARDNER);
-
-  gtk_widget_set_sensitive(
-      GTK_WIDGET(insp->gainManualAlignment),
-      params->gc_ctrl == SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL);
-
-  gtk_widget_set_sensitive(
-      GTK_WIDGET(insp->eqCMAGrid),
-      params->eq_conf == SUSCAN_INSPECTOR_EQUALIZER_CMA);
-
-  gtk_widget_set_sensitive(GTK_WIDGET(insp->baudRateEntry), TRUE);
-  gtk_widget_set_sensitive(GTK_WIDGET(insp->setBaudRateButton), TRUE);
-  gtk_widget_set_sensitive(GTK_WIDGET(insp->detectBaudRateFACButton), TRUE);
-  gtk_widget_set_sensitive(GTK_WIDGET(insp->detectBaudRateNLNButton), TRUE);
-
-  /* TODO: setup some values according to params */
-
-  return SU_TRUE;
 }
 
 /* Just marks it as detached: it doesn not refer to any existing inspector */
@@ -130,7 +100,7 @@ suscan_gui_inspector_decide(
   SUFLOAT arg = SU_C_ARG(sample);
   char sym_ndx;
 
-  switch (inspector->params.fc_ctrl) {
+  switch (inspector->bits_per_symbol) {
     case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2:
       /* BPSK decision */
       sym_ndx = arg > 0;
@@ -260,7 +230,7 @@ suscan_gui_inspector_feed_w_batch(
         /* Update symbol view */
         sugtk_sym_view_append(
             insp->symbolView,
-            sugtk_sym_view_code_to_pixel_helper(insp->params.fc_ctrl, bits));
+            sugtk_sym_view_code_to_pixel_helper(insp->bits_per_symbol, bits));
       }
 
       /* Feed transition matrix */
@@ -296,7 +266,7 @@ suscan_gui_inspector_to_filename(
   time(&now);
   tm = localtime(&now);
 
-  switch (inspector->params.fc_ctrl) {
+  switch (inspector->bits_per_symbol) {
     case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2:
       demod = "bpsk";
       break;
@@ -306,11 +276,11 @@ suscan_gui_inspector_to_filename(
       break;
 
     case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8:
-      demod = "opsk";
+      demod = "8psk";
       break;
 
     default:
-      demod = "manual";
+      demod = "mpsk";
   }
 
   return strbuild(
@@ -318,7 +288,7 @@ suscan_gui_inspector_to_filename(
       prefix,
       (long long int) round(inspector->channel.fc),
       demod,
-      (unsigned int) round(inspector->params.baud),
+      (unsigned int) round(inspector->baudrate),
       tm->tm_hour,
       tm->tm_min,
       tm->tm_sec,
@@ -499,21 +469,12 @@ suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
   /* We can do this because this symsrc is actually an inspector tab */
   as_inspector = (suscan_gui_inspector_t *) ui->symsrc;
 
-  if (as_inspector->params.fc_ctrl
-      == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
-    suscan_error(
-        ui->symsrc->gui,
-        "Encoder error",
-        "Cannot run encoder with manual carrier control");
-    return;
-  }
-
-  bits = as_inspector->params.fc_ctrl;
+  bits = as_inspector->bits_per_symbol;
 
   (void) suscan_gui_inspector_open_codec_tab(
       as_inspector,
       ui,
-      as_inspector->params.fc_ctrl,
+      as_inspector->bits_per_symbol,
       SUSCAN_CODEC_DIRECTION_FORWARDS,
       as_inspector->symbolView,
       ui->symsrc->symbuf);
@@ -533,21 +494,12 @@ suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
   /* We can do this because this symsrc is actually an inspector tab */
   as_inspector = (suscan_gui_inspector_t *) ui->symsrc;
 
-  if (as_inspector->params.fc_ctrl
-      == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
-    suscan_error(
-        ui->symsrc->gui,
-        "Decoder error",
-        "Cannot run decoder with manual carrier control");
-    return;
-  }
-
-  bits = as_inspector->params.fc_ctrl;
+  bits = as_inspector->bits_per_symbol;
 
   (void) suscan_gui_inspector_open_codec_tab(
       as_inspector,
       ui,
-      as_inspector->params.fc_ctrl,
+      as_inspector->bits_per_symbol,
       SUSCAN_CODEC_DIRECTION_BACKWARDS,
       as_inspector->symbolView,
       ui->symsrc->symbuf);
@@ -561,9 +513,74 @@ suscan_gui_inspector_dummy_create_private(
   return ui;
 }
 
+void
+suscan_gui_inspector_add_spectrum_source(
+    suscan_gui_inspector_t *inspector,
+    const struct suscan_spectsrc_class *class,
+    uint32_t id)
+{
+  char id_str[32];
+
+  snprintf(id_str, sizeof(id_str), "%u", id);
+
+  gtk_combo_box_text_append(
+      inspector->spectrumSourceComboBoxText,
+      id_str,
+      class->desc);
+}
+
+SUBOOL
+suscan_gui_inspector_add_estimatorui(
+    suscan_gui_inspector_t *inspector,
+    const struct suscan_estimator_class *class,
+    uint32_t estimator_id)
+{
+  suscan_gui_estimatorui_t *ui = NULL;
+  struct suscan_gui_estimatorui_params params;
+  int index;
+
+  params.desc = class->desc;
+  params.field = class->field;
+  params.inspector = inspector;
+  params.estimator_id = estimator_id;
+
+  SU_TRYCATCH(
+      ui = suscan_gui_estimatorui_new(&params),
+      goto fail);
+
+  SU_TRYCATCH(
+      (index = PTR_LIST_APPEND_CHECK(inspector->estimator, ui)) != -1,
+      goto fail);
+
+  suscan_gui_estimatorui_set_index(ui, index);
+
+  gtk_grid_attach(
+      inspector->estimatorGrid,
+      suscan_gui_estimatorui_get_root(ui),
+      0, /* left */
+      index, /* top */
+      1, /* width */
+      1); /* height */
+
+  return SU_TRUE;
+
+fail:
+  if (ui != NULL)
+    suscan_gui_estimatorui_destroy(ui);
+
+  return SU_FALSE;
+}
+
 SUPRIVATE SUBOOL
 suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 {
+  SU_TRYCATCH(
+      inspector->spectrumSourceComboBoxText =
+          GTK_COMBO_BOX_TEXT(gtk_builder_get_object(
+              inspector->builder,
+              "cbSpectrumSource")),
+          return SU_FALSE);
+
   SU_TRYCATCH(
       inspector->channelInspectorGrid =
           GTK_GRID(gtk_builder_get_object(
@@ -572,115 +589,10 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      inspector->carrierOffsetEntry =
-          GTK_ENTRY(gtk_builder_get_object(
+      inspector->estimatorGrid =
+          GTK_GRID(gtk_builder_get_object(
               inspector->builder,
-              "eCarrierOffset")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->fineTuneScale =
-          GTK_SCALE(gtk_builder_get_object(
-              inspector->builder,
-              "sFineTune")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->phaseScale =
-          GTK_SCALE(gtk_builder_get_object(
-              inspector->builder,
-              "sPhase")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->baudRateEntry =
-          GTK_ENTRY(gtk_builder_get_object(
-              inspector->builder,
-              "eBaudRate")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->setBaudRateButton =
-          GTK_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "bSetBaudRate")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->detectBaudRateFACButton =
-          GTK_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "bDetectBaudRateFAC")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->detectBaudRateNLNButton =
-          GTK_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "bDetectBaudRateNLN")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->fineBaudScale =
-          GTK_SCALE(gtk_builder_get_object(
-              inspector->builder,
-              "sFineBaud")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->symbolPhaseScale =
-          GTK_SCALE(gtk_builder_get_object(
-              inspector->builder,
-              "sSymbolPhase")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->costas2RadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbCostas2")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->costas4RadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbCostas4")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->costas8RadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbCostas8")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->manualRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbManual")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->clockGardnerRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbClockGardner")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->clockManualRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbClockManual")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->clockDisableButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbClockDisable")),
+              "grEstimator")),
           return SU_FALSE);
 
   SU_TRYCATCH(
@@ -695,132 +607,6 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
           GTK_LABEL(gtk_builder_get_object(
               inspector->builder,
               "lPageLabel")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->clockGardnerAlignment =
-          GTK_ALIGNMENT(gtk_builder_get_object(
-              inspector->builder,
-              "alClockGardner")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->clockManualAlignment =
-          GTK_ALIGNMENT(gtk_builder_get_object(
-              inspector->builder,
-              "alClockManual")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->carrierManualAlignment =
-          GTK_ALIGNMENT(gtk_builder_get_object(
-              inspector->builder,
-              "alCarrierManual")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->gardnerAlphaEntry =
-          GTK_ENTRY(gtk_builder_get_object(
-              inspector->builder,
-              "eGardnerAlpha")),
-          return SU_FALSE);
-  SU_TRYCATCH(
-      inspector->gardnerEnableBetaCheckButton =
-          GTK_CHECK_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "cbGardnerEnableBeta")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->gardnerBetaEntry =
-          GTK_ENTRY(gtk_builder_get_object(
-              inspector->builder,
-              "eGardnerBeta")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->powerSpectrumRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbPowerSpectrum")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->cycloSpectrumRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbCycloSpectrum")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->noSpectrumRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbNoSpectrum")),
-          return SU_FALSE);
-
-
-  SU_TRYCATCH(
-      inspector->automaticGainRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbGainControlAuto")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->manualGainRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbGainControlManual")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->gainManualAlignment =
-          GTK_ALIGNMENT(gtk_builder_get_object(
-              inspector->builder,
-              "alManualGainControl")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->gainEntry =
-          GTK_ENTRY(gtk_builder_get_object(
-              inspector->builder,
-              "eGain")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->gainFineTuneScale =
-          GTK_SCALE(gtk_builder_get_object(
-              inspector->builder,
-              "sGainFineTune")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->matchedFilterBypassRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbMatchedFilterBypass")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->matchedFilterRRCRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbMatchedFilterRRC")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->rootRaisedCosineGrid =
-          GTK_GRID(gtk_builder_get_object(
-              inspector->builder,
-              "grRootRaisedCosine")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->rollOffScale =
-          GTK_SCALE(gtk_builder_get_object(
-              inspector->builder,
-              "sRollOff")),
           return SU_FALSE);
 
   SU_TRYCATCH(
@@ -856,34 +642,6 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
           GTK_SPIN_BUTTON(gtk_builder_get_object(
               inspector->builder,
               "sbWidth")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->eqBypassRadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbEqDisable")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->eqCMARadioButton =
-          GTK_RADIO_BUTTON(gtk_builder_get_object(
-              inspector->builder,
-              "rbEqCMA")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->eqCMAGrid =
-          GTK_GRID(gtk_builder_get_object(
-              inspector->builder,
-              "grEqCMA")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      inspector->eqMuEntry =
-          GTK_ENTRY(gtk_builder_get_object(
-              inspector->builder,
-              "eEqMu")),
           return SU_FALSE);
 
   SU_TRYCATCH(
@@ -935,6 +693,34 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
               "aSymViewScroll")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->controlsGrid =
+          GTK_GRID(gtk_builder_get_object(
+              inspector->builder,
+              "grControls")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->freqLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              inspector->builder,
+              "lFreq")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->bwLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              inspector->builder,
+              "lBw")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->snrLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              inspector->builder,
+              "lSNR")),
+          return SU_FALSE);
+
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
@@ -980,18 +766,6 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   gtk_widget_show(GTK_WIDGET(inspector->transMatrix));
 
   /* Somehow Glade fails to set these default values */
-  gtk_toggle_button_set_active(
-      GTK_TOGGLE_BUTTON(inspector->manualRadioButton),
-      TRUE);
-
-  gtk_toggle_button_set_active(
-      GTK_TOGGLE_BUTTON(inspector->clockManualRadioButton),
-      TRUE);
-
-  gtk_toggle_button_set_active(
-      GTK_TOGGLE_BUTTON(inspector->noSpectrumRadioButton),
-      TRUE);
-
   gtk_toggle_tool_button_set_active(
       GTK_TOGGLE_TOOL_BUTTON(inspector->autoScrollToggleButton),
       TRUE);
@@ -1003,13 +777,102 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   return SU_TRUE;
 }
 
+SUBOOL
+suscan_gui_inspector_commit_config(suscan_gui_inspector_t *insp)
+{
+  SU_TRYCATCH(
+      suscan_analyzer_set_inspector_config_async(
+          insp->_parent.gui->analyzer,
+          insp->inshnd,
+          insp->config,
+          rand()),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_gui_inspector_on_config_changed(suscan_gui_inspector_t *insp)
+{
+  struct suscan_field_value *value;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          insp->config,
+          "afc.bits-per-symbol"),
+      return SU_FALSE);
+
+  insp->bits_per_symbol = value->as_int;
+
+  sugtk_trans_mtx_set_order(insp->transMatrix, 1 << insp->bits_per_symbol);
+
+  return SU_TRUE;
+}
+
+/* Used for outcoming configuration */
+void
+suscan_gui_inspector_on_update_config(suscan_gui_modemctl_t *ctl, void *data)
+{
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
+
+  /* This only makes sense if the inspector is tied to a GUI */
+  if (insp->index != -1)
+    SU_TRYCATCH(
+        suscan_gui_inspector_commit_config(insp),
+        return);
+
+  SU_TRYCATCH(suscan_gui_inspector_on_config_changed(insp), return);
+}
+
+SUBOOL
+suscan_gui_inspector_refresh_on_config(suscan_gui_inspector_t *insp)
+{
+  SU_TRYCATCH(
+        suscan_gui_modemctl_set_refresh(&insp->modemctl_set),
+        return SU_FALSE);
+
+  SU_TRYCATCH(suscan_gui_inspector_on_config_changed(insp), return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+/* Used for incoming configuration */
+SUBOOL
+suscan_gui_inspector_set_config(
+    suscan_gui_inspector_t *insp,
+    const suscan_config_t *config)
+{
+  SU_TRYCATCH(suscan_config_copy(insp->config, config), return SU_FALSE);
+
+  SU_TRYCATCH(suscan_gui_inspector_refresh_on_config(insp), return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE void
+suscan_gui_inspector_populate_channel_summary(suscan_gui_inspector_t *insp)
+{
+  char text[64];
+
+  snprintf(text, sizeof(text), "%lg Hz", insp->channel.fc);
+  gtk_label_set_text(insp->freqLabel, text);
+
+  snprintf(text, sizeof(text), "%lg Hz", insp->channel.bw);
+  gtk_label_set_text(insp->bwLabel, text);
+
+  snprintf(text, sizeof(text), "%lg dB", insp->channel.snr);
+  gtk_label_set_text(insp->snrLabel, text);
+}
+
 suscan_gui_inspector_t *
 suscan_gui_inspector_new(
     const struct sigutils_channel *channel,
+    const suscan_config_t *config,
     SUHANDLE handle)
 {
   suscan_gui_inspector_t *new = NULL;
   char *page_label = NULL;
+  unsigned int i;
 
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_gui_inspector_t)), goto fail);
 
@@ -1020,19 +883,21 @@ suscan_gui_inspector_new(
   new->index = -1;
   new->inshnd = handle;
 
+  SU_TRYCATCH(new->config = suscan_config_new(config->desc), return SU_FALSE);
+
   suscan_gui_constellation_init(&new->constellation);
   suscan_gui_spectrum_init(&new->spectrum);
   suscan_gui_spectrum_set_mode(
           &new->spectrum,
           SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE);
 
-  new->spectrum.auto_level = SU_FALSE;
+  new->spectrum.auto_level = SU_TRUE;
   new->spectrum.agc_alpha  = SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA;
   new->spectrum.show_channels = SU_FALSE;
-
+  new->spectrum.smooth_N0  = SU_TRUE;
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(
-          PKGDATADIR "/gui/channel-inspector.glade"),
+          PKGDATADIR "/gui/channel-inspector-new.glade"),
       goto fail);
 
   SU_TRYCATCH(suscan_gui_inspector_load_all_widgets(new), goto fail);
@@ -1050,8 +915,30 @@ suscan_gui_inspector_new(
   free(page_label);
   page_label = NULL;
 
-  /* Update sensitiveness */
-  suscan_gui_inspector_update_sensitiveness(new, &new->params);
+  /* Initialize inspector-specific set of modem controls */
+  SU_TRYCATCH(
+      suscan_gui_modemctl_set_init(
+          &new->modemctl_set,
+          new->config,
+          suscan_gui_inspector_on_update_config,
+          new),
+      goto fail);
+
+  /* Add them to the control grid */
+  for (i = 0; i < new->modemctl_set.modemctl_count; ++i)
+    gtk_grid_attach(
+        new->controlsGrid,
+        suscan_gui_modemctl_get_root(new->modemctl_set.modemctl_list[i]),
+        0, /* left */
+        i, /* top */
+        1, /* width */
+        1 /* height */);
+
+  /* Set config */
+  SU_TRYCATCH(suscan_gui_inspector_set_config(new, config), goto fail);
+
+  /* Update channel summary */
+  suscan_gui_inspector_populate_channel_summary(new);
 
   return new;
 
@@ -1066,247 +953,6 @@ fail:
 }
 
 /************************** Inspector tab callbacks **************************/
-void
-suscan_on_get_baudrate_fac(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  suscan_analyzer_get_info_async(insp->_parent.gui->analyzer, insp->inshnd, 0);
-}
-
-void
-suscan_on_get_baudrate_nln(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  suscan_analyzer_get_info_async(insp->_parent.gui->analyzer, insp->inshnd, 1);
-}
-
-SUPRIVATE void
-suscan_attempt_to_read_entry(GtkEntry *entry, SUFLOAT *result)
-{
-  const gchar *text;
-  char number[32];
-  SUFLOAT value;
-
-  text = gtk_entry_get_text(entry);
-  if (sscanf(text, SUFLOAT_FMT, &value) < 1) {
-    snprintf(number, sizeof(number), SUFLOAT_FMT, *result);
-    gtk_entry_set_text(entry, number);
-  } else {
-    *result = value;
-  }
-}
-
-void
-suscan_on_change_inspector_params(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-  enum suscan_inspector_psd_source old_source;
-
-  SUFLOAT freq;
-  SUFLOAT baud;
-  SUFLOAT gain;
-  SUFLOAT alpha;
-  SUFLOAT beta;
-  SUFLOAT mu;
-
-  /* Block callback while we check values */
-  g_signal_handlers_block_matched(
-      G_OBJECT(widget),
-      G_SIGNAL_MATCH_FUNC,
-      0,
-      0,
-      NULL,
-      suscan_on_change_inspector_params,
-      NULL);
-
-  gain = round(SU_DB_RAW(insp->params.gc_gain));
-  suscan_attempt_to_read_entry(insp->gainEntry, &gain);
-  gain += gtk_range_get_value(GTK_RANGE(insp->gainFineTuneScale));
-
-  freq = insp->params.fc_off;
-  suscan_attempt_to_read_entry(insp->carrierOffsetEntry, &freq);
-
-  baud = insp->params.baud;
-  suscan_attempt_to_read_entry(insp->baudRateEntry, &baud);
-
-  alpha = round(SU_DB_RAW(insp->params.br_alpha));
-  suscan_attempt_to_read_entry(insp->gardnerAlphaEntry, &alpha);
-
-  beta = round(SU_DB_RAW(insp->params.br_beta));
-  suscan_attempt_to_read_entry(insp->gardnerBetaEntry, &beta);
-
-  mu = insp->params.eq_mu;
-  suscan_attempt_to_read_entry(insp->eqMuEntry, &mu);
-
-  /* Our work is done here */
-  g_signal_handlers_unblock_matched(
-       G_OBJECT(widget),
-       G_SIGNAL_MATCH_FUNC,
-       0,
-       0,
-       NULL,
-       suscan_on_change_inspector_params,
-       NULL);
-
-  /* Set matched filter */
-  if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->matchedFilterBypassRadioButton)))
-    insp->params.mf_conf = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
-  else
-    insp->params.mf_conf = SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL;
-
-  insp->params.mf_rolloff = gtk_range_get_value(GTK_RANGE(insp->rollOffScale));
-
-  /* Set gain control */
-  if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->automaticGainRadioButton)))
-    insp->params.gc_ctrl = SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC;
-  else
-    insp->params.gc_ctrl = SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL;
-
-  insp->params.gc_gain = SU_MAG_RAW(gain);
-
-  /* Set carrier control */
-  if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->costas2RadioButton))) {
-    insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2;
-    sugtk_trans_mtx_set_order(insp->transMatrix, 2);
-  } else if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->costas4RadioButton))) {
-    insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4;
-    sugtk_trans_mtx_set_order(insp->transMatrix, 4);
-  } else if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->costas8RadioButton))) {
-    insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8;
-    sugtk_trans_mtx_set_order(insp->transMatrix, 8);
-  } else {
-    insp->params.fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
-    sugtk_trans_mtx_set_order(insp->transMatrix, 0);
-  }
-
-  insp->params.fc_off =
-      freq + gtk_range_get_value(GTK_RANGE(insp->fineTuneScale));
-
-  insp->params.fc_phi =
-      gtk_range_get_value(GTK_RANGE(insp->phaseScale)) / 180 * M_PI;
-
-  /* Set equalizer configuration */
-  if (gtk_toggle_button_get_active(
-        GTK_TOGGLE_BUTTON(insp->eqBypassRadioButton))) {
-    insp->params.eq_conf = SUSCAN_INSPECTOR_EQUALIZER_BYPASS;
-    insp->params.eq_mu = 0;
-  } else {
-    insp->params.eq_conf = SUSCAN_INSPECTOR_EQUALIZER_CMA;
-    insp->params.eq_mu = mu;
-  }
-
-  /* Set baudrate control */
-  if (gtk_toggle_button_get_active(
-        GTK_TOGGLE_BUTTON(insp->clockDisableButton))) {
-    insp->params.br_ctrl = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
-    insp->params.baud = 0;
-  } else {
-    if (gtk_toggle_button_get_active(
-        GTK_TOGGLE_BUTTON(insp->clockGardnerRadioButton))) {
-      insp->params.br_ctrl = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_GARDNER;
-
-      insp->params.br_alpha = SU_MAG_RAW(alpha);
-      insp->params.br_beta = gtk_toggle_button_get_active(
-          GTK_TOGGLE_BUTTON(insp->gardnerEnableBetaCheckButton))
-              ? SU_MAG_RAW(beta)
-              : 0;
-    } else if (gtk_toggle_button_get_active(
-        GTK_TOGGLE_BUTTON(insp->clockManualRadioButton))) {
-      insp->params.br_ctrl = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
-    }
-
-    insp->params.baud = baud +
-        gtk_range_get_value(GTK_RANGE(insp->fineBaudScale));
-
-    insp->params.sym_phase =
-        gtk_range_get_value(GTK_RANGE(insp->symbolPhaseScale));
-
-    if (insp->params.sym_phase < .0)
-      insp->params.sym_phase += 1.0;
-  }
-
-  /* Configure spectrum */
-  old_source = insp->params.psd_source;
-
-  if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->powerSpectrumRadioButton)))
-    insp->params.psd_source = SUSCAN_INSPECTOR_PSD_SOURCE_FAC;
-  else if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->cycloSpectrumRadioButton)))
-    insp->params.psd_source = SUSCAN_INSPECTOR_PSD_SOURCE_NLN;
-  else if (gtk_toggle_button_get_active(
-      GTK_TOGGLE_BUTTON(insp->noSpectrumRadioButton)))
-    insp->params.psd_source = SUSCAN_INSPECTOR_PSD_SOURCE_NONE;
-
-  /* Reset spectrum */
-  if (old_source != insp->params.psd_source) {
-    suscan_gui_spectrum_reset(&insp->spectrum);
-    suscan_gui_spectrum_set_mode(
-        &insp->spectrum,
-        SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE);
-    insp->spectrum.agc_alpha     = SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA;
-    insp->spectrum.show_channels = SU_FALSE;
-  }
-
-  suscan_gui_inspector_update_sensitiveness(insp, &insp->params);
-
-  SU_TRYCATCH(
-      suscan_analyzer_set_inspector_params_async(
-          insp->_parent.gui->analyzer,
-          insp->inshnd,
-          &insp->params,
-          rand()),
-      return);
-}
-
-void
-suscan_on_set_baudrate(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-  const gchar *text;
-  SUFLOAT baud;
-
-  text = gtk_entry_get_text(insp->baudRateEntry);
-
-  if (sscanf(text, SUFLOAT_FMT, &baud) < 1) {
-    suscan_error(
-        insp->_parent.gui,
-        "Set baudrate", "Invalid baudrate string `%s'",
-        text);
-  } else {
-    insp->params.baud = baud +
-        gtk_range_get_value(GTK_RANGE(insp->fineBaudScale));
-
-    SU_TRYCATCH(
-        suscan_analyzer_set_inspector_params_async(
-            insp->_parent.gui->analyzer,
-            insp->inshnd,
-            &insp->params,
-            rand()),
-        return);
-  }
-}
-
-void
-suscan_on_reset_equalizer(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  SU_TRYCATCH(
-      suscan_analyzer_reset_equalizer_async(
-          insp->_parent.gui->analyzer,
-          insp->inshnd,
-          rand()),
-      return);
-}
-
 void
 suscan_on_close_inspector_tab(GtkWidget *widget, gpointer data)
 {
@@ -1379,15 +1025,6 @@ suscan_inspector_spectrum_on_motion(
 }
 
 void
-suscan_on_change_inspector_params_event(
-    GtkWidget *widget,
-    GdkEvent *event,
-    gpointer data)
-{
-  suscan_on_change_inspector_params(widget, data);
-}
-
-void
 suscan_inspector_on_save(
     GtkWidget *widget,
     gpointer data)
@@ -1396,17 +1033,7 @@ suscan_inspector_on_save(
   char *new_fname = NULL;
   uint8_t bpsym;
 
-  if (insp->params.fc_ctrl == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
-    suscan_warning(
-        insp->_parent.gui,
-        "Save symbol view",
-        "Cannot save current symbol recording is carrier control is set to manual. "
-        "Please specify an appropriate constellation type in the demodulation "
-        "properties tab and try again.");
-    return;
-  }
-
-  bpsym = insp->params.fc_ctrl;
+  bpsym = insp->bits_per_symbol;
 
   SU_TRYCATCH(
       new_fname = suscan_gui_inspector_to_filename(insp, "symbols", ".log"),
@@ -1616,5 +1243,53 @@ suscan_inspector_on_scroll(GtkWidget *widget, gpointer data)
       inspector->symbolView,
       floor(gtk_adjustment_get_value(inspector->symViewScrollAdjustment))
       * sugtk_sym_view_get_width(inspector->symbolView));
+}
+
+void
+suscan_inspector_on_change_spectrum(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+  int id;
+
+  id = suscan_gui_modemctl_helper_try_read_combo_id(
+      GTK_COMBO_BOX(inspector->spectrumSourceComboBoxText));
+
+  suscan_analyzer_inspector_set_spectrum_async(
+      inspector->_parent.gui->analyzer,
+      inspector->inshnd,
+      id,
+      rand());
+}
+
+void
+suscan_inspector_on_spectrum_center(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+
+  inspector->spectrum.freq_offset = 0;
+}
+
+void
+suscan_inspector_on_toggle_spectrum_autolevel(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+
+  inspector->spectrum.auto_level =
+      gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+
+void
+suscan_inspector_on_toggle_spectrum_mode(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+  SUBOOL use_wf = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+
+  if (use_wf) {
+    inspector->spectrum.mode = SUSCAN_GUI_SPECTRUM_MODE_WATERFALL;
+    gtk_button_set_label(GTK_BUTTON(widget), "Waterfall");
+  } else {
+    inspector->spectrum.mode = SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM;
+    gtk_button_set_label(GTK_BUTTON(widget), "Spectrogram");
+  }
 }
 
