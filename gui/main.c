@@ -117,20 +117,6 @@ suscan_on_toggle_connect(GtkWidget *widget, gpointer data)
   }
 }
 
-void
-suscan_on_open_inspector(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_t *gui = (suscan_gui_t *) data;
-
-  /* Send open message. We will open new tab on response */
-  SU_TRYCATCH(
-      suscan_analyzer_open_async(
-          gui->analyzer,
-          &gui->selected_channel,
-          rand()),
-      return);
-}
-
 struct suscan_gui_src_ui *
 suscan_gui_get_selected_src_ui(const suscan_gui_t *gui)
 {
@@ -183,7 +169,7 @@ suscan_gui_set_selected_src_ui(
 }
 
 void
-suscan_on_source_changed(GtkWidget *widget, gpointer *data)
+suscan_on_source_changed(GtkWidget *widget, gpointer data)
 {
   suscan_gui_t *gui = (suscan_gui_t *) data;
   struct suscan_gui_src_ui *config;
@@ -212,5 +198,37 @@ suscan_on_source_changed(GtkWidget *widget, gpointer *data)
   gtk_widget_show(cfgui);
 
   gtk_window_resize(GTK_WINDOW(gui->settingsDialog), 1, 1);
+}
+
+void
+suscan_spectrum_on_settings_changed(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  sugtk_spectrum_set_show_channels(
+      gui->spectrum,
+      gtk_toggle_tool_button_get_active(gui->overlayChannelToggleButton));
+
+  sugtk_spectrum_set_auto_level(
+      gui->spectrum,
+      gtk_toggle_tool_button_get_active(gui->autoGainToggleButton));
+
+  if (gtk_check_menu_item_get_active(
+      GTK_CHECK_MENU_ITEM(gui->spectrogramMenuItem)))
+    sugtk_spectrum_set_mode(
+        gui->spectrum,
+        SUGTK_SPECTRUM_MODE_SPECTROGRAM);
+  else if (gtk_check_menu_item_get_active(
+      GTK_CHECK_MENU_ITEM(gui->waterfallMenuItem)))
+    sugtk_spectrum_set_mode(
+        gui->spectrum,
+        SUGTK_SPECTRUM_MODE_WATERFALL);
+
+  gtk_widget_set_sensitive(
+      GTK_WIDGET(gui->gainScaleButton),
+      !sugtk_spectrum_get_auto_level(gui->spectrum));
+  gtk_widget_set_sensitive(
+      GTK_WIDGET(gui->rangeScaleButton),
+      !sugtk_spectrum_get_auto_level(gui->spectrum));
 }
 

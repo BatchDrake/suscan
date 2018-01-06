@@ -87,8 +87,6 @@ suscan_gui_destroy(suscan_gui_t *gui)
   if (gui->analyzer != NULL)
     suscan_analyzer_destroy(gui->analyzer);
 
-  suscan_spectrum_finalize(&gui->main_spectrum);
-
   suscan_mq_finalize(&gui->mq_out);
 
   free(gui);
@@ -478,6 +476,24 @@ suscan_setup_column_formats(suscan_gui_t *gui)
 
 }
 
+SUPRIVATE void
+suscan_gui_on_open_inspector(
+    SuGtkSpectrum *spect,
+    gdouble freq,
+    const struct sigutils_channel *channel,
+    gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  /* Send open message. We will open new tab on response */
+  SU_TRYCATCH(
+      suscan_analyzer_open_async(
+          gui->analyzer,
+          channel,
+          rand()),
+      return);
+}
+
 SUBOOL
 suscan_gui_load_all_widgets(suscan_gui_t *gui)
 {
@@ -488,6 +504,11 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
   SU_TRYCATCH(
       gui->headerBar = GTK_HEADER_BAR(
           gtk_builder_get_object(gui->builder, "HeaderBar")),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->spectrumGrid = GTK_GRID(
+          gtk_builder_get_object(gui->builder, "grSpectrum")),
       return SU_FALSE);
 
   gtk_window_set_titlebar(gui->main, GTK_WIDGET(gui->headerBar));
@@ -682,27 +703,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->channelMenu =
-          GTK_MENU(gtk_builder_get_object(
-            gui->builder,
-            "mChannel")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->channelHeaderMenuItem =
-          GTK_MENU_ITEM(gtk_builder_get_object(
-            gui->builder,
-            "miChannelHeader")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->openInspectorMenuItem =
-          GTK_MENU_ITEM(gtk_builder_get_object(
-            gui->builder,
-            "miOpenInspector")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
       gui->analyzerViewsNotebook =
           GTK_NOTEBOOK(gtk_builder_get_object(
             gui->builder,
@@ -891,6 +891,21 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
   gtk_combo_box_set_active(gui->sourceCombo, 0);
 
   suscan_gui_analyzer_params_to_dialog(gui);
+
+  /* Add spectrum view */
+  gui->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
+  (void) sugtk_spectrum_add_menu_action(
+      gui->spectrum,
+      "Open PSK inspector",
+      suscan_gui_on_open_inspector,
+      gui);
+
+  gtk_grid_attach(gui->spectrumGrid, GTK_WIDGET(gui->spectrum), 0, 0, 1, 1);
+
+  gtk_widget_set_hexpand(GTK_WIDGET(gui->spectrum), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(gui->spectrum), TRUE);
+
+  gtk_widget_show(GTK_WIDGET(gui->spectrum));
 
   return SU_TRUE;
 }
@@ -1090,8 +1105,6 @@ suscan_gui_new(int argc, char **argv)
   suscan_gui_retrieve_analyzer_params(gui);
 
   SU_TRYCATCH(suscan_gui_load_all_widgets(gui), goto fail);
-
-  suscan_gui_spectrum_init(&gui->main_spectrum);
 
   g_signal_connect(
       GTK_WIDGET(gui->main),

@@ -42,8 +42,6 @@ suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
         inspector->inshnd,
         rand());
 
-  suscan_spectrum_finalize(&inspector->spectrum);
-
   suscan_gui_constellation_finalize(&inspector->constellation);
 
   suscan_gui_modemctl_set_finalize(&inspector->modemctl_set);
@@ -721,6 +719,13 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
               "lSNR")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->spectrumAlignment =
+          GTK_ALIGNMENT(gtk_builder_get_object(
+              inspector->builder,
+              "aSpectrum")),
+          return SU_FALSE);
+
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
@@ -764,6 +769,18 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   gtk_widget_set_vexpand(GTK_WIDGET(inspector->transMatrix), TRUE);
 
   gtk_widget_show(GTK_WIDGET(inspector->transMatrix));
+
+  /* Add spectrum widget */
+  inspector->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
+
+  gtk_container_add(
+      GTK_CONTAINER(inspector->spectrumAlignment),
+      GTK_WIDGET(inspector->spectrum));
+
+  gtk_widget_set_hexpand(GTK_WIDGET(inspector->spectrum), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(inspector->spectrum), TRUE);
+
+  gtk_widget_show(GTK_WIDGET(inspector->spectrum));
 
   /* Somehow Glade fails to set these default values */
   gtk_toggle_tool_button_set_active(
@@ -886,15 +903,7 @@ suscan_gui_inspector_new(
   SU_TRYCATCH(new->config = suscan_config_new(config->desc), return SU_FALSE);
 
   suscan_gui_constellation_init(&new->constellation);
-  suscan_gui_spectrum_init(&new->spectrum);
-  suscan_gui_spectrum_set_mode(
-          &new->spectrum,
-          SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE);
 
-  new->spectrum.auto_level = SU_TRUE;
-  new->spectrum.agc_alpha  = SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA;
-  new->spectrum.show_channels = SU_FALSE;
-  new->spectrum.smooth_N0  = SU_TRUE;
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(
           PKGDATADIR "/gui/channel-inspector-new.glade"),
@@ -903,6 +912,14 @@ suscan_gui_inspector_new(
   SU_TRYCATCH(suscan_gui_inspector_load_all_widgets(new), goto fail);
 
   gtk_builder_connect_signals(new->builder, new);
+
+  sugtk_spectrum_set_mode(new->spectrum, SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE);
+  sugtk_spectrum_set_auto_level(new->spectrum, TRUE);
+  sugtk_spectrum_set_show_channels(new->spectrum, FALSE);
+  sugtk_spectrum_set_smooth_N0(new->spectrum, TRUE);
+  sugtk_spectrum_set_agc_alpha(
+      new->spectrum,
+      SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA);
 
   SU_TRYCATCH(
       page_label = strbuild(
@@ -973,55 +990,6 @@ suscan_on_close_inspector_tab(GtkWidget *widget, gpointer data)
 
     suscan_gui_inspector_destroy(insp);
   }
-}
-
-gboolean
-suscan_inspector_spectrum_on_configure_event(
-    GtkWidget *widget,
-    GdkEventConfigure *event,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  suscan_gui_spectrum_configure(&insp->spectrum, widget);
-
-  return TRUE;
-}
-
-
-gboolean
-suscan_inspector_spectrum_on_draw(
-    GtkWidget *widget,
-    cairo_t *cr,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  suscan_gui_spectrum_redraw(&insp->spectrum, cr);
-
-  return FALSE;
-}
-
-void
-suscan_inspector_spectrum_on_scroll(
-    GtkWidget *widget,
-    GdkEventScroll *ev,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  suscan_gui_spectrum_parse_scroll(&insp->spectrum, ev);
-}
-
-void
-suscan_inspector_spectrum_on_motion(
-    GtkWidget *widget,
-    GdkEventMotion *ev,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  suscan_gui_spectrum_parse_motion(&insp->spectrum, ev);
 }
 
 void
@@ -1266,7 +1234,7 @@ suscan_inspector_on_spectrum_center(GtkWidget *widget, gpointer data)
 {
   suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
 
-  inspector->spectrum.freq_offset = 0;
+  sugtk_spectrum_set_freq_offset(inspector->spectrum, 0);
 }
 
 void
@@ -1274,8 +1242,9 @@ suscan_inspector_on_toggle_spectrum_autolevel(GtkWidget *widget, gpointer data)
 {
   suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
 
-  inspector->spectrum.auto_level =
-      gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+  sugtk_spectrum_set_auto_level(
+      inspector->spectrum,
+      gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)));
 }
 
 void
@@ -1285,10 +1254,14 @@ suscan_inspector_on_toggle_spectrum_mode(GtkWidget *widget, gpointer data)
   SUBOOL use_wf = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 
   if (use_wf) {
-    inspector->spectrum.mode = SUSCAN_GUI_SPECTRUM_MODE_WATERFALL;
+    sugtk_spectrum_set_mode(
+        inspector->spectrum,
+        SUGTK_SPECTRUM_MODE_WATERFALL);
     gtk_button_set_label(GTK_BUTTON(widget), "Waterfall");
   } else {
-    inspector->spectrum.mode = SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM;
+    sugtk_spectrum_set_mode(
+        inspector->spectrum,
+        SUGTK_SPECTRUM_MODE_SPECTROGRAM);
     gtk_button_set_label(GTK_BUTTON(widget), "Spectrogram");
   }
 }

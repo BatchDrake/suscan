@@ -127,34 +127,6 @@
       </row>
     </data>
   </object>
-  <object class="GtkMenu" id="mChannel">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <child>
-      <object class="GtkMenuItem" id="miChannelHeader">
-        <property name="visible">True</property>
-        <property name="sensitive">False</property>
-        <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Channel @ 0 Hz</property>
-        <property name="use_underline">True</property>
-      </object>
-    </child>
-    <child>
-      <object class="GtkSeparatorMenuItem">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-      </object>
-    </child>
-    <child>
-      <object class="GtkMenuItem" id="miOpenInspector">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Open PSK inspector</property>
-        <property name="use_underline">True</property>
-        <signal name="activate" handler="suscan_on_open_inspector" swapped="no"/>
-      </object>
-    </child>
-  </object>
   <object class="GtkMenu" id="mHeader">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -706,29 +678,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkGrid">
+                              <object class="GtkGrid" id="grSpectrum">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="orientation">vertical</property>
-                                <child>
-                                  <object class="GtkDrawingArea" id="daMainViewsSpectrum">
-                                    <property name="height_request">200</property>
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="events">GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON1_MOTION_MASK | GDK_BUTTON3_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_STRUCTURE_MASK | GDK_SMOOTH_SCROLL_MASK</property>
-                                    <property name="hexpand">True</property>
-                                    <property name="vexpand">True</property>
-                                    <signal name="button-press-event" handler="suscan_spectrum_on_button_press" swapped="no"/>
-                                    <signal name="configure-event" handler="suscan_spectrum_on_configure_event" swapped="no"/>
-                                    <signal name="draw" handler="suscan_spectrum_on_draw" swapped="no"/>
-                                    <signal name="motion-notify-event" handler="suscan_spectrum_on_motion" swapped="no"/>
-                                    <signal name="scroll-event" handler="suscan_spectrum_on_scroll" swapped="no"/>
-                                  </object>
-                                  <packing>
-                                    <property name="left_attach">0</property>
-                                    <property name="top_attach">0</property>
-                                  </packing>
-                                </child>
                                 <child>
                                   <object class="GtkToolbar">
                                     <property name="visible">True</property>
@@ -887,6 +840,9 @@ network-cellular-signal-good-symbolic</property>
                                     <property name="left_attach">1</property>
                                     <property name="top_attach">0</property>
                                   </packing>
+                                </child>
+                                <child>
+                                  <placeholder/>
                                 </child>
                               </object>
                               <packing>

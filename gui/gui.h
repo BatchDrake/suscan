@@ -81,6 +81,7 @@ struct suscan_gui {
   GtkDialog *settingsDialog;
   GtkDialog *aboutDialog;
   GtkGrid *sourceGrid;
+  GtkGrid *spectrumGrid;
   GtkComboBox *sourceCombo;
   GtkHeaderBar *headerBar;
   GtkMenuBar *menuBar;
@@ -120,10 +121,6 @@ struct suscan_gui {
   GtkLabel *spectrumFreqScaleLabel;
   GtkLabel *spectrumFreqOffsetLabel;
 
-  GtkMenu *channelMenu;
-  GtkMenuItem *channelHeaderMenuItem;
-  GtkMenuItem *openInspectorMenuItem;
-
   GtkNotebook *analyzerViewsNotebook;
 
   GtkTreeView *logMessagesTreeView;
@@ -160,8 +157,7 @@ struct suscan_gui {
 
   /* Main spectrum */
   SUSCOUNT current_samp_rate;
-  struct sigutils_channel selected_channel;
-  struct suscan_gui_spectrum main_spectrum;
+  SuGtkSpectrum *spectrum;
 
   /* Inspector tab list */
   PTR_LIST(suscan_gui_inspector_t, inspector);

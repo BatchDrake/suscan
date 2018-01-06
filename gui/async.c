@@ -94,12 +94,12 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), TRUE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       break;
 
     case SUSCAN_GUI_STATE_RUNNING:
-      suscan_gui_spectrum_reset(&gui->main_spectrum);
+      sugtk_spectrum_reset(gui->spectrum);
       subtitle = "Running";
       suscan_gui_change_button_icon(
           GTK_BUTTON(gui->toggleConnect),
@@ -107,16 +107,16 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      sugtk_spectrum_set_has_menu(gui->spectrum, TRUE);
       break;
 
     case SUSCAN_GUI_STATE_RESTARTING:
       subtitle = "Restarting...";
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
+      sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       suscan_gui_detach_all_inspectors(gui);
       break;
 
@@ -128,8 +128,8 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
           "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
+      sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       suscan_gui_detach_all_inspectors(gui);
       break;
   }
@@ -216,8 +216,8 @@ suscan_async_update_channels_cb(gpointer user_data)
       (struct suscan_analyzer_channel_msg *) envelope->private,
       &channel_list,
       &channel_count);
-  suscan_gui_spectrum_update_channels(
-      &envelope->gui->main_spectrum,
+  sugtk_spectrum_update_channels(
+      envelope->gui->spectrum,
       channel_list,
       channel_count);
 
@@ -245,6 +245,20 @@ done:
   suscan_gui_msg_envelope_destroy(envelope);
 
   return G_SOURCE_REMOVE;
+}
+
+void
+sugtk_spectrum_update_from_psd_msg(
+    SuGtkSpectrum *spectrum,
+    struct suscan_analyzer_psd_msg *msg)
+{
+  sugtk_spectrum_update(
+      spectrum,
+      suscan_analyzer_psd_msg_take_psd(msg),
+      msg->psd_size,
+      msg->samp_rate,
+      msg->fc,
+      msg->N0);
 }
 
 SUPRIVATE gboolean
@@ -275,11 +289,11 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
       text,
       sizeof(text),
       "%.2lg dB",
-      envelope->gui->main_spectrum.dbs_per_div);
+      sugtk_spectrum_get_dbs_per_div(envelope->gui->spectrum));
   gtk_label_set_text(envelope->gui->spectrumDbsPerDivLabel, text);
 
-  suscan_gui_spectrum_update_from_psd_msg(
-      &envelope->gui->main_spectrum,
+  sugtk_spectrum_update_from_psd_msg(
+      envelope->gui->spectrum,
       msg);
 
 done:
@@ -307,9 +321,7 @@ suscan_async_update_inspector_spectrum_cb(gpointer user_data)
 
   msg->fc = 0; /* Frequency reference is wrt channel's carrier */
 
-  suscan_gui_spectrum_update_from_psd_msg(
-      &insp->spectrum,
-      msg);
+  sugtk_spectrum_update_from_psd_msg(insp->spectrum, msg);
 
 done:
   suscan_gui_msg_envelope_destroy(envelope);
@@ -455,8 +467,8 @@ suscan_async_parse_inspector_msg(gpointer user_data)
           insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
           goto done);
 
-      suscan_gui_spectrum_update(
-          &insp->spectrum,
+      sugtk_spectrum_update(
+          insp->spectrum,
           suscan_analyzer_inspector_msg_take_spectrum(msg),
           msg->spectrum_size,
           msg->samp_rate,
