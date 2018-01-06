@@ -709,6 +709,9 @@ sugtk_spectrum_redraw(SuGtkSpectrum *spect)
 
   cr = cairo_create(spect->sf_spectrum);
 
+  cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+
+
   cairo_set_source_rgb(cr, 0, 0, 0);
   cairo_paint(cr);
 
@@ -922,7 +925,7 @@ sugtk_spectrum_on_menu_action(GtkWidget *widget, gpointer data)
   SuGtkSpectrumMenuContext *ctx = (SuGtkSpectrumMenuContext *) data;
   SuGtkSpectrum *spect = ctx->spect;
 
-  (ctx->action)(spect, spect->menu_fc, spect->menu_channel, ctx->data);
+  (ctx->action)(spect, spect->menu_fc, &spect->menu_channel, ctx->data);
 }
 
 gboolean
@@ -1300,7 +1303,7 @@ sugtk_spectrum_on_button_press_event(
           if ((channel = sugtk_spectrum_lookup_channel(
               spect,
               freq)) != NULL) {
-            spect->menu_channel = channel;
+            spect->menu_channel = *channel;
             spect->menu_fc = channel->fc;
 
             snprintf(
@@ -1308,6 +1311,8 @@ sugtk_spectrum_on_button_press_event(
                 sizeof(header),
                 "Channel @ %lld Hz",
                 (uint64_t) round(channel->fc));
+
+            printf("Channel: %lg\n", channel->fc);
 
             gtk_menu_item_set_label(
                 spect->channelHeaderMenuItem,

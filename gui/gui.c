@@ -486,6 +486,7 @@ suscan_gui_on_open_inspector(
   suscan_gui_t *gui = (suscan_gui_t *) data;
 
   /* Send open message. We will open new tab on response */
+  printf("Open inspector at %lg\n", channel->fc);
   SU_TRYCATCH(
       suscan_analyzer_open_async(
           gui->analyzer,

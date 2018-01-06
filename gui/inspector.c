@@ -42,8 +42,6 @@ suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
         inspector->inshnd,
         rand());
 
-  suscan_gui_constellation_finalize(&inspector->constellation);
-
   suscan_gui_modemctl_set_finalize(&inspector->modemctl_set);
 
   for (i = 0; i < inspector->estimator_count; ++i)
@@ -205,7 +203,7 @@ suscan_gui_inspector_feed_w_batch(
    * because the previous ones will never be shown
    */
   full_samp_count = msg->sample_count;
-  sample_count = MIN(full_samp_count, SUSCAN_GUI_CONSTELLATION_HISTORY);
+  sample_count = MIN(full_samp_count, SUGTK_CONSTELLATION_HISTORY);
 
   /* Cache decision */
   if (insp->recording)
@@ -241,9 +239,11 @@ suscan_gui_inspector_feed_w_batch(
   }
 
   for (i = 0; i < sample_count; ++i)
-    suscan_gui_constellation_push_sample(
-        &insp->constellation,
+    sugtk_constellation_push(
+        insp->constellation,
         msg->samples[msg->sample_count - sample_count + i]);
+
+  sugtk_constellation_commit(insp->constellation);
 
   ok = SU_TRUE;
 
@@ -726,6 +726,13 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
               "aSpectrum")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->constellationAlignment =
+          GTK_ALIGNMENT(gtk_builder_get_object(
+              inspector->builder,
+              "aConstellation")),
+          return SU_FALSE);
+
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
@@ -769,6 +776,18 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   gtk_widget_set_vexpand(GTK_WIDGET(inspector->transMatrix), TRUE);
 
   gtk_widget_show(GTK_WIDGET(inspector->transMatrix));
+
+  /* Add constellation widget */
+  inspector->constellation = SUGTK_CONSTELLATION(sugtk_constellation_new());
+
+  gtk_container_add(
+      GTK_CONTAINER(inspector->constellationAlignment),
+      GTK_WIDGET(inspector->constellation));
+
+  gtk_widget_set_hexpand(GTK_WIDGET(inspector->constellation), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(inspector->constellation), TRUE);
+
+  gtk_widget_show(GTK_WIDGET(inspector->constellation));
 
   /* Add spectrum widget */
   inspector->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
@@ -901,8 +920,6 @@ suscan_gui_inspector_new(
   new->inshnd = handle;
 
   SU_TRYCATCH(new->config = suscan_config_new(config->desc), return SU_FALSE);
-
-  suscan_gui_constellation_init(&new->constellation);
 
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(

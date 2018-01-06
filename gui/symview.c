@@ -376,7 +376,7 @@ sugtk_sym_view_on_configure_event(
 }
 
 static gboolean
-suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+sugtk_sym_view_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
   cairo_surface_t *surface;
@@ -1066,7 +1066,7 @@ sugtk_sym_view_init(SuGtkSymView *self)
   g_signal_connect(
       self,
       "draw",
-      (GCallback) suscan_constellation_on_draw,
+      (GCallback) sugtk_sym_view_on_draw,
       NULL);
 
   g_signal_connect(

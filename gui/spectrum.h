@@ -158,7 +158,7 @@ struct _SuGtkSpectrum
   /* Channel menu */
   GtkMenu     *channelMenu;
   GtkMenuItem *channelHeaderMenuItem;
-  const struct sigutils_channel *menu_channel;
+  struct sigutils_channel menu_channel;
   gdouble menu_fc;
 
   PTR_LIST(SuGtkSpectrumMenuContext, context);
