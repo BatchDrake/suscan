@@ -1312,8 +1312,6 @@ sugtk_spectrum_on_button_press_event(
                 "Channel @ %lld Hz",
                 (uint64_t) round(channel->fc));
 
-            printf("Channel: %lg\n", channel->fc);
-
             gtk_menu_item_set_label(
                 spect->channelHeaderMenuItem,
                 header);
