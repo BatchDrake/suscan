@@ -29,6 +29,7 @@
 
 G_BEGIN_DECLS
 
+#define SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS 40 /* 25 fps */
 #define SUGTK_TYPE_SPECTRUM            (sugtk_spectrum_get_type ())
 #define SUGTK_SPECTRUM(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SUGTK_TYPE_SPECTRUM, SuGtkSpectrum))
 #define SUGTK_SPECTRUM_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST  ((klass), SUGTK_TYPE_SPECTRUM, SuGtkSpectrumClass))
@@ -121,6 +122,7 @@ struct _SuGtkSpectrum
   /* Surfaces */
   cairo_surface_t *sf_spectrum; /* This is actually the main surface */
   cairo_surface_t *sf_wf[2]; /* Used for keeping the waterfall history */
+  struct timeval last_redraw_time;
   gboolean flip;
 
   /* Zoom and centering state */

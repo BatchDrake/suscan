@@ -310,6 +310,7 @@ sugtk_trans_mtx_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
   SuGtkTransMtx *mtx = SUGTK_TRANS_MTX(widget);
 
+  cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
   cairo_set_source_surface(cr, mtx->surface, 0, 0);
   cairo_paint(cr);
 

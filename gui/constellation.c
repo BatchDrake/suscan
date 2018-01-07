@@ -205,6 +205,7 @@ sugtk_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
   SuGtkConstellation *constellation = SUGTK_CONSTELLATION(widget);
 
+  cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
   cairo_set_source_surface(cr, constellation->sf_constellation, 0, 0);
   cairo_paint(cr);
 

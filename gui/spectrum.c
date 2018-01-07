@@ -711,7 +711,6 @@ sugtk_spectrum_redraw(SuGtkSpectrum *spect)
 
   cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
 
-
   cairo_set_source_rgb(cr, 0, 0, 0);
   cairo_paint(cr);
 
@@ -744,11 +743,26 @@ sugtk_spectrum_redraw(SuGtkSpectrum *spect)
 }
 
 static void
-sugtk_spectrum_queue_redraw(SuGtkSpectrum *spect)
+sugtk_spectrum_refresh_hard(SuGtkSpectrum *spect)
 {
   sugtk_spectrum_redraw(spect);
   gtk_widget_queue_draw(GTK_WIDGET(spect));
 }
+
+static void
+sugtk_spectrum_refresh(SuGtkSpectrum *spect)
+{
+  struct timeval tv, sub;
+
+  gettimeofday(&tv, NULL);
+  timersub(&tv, &spect->last_redraw_time, &sub);
+
+  if (sub.tv_usec > SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS * 1000) {
+    sugtk_spectrum_refresh_hard(spect);
+    spect->last_redraw_time = tv;
+  }
+}
+
 
 /****************************** Public API ***********************************/
 void
@@ -780,7 +794,7 @@ sugtk_spectrum_reset(SuGtkSpectrum *spect)
 
   sugtk_spectrum_set_defaults(spect);
 
-  sugtk_spectrum_queue_redraw(spect);
+  sugtk_spectrum_refresh_hard(spect);
 }
 
 SUGTK_SPECTRUM_SETTER(gboolean, show_channels);
@@ -896,7 +910,7 @@ sugtk_spectrum_update(
 
   sugtk_spectrum_commit_waterfall_line(spect);
 
-  sugtk_spectrum_queue_redraw(spect);
+  sugtk_spectrum_refresh(spect);
 }
 
 void
@@ -916,7 +930,7 @@ sugtk_spectrum_update_channels(
   spect->channel_list  = channel_list;
   spect->channel_count = channel_count;
 
-  sugtk_spectrum_queue_redraw(spect);
+  sugtk_spectrum_refresh(spect);
 }
 
 static void
@@ -1011,7 +1025,7 @@ sugtk_spectrum_parse_dragging(
 
     spect->freq_offset = spect->original_freq_offset + lx - x;
 
-    sugtk_spectrum_queue_redraw(spect);
+    sugtk_spectrum_refresh_hard(spect);
   }
 }
 
@@ -1045,8 +1059,6 @@ sugtk_spectrum_parse_selection(
         .5 * (spect->selection.f_lo + spect->selection.f_hi);
 
     spect->selection.ft = spect->fc;
-
-    sugtk_spectrum_queue_redraw(spect);
   }
 }
 
@@ -1135,7 +1147,7 @@ sugtk_spectrum_on_configure_event(
     cairo_surface_destroy(old_surf1);
   }
 
-  sugtk_spectrum_queue_redraw(spect);
+  sugtk_spectrum_refresh_hard(spect);
 
   return TRUE;
 }
@@ -1145,6 +1157,7 @@ sugtk_spectrum_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
   SuGtkSpectrum *spect = SUGTK_SPECTRUM(widget);
 
+  cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
   cairo_set_source_surface(cr, spect->sf_spectrum, 0, 0);
   cairo_paint(cr);
 
@@ -1192,7 +1205,7 @@ sugtk_spectrum_apply_delta(
       break;
   }
 
-  sugtk_spectrum_queue_redraw(spect);
+  sugtk_spectrum_refresh_hard(spect);
 }
 
 static gboolean
@@ -1289,7 +1302,7 @@ sugtk_spectrum_on_button_press_event(
       case 1:
         /* Reset selection */
         spect->selection.bw = 0;
-        sugtk_spectrum_queue_redraw(spect);
+        sugtk_spectrum_refresh_hard(spect);
         break;
 
       case 3:
