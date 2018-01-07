@@ -31,81 +31,7 @@
 
 G_DEFINE_TYPE(SuGtkTransMtx, sugtk_trans_mtx, GTK_TYPE_DRAWING_AREA);
 
-void
-sugtk_trans_mtx_clear(SuGtkTransMtx *mtx)
-{
-  if (mtx->coef != NULL) {
-    g_free(mtx->coef);
-    mtx->coef = NULL;
-  }
-
-  mtx->order = 0;
-}
-
-void
-sugtk_trans_mtx_reset(SuGtkTransMtx *mtx)
-{
-  if (mtx->order > 0)
-    memset(mtx->coef, 0, sizeof(guint) * mtx->order * (mtx->order + 1));
-}
-
-void
-sugtk_trans_mtx_feed(SuGtkTransMtx *mtx, uint8_t data)
-{
-  guint i;
-
-  if (data >= mtx->order) {
-    g_warning(
-        "Invalid symbol #%d for a constellation with order %d\n",
-        data,
-        mtx->order);
-    return;
-  }
-
-  i = mtx->prev * (mtx->order + 1);
-  ++mtx->coef[i]; /* Increment the number of elements in this row */
-  ++mtx->coef[i + data + 1]; /* Increment the occurences of this transition */
-
-  mtx->prev = data;
-}
-
 static void
-sugtk_trans_mtx_dispose(GObject* object)
-{
-  SuGtkTransMtx *mtx;
-
-  mtx = SUGTK_TRANS_MTX(object);
-
-  sugtk_trans_mtx_clear(mtx);
-
-  G_OBJECT_CLASS(sugtk_trans_mtx_parent_class)->dispose(object);
-}
-
-static void
-sugtk_trans_mtx_class_init(SuGtkTransMtxClass *class)
-{
-  GObjectClass  *g_object_class;
-
-  g_object_class = G_OBJECT_CLASS(class);
-
-  g_object_class->dispose = sugtk_trans_mtx_dispose;
-}
-
-static gboolean
-sugtk_trans_mtx_on_configure_event(
-    GtkWidget *widget,
-    GdkEventConfigure *event,
-    gpointer data)
-{
-  SuGtkTransMtx *mtx = SUGTK_TRANS_MTX(widget);
-
-  mtx->width  = event->width;
-  mtx->height = event->height;
-
-  return TRUE;
-}
-
-static gboolean
 sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
 {
   gfloat p;
@@ -211,11 +137,9 @@ sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
       }
     }
   }
-
-  return TRUE;
 }
 
-static gboolean
+static void
 sugtk_trans_mtx_draw_matrix(SuGtkTransMtx *mtx, cairo_t *cr)
 {
   gfloat cwidth, cheight;
@@ -249,6 +173,134 @@ sugtk_trans_mtx_draw_matrix(SuGtkTransMtx *mtx, cairo_t *cr)
       }
     }
   }
+}
+
+static void
+sugtk_trans_mtx_redraw(SuGtkTransMtx *mtx)
+{
+  cairo_t *cr;
+
+  cr = cairo_create(mtx->surface);
+
+  cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+
+  if (mtx->graph_mode)
+    return sugtk_trans_mtx_draw_graph(mtx, cr);
+  else
+    return sugtk_trans_mtx_draw_matrix(mtx, cr);
+
+  cairo_destroy(cr);
+}
+
+void
+sugtk_trans_mtx_refresh_hard(SuGtkTransMtx *mtx)
+{
+  sugtk_trans_mtx_redraw(mtx);
+  gtk_widget_queue_draw(GTK_WIDGET(mtx));
+}
+
+void
+sugtk_trans_mtx_refresh(SuGtkTransMtx *mtx)
+{
+  struct timeval tv, sub;
+
+  gettimeofday(&tv, NULL);
+  timersub(&tv, &mtx->last_redraw_time, &sub);
+
+  if (sub.tv_usec > SUGTK_TRANS_MTX_MIN_REDRAW_INTERVAL_MS * 1000) {
+    sugtk_trans_mtx_refresh_hard(mtx);
+    mtx->last_redraw_time = tv;
+  }
+}
+
+void
+sugtk_trans_mtx_clear(SuGtkTransMtx *mtx)
+{
+  if (mtx->coef != NULL) {
+    g_free(mtx->coef);
+    mtx->coef = NULL;
+  }
+
+  mtx->order = 0;
+}
+
+void
+sugtk_trans_mtx_reset(SuGtkTransMtx *mtx)
+{
+  if (mtx->order > 0)
+    memset(mtx->coef, 0, sizeof(guint) * mtx->order * (mtx->order + 1));
+}
+
+void
+sugtk_trans_mtx_feed(SuGtkTransMtx *mtx, uint8_t data)
+{
+  guint i;
+
+  if (data >= mtx->order) {
+    g_warning(
+        "Invalid symbol #%d for a constellation with order %d\n",
+        data,
+        mtx->order);
+    return;
+  }
+
+  i = mtx->prev * (mtx->order + 1);
+  ++mtx->coef[i]; /* Increment the number of elements in this row */
+  ++mtx->coef[i + data + 1]; /* Increment the occurences of this transition */
+
+  mtx->prev = data;
+
+  sugtk_trans_mtx_refresh_hard(mtx);
+}
+
+static void
+sugtk_trans_mtx_dispose(GObject* object)
+{
+  SuGtkTransMtx *mtx;
+
+  mtx = SUGTK_TRANS_MTX(object);
+
+  sugtk_trans_mtx_clear(mtx);
+
+  if (mtx->surface != NULL) {
+    cairo_surface_destroy(mtx->surface);
+    mtx->surface = NULL;
+  }
+
+  G_OBJECT_CLASS(sugtk_trans_mtx_parent_class)->dispose(object);
+}
+
+static void
+sugtk_trans_mtx_class_init(SuGtkTransMtxClass *class)
+{
+  GObjectClass  *g_object_class;
+
+  g_object_class = G_OBJECT_CLASS(class);
+
+  g_object_class->dispose = sugtk_trans_mtx_dispose;
+}
+
+static gboolean
+sugtk_trans_mtx_on_configure_event(
+    GtkWidget *widget,
+    GdkEventConfigure *event,
+    gpointer data)
+{
+  SuGtkTransMtx *mtx = SUGTK_TRANS_MTX(widget);
+
+  mtx->width  = event->width;
+  mtx->height = event->height;
+
+  if (mtx->surface != NULL)
+    cairo_surface_destroy(mtx->surface);
+
+  mtx->surface = gdk_window_create_similar_surface(
+      gtk_widget_get_window(widget),
+      CAIRO_CONTENT_COLOR,
+      event->width,
+      event->height);
+
+  sugtk_trans_mtx_refresh_hard(mtx);
 
   return TRUE;
 }
@@ -258,10 +310,10 @@ sugtk_trans_mtx_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
   SuGtkTransMtx *mtx = SUGTK_TRANS_MTX(widget);
 
-  if (mtx->graph_mode)
-    return sugtk_trans_mtx_draw_graph(mtx, cr);
-  else
-    return sugtk_trans_mtx_draw_matrix(mtx, cr);
+  cairo_set_source_surface(cr, mtx->surface, 0, 0);
+  cairo_paint(cr);
+
+  return FALSE;
 }
 
 static gboolean
@@ -273,8 +325,10 @@ sugtk_trans_mtx_on_button_press_event(
   SuGtkTransMtx *mtx = SUGTK_TRANS_MTX(widget);
 
   /* Toggle graph mode if requested */
-  if (event->button.button == GDK_BUTTON_PRIMARY)
+  if (event->button.button == GDK_BUTTON_PRIMARY) {
     mtx->graph_mode = !mtx->graph_mode;
+    sugtk_trans_mtx_refresh_hard(mtx);
+  }
 
   return TRUE;
 }
@@ -319,6 +373,8 @@ sugtk_trans_mtx_set_order(SuGtkTransMtx *mtx, guint order)
     mtx->coef = coef;
     mtx->order = order;
     mtx->prev = 0;
+
+    sugtk_trans_mtx_refresh_hard(mtx);
   }
 }
 

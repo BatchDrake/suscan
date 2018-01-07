@@ -145,6 +145,8 @@ sugtk_sym_view_redraw(SuGtkSymView *view)
 
   cr = cairo_create(view->surface);
 
+  cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+
   /* Precedence is imortant here */
   width = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_width;
   height = sugtk_sym_view_get_height(view);

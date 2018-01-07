@@ -25,10 +25,12 @@
 #include <gtk/gtk.h>
 #include <util.h>
 #include <stdint.h>
+#include <sys/time.h>
 
 G_BEGIN_DECLS
 
 #define SUGTK_TRANS_MTX_STRIDE_ALIGN sizeof(gpointer)
+#define SUGTK_TRANS_MTX_MIN_REDRAW_INTERVAL_MS 40 /* 25 fps */
 
 #define SUGTK_TYPE_TRANS_MTX            (sugtk_trans_mtx_get_type ())
 #define SUGTK_TRANS_MTX(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SUGTK_TYPE_TRANS_MTX, SuGtkTransMtx))
@@ -51,6 +53,10 @@ struct _SuGtkTransMtx
 
   /* Previous state */
   uint8_t prev;
+
+  /* Surface of off-screen rendering */
+  cairo_surface_t *surface;
+  struct timeval last_redraw_time;
 };
 
 struct _SuGtkTransMtxClass
