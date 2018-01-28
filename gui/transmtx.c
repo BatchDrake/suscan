@@ -200,7 +200,7 @@ sugtk_trans_mtx_refresh_hard(SuGtkTransMtx *mtx)
 }
 
 void
-sugtk_trans_mtx_refresh(SuGtkTransMtx *mtx)
+sugtk_trans_mtx_commit(SuGtkTransMtx *mtx)
 {
   struct timeval tv, sub;
 
@@ -232,7 +232,7 @@ sugtk_trans_mtx_reset(SuGtkTransMtx *mtx)
 }
 
 void
-sugtk_trans_mtx_feed(SuGtkTransMtx *mtx, uint8_t data)
+sugtk_trans_mtx_push(SuGtkTransMtx *mtx, uint8_t data)
 {
   guint i;
 
@@ -249,8 +249,6 @@ sugtk_trans_mtx_feed(SuGtkTransMtx *mtx, uint8_t data)
   ++mtx->coef[i + data + 1]; /* Increment the occurences of this transition */
 
   mtx->prev = data;
-
-  sugtk_trans_mtx_refresh_hard(mtx);
 }
 
 static void

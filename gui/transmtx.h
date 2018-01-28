@@ -78,7 +78,8 @@ void sugtk_trans_mtx_set_order(SuGtkTransMtx *mtx, guint order);
 guint sugtk_trans_mtx_get_order(const SuGtkTransMtx *mtx);
 
 /* Append symbol */
-void sugtk_trans_mtx_feed(SuGtkTransMtx *mtx, uint8_t state);
+void sugtk_trans_mtx_push(SuGtkTransMtx *mtx, uint8_t state);
+void sugtk_trans_mtx_commit(SuGtkTransMtx *mtx);
 
 G_END_DECLS
 

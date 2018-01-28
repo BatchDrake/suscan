@@ -212,6 +212,7 @@ suscan_gui_inspector_feed_w_batch(
         goto done);
 
   /* Check if recording is enabled to assert the symbol buffer */
+
   sugtk_trans_mtx_reset(insp->transMatrix);
 
   for (i = 0; i < full_samp_count; ++i)
@@ -230,8 +231,12 @@ suscan_gui_inspector_feed_w_batch(
       }
 
       /* Feed transition matrix */
-      sugtk_trans_mtx_feed(insp->transMatrix, bits);
+      sugtk_trans_mtx_push(insp->transMatrix, bits);
     }
+
+  /* Transition matrix has been fed. Update */
+  if (full_samp_count > 0)
+    sugtk_trans_mtx_commit(insp->transMatrix);
 
   if (insp->recording) {
     /* Wake up all listeners with new data */
