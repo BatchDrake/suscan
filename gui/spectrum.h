@@ -21,113 +21,217 @@
 #ifndef _GUI_SPECTRUM_H
 #define _GUI_SPECTRUM_H
 
+#include <glib-object.h>
 #include <gtk/gtk.h>
-#include <sigutils/sigutils.h>
 #include <util.h>
+#include <stdint.h>
+#include <sigutils/softtune.h>
 
-#define SUSCAN_GUI_SPECTRUM_FREQ_OFFSET_DEFAULT 0
-#define SUSCAN_GUI_SPECTRUM_FREQ_SCALE_DEFAULT  1
-#define SUSCAN_GUI_SPECTRUM_DBS_PER_DIV_DEFAULT 10
-#define SUSCAN_GUI_SPECTRUM_REF_LEVEL_DEFAULT   0
-#define SUSCAN_GUI_SPECTRUM_AGC_ALPHA .1
+G_BEGIN_DECLS
 
-enum suscan_gui_spectrum_param {
-  SUSCAN_GUI_SPECTRUM_PARAM_FREQ_OFFSET,
-  SUSCAN_GUI_SPECTRUM_PARAM_FREQ_SCALE,
-  SUSCAN_GUI_SPECTRUM_PARAM_REF_LEVEL,
-  SUSCAN_GUI_SPECTRUM_PARAM_DBS_PER_DIV,
+typedef SUFLOAT gsufloat;
+
+#define SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS 40 /* 25 fps */
+#define SUGTK_TYPE_SPECTRUM            (sugtk_spectrum_get_type ())
+#define SUGTK_SPECTRUM(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SUGTK_TYPE_SPECTRUM, SuGtkSpectrum))
+#define SUGTK_SPECTRUM_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST  ((klass), SUGTK_TYPE_SPECTRUM, SuGtkSpectrumClass))
+#define SUGTK_IS_SPECTRUM(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SUGTK_TYPE_SPECTRUM))
+#define SUGTK_IS_SPECTRUM_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE  ((klass), SUGTK_TYPE_SPECTRUM))
+#define SUGTK_SPECTRUM_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS  ((obj), SUGTK_TYPE_SPECTRUM, SuGtkSpectrumClass))
+
+/* Layout defines */
+#define SUGTK_SPECTRUM_ALPHA .01
+
+#define SUGTK_SPECTRUM_HORIZONTAL_DIVS 20
+#define SUGTK_SPECTRUM_VERTICAL_DIVS   10
+
+#define SUGTK_SPECTRUM_DX (1. / SUGTK_SPECTRUM_HORIZONTAL_DIVS)
+#define SUGTK_SPECTRUM_DY (1. / SUGTK_SPECTRUM_VERTICAL_DIVS)
+
+#define SUGTK_SPECTRUM_SCALE_DELTA .1
+
+#define SUGTK_SPECTRUM_LEFT_PADDING 30
+#define SUGTK_SPECTRUM_TOP_PADDING 5
+
+#define SUGTK_SPECTRUM_RIGHT_PADDING 5
+#define SUGTK_SPECTRUM_BOTTOM_PADDING 30
+
+#define SUGTK_SPECTRUM_AUTO_LEVEL_RANGE_SCALE_DB 1.5
+
+/* Defaults */
+#define SUGTK_SPECTRUM_FREQ_OFFSET_DEFAULT 0
+#define SUGTK_SPECTRUM_FREQ_SCALE_DEFAULT  1
+#define SUGTK_SPECTRUM_DBS_PER_DIV_DEFAULT 10
+#define SUGTK_SPECTRUM_REF_LEVEL_DEFAULT   0
+#define SUGTK_SPECTRUM_AGC_ALPHA .1
+
+#define SUGTK_SPECTRUM_SETTER_PROTO(type, name) \
+  void JOIN(sugtk_spectrum_set_, name) (SuGtkSpectrum *spect, type value)
+
+#define SUGTK_SPECTRUM_GETTER_PROTO(type, name) \
+  type JOIN(sugtk_spectrum_get_, name) (const SuGtkSpectrum *spect)
+
+enum SuGtkSpectrumParam {
+  SUGTK_SPECTRUM_PARAM_FREQ_OFFSET,
+  SUGTK_SPECTRUM_PARAM_FREQ_SCALE,
+  SUGTK_SPECTRUM_PARAM_REF_LEVEL,
+  SUGTK_SPECTRUM_PARAM_DBS_PER_DIV,
 };
 
-enum suscan_gui_spectrum_mode {
-  SUSCAN_GUI_SPECTRUM_MODE_SPECTROGRAM,
-  SUSCAN_GUI_SPECTRUM_MODE_WATERFALL,
+enum SuGtkSpectrumMode {
+  SUGTK_SPECTRUM_MODE_SPECTROGRAM,
+  SUGTK_SPECTRUM_MODE_WATERFALL,
 };
 
-struct suscan_gui_spectrum {
-  enum suscan_gui_spectrum_mode mode;
-  unsigned width;
-  unsigned height;
-  int g_width;
-  int g_height;
+struct _SuGtkSpectrum;
 
-  uint64_t fc;
-  SUFLOAT *psd_data;
-  SUFLOAT *psd_data_smooth;
-  SUSCOUNT psd_size;
-  SUSCOUNT samp_rate;
-  SUFLOAT  N0;
-  SUSCOUNT updates; /* Number of spectrum updates */
-  SUSCOUNT last_update; /* Last update in which waterfall has been repainted */
-  SUBOOL   auto_level; /* Automatic reference level */
-  SUFLOAT  agc_alpha; /* AGC alpha for smooth update */
+typedef void (*SuGtkSpectrumMenuActionCallback) (
+    struct _SuGtkSpectrum *spect,
+    gsufloat freq,
+    const struct sigutils_channel *channel,
+    gpointer data);
 
-  /* Representation properties */
-  SUBOOL  show_channels; /* Defaults to TRUE */
-  SUFLOAT freq_offset; /* Defaults to 0 */
-  SUFLOAT freq_scale;  /* Defaults to 1 */
-  SUFLOAT dbs_per_div; /* Defaults to 10 */
-  SUFLOAT ref_level;   /* Defaults to 0 */
-  SUFLOAT last_max;
+struct _SuGtkSpectrumMenuContext {
+  struct _SuGtkSpectrum *spect;
+  SuGtkSpectrumMenuActionCallback action;
+  gpointer data;
+};
 
-  /* Waterfall members */
-  SUBOOL flip;
-  cairo_surface_t *wf_surf[2];
-  SUFLOAT last_freq_offset;
+typedef struct _SuGtkSpectrumMenuContext SuGtkSpectrumMenuContext;
 
-  /* Scroll and motion state */
-  gdouble last_x;
-  gdouble last_y;
+struct _SuGtkSpectrum
+{
+  GtkDrawingArea parent_instance;
 
-  gdouble  prev_ev_x;
-  SUBOOL   dragging;
-  SUFLOAT  original_freq_offset;
-  SUFLOAT  original_ref_level;
+  /* Spectrum data */
+  gsufloat *psd_data;
+  gsufloat *psd_data_smooth;
+  guint    psd_size;
+  gsufloat  N0;
+  gsufloat  fc;
 
-  /* Current channel selection state */
-  SUBOOL selecting;
+  /* Spectrum parameters */
+  guint samp_rate;
+
+  /* Widget geometry */
+  gsufloat width;
+  gsufloat height;
+
+  /* Geometry of the plot area */
+  gsufloat g_width;
+  gsufloat g_height;
+
+  /* Surfaces */
+  cairo_surface_t *sf_spectrum; /* This is actually the main surface */
+  cairo_surface_t *sf_wf[2]; /* Used for keeping the waterfall history */
+  struct timeval last_redraw_time;
+  gboolean flip;
+
+  /* Zoom and centering state */
+  gsufloat freq_offset;
+  gsufloat freq_scale;
+  gsufloat ref_level;
+  gsufloat dbs_per_div;
+
+  /* Spectrum behavior */
+  enum SuGtkSpectrumMode mode;
+  gboolean has_menu;
+  gboolean show_channels;
+  gboolean auto_level;
+  gboolean dc_skip;
+  gboolean smooth_N0;
+  gsufloat  agc_alpha;
+
+  /* Autolevel state */
+  gsufloat last_max;
+
+  /* Scrolling and motion states */
+  gboolean dragging;
+  gboolean selecting;
+  gfloat   last_x;
+  gfloat   last_y;
+
+  gfloat   prev_ev_x;
+  gsufloat  original_ref_level;
+  gsufloat  original_freq_offset;
+
+  /* Channel integration */
   struct sigutils_channel selection;
-
-  /* Current channel list */
   PTR_LIST(struct sigutils_channel, channel);
+
+  /* Channel menu */
+  GtkMenu     *channelMenu;
+  GtkMenuItem *channelHeaderMenuItem;
+  struct sigutils_channel menu_channel;
+  gsufloat menu_fc;
+
+  PTR_LIST(SuGtkSpectrumMenuContext, context);
 };
 
-/* Spectrum API */
-void suscan_gui_spectrum_init(struct suscan_gui_spectrum *spectrum);
+struct _SuGtkSpectrumClass
+{
+  GtkDrawingAreaClass parent_class;
+};
 
-void suscan_spectrum_finalize(struct suscan_gui_spectrum *spectrum);
+typedef struct _SuGtkSpectrum      SuGtkSpectrum;
+typedef struct _SuGtkSpectrumClass SuGtkSpectrumClass;
 
-void suscan_gui_spectrum_set_mode(
-    struct suscan_gui_spectrum *spectrum,
-    enum suscan_gui_spectrum_mode mode);
+GType sugtk_spectrum_get_type(void);
+GtkWidget *sugtk_spectrum_new(void);
 
-void suscan_gui_spectrum_reset(struct suscan_gui_spectrum *spectrum);
+const struct sigutils_channel *sugtk_spectrum_lookup_channel(
+    const SuGtkSpectrum *spect,
+    gsufloat fc);
 
-void suscan_gui_spectrum_update(
-    struct suscan_gui_spectrum *spectrum,
-    struct suscan_analyzer_psd_msg *msg);
+void sugtk_spectrum_update(
+    SuGtkSpectrum *spectrum,
+    gsufloat *spectrum_data,
+    guint spectrum_size,
+    guint samp_rate,
+    gsufloat fc,
+    gsufloat N0);
 
-void suscan_gui_spectrum_update_channels(
-    struct suscan_gui_spectrum *spectrum,
+void sugtk_spectrum_update_channels(
+    SuGtkSpectrum *spect,
     struct sigutils_channel **channel_list,
     unsigned int channel_count);
 
-void suscan_gui_spectrum_configure(
-    struct suscan_gui_spectrum *spectrum,
-    GtkWidget *widget);
+gboolean sugtk_spectrum_add_menu_action(
+    SuGtkSpectrum *spect,
+    const gchar *label,
+    SuGtkSpectrumMenuActionCallback action,
+    gpointer data);
 
-void suscan_gui_spectrum_redraw(
-    struct suscan_gui_spectrum *spectrum,
-    cairo_t *cr);
+void sugtk_spectrum_reset(SuGtkSpectrum *spect);
 
-void suscan_gui_spectrum_parse_scroll(
-    struct suscan_gui_spectrum *spectrum,
-    const GdkEventScroll *ev);
+SUGTK_SPECTRUM_SETTER_PROTO(gboolean, show_channels);
+SUGTK_SPECTRUM_SETTER_PROTO(gboolean, auto_level);
+SUGTK_SPECTRUM_SETTER_PROTO(gboolean, dc_skip);
+SUGTK_SPECTRUM_SETTER_PROTO(gboolean, smooth_N0);
+SUGTK_SPECTRUM_SETTER_PROTO(gboolean, has_menu);
+SUGTK_SPECTRUM_SETTER_PROTO(enum SuGtkSpectrumMode, mode);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, freq_offset);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, freq_scale);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, ref_level);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, dbs_per_div);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, agc_alpha);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, N0);
+SUGTK_SPECTRUM_SETTER_PROTO(guint, samp_rate);
 
-void suscan_gui_spectrum_parse_motion(
-    struct suscan_gui_spectrum *spectrum,
-    const GdkEventMotion *ev);
+SUGTK_SPECTRUM_GETTER_PROTO(gboolean, show_channels);
+SUGTK_SPECTRUM_GETTER_PROTO(gboolean, auto_level);
+SUGTK_SPECTRUM_GETTER_PROTO(gboolean, dc_skip);
+SUGTK_SPECTRUM_GETTER_PROTO(gboolean, smooth_N0);
+SUGTK_SPECTRUM_GETTER_PROTO(gboolean, has_menu);
+SUGTK_SPECTRUM_GETTER_PROTO(enum SuGtkSpectrumMode, mode);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, freq_offset);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, freq_scale);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, ref_level);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, dbs_per_div);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, agc_alpha);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, N0);
+SUGTK_SPECTRUM_GETTER_PROTO(guint, samp_rate);
 
-void suscan_gui_spectrum_reset_selection(
-    struct suscan_gui_spectrum *spectrum);
+G_END_DECLS
 
 #endif /* _GUI_SPECTRUM_H */

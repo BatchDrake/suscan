@@ -21,33 +21,68 @@
 #ifndef _GUI_CONSTELLATION_H
 #define _GUI_CONSTELLATION_H
 
-#include <sigutils/sigutils.h>
+#include <glib-object.h>
 #include <gtk/gtk.h>
+#include <util.h>
+#include <stdint.h>
+#include <sys/time.h>
+#include <complex.h>
+#include <math.h>
 
-#define SUSCAN_GUI_CONSTELLATION_HISTORY 200
+G_BEGIN_DECLS
 
-struct suscan_gui_constellation {
-  cairo_surface_t *surface;
-  unsigned width;
-  unsigned height;
+#define SUGTK_CONSTELLATION_STRIDE_ALIGN sizeof(gpointer)
+#define SUGTK_CONSTELLATION_HISTORY                200
+#define SUGTK_CONSTELLATION_DRAW_THRESHOLD         16
+#define SUGTK_CONSTELLATION_MIN_REDRAW_INTERVAL_MS 40 /* 25 fps */
 
-  SUCOMPLEX phase;
-  SUCOMPLEX history[SUSCAN_GUI_CONSTELLATION_HISTORY];
-  unsigned int p;
+#define SUGTK_TYPE_CONSTELLATION            (sugtk_constellation_get_type ())
+#define SUGTK_CONSTELLATION(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SUGTK_TYPE_CONSTELLATION, SuGtkConstellation))
+#define SUGTK_CONSTELLATION_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST  ((klass), SUGTK_TYPE_CONSTELLATION, SuGtkConstellationClass))
+#define SUGTK_IS_CONSTELLATION(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), SUGTK_TYPE_CONSTELLATION))
+#define SUGTK_IS_CONSTELLATION_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE  ((klass), SUGTK_TYPE_CONSTELLATION))
+#define SUGTK_CONSTELLATION_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS  ((obj), SUGTK_TYPE_CONSTELLATION, SuGtkConstellationClass))
+
+typedef complex double gcomplex;
+
+struct _SuGtkConstellation
+{
+  GtkDrawingArea parent_instance;
+  cairo_surface_t *sf_constellation; /* Mainly used for caching */
+
+  gfloat width;
+  gfloat height;
+
+  gcomplex phase;
+  gcomplex history[SUGTK_CONSTELLATION_HISTORY];
+
+  guint p;
+
+  struct timeval last_redraw_time;
+  guint last_drawn;
+  guint count;
 };
 
-/* Constellation API */
-void suscan_gui_constellation_finalize(
-    struct suscan_gui_constellation *constellation);
+struct _SuGtkConstellationClass
+{
+  GtkDrawingAreaClass parent_class;
+};
 
-void suscan_gui_constellation_init(
-    struct suscan_gui_constellation *constellation);
+typedef struct _SuGtkConstellation      SuGtkConstellation;
+typedef struct _SuGtkConstellationClass SuGtkConstellationClass;
 
-void suscan_gui_constellation_clear(
-    struct suscan_gui_constellation *constellation);
+GType sugtk_constellation_get_type(void);
+GtkWidget *sugtk_constellation_new(void);
 
-void suscan_gui_constellation_push_sample(
-    struct suscan_gui_constellation *constellation,
-    SUCOMPLEX sample);
+/* Reset contents */
+void sugtk_constellation_reset(SuGtkConstellation *mtx);
+
+/* Append symbol */
+void sugtk_constellation_push(SuGtkConstellation *mtx, gcomplex sample);
+
+/* This is what actually triggers the redraw */
+void sugtk_constellation_commit(SuGtkConstellation *mtx);
+
+G_END_DECLS
 
 #endif /* _GUI_CONSTELLATION_H */

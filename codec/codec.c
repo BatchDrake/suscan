@@ -48,7 +48,7 @@ suscan_codec_class_register(
 
 void
 suscan_codec_class_get_list(
-    struct suscan_codec_class *const **list,
+    const struct suscan_codec_class ***list,
     unsigned int *count)
 {
   *list = codec_class_list;
@@ -123,7 +123,7 @@ suscan_codec_feed(
     suscan_codec_t *codec,
     grow_buf_t *result, /* Out */
     struct suscan_codec_progress *progress, /* Out */
-    SUBITS *data,
+    const SUBITS *data,
     SUSCOUNT len)
 {
   struct suscan_codec_progress ignored;

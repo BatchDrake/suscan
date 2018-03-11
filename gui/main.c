@@ -23,7 +23,7 @@
 #include "gui.h"
 
 gint
-suscan_settings_dialog_run(struct suscan_gui *gui)
+suscan_settings_dialog_run(suscan_gui_t *gui)
 {
   gint response;
 
@@ -37,7 +37,7 @@ suscan_settings_dialog_run(struct suscan_gui *gui)
 void
 suscan_on_about(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
 
   (void) gtk_dialog_run(gui->aboutDialog);
   gtk_widget_hide(GTK_WIDGET(gui->aboutDialog));
@@ -47,7 +47,7 @@ suscan_on_about(GtkWidget *widget, gpointer data)
 void
 suscan_on_settings(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
   struct suscan_gui_src_ui *config;
   gint response;
 
@@ -95,7 +95,7 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
 void
 suscan_on_toggle_connect(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
 
   switch (gui->state) {
     case SUSCAN_GUI_STATE_STOPPED:
@@ -117,22 +117,8 @@ suscan_on_toggle_connect(GtkWidget *widget, gpointer data)
   }
 }
 
-void
-suscan_on_open_inspector(GtkWidget *widget, gpointer data)
-{
-  struct suscan_gui *gui = (struct suscan_gui *) data;
-
-  /* Send open message. We will open new tab on response */
-  SU_TRYCATCH(
-      suscan_analyzer_open_async(
-          gui->analyzer,
-          &gui->selected_channel,
-          rand()),
-      return);
-}
-
 struct suscan_gui_src_ui *
-suscan_gui_get_selected_src_ui(const struct suscan_gui *gui)
+suscan_gui_get_selected_src_ui(const suscan_gui_t *gui)
 {
   struct suscan_gui_src_ui *ui;
   GtkTreeIter iter;
@@ -152,7 +138,7 @@ suscan_gui_get_selected_src_ui(const struct suscan_gui *gui)
 
 SUBOOL
 suscan_gui_set_selected_src_ui(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     const struct suscan_gui_src_ui *new_ui)
 {
   GtkTreeIter iter;
@@ -183,9 +169,9 @@ suscan_gui_set_selected_src_ui(
 }
 
 void
-suscan_on_source_changed(GtkWidget *widget, gpointer *data)
+suscan_on_source_changed(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
   struct suscan_gui_src_ui *config;
   GList *list;
   GtkWidget *cfgui = NULL;
@@ -213,3 +199,36 @@ suscan_on_source_changed(GtkWidget *widget, gpointer *data)
 
   gtk_window_resize(GTK_WINDOW(gui->settingsDialog), 1, 1);
 }
+
+void
+suscan_spectrum_on_settings_changed(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  sugtk_spectrum_set_show_channels(
+      gui->spectrum,
+      gtk_toggle_tool_button_get_active(gui->overlayChannelToggleButton));
+
+  sugtk_spectrum_set_auto_level(
+      gui->spectrum,
+      gtk_toggle_tool_button_get_active(gui->autoGainToggleButton));
+
+  if (gtk_check_menu_item_get_active(
+      GTK_CHECK_MENU_ITEM(gui->spectrogramMenuItem)))
+    sugtk_spectrum_set_mode(
+        gui->spectrum,
+        SUGTK_SPECTRUM_MODE_SPECTROGRAM);
+  else if (gtk_check_menu_item_get_active(
+      GTK_CHECK_MENU_ITEM(gui->waterfallMenuItem)))
+    sugtk_spectrum_set_mode(
+        gui->spectrum,
+        SUGTK_SPECTRUM_MODE_WATERFALL);
+
+  gtk_widget_set_sensitive(
+      GTK_WIDGET(gui->gainScaleButton),
+      !sugtk_spectrum_get_auto_level(gui->spectrum));
+  gtk_widget_set_sensitive(
+      GTK_WIDGET(gui->rangeScaleButton),
+      !sugtk_spectrum_get_auto_level(gui->spectrum));
+}
+

@@ -25,7 +25,7 @@
 
 /* Asynchronous thread: take messages from analyzer and parse them */
 struct suscan_gui_msg_envelope {
-  struct suscan_gui *gui;
+  suscan_gui_t *gui;
   uint32_t type;
   void *private;
 };
@@ -42,7 +42,7 @@ suscan_gui_msg_envelope_destroy(struct suscan_gui_msg_envelope *data)
 
 struct suscan_gui_msg_envelope *
 suscan_gui_msg_envelope_new(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     uint32_t type,
     void *private)
 {
@@ -77,7 +77,7 @@ suscan_gui_change_button_icon(GtkButton *button, const char *icon)
 }
 
 void
-suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
+suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
 {
   const char *source_name = "No source selected";
   char *subtitle = NULL;
@@ -94,12 +94,12 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), TRUE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       break;
 
     case SUSCAN_GUI_STATE_RUNNING:
-      suscan_gui_spectrum_reset(&gui->main_spectrum);
+      sugtk_spectrum_reset(gui->spectrum);
       subtitle = "Running";
       suscan_gui_change_button_icon(
           GTK_BUTTON(gui->toggleConnect),
@@ -107,16 +107,16 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      sugtk_spectrum_set_has_menu(gui->spectrum, TRUE);
       break;
 
     case SUSCAN_GUI_STATE_RESTARTING:
       subtitle = "Restarting...";
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
+      sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       suscan_gui_detach_all_inspectors(gui);
       break;
 
@@ -128,8 +128,8 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
           "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->openInspectorMenuItem), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
+      sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       suscan_gui_detach_all_inspectors(gui);
       break;
   }
@@ -143,7 +143,7 @@ suscan_gui_update_state(struct suscan_gui *gui, enum suscan_gui_state state)
 SUPRIVATE gboolean
 suscan_async_stopped_cb(gpointer user_data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) user_data;
+  suscan_gui_t *gui = (suscan_gui_t *) user_data;
   unsigned int i;
 
   g_thread_join(gui->async_thread);
@@ -216,8 +216,8 @@ suscan_async_update_channels_cb(gpointer user_data)
       (struct suscan_analyzer_channel_msg *) envelope->private,
       &channel_list,
       &channel_count);
-  suscan_gui_spectrum_update_channels(
-      &envelope->gui->main_spectrum,
+  sugtk_spectrum_update_channels(
+      envelope->gui->spectrum,
       channel_list,
       channel_count);
 
@@ -245,6 +245,20 @@ done:
   suscan_gui_msg_envelope_destroy(envelope);
 
   return G_SOURCE_REMOVE;
+}
+
+void
+sugtk_spectrum_update_from_psd_msg(
+    SuGtkSpectrum *spectrum,
+    struct suscan_analyzer_psd_msg *msg)
+{
+  sugtk_spectrum_update(
+      spectrum,
+      suscan_analyzer_psd_msg_take_psd(msg),
+      msg->psd_size,
+      msg->samp_rate,
+      msg->fc,
+      msg->N0);
 }
 
 SUPRIVATE gboolean
@@ -275,11 +289,11 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
       text,
       sizeof(text),
       "%.2lg dB",
-      envelope->gui->main_spectrum.dbs_per_div);
+      sugtk_spectrum_get_dbs_per_div(envelope->gui->spectrum));
   gtk_label_set_text(envelope->gui->spectrumDbsPerDivLabel, text);
 
-  suscan_gui_spectrum_update(
-      &envelope->gui->main_spectrum,
+  sugtk_spectrum_update_from_psd_msg(
+      envelope->gui->spectrum,
       msg);
 
 done:
@@ -293,7 +307,7 @@ suscan_async_update_inspector_spectrum_cb(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_psd_msg *msg;
-  struct suscan_gui_inspector *insp = NULL;
+  suscan_gui_inspector_t *insp = NULL;
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_psd_msg *) envelope->private;
@@ -307,9 +321,7 @@ suscan_async_update_inspector_spectrum_cb(gpointer user_data)
 
   msg->fc = 0; /* Frequency reference is wrt channel's carrier */
 
-  suscan_gui_spectrum_update(
-      &insp->spectrum,
-      msg);
+  sugtk_spectrum_update_from_psd_msg(insp->spectrum, msg);
 
 done:
   suscan_gui_msg_envelope_destroy(envelope);
@@ -322,7 +334,7 @@ suscan_async_parse_sample_batch_msg(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_sample_batch_msg *msg;
-  struct suscan_gui_inspector *insp = NULL;
+  suscan_gui_inspector_t *insp = NULL;
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_sample_batch_msg *) envelope->private;
@@ -330,12 +342,13 @@ suscan_async_parse_sample_batch_msg(gpointer user_data)
   if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
     goto done;
 
-  SU_TRYCATCH(
-      insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
-      goto done);
+  /* Sample batch messages may arrive out of order */
+  insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id);
+  if (insp == NULL)
+    goto done;
 
   /* Append all these samples to the inspector GUI */
-  suscan_gui_inspector_feed_w_batch(insp, msg);
+  SU_TRYCATCH(suscan_gui_inspector_feed_w_batch(insp, msg), goto done);
 
 done:
   suscan_gui_msg_envelope_destroy(envelope);
@@ -348,8 +361,9 @@ suscan_async_parse_inspector_msg(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_inspector_msg *msg;
-  struct suscan_gui_inspector *new_insp = NULL;
-  struct suscan_gui_inspector *insp = NULL;
+  suscan_gui_inspector_t *new_insp = NULL;
+  suscan_gui_inspector_t *insp = NULL;
+  unsigned int i;
   char text[64];
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
@@ -365,8 +379,25 @@ suscan_async_parse_inspector_msg(gpointer user_data)
       SU_TRYCATCH(
           new_insp = suscan_gui_inspector_new(
               &msg->channel,
+              msg->config,
               msg->handle),
           goto done);
+
+      /* Add available estimators */
+      for (i = 0; i < msg->estimator_count; ++i)
+        SU_TRYCATCH(
+            suscan_gui_inspector_add_estimatorui(
+                new_insp,
+                msg->estimator_list[i],
+                i),
+            goto done);
+
+      /* Add all spectrum sources */
+      for (i = 0; i < msg->spectsrc_count; ++i)
+        suscan_gui_inspector_add_spectrum_source(
+            new_insp,
+            msg->spectsrc_list[i],
+            i + 1);
 
       SU_TRYCATCH(
           suscan_gui_add_inspector(
@@ -374,36 +405,34 @@ suscan_async_parse_inspector_msg(gpointer user_data)
               new_insp),
           goto done);
 
-      /* TODO: Set params */
+      /* This is rather delicate and should be rethinked. */
+      SU_TRYCATCH(
+          suscan_analyzer_set_inspector_id_async(
+              envelope->gui->analyzer,
+              msg->handle,
+              new_insp->index,
+              rand()),
+          suscan_gui_remove_inspector(envelope->gui, new_insp);
+          goto done);
+
       new_insp = NULL;
+
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
+      /* Simply check everything is as expected */
       SU_TRYCATCH(
           insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
           goto done);
-
-      if (msg->req_id == 0) {
-        /* Update from FAC */
-        snprintf(text, sizeof(text), "%lg", msg->baud.fac);
-        gtk_entry_set_text(insp->baudRateEntry, text);
-      } else {
-        /* Update from non-linear */
-        snprintf(text, sizeof(text), "%lg", msg->baud.nln);
-        gtk_entry_set_text(insp->baudRateEntry, text);
-      }
-
-      gtk_widget_set_sensitive(GTK_WIDGET(insp->baudRateEntry), TRUE);
-
+      SU_TRYCATCH(insp->index == msg->inspector_id, goto done);
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS:
-      /* TODO: update GUI according to params */
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
       SU_TRYCATCH(
           insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
           goto done);
       SU_TRYCATCH(
-          suscan_gui_inspector_update_sensitiveness(insp, &msg->insp_params),
+          suscan_gui_inspector_set_config(insp, msg->config),
           goto done);
       break;
 
@@ -419,6 +448,34 @@ suscan_async_parse_inspector_msg(gpointer user_data)
 
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR:
+      SU_TRYCATCH(
+          insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
+          goto done);
+
+      SU_TRYCATCH (msg->estimator_id < insp->estimator_count, goto done);
+
+      if (msg->enabled)
+        suscan_gui_estimatorui_set_value(
+            insp->estimator_list[msg->estimator_id],
+            msg->value);
+
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM:
+      SU_TRYCATCH(
+          insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
+          goto done);
+
+      sugtk_spectrum_update(
+          insp->spectrum,
+          suscan_analyzer_inspector_msg_take_spectrum(msg),
+          msg->spectrum_size,
+          msg->samp_rate,
+          msg->fc,
+          msg->N0);
+      break;
+
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
       /* Okay */
       break;
@@ -428,6 +485,13 @@ suscan_async_parse_inspector_msg(gpointer user_data)
           envelope->gui,
           "Suscan inspector",
           "Invalid inspector handle passed");
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT:
+      suscan_error(
+          envelope->gui,
+          "Suscan inspector",
+          "Referred object inside inspector does not exist");
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
@@ -453,7 +517,7 @@ done:
 SUPRIVATE gpointer
 suscan_gui_async_thread(gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
   struct suscan_gui_msg_envelope *envelope;
   void *private;
   uint32_t type;
@@ -551,7 +615,7 @@ done:
 
 /************************** GUI Thread functions *****************************/
 SUBOOL
-suscan_gui_connect(struct suscan_gui *gui)
+suscan_gui_connect(suscan_gui_t *gui)
 {
   unsigned int i;
 
@@ -604,7 +668,7 @@ fail:
 }
 
 void
-suscan_gui_reconnect(struct suscan_gui *gui)
+suscan_gui_reconnect(suscan_gui_t *gui)
 {
   assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
   assert(gui->analyzer != NULL);
@@ -614,7 +678,7 @@ suscan_gui_reconnect(struct suscan_gui *gui)
 }
 
 void
-suscan_gui_disconnect(struct suscan_gui *gui)
+suscan_gui_disconnect(suscan_gui_t *gui)
 {
   assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
   assert(gui->analyzer != NULL);
@@ -624,7 +688,7 @@ suscan_gui_disconnect(struct suscan_gui *gui)
 }
 
 void
-suscan_gui_quit(struct suscan_gui *gui)
+suscan_gui_quit(suscan_gui_t *gui)
 {
   switch (gui->state) {
     case SUSCAN_GUI_STATE_RUNNING:

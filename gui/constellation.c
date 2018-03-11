@@ -18,94 +18,44 @@
 
 */
 
+#include <glib-object.h>
+#include <gtk/gtk.h>
+#include <stdlib.h>
 #include <string.h>
-#include <sigutils/agc.h>
+#include <math.h>
 
-#include "gui.h"
 #include "constellation.h"
 
-#define SUSCAN_CONSTELLATION_TO_SCR_X(cons, x) \
+#define SUGTK_CONSTELLATION_GRAPH_REL_RADIUS .75
+#define SUGTK_CONSTELLATION_GRAPH_LINE_WIDTH 4
+
+G_DEFINE_TYPE(SuGtkConstellation, sugtk_constellation, GTK_TYPE_DRAWING_AREA);
+
+#define SUGTK_CONSTELLATION_TO_SCR_X(cons, x) \
   (.5 * ((x) + 1.) * (cons)->width)
 
-#define SUSCAN_CONSTELLATION_TO_SCR_Y(cons, y) \
+#define SUGTK_CONSTELLATION_TO_SCR_Y(cons, y) \
   (.5 * (-(y) + 1.) * (cons)->height)
 
 #define SUSCAN_CONSTELLATION_TO_SCR(cons, x, y) \
-  SUSCAN_CONSTELLATION_TO_SCR_X(cons, x), \
-  SUSCAN_CONSTELLATION_TO_SCR_Y(cons, y)
+  SUGTK_CONSTELLATION_TO_SCR_X(cons, x), \
+  SUGTK_CONSTELLATION_TO_SCR_Y(cons, y)
 
-#define SUSCAN_CONSTELLATION_POINT_RADIUS 1e-2
+#define SUGTK_CONSTELLATION_POINT_RADIUS 1e-2
 
-void
-suscan_gui_constellation_finalize(
-    struct suscan_gui_constellation *constellation)
-{
-  if (constellation->surface != NULL)
-    cairo_surface_destroy(constellation->surface);
-}
-
-void
-suscan_gui_constellation_clear(struct suscan_gui_constellation *constellation)
-{
-  cairo_t *cr;
-
-  cr = cairo_create(constellation->surface);
-
-  cairo_set_source_rgb(cr, 0, 0, 0);
-
-  cairo_paint(cr);
-
-  cairo_destroy(cr);
-}
-
-void
-suscan_gui_constellation_init(struct suscan_gui_constellation *constellation)
-{
-  memset(constellation, 0, sizeof(struct suscan_gui_constellation));
-
-  constellation->phase = 1.; /* Zero phase */
-}
-
-void
-suscan_gui_constellation_configure(
-    struct suscan_gui_constellation *constellation,
-    GtkWidget *widget)
-{
-  if (constellation->surface != NULL)
-    cairo_surface_destroy(constellation->surface);
-
-  constellation->width = gtk_widget_get_allocated_width(widget);
-  constellation->height = gtk_widget_get_allocated_height(widget);
-
-  constellation->surface = gdk_window_create_similar_surface(
-      gtk_widget_get_window(widget),
-      CAIRO_CONTENT_COLOR,
-      constellation->width,
-      constellation->height);
-
-  suscan_gui_constellation_clear(constellation);
-}
-
-void
-suscan_gui_constellation_push_sample(
-    struct suscan_gui_constellation *constellation,
-    SUCOMPLEX sample)
-{
-  constellation->history[constellation->p++] = sample;
-  if (constellation->p == SUSCAN_GUI_CONSTELLATION_HISTORY)
-    constellation->p = 0;
-}
-
-void
-suscan_gui_constellation_redraw(
-    struct suscan_gui_constellation *constellation,
-    cairo_t *cr)
+static void
+sugtk_constellation_redraw(SuGtkConstellation *constellation)
 {
   static const double axis_pattern[] = {5.0, 5.0};
-  SUFLOAT bright;
-  unsigned int i, n;
+  gfloat bright;
+  guint i, n;
+  cairo_t *cr;
 
-  cairo_set_source_surface(cr, constellation->surface, 0, 0);
+  cr = cairo_create(constellation->sf_constellation);
+
+  cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+
+  cairo_set_source_rgb(cr, 0, 0, 0);
 
   /* Paint in black */
   cairo_paint(cr);
@@ -138,17 +88,17 @@ suscan_gui_constellation_redraw(
   cairo_stroke(cr);
 
   /* Paint points */
-  for (i = 0; i < SUSCAN_GUI_CONSTELLATION_HISTORY; ++i) {
-    n = (i + constellation->p) % SUSCAN_GUI_CONSTELLATION_HISTORY;
-    bright = (i + 1) / (SUFLOAT) SUSCAN_GUI_CONSTELLATION_HISTORY;
+  for (i = 0; i < SUGTK_CONSTELLATION_HISTORY; ++i) {
+    n = (i + constellation->p) % SUGTK_CONSTELLATION_HISTORY;
+    bright = (i + 1) / (gfloat) SUGTK_CONSTELLATION_HISTORY;
 
     cairo_arc(
         cr,
         SUSCAN_CONSTELLATION_TO_SCR(
             constellation,
-            SU_C_IMAG(constellation->history[n] * constellation->phase),
-            SU_C_REAL(constellation->history[n] * constellation->phase)),
-        SUSCAN_CONSTELLATION_POINT_RADIUS
+            cimag(constellation->history[n]),
+            creal(constellation->history[n])),
+        SUGTK_CONSTELLATION_POINT_RADIUS
           * MIN(constellation->width, constellation->height),
         0,
         2 * M_PI);
@@ -158,30 +108,135 @@ suscan_gui_constellation_redraw(
 
     cairo_stroke(cr);
   }
+
+  cairo_destroy(cr);
 }
 
-/************** These callbacks belong to the GUI inspector API **************/
-gboolean
-suscan_constellation_on_configure_event(
+void
+sugtk_constellation_reset(SuGtkConstellation *constellation)
+{
+  memset(constellation->history, 0, sizeof (constellation->history));
+}
+
+void
+sugtk_constellation_push(SuGtkConstellation *constellation, gcomplex sample)
+{
+  ++constellation->count;
+  constellation->history[constellation->p++] = sample;
+  if (constellation->p == SUGTK_CONSTELLATION_HISTORY)
+    constellation->p = 0;
+}
+
+void
+sugtk_constellation_commit(SuGtkConstellation *constellation)
+{
+  struct timeval tv, sub;
+
+  if (constellation->count - constellation->last_drawn
+      >= SUGTK_CONSTELLATION_DRAW_THRESHOLD) {
+    gettimeofday(&tv, NULL);
+
+    timersub(&tv, &constellation->last_redraw_time, &sub);
+
+    if (sub.tv_usec > SUGTK_CONSTELLATION_MIN_REDRAW_INTERVAL_MS * 1000) {
+      constellation->last_drawn = constellation->count;
+      sugtk_constellation_redraw(constellation);
+      gtk_widget_queue_draw(GTK_WIDGET(constellation));
+      constellation->last_redraw_time = tv;
+    }
+  }
+}
+
+static void
+sugtk_constellation_dispose(GObject* object)
+{
+  SuGtkConstellation *constellation = SUGTK_CONSTELLATION(object);
+
+  if (constellation->sf_constellation != NULL) {
+    cairo_surface_destroy(constellation->sf_constellation);
+    constellation->sf_constellation = NULL;
+  }
+
+  G_OBJECT_CLASS(sugtk_constellation_parent_class)->dispose(object);
+}
+
+static void
+sugtk_constellation_class_init(SuGtkConstellationClass *class)
+{
+  GObjectClass  *g_object_class;
+
+  g_object_class = G_OBJECT_CLASS(class);
+
+  g_object_class->dispose = sugtk_constellation_dispose;
+}
+
+static gboolean
+sugtk_constellation_on_configure_event(
     GtkWidget *widget,
     GdkEventConfigure *event,
     gpointer data)
 {
-  struct suscan_gui_inspector *insp =
-      (struct suscan_gui_inspector *) data;
+  SuGtkConstellation *constellation = SUGTK_CONSTELLATION(widget);
 
-  suscan_gui_constellation_configure(&insp->constellation, widget);
+  constellation->width  = event->width;
+  constellation->height = event->height;
+
+  if (constellation->sf_constellation != NULL)
+    cairo_surface_destroy(constellation->sf_constellation);
+
+  constellation->sf_constellation = gdk_window_create_similar_surface(
+      gtk_widget_get_window(widget),
+      CAIRO_CONTENT_COLOR,
+      constellation->width,
+      constellation->height);
+
+  constellation->last_redraw_time.tv_sec  = 0;
+  constellation->last_redraw_time.tv_usec = 0;
+  constellation->last_drawn = 0;
+  constellation->count = SUGTK_CONSTELLATION_DRAW_THRESHOLD;
+
+  sugtk_constellation_commit(constellation);
 
   return TRUE;
 }
 
-gboolean
-suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+static gboolean
+sugtk_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
-  struct suscan_gui_inspector *insp =
-      (struct suscan_gui_inspector *) data;
+  SuGtkConstellation *constellation = SUGTK_CONSTELLATION(widget);
 
-  suscan_gui_constellation_redraw(&insp->constellation, cr);
+  cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+  cairo_set_source_surface(cr, constellation->sf_constellation, 0, 0);
+  cairo_paint(cr);
 
   return FALSE;
 }
+
+static void
+sugtk_constellation_init(SuGtkConstellation *self)
+{
+  gtk_widget_set_events(
+      GTK_WIDGET(self),
+      GDK_EXPOSURE_MASK);
+
+  g_signal_connect(
+      self,
+      "configure-event",
+      (GCallback) sugtk_constellation_on_configure_event,
+      NULL);
+
+  g_signal_connect(
+      self,
+      "draw",
+      (GCallback) sugtk_constellation_on_draw,
+      NULL);
+
+  self->phase = 1;
+}
+
+GtkWidget *
+sugtk_constellation_new(void)
+{
+  return (GtkWidget *) g_object_new(SUGTK_TYPE_CONSTELLATION, NULL);
+}
+

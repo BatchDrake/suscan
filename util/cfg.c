@@ -59,6 +59,19 @@ suscan_config_desc_lookup_field(
       suscan_config_desc_lookup_field_id(source, name));
 }
 
+SUBOOL
+suscan_config_desc_has_prefix(const suscan_config_desc_t *desc, const char *pfx)
+{
+  unsigned int i;
+  unsigned int pfxlen = strlen(pfx);
+
+  for (i = 0; i < desc->field_count; ++i)
+    if (strncmp(desc->field_list[i]->name, pfx, pfxlen) == 0)
+      return SU_TRUE;
+
+  return SU_FALSE;
+}
+
 SUPRIVATE void
 suscan_field_destroy(struct suscan_field *field)
 {

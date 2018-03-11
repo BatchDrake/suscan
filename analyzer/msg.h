@@ -70,7 +70,6 @@ struct suscan_analyzer_sample_batch_msg {
   uint32_t     inspector_id;
   SUCOMPLEX   *samples;
   unsigned int sample_count;
-  unsigned int sample_storage;
 };
 
 /*
@@ -78,16 +77,17 @@ struct suscan_analyzer_sample_batch_msg {
  * updates are treated separately
  */
 enum suscan_analyzer_inspector_msgkind {
-  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_PARAMS,
-  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_PARAMS,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN,
-  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO,
-  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INSP_PARAMS,
-  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND
 };
 
@@ -99,8 +99,28 @@ struct suscan_analyzer_inspector_msg {
   int status;
 
   union {
-    struct sigutils_channel channel;
-    struct suscan_baud_det_result baud;
+    struct {
+      struct sigutils_channel channel;
+      suscan_config_t *config;
+      PTR_LIST_CONST(struct suscan_estimator_class, estimator);
+      PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc);
+    };
+
+    struct {
+      uint32_t estimator_id;
+      SUBOOL   enabled;
+      SUFLOAT  value;
+    };
+
+    struct {
+      uint32_t  spectsrc_id;
+      SUFLOAT  *spectrum_data;
+      SUSCOUNT  spectrum_size;
+      SUSCOUNT  samp_rate;
+      SUFLOAT   fc;
+      SUFLOAT   N0;
+    };
+
     struct suscan_analyzer_params params;
     struct suscan_inspector_params insp_params;
   };
@@ -124,11 +144,6 @@ SUBOOL suscan_analyzer_send_detector_channels(
 
 SUBOOL suscan_analyzer_send_psd(
     suscan_analyzer_t *analyzer,
-    const su_channel_detector_t *detector);
-
-SUBOOL suscan_inspector_send_psd(
-    suscan_inspector_t *insp,
-    const suscan_consumer_t *consumer,
     const su_channel_detector_t *detector);
 
 /************************* Message parsing methods ***************************/
@@ -158,22 +173,26 @@ void suscan_analyzer_channel_msg_destroy(struct suscan_analyzer_channel_msg *msg
 struct suscan_analyzer_inspector_msg *suscan_analyzer_inspector_msg_new(
     enum suscan_analyzer_inspector_msgkind kind,
     uint32_t req_id);
+
+SUFLOAT *suscan_analyzer_inspector_msg_take_spectrum(
+    struct suscan_analyzer_inspector_msg *msg);
+
 void suscan_analyzer_inspector_msg_destroy(
     struct suscan_analyzer_inspector_msg *msg);
 
 /* Spectrum update message */
 struct suscan_analyzer_psd_msg *suscan_analyzer_psd_msg_new(
     const su_channel_detector_t *cd);
+
 SUFLOAT *suscan_analyzer_psd_msg_take_psd(struct suscan_analyzer_psd_msg *msg);
+
 void suscan_analyzer_psd_msg_destroy(struct suscan_analyzer_psd_msg *msg);
 
 /* Sample batch message */
 struct suscan_analyzer_sample_batch_msg *suscan_analyzer_sample_batch_msg_new(
-    uint32_t inspector_id);
-
-SUBOOL suscan_analyzer_sample_batch_msg_append_sample(
-    struct suscan_analyzer_sample_batch_msg *msg,
-    SUCOMPLEX sample);
+    uint32_t inspector_id,
+    const SUCOMPLEX *samples,
+    SUSCOUNT count);
 
 void suscan_analyzer_sample_batch_msg_destroy(
     struct suscan_analyzer_sample_batch_msg *msg);

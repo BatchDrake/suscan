@@ -773,6 +773,13 @@ grow_buf_finalize(grow_buf_t *buf)
 }
 
 void
+grow_buf_shrink(grow_buf_t *buf)
+{
+  buf->size = 0;
+}
+
+
+void
 grow_buf_clear(grow_buf_t *buf)
 {
   buf->alloc = 0;

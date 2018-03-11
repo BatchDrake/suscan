@@ -37,6 +37,8 @@
 #define SUSCAN_INSPECTOR_DEFAULT_EQ_LENGTH 20
 #define SUSCAN_INSPECTOR_MAX_MF_SPAN       1024
 
+suscan_config_desc_t *psk_inspector_desc;
+
 SUPRIVATE SUSCOUNT
 suscan_inspector_mf_span(SUSCOUNT span)
 {
@@ -91,21 +93,27 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
 {
   SUFLOAT fs;
   SUBOOL mf_changed;
+  SUFLOAT actual_baud;
   su_iir_filt_t mf = su_iir_filt_INITIALIZER;
 
   if (insp->params_requested) {
     suscan_inspector_lock(insp);
 
+    actual_baud = insp->params_request.br_running
+        ? insp->params_request.baud
+        : 0;
+
     mf_changed =
-        (insp->params.baud != insp->params_request.baud)
+        (insp->params.baud != actual_baud)
         || (insp->params.mf_rolloff != insp->params_request.mf_rolloff);
+
     insp->params = insp->params_request;
 
     fs = insp->equiv_fs; /* Use equivalent sample rate after dectimation */
 
     /* Update inspector according to params */
-    if (insp->params.baud > 0)
-      insp->sym_period = 1. / SU_ABS2NORM_BAUD(fs, insp->params.baud);
+    if (actual_baud > 0)
+      insp->sym_period = 1. / SU_ABS2NORM_BAUD(fs, actual_baud);
     else
       insp->sym_period = 0;
 
@@ -116,15 +124,13 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
     insp->phase = SU_C_EXP(I * insp->params.fc_phi);
 
     /* Update baudrate */
-    su_clock_detector_set_baud(
-        &insp->cd,
-        SU_ABS2NORM_BAUD(fs, insp->params.baud));
+    su_clock_detector_set_baud(&insp->cd, SU_ABS2NORM_BAUD(fs, actual_baud));
 
     insp->cd.alpha = insp->params.br_alpha;
     insp->cd.beta = insp->params.br_beta;
 
     /* Update equalizer */
-    insp->eq.params.mu = insp->params.eq_mu;
+    insp->eq.params.mu = insp->params.eq_locked ? 0 : insp->params.eq_mu;
 
     /* Update matched filter */
     if (mf_changed) {
@@ -155,13 +161,9 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
 void
 suscan_inspector_destroy(suscan_inspector_t *insp)
 {
+  unsigned int i;
+
   pthread_mutex_destroy(&insp->mutex);
-
-  if (insp->fac_baud_det != NULL)
-    su_channel_detector_destroy(insp->fac_baud_det);
-
-  if (insp->nln_baud_det != NULL)
-    su_channel_detector_destroy(insp->nln_baud_det);
 
   su_iir_filt_finalize(&insp->mf);
 
@@ -176,6 +178,20 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
   su_clock_detector_finalize(&insp->cd);
 
   su_equalizer_finalize(&insp->eq);
+
+  su_softtuner_finalize(&insp->tuner);
+
+  for (i = 0; i < insp->estimator_count; ++i)
+    suscan_estimator_destroy(insp->estimator_list[i]);
+
+  if (insp->estimator_list != NULL)
+    free(insp->estimator_list);
+
+  for (i = 0; i < insp->spectsrc_count; ++i)
+    suscan_spectsrc_destroy(insp->spectsrc_list[i]);
+
+  if (insp->spectsrc_list != NULL)
+    free(insp->spectsrc_list);
 
   free(insp);
 }
@@ -214,53 +230,372 @@ suscan_inspector_params_initialize(struct suscan_inspector_params *params)
   params->eq_mu = SUSCAN_INSPECTOR_DEFAULT_EQ_MU;
 }
 
+SUBOOL
+suscan_inspector_params_initialize_from_config(
+    struct suscan_inspector_params *params,
+    const suscan_config_t *config)
+{
+  struct suscan_field_value *value;
+
+  suscan_inspector_params_initialize(params);
+
+  /***************************** Gain control ******************************/
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "agc.gain"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->gc_gain = SU_MAG_RAW(value->as_float);
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "agc.enabled"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_BOOLEAN, return SU_FALSE);
+
+  params->gc_ctrl = value->as_bool
+      ? SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC
+      : SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL;
+
+  /***************************** Freq control ******************************/
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "afc.costas-order"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->fc_ctrl = value->as_int;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "afc.offset"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->fc_off = value->as_float;
+
+  /*************************** Matched filter ******************************/
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "mf.type"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->mf_conf = value->as_int;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "mf.roll-off"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->mf_rolloff = value->as_float;
+
+  /***************************** Equalization *****************************/
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "equalizer.type"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->eq_conf = value->as_int;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "equalizer.rate"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->eq_mu = value->as_float;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "equalizer.locked"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_BOOLEAN, return SU_FALSE);
+
+  params->eq_locked = value->as_bool;
+
+  /**************************** Clock recovery ****************************/
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "clock.type"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->br_ctrl = value->as_int;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "clock.gain"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->br_alpha = SU_MAG_RAW(value->as_float);
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "clock.baud"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->baud = value->as_float;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "clock.phase"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->sym_phase = value->as_float;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "clock.running"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_BOOLEAN, return SU_FALSE);
+
+  params->br_running = value->as_bool;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_params_populate_config(
+    const struct suscan_inspector_params *params,
+    suscan_config_t *config)
+{
+  /***************************** Gain control ******************************/
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "agc.gain",
+          SU_DB_RAW(params->gc_gain)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_bool(
+          config,
+          "agc.enabled",
+          params->gc_ctrl == SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC),
+      return SU_FALSE);
+
+  /***************************** Freq control ******************************/
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "afc.costas-order",
+          params->fc_ctrl),
+      return SU_FALSE);
+
+  if (params->fc_ctrl != SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL)
+    SU_TRYCATCH(
+        suscan_config_set_integer(
+            config,
+            "afc.bits-per-symbol",
+            params->fc_ctrl),
+        return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "afc.offset",
+          params->fc_off),
+      return SU_FALSE);
+
+  /*************************** Matched filter ******************************/
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "mf.type",
+          params->mf_conf),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "mf.roll-off",
+          params->mf_rolloff),
+      return SU_FALSE);
+
+  /***************************** Equalization *****************************/
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "equalizer.type",
+          params->eq_conf),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "equalizer.rate",
+          params->eq_mu),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_bool(
+          config,
+          "equalizer.locked",
+          params->eq_locked),
+      return SU_FALSE);
+
+  /**************************** Clock recovery ****************************/
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "clock.type",
+          params->br_ctrl),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "clock.gain",
+          SU_DB_RAW(params->br_alpha)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "clock.baud",
+          params->baud),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "clock.phase",
+          params->sym_phase),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_bool(
+          config,
+          "clock.running",
+          params->br_running),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
+suscan_inspector_add_estimator(suscan_inspector_t *insp, const char *name)
+{
+  const struct suscan_estimator_class *class;
+  suscan_estimator_t *estimator = NULL;
+
+  SU_TRYCATCH(class = suscan_estimator_class_lookup(name), goto fail);
+
+  SU_TRYCATCH(
+      estimator = suscan_estimator_new(class, insp->equiv_fs),
+      goto fail);
+
+  SU_TRYCATCH(
+      PTR_LIST_APPEND_CHECK(insp->estimator, estimator) != -1,
+      goto fail);
+
+  return SU_TRUE;
+
+fail:
+  if (estimator != NULL)
+    suscan_estimator_destroy(estimator);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_inspector_add_spectsrc(suscan_inspector_t *insp, const char *name)
+{
+  const struct suscan_spectsrc_class *class;
+  suscan_spectsrc_t *src = NULL;
+
+  SU_TRYCATCH(class = suscan_spectsrc_class_lookup(name), goto fail);
+
+  SU_TRYCATCH(
+      src = suscan_spectsrc_new(
+          class,
+          SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE,
+          SU_CHANNEL_DETECTOR_WINDOW_BLACKMANN_HARRIS),
+      goto fail);
+
+
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(insp->spectsrc, src) != -1, goto fail);
+
+  return SU_TRUE;
+
+fail:
+  if (src != NULL)
+    suscan_spectsrc_destroy(src);
+
+  return SU_FALSE;
+}
+
 suscan_inspector_t *
 suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
 {
   suscan_inspector_t *new;
-  struct sigutils_channel_detector_params cd_params =
-      sigutils_channel_detector_params_INITIALIZER;
   struct sigutils_equalizer_params eq_params =
       sigutils_equalizer_params_INITIALIZER;
   struct su_agc_params agc_params = su_agc_params_INITIALIZER;
+  struct sigutils_softtuner_params tuner_params =
+      sigutils_softtuner_params_INITIALIZER;
+
   SUFLOAT tau;
 
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
-
   new->state = SUSCAN_ASYNC_STATE_CREATED;
-
-  /* Initialize inspector parameters */
   SU_TRYCATCH(pthread_mutex_init(&new->mutex, NULL) != -1, goto fail);
 
+  /* Initialize inspector parameters */
   suscan_inspector_params_initialize(&new->params);
 
-  /*
-   * Removed alpha setting. This is now automatically done by
-   * adjust_to_channel
-   */
-  cd_params.samp_rate = fs;
-  cd_params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
-  su_channel_params_adjust_to_channel(&cd_params, channel);
-
-  new->equiv_fs = (SUFLOAT) cd_params.samp_rate / cd_params.decimation;
-
   /* Initialize spectrum parameters */
-  new->interval_psd = .1;
+  new->interval_estimator = .1 * fs;
+  new->interval_spectrum  = .1 * fs;
 
-  /* Create generic autocorrelation-based detector */
-  cd_params.mode = SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION;
-  SU_TRYCATCH(new->fac_baud_det = su_channel_detector_new(&cd_params), goto fail);
+  /* Configure tuner from channel parameters */
+  tuner_params.samp_rate = fs;
+  su_softtuner_params_adjust_to_channel(&tuner_params, channel);
+  SU_TRYCATCH(su_softtuner_init(&new->tuner, &tuner_params), goto fail);
 
-  /* Create non-linear baud rate detector */
-  cd_params.mode = SU_CHANNEL_DETECTOR_MODE_NONLINEAR_DIFF;
-  SU_TRYCATCH(new->nln_baud_det = su_channel_detector_new(&cd_params), goto fail);
+  new->equiv_fs = (SUFLOAT) fs / tuner_params.decimation;
 
   /* Create clock detector */
   SU_TRYCATCH(
       su_clock_detector_init(
           &new->cd,
           1.,
-          .5 * SU_ABS2NORM_BAUD(new->equiv_fs, cd_params.bw),
+          .5 * SU_ABS2NORM_BAUD(new->equiv_fs, tuner_params.bw),
           32),
       goto fail);
 
@@ -269,7 +604,7 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   new->phase = 1.;
 
   /* Initialize AGC */
-  tau = new->equiv_fs / cd_params.bw; /* Samples per symbol */
+  tau = new->equiv_fs / tuner_params.bw; /* Samples per symbol */
 
   agc_params.fast_rise_t = tau * SUSCAN_INSPECTOR_FAST_RISE_FRAC;
   agc_params.fast_fall_t = tau * SUSCAN_INSPECTOR_FAST_FALL_FRAC;
@@ -298,9 +633,9 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
           &new->costas_2,
           SU_COSTAS_KIND_BPSK,
           0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw)),
       goto fail);
 
   SU_TRYCATCH(
@@ -308,9 +643,9 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
           &new->costas_4,
           SU_COSTAS_KIND_QPSK,
           0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw)),
       goto fail);
 
 
@@ -319,9 +654,9 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
           &new->costas_8,
           SU_COSTAS_KIND_8PSK,
           0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw),
+          SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw),
           3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, cd_params.bw)),
+          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw)),
       goto fail);
 
   /* Initialize equalizer */
@@ -329,6 +664,17 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   eq_params.length = SUSCAN_INSPECTOR_DEFAULT_EQ_LENGTH;
 
   SU_TRYCATCH(su_equalizer_init(&new->eq, &eq_params), goto fail);
+
+  /* Add some estimators */
+  SU_TRYCATCH(suscan_inspector_add_estimator(new, "baud-fac"), goto fail);
+  SU_TRYCATCH(suscan_inspector_add_estimator(new, "baud-nonlinear"), goto fail);
+
+  /* Add applicable spectrum sources */
+  SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "psd"), goto fail);
+  SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "cyclo"), goto fail);
+  SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "exp_2"), goto fail);
+  SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "exp_4"), goto fail);
+  SU_TRYCATCH(suscan_inspector_add_spectsrc(new, "exp_8"), goto fail);
 
   return new;
 
@@ -339,48 +685,25 @@ fail:
   return NULL;
 }
 
-int
-suscan_inspector_feed_bulk(
+SUPRIVATE SUSDIFF
+suscan_inspector_feed_psk_bulk(
     suscan_inspector_t *insp,
     const SUCOMPLEX *x,
-    int count)
+    SUSCOUNT count)
 {
-  int i;
+  SUSCOUNT i;
+  SUSCOUNT osize = 0;
   SUFLOAT alpha;
   SUCOMPLEX det_x;
-  SUCOMPLEX sample;
+  SUCOMPLEX output;
+  SUFLOAT new_sample = SU_FALSE;
   SUCOMPLEX samp_phase_samples = insp->params.sym_phase * insp->sym_period;
-  SUBOOL ok = SU_FALSE;
 
-  insp->sym_new_sample = SU_FALSE;
+  insp->sampler_output_size = 0;
 
-  for (i = 0; i < count && !insp->sym_new_sample; ++i) {
-    /*
-     * Feed channel detectors. TODO: use su_channel_detector_get_last_sample
-     * with nln_baud_det.
-     */
-    SU_TRYCATCH(
-        su_channel_detector_feed(insp->fac_baud_det, x[i]),
-        goto done);
-    SU_TRYCATCH(
-        su_channel_detector_feed(insp->nln_baud_det, x[i]),
-        goto done);
-
-    /*
-     * Verify the detector signal. Skip sample if it was not consumed
-     * due to decimator.
-     */
-    if (!su_channel_detector_sample_was_consumed(insp->fac_baud_det))
-      continue;
-
-    insp->pending =
-           insp->pending
-        || (su_channel_detector_get_window_ptr(insp->fac_baud_det) == 0);
-
-    det_x = su_channel_detector_get_last_sample(insp->fac_baud_det);
-
+  for (i = 0; i < count && osize < SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE; ++i) {
     /* Re-center carrier */
-    det_x *= SU_C_CONJ(su_ncqo_read(&insp->lo)) * insp->phase;
+    det_x = x[i] * SU_C_CONJ(su_ncqo_read(&insp->lo)) * insp->phase;
 
     /* Perform gain control */
     switch (insp->params.gc_ctrl) {
@@ -396,28 +719,28 @@ suscan_inspector_feed_bulk(
     /* Perform frequency correction */
     switch (insp->params.fc_ctrl) {
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL:
-        sample = det_x;
+        /* No-op */
         break;
 
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2:
         su_costas_feed(&insp->costas_2, det_x);
-        sample = insp->costas_2.y;
+        det_x = insp->costas_2.y;
         break;
 
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4:
         su_costas_feed(&insp->costas_4, det_x);
-        sample = insp->costas_4.y;
+        det_x = insp->costas_4.y;
         break;
 
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8:
         su_costas_feed(&insp->costas_8, det_x);
-        sample = insp->costas_8.y;
+        det_x = insp->costas_8.y;
         break;
     }
 
     /* Add matched filter, if enabled */
     if (insp->params.mf_conf == SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL)
-      sample = su_iir_filt_feed(&insp->mf, sample);
+      det_x = su_iir_filt_feed(&insp->mf, det_x);
 
     /* Check if channel sampler is enabled */
     if (insp->params.br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL) {
@@ -426,45 +749,214 @@ suscan_inspector_feed_bulk(
         if (insp->sym_phase >= insp->sym_period)
           insp->sym_phase -= insp->sym_period;
 
-        insp->sym_new_sample =
-            (int) SU_FLOOR(insp->sym_phase - samp_phase_samples) == 0;
+        new_sample = (int) SU_FLOOR(insp->sym_phase - samp_phase_samples) == 0;
 
-        if (insp->sym_new_sample) {
+        /* Interpolate with previos sample for improved accuracy */
+        if (new_sample) {
           alpha = insp->sym_phase - SU_FLOOR(insp->sym_phase);
-
-          insp->sym_sampler_output =
-              ((1 - alpha) * insp->sym_last_sample + alpha * sample);
-
+          output = ((1 - alpha) * insp->sampler_prev + alpha * det_x);
         }
       }
-      insp->sym_last_sample = sample;
+
+      /* Keep last sample for interpolation */
+      insp->sampler_prev = det_x;
     } else {
       /* Automatic baudrate control enabled */
-      su_clock_detector_feed(&insp->cd, sample);
+      su_clock_detector_feed(&insp->cd, det_x);
 
-      insp->sym_new_sample = su_clock_detector_read(&insp->cd, &sample, 1) == 1;
-      if (insp->sym_new_sample)
-        insp->sym_sampler_output = sample;
+      new_sample = su_clock_detector_read(&insp->cd, &det_x, 1) == 1;
+      if (new_sample)
+        output = det_x;
     }
 
     /* Apply channel equalizer, if enabled */
-    if (insp->sym_new_sample) {
+    if (new_sample) {
       if (insp->params.eq_conf == SUSCAN_INSPECTOR_EQUALIZER_CMA) {
         suscan_inspector_lock(insp);
-        insp->sym_sampler_output = su_equalizer_feed(
-            &insp->eq,
-            insp->sym_sampler_output);
+        output = su_equalizer_feed(&insp->eq, output);
         suscan_inspector_unlock(insp);
       }
 
       /* Reduce amplitude so it fits in the constellation window */
-      insp->sym_sampler_output *= .75;
+      insp->sampler_output[osize++] = output * .75;
+      new_sample = SU_FALSE;
     }
   }
 
-  ok = SU_TRUE;
+  insp->sampler_output_size = osize;
 
-done:
-  return ok ? i : -1;
+  return i;
+}
+
+int
+suscan_inspector_feed_bulk(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *x,
+    int count)
+{
+  return suscan_inspector_feed_psk_bulk(insp, x, count);
+
+#if 0
+    /*
+     * Feed channel detectors. TODO: use su_channel_detector_get_last_sample
+     * with nln_baud_det.
+     */
+    SU_TRYCATCH(
+        su_channel_detector_feed(insp->fac_baud_det, x[i]),
+        goto done);
+    SU_TRYCATCH(
+        su_channel_detector_feed(insp->nln_baud_det, x[i]),
+        goto done);
+#endif
+}
+
+SUBOOL
+suscan_init_inspectors(void)
+{
+  SU_TRYCATCH(
+      psk_inspector_desc = suscan_config_desc_new(),
+      return SU_FALSE);
+
+  /*********************** Gain control configuration *******************/
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "agc.enabled",
+          "Automatic Gain Control is enabled"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "agc.gain",
+          "Manual gain (dB)"),
+      return SU_FALSE);
+
+  /******************** Frequency control configurations *****************/
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "afc.costas-order",
+          "Constellation order (Costas loop)"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "afc.bits-per-symbol",
+          "Bits per symbol"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "afc.offset",
+          "Carrier offset (Hz)"),
+      return SU_FALSE);
+
+  /********************** Matched filtering ******************************/
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "mf.type",
+          "Matched filter configuration"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "mf.roll-off",
+          "Roll-off factor"),
+      return SU_FALSE);
+
+  /************************* Equalizer configuration *********************/
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "equalizer.type",
+          "Equalizer configuration"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "equalizer.rate",
+          "Equalizer update rate"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "equalizer.locked",
+          "Equalizer has corrected channel distortion"),
+      return SU_FALSE);
+
+  /***************************** Clock Recovery **************************/
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "clock.type",
+          "Clock recovery method"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "clock.baud",
+          "Symbol rate (baud)"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "clock.gain",
+          "Gardner's algorithm loop gain"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "clock.phase",
+          "Symbol phase"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          psk_inspector_desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "clock.running",
+          "Clock recovery is running"),
+      return SU_FALSE);
+
+  return SU_TRUE;
 }
 
