@@ -188,7 +188,7 @@ suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
       src->window_buffer[i] *= src->window_func[i];
 
   /* Apply FFT */
-  fftw_execute(src->fft_plan);
+  SU_FFTW(_execute)(src->fft_plan);
 
   /* Apply postprocessing */
   SU_TRYCATCH(
@@ -234,7 +234,7 @@ suscan_spectsrc_destroy(suscan_spectsrc_t *spectsrc)
     (spectsrc->class->dtor) (spectsrc->private);
 
   if (spectsrc->fft_plan != NULL)
-    fftw_destroy_plan(spectsrc->fft_plan);
+    SU_FFTW(_destroy_plan)(spectsrc->fft_plan);
 
   if (spectsrc->window_func != NULL)
     free(spectsrc->window_func);

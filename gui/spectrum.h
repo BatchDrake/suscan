@@ -29,6 +29,8 @@
 
 G_BEGIN_DECLS
 
+typedef SUFLOAT gsufloat;
+
 #define SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS 40 /* 25 fps */
 #define SUGTK_TYPE_SPECTRUM            (sugtk_spectrum_get_type ())
 #define SUGTK_SPECTRUM(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SUGTK_TYPE_SPECTRUM, SuGtkSpectrum))
@@ -85,7 +87,7 @@ struct _SuGtkSpectrum;
 
 typedef void (*SuGtkSpectrumMenuActionCallback) (
     struct _SuGtkSpectrum *spect,
-    gdouble freq,
+    gsufloat freq,
     const struct sigutils_channel *channel,
     gpointer data);
 
@@ -102,22 +104,22 @@ struct _SuGtkSpectrum
   GtkDrawingArea parent_instance;
 
   /* Spectrum data */
-  gdouble *psd_data;
-  gdouble *psd_data_smooth;
+  gsufloat *psd_data;
+  gsufloat *psd_data_smooth;
   guint    psd_size;
-  gdouble  N0;
-  gdouble  fc;
+  gsufloat  N0;
+  gsufloat  fc;
 
   /* Spectrum parameters */
   guint samp_rate;
 
   /* Widget geometry */
-  gdouble width;
-  gdouble height;
+  gsufloat width;
+  gsufloat height;
 
   /* Geometry of the plot area */
-  gdouble g_width;
-  gdouble g_height;
+  gsufloat g_width;
+  gsufloat g_height;
 
   /* Surfaces */
   cairo_surface_t *sf_spectrum; /* This is actually the main surface */
@@ -126,10 +128,10 @@ struct _SuGtkSpectrum
   gboolean flip;
 
   /* Zoom and centering state */
-  gdouble freq_offset;
-  gdouble freq_scale;
-  gdouble ref_level;
-  gdouble dbs_per_div;
+  gsufloat freq_offset;
+  gsufloat freq_scale;
+  gsufloat ref_level;
+  gsufloat dbs_per_div;
 
   /* Spectrum behavior */
   enum SuGtkSpectrumMode mode;
@@ -138,10 +140,10 @@ struct _SuGtkSpectrum
   gboolean auto_level;
   gboolean dc_skip;
   gboolean smooth_N0;
-  gdouble  agc_alpha;
+  gsufloat  agc_alpha;
 
   /* Autolevel state */
-  gdouble last_max;
+  gsufloat last_max;
 
   /* Scrolling and motion states */
   gboolean dragging;
@@ -150,8 +152,8 @@ struct _SuGtkSpectrum
   gfloat   last_y;
 
   gfloat   prev_ev_x;
-  gdouble  original_ref_level;
-  gdouble  original_freq_offset;
+  gsufloat  original_ref_level;
+  gsufloat  original_freq_offset;
 
   /* Channel integration */
   struct sigutils_channel selection;
@@ -161,7 +163,7 @@ struct _SuGtkSpectrum
   GtkMenu     *channelMenu;
   GtkMenuItem *channelHeaderMenuItem;
   struct sigutils_channel menu_channel;
-  gdouble menu_fc;
+  gsufloat menu_fc;
 
   PTR_LIST(SuGtkSpectrumMenuContext, context);
 };
@@ -179,15 +181,15 @@ GtkWidget *sugtk_spectrum_new(void);
 
 const struct sigutils_channel *sugtk_spectrum_lookup_channel(
     const SuGtkSpectrum *spect,
-    gdouble fc);
+    gsufloat fc);
 
 void sugtk_spectrum_update(
     SuGtkSpectrum *spectrum,
-    gdouble *spectrum_data,
+    gsufloat *spectrum_data,
     guint spectrum_size,
     guint samp_rate,
-    gdouble fc,
-    gdouble N0);
+    gsufloat fc,
+    gsufloat N0);
 
 void sugtk_spectrum_update_channels(
     SuGtkSpectrum *spect,
@@ -208,12 +210,12 @@ SUGTK_SPECTRUM_SETTER_PROTO(gboolean, dc_skip);
 SUGTK_SPECTRUM_SETTER_PROTO(gboolean, smooth_N0);
 SUGTK_SPECTRUM_SETTER_PROTO(gboolean, has_menu);
 SUGTK_SPECTRUM_SETTER_PROTO(enum SuGtkSpectrumMode, mode);
-SUGTK_SPECTRUM_SETTER_PROTO(gdouble, freq_offset);
-SUGTK_SPECTRUM_SETTER_PROTO(gdouble, freq_scale);
-SUGTK_SPECTRUM_SETTER_PROTO(gdouble, ref_level);
-SUGTK_SPECTRUM_SETTER_PROTO(gdouble, dbs_per_div);
-SUGTK_SPECTRUM_SETTER_PROTO(gdouble, agc_alpha);
-SUGTK_SPECTRUM_SETTER_PROTO(gdouble, N0);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, freq_offset);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, freq_scale);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, ref_level);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, dbs_per_div);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, agc_alpha);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, N0);
 SUGTK_SPECTRUM_SETTER_PROTO(guint, samp_rate);
 
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, show_channels);
@@ -222,12 +224,12 @@ SUGTK_SPECTRUM_GETTER_PROTO(gboolean, dc_skip);
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, smooth_N0);
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, has_menu);
 SUGTK_SPECTRUM_GETTER_PROTO(enum SuGtkSpectrumMode, mode);
-SUGTK_SPECTRUM_GETTER_PROTO(gdouble, freq_offset);
-SUGTK_SPECTRUM_GETTER_PROTO(gdouble, freq_scale);
-SUGTK_SPECTRUM_GETTER_PROTO(gdouble, ref_level);
-SUGTK_SPECTRUM_GETTER_PROTO(gdouble, dbs_per_div);
-SUGTK_SPECTRUM_GETTER_PROTO(gdouble, agc_alpha);
-SUGTK_SPECTRUM_GETTER_PROTO(gdouble, N0);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, freq_offset);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, freq_scale);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, ref_level);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, dbs_per_div);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, agc_alpha);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, N0);
 SUGTK_SPECTRUM_GETTER_PROTO(guint, samp_rate);
 
 G_END_DECLS

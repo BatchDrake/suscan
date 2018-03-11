@@ -26,7 +26,11 @@
 #include "source.h"
 #include "xsig.h"
 
-#define XSIG_SNDFILE_READ sf_read_double
+#ifdef _SU_SINGLE_PRECISION
+#  define sf_read sf_read_float
+#else
+#  define sf_read sf_read_double
+#endif
 
 SUPRIVATE SUBOOL xsig_source_block_class_registered = SU_FALSE;
 
@@ -139,7 +143,7 @@ xsig_source_acquire(struct xsig_source *source)
   real_count = source->params.window_size * source->info.channels;
 
   do {
-    got = XSIG_SNDFILE_READ(source->sf, source->as_real, real_count);
+    got = sf_read(source->sf, source->as_real, real_count);
 
     if (got == 0) {
       if (!source->params.loop)

@@ -47,71 +47,71 @@ SUGTK_SPECTRUM_GETTER_PROTO(type, name)     \
 
 /* Coordinate translation */
 static inline float
-sugtk_spectrum_to_graph_x(const SuGtkSpectrum *s, gdouble x)
+sugtk_spectrum_to_graph_x(const SuGtkSpectrum *s, gsufloat x)
 {
   return s->g_width * (x + .5);
 }
 
 static inline float
-sugtk_spectrum_from_graph_x(const SuGtkSpectrum *s, gdouble x)
+sugtk_spectrum_from_graph_x(const SuGtkSpectrum *s, gsufloat x)
 {
   return x / s->g_width - .5;
 }
 
 /* Screen cordinate conversion functions */
 static inline float
-sugtk_spectrum_to_scr_x(const SuGtkSpectrum *s, gdouble x)
+sugtk_spectrum_to_scr_x(const SuGtkSpectrum *s, gsufloat x)
 {
   return
       sugtk_spectrum_to_graph_x(s, x) + SUGTK_SPECTRUM_LEFT_PADDING;
 }
 
 static inline float
-sugtk_spectrum_from_scr_x(const SuGtkSpectrum *s, gdouble x)
+sugtk_spectrum_from_scr_x(const SuGtkSpectrum *s, gsufloat x)
 {
   return (x - SUGTK_SPECTRUM_LEFT_PADDING) / s->g_width - .5;
 }
 
 static inline float
-sugtk_spectrum_to_scr_y(const SuGtkSpectrum *s, gdouble y)
+sugtk_spectrum_to_scr_y(const SuGtkSpectrum *s, gsufloat y)
 {
   return -y * s->g_height + SUGTK_SPECTRUM_TOP_PADDING;
 }
 
 static inline float
-sugtk_spectrum_from_scr_y(const SuGtkSpectrum *s, gdouble y)
+sugtk_spectrum_from_scr_y(const SuGtkSpectrum *s, gsufloat y)
 {
   return (-y - SUGTK_SPECTRUM_TOP_PADDING) / s->g_height;
 }
 
 /* Coordinate adjust according to scaling parameters */
 static inline float
-sugtk_spectrum_adjust_x(const SuGtkSpectrum *s, gdouble x)
+sugtk_spectrum_adjust_x(const SuGtkSpectrum *s, gsufloat x)
 {
   return (x - s->freq_offset) * s->freq_scale;
 }
 
 static inline float
-sugtk_spectrum_adjust_x_inv(const SuGtkSpectrum *s, gdouble x)
+sugtk_spectrum_adjust_x_inv(const SuGtkSpectrum *s, gsufloat x)
 {
   return x / s->freq_scale + s->freq_offset;
 }
 
 static inline float
-sugtk_spectrum_adjust_y(const SuGtkSpectrum *s, gdouble y)
+sugtk_spectrum_adjust_y(const SuGtkSpectrum *s, gsufloat y)
 {
   return (y - s->ref_level) / (s->dbs_per_div * SUGTK_SPECTRUM_VERTICAL_DIVS);
 }
 
 static inline float
-sugtk_spectrum_adjust_y_inv(const SuGtkSpectrum *s, gdouble y)
+sugtk_spectrum_adjust_y_inv(const SuGtkSpectrum *s, gsufloat y)
 {
   return y * s->dbs_per_div * SUGTK_SPECTRUM_VERTICAL_DIVS + s->ref_level;
 }
 
 /************************** Channel information ******************************/
 const struct sigutils_channel *
-sugtk_spectrum_lookup_channel(const SuGtkSpectrum *spect, gdouble fc)
+sugtk_spectrum_lookup_channel(const SuGtkSpectrum *spect, gsufloat fc)
 {
   guint i;
 
@@ -134,9 +134,9 @@ sugtk_spectrum_redraw_spectrogram(SuGtkSpectrum *spect, cairo_t *cr)
 {
   int i;
   int step;
-  gdouble x, x_prev;
-  gdouble x_adj, x_prev_adj;
-  gdouble psd;
+  gsufloat x, x_prev;
+  gsufloat x_adj, x_prev_adj;
+  gsufloat psd;
 
   /* Draw spectrum */
   if (spect->psd_data != NULL) {
@@ -181,7 +181,7 @@ sugtk_spectrum_redraw_spectrogram(SuGtkSpectrum *spect, cairo_t *cr)
     /* Draw PSD */
     x_prev = 0;
     for (i = step; i < spect->psd_size; i += step) {
-      if ((x = i / (gdouble) spect->psd_size) > .5) {
+      if ((x = i / (gsufloat) spect->psd_size) > .5) {
         x -= 1;
 
         if (x_prev > x)
@@ -225,7 +225,7 @@ sugtk_spectrum_redraw_spectrogram(SuGtkSpectrum *spect, cairo_t *cr)
 
 /*************************** Waterfall draw **********************************/
 static void
-sugtk_spectrum_move_waterfall(SuGtkSpectrum *spect, gdouble off_x)
+sugtk_spectrum_move_waterfall(SuGtkSpectrum *spect, gsufloat off_x)
 {
   cairo_t *cr;
 
@@ -252,7 +252,7 @@ sugtk_spectrum_move_waterfall(SuGtkSpectrum *spect, gdouble off_x)
 }
 
 static void
-sugtk_spectrum_scale_waterfall(SuGtkSpectrum *spect, gdouble factor)
+sugtk_spectrum_scale_waterfall(SuGtkSpectrum *spect, gsufloat factor)
 {
   cairo_t *cr;
 
@@ -335,15 +335,15 @@ sugtk_spectrum_get_waterfall_limits(
 static void
 sugtk_spectrum_commit_waterfall_line(SuGtkSpectrum *spect)
 {
-  gdouble x;
+  gsufloat x;
   gint i, j;
   gint start;
   gint end;
   gint index;
-  const gdouble *psd_data;
+  const gsufloat *psd_data;
   guint psd_size;
   cairo_t *cr_wf = NULL;
-  gdouble val;
+  gsufloat val;
 
   psd_data = spect->psd_data;
   psd_size = spect->psd_size;
@@ -445,7 +445,7 @@ sugtk_spectrum_redraw_levels(SuGtkSpectrum *spect, cairo_t *cr)
 {
   int i;
   int last_end;
-  gdouble x, xscr;
+  gsufloat x, xscr;
   char text[20];
   cairo_text_extents_t extents;
 
@@ -465,7 +465,7 @@ sugtk_spectrum_redraw_levels(SuGtkSpectrum *spect, cairo_t *cr)
           "%d",
           (int) (sugtk_spectrum_adjust_y_inv(
               spect,
-              -(gdouble) i / SUGTK_SPECTRUM_VERTICAL_DIVS)));
+              -(gsufloat) i / SUGTK_SPECTRUM_VERTICAL_DIVS)));
 
       cairo_move_to(
           cr,
@@ -487,7 +487,7 @@ sugtk_spectrum_redraw_levels(SuGtkSpectrum *spect, cairo_t *cr)
         i = -SUGTK_SPECTRUM_HORIZONTAL_DIVS / 2 + 1;
         i < SUGTK_SPECTRUM_HORIZONTAL_DIVS / 2;
         ++i) {
-      x = i / (gdouble) SUGTK_SPECTRUM_HORIZONTAL_DIVS;
+      x = i / (gsufloat) SUGTK_SPECTRUM_HORIZONTAL_DIVS;
       xscr = sugtk_spectrum_to_scr_x(spect, x);
 
       snprintf(
@@ -607,19 +607,19 @@ sugtk_spectrum_redraw_channel(
     SuGtkSpectrum *spectrum,
     cairo_t *cr,
     const struct sigutils_channel *channel,
-    gdouble red,
-    gdouble green,
-    gdouble blue)
+    gsufloat red,
+    gsufloat green,
+    gsufloat blue)
 {
-  gdouble x1, xscr1;
-  gdouble x2, xscr2;
+  gsufloat x1, xscr1;
+  gsufloat x2, xscr2;
 
-  gdouble y1, yscr1;
-  gdouble y2, yscr2;
+  gsufloat y1, yscr1;
+  gsufloat y2, yscr2;
 
   /* Draw channel limits */
-  x1 = (channel->f_lo - spectrum->fc) / (gdouble) spectrum->samp_rate;
-  x2 = (channel->f_hi - spectrum->fc) / (gdouble) spectrum->samp_rate;
+  x1 = (channel->f_lo - spectrum->fc) / (gsufloat) spectrum->samp_rate;
+  x2 = (channel->f_hi - spectrum->fc) / (gsufloat) spectrum->samp_rate;
 
   if (x2 > .5) {
     x1 -= 1;
@@ -803,12 +803,12 @@ SUGTK_SPECTRUM_SETTER(gboolean, dc_skip);
 SUGTK_SPECTRUM_SETTER(gboolean, smooth_N0);
 SUGTK_SPECTRUM_SETTER(gboolean, has_menu);
 SUGTK_SPECTRUM_SETTER(enum SuGtkSpectrumMode, mode);
-SUGTK_SPECTRUM_SETTER(gdouble, freq_offset);
-SUGTK_SPECTRUM_SETTER(gdouble, freq_scale);
-SUGTK_SPECTRUM_SETTER(gdouble, ref_level);
-SUGTK_SPECTRUM_SETTER(gdouble, dbs_per_div);
-SUGTK_SPECTRUM_SETTER(gdouble, agc_alpha);
-SUGTK_SPECTRUM_SETTER(gdouble, N0);
+SUGTK_SPECTRUM_SETTER(gsufloat, freq_offset);
+SUGTK_SPECTRUM_SETTER(gsufloat, freq_scale);
+SUGTK_SPECTRUM_SETTER(gsufloat, ref_level);
+SUGTK_SPECTRUM_SETTER(gsufloat, dbs_per_div);
+SUGTK_SPECTRUM_SETTER(gsufloat, agc_alpha);
+SUGTK_SPECTRUM_SETTER(gsufloat, N0);
 SUGTK_SPECTRUM_SETTER(guint, samp_rate);
 
 SUGTK_SPECTRUM_GETTER(gboolean, show_channels);
@@ -817,27 +817,27 @@ SUGTK_SPECTRUM_GETTER(gboolean, dc_skip);
 SUGTK_SPECTRUM_GETTER(gboolean, smooth_N0);
 SUGTK_SPECTRUM_GETTER(gboolean, has_menu);
 SUGTK_SPECTRUM_GETTER(enum SuGtkSpectrumMode, mode);
-SUGTK_SPECTRUM_GETTER(gdouble, freq_offset);
-SUGTK_SPECTRUM_GETTER(gdouble, freq_scale);
-SUGTK_SPECTRUM_GETTER(gdouble, ref_level);
-SUGTK_SPECTRUM_GETTER(gdouble, dbs_per_div);
-SUGTK_SPECTRUM_GETTER(gdouble, agc_alpha);
-SUGTK_SPECTRUM_GETTER(gdouble, N0);
+SUGTK_SPECTRUM_GETTER(gsufloat, freq_offset);
+SUGTK_SPECTRUM_GETTER(gsufloat, freq_scale);
+SUGTK_SPECTRUM_GETTER(gsufloat, ref_level);
+SUGTK_SPECTRUM_GETTER(gsufloat, dbs_per_div);
+SUGTK_SPECTRUM_GETTER(gsufloat, agc_alpha);
+SUGTK_SPECTRUM_GETTER(gsufloat, N0);
 SUGTK_SPECTRUM_GETTER(guint, samp_rate);
 
 void
 sugtk_spectrum_update(
     SuGtkSpectrum *spect,
-    gdouble *spectrum_data,
+    gsufloat *spectrum_data,
     guint spectrum_size,
     guint samp_rate,
-    gdouble fc,
-    gdouble N0)
+    gsufloat fc,
+    gsufloat N0)
 {
-  gdouble *old_data = spect->psd_data;
+  gsufloat *old_data = spect->psd_data;
   guint    old_size = spect->psd_size;
-  gdouble  max = 0;
-  gdouble  range;
+  gsufloat  max = 0;
+  gsufloat  range;
   guint    i;
   guint    skip;
 
@@ -983,8 +983,8 @@ sugtk_spectrum_parse_dragging(
     SuGtkSpectrum *spect,
     const GdkEventMotion *ev)
 {
-  gdouble  x,  y;
-  gdouble lx, ly;
+  gsufloat  x,  y;
+  gsufloat lx, ly;
 
   if (!spect->dragging) {
     spect->original_ref_level = spect->ref_level;
@@ -1072,8 +1072,8 @@ sugtk_spectrum_on_configure_event(
   cairo_surface_t *old_surf0;
   cairo_surface_t *old_surf1;
   cairo_t *cr;
-  gdouble old_g_width;
-  gdouble ratio;
+  gsufloat old_g_width;
+  gsufloat ratio;
 
   /* Update geometry parameters */
   old_g_width = spect->g_width;
@@ -1168,9 +1168,9 @@ static void
 sugtk_spectrum_apply_delta(
     SuGtkSpectrum *spect,
     enum SuGtkSpectrumParam param,
-    gdouble delta)
+    gsufloat delta)
 {
-  gdouble factor;
+  gsufloat factor;
 
   switch (param) {
     case SUGTK_SPECTRUM_PARAM_FREQ_OFFSET:
@@ -1293,8 +1293,8 @@ sugtk_spectrum_on_button_press_event(
 {
   SuGtkSpectrum *spect = SUGTK_SPECTRUM(widget);
   char header[64];
-  gdouble x;
-  gdouble freq;
+  gsufloat x;
+  gsufloat freq;
   const struct sigutils_channel *channel;
 
   if (ev->type == GDK_BUTTON_PRESS) {

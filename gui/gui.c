@@ -197,7 +197,7 @@ suscan_gui_text_entry_get_float(GtkEntry *entry, SUFLOAT *result)
       text = gtk_entry_get_text(entry),
       return FALSE);
 
-  if (sscanf(text, "%lf", result) < 1)
+  if (sscanf(text, SUFLOAT_SCANF_FMT, result) < 1)
     return FALSE;
 
   return TRUE;
@@ -421,7 +421,7 @@ suscan_gui_double_data_func(
     gpointer data)
 {
   const char *fmt = data;
-  gdouble double_val;
+  gsufloat double_val;
   GValue val = G_VALUE_INIT;
   char as_string[32];
 
@@ -479,7 +479,7 @@ suscan_setup_column_formats(suscan_gui_t *gui)
 SUPRIVATE void
 suscan_gui_on_open_inspector(
     SuGtkSpectrum *spect,
-    gdouble freq,
+    gsufloat freq,
     const struct sigutils_channel *channel,
     gpointer data)
 {
