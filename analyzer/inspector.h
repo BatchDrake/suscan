@@ -26,7 +26,7 @@
 #include <sigutils/pll.h>
 #include <sigutils/clock.h>
 #include <sigutils/equalizer.h>
-#include <sigutils/softtune.h>
+#include <sigutils/specttuner.h>
 
 #include <cfg.h>
 
@@ -113,27 +113,32 @@ struct suscan_inspector_params {
 };
 
 /* TODO: protect baudrate access with mutexes */
+struct suscan_inspector_sampling_info {
+  const su_specttuner_channel_t *schan; /* Borrowed: specttuner channel */
+  SUFLOAT equiv_fs;    /* Equivalent sample rate */
+  SUFLOAT bw;          /* Bandwidth */
+  SUFLOAT f0;
+};
+
 struct suscan_inspector {
-  struct sigutils_channel channel;
-  SUFLOAT                 equiv_fs; /* Equivalent sample rate */
-  su_softtuner_t          tuner;   /* Common tuner */
-  su_agc_t                agc;      /* AGC, for sampler */
-  su_costas_t             costas_2; /* 2nd order Costas loop */
-  su_costas_t             costas_4; /* 4th order Costas loop */
-  su_costas_t             costas_8; /* 8th order Costas loop */
-  su_iir_filt_t           mf;       /* Matched filter (Root Raised Cosine) */
-  su_clock_detector_t     cd;       /* Clock detector */
-  su_equalizer_t          eq;       /* Equalizer */
-  su_ncqo_t               lo;       /* Oscillator for manual carrier offset */
-  SUCOMPLEX               phase;    /* Local oscillator phase */
+  struct suscan_inspector_sampling_info samp_info;
+  su_agc_t                 agc;      /* AGC, for sampler */
+  su_costas_t              costas_2; /* 2nd order Costas loop */
+  su_costas_t              costas_4; /* 4th order Costas loop */
+  su_costas_t              costas_8; /* 8th order Costas loop */
+  su_iir_filt_t            mf;       /* Matched filter (Root Raised Cosine) */
+  su_clock_detector_t      cd;       /* Clock detector */
+  su_equalizer_t           eq;       /* Equalizer */
+  su_ncqo_t                lo;       /* Oscillator for manual carrier offset */
+  SUCOMPLEX                phase;    /* Local oscillator phase */
 
   /* Spectrum and estimator state */
-  SUSCOUNT                interval_estimator;
-  SUSDIFF                 per_cnt_estimator;
+  SUSCOUNT                 interval_estimator;
+  SUSDIFF                  per_cnt_estimator;
 
-  SUSCOUNT                interval_spectrum;
-  SUSDIFF                 per_cnt_spectrum;
-  uint32_t                spectsrc_index;
+  SUSCOUNT                 interval_spectrum;
+  SUSDIFF                  per_cnt_spectrum;
+  uint32_t                 spectsrc_index;
 
   /* Inspector parameters */
   pthread_mutex_t mutex;
@@ -176,8 +181,8 @@ SUBOOL suscan_inspector_params_populate_config(
     suscan_config_t *config);
 
 suscan_inspector_t *suscan_inspector_new(
-    SUSCOUNT fs,
-    const struct sigutils_channel *channel);
+    SUFLOAT fs,
+    const su_specttuner_channel_t *channel);
 
 int suscan_inspector_feed_bulk(
     suscan_inspector_t *insp,

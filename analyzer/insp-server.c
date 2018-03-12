@@ -39,7 +39,7 @@
 
 extern suscan_config_desc_t *psk_inspector_desc;
 
-SUPRIVATE SUBOOL
+SUBOOL
 suscan_inspector_sampler_loop(
     suscan_inspector_t *insp,
     const SUCOMPLEX *samp_buf,
@@ -86,7 +86,7 @@ fail:
   return SU_FALSE;
 }
 
-SUPRIVATE SUBOOL
+SUBOOL
 suscan_inspector_spectrum_loop(
     suscan_inspector_t *insp,
     const SUCOMPLEX *samp_buf,
@@ -118,7 +118,7 @@ suscan_inspector_spectrum_loop(
 
           msg->inspector_id = insp->inspector_id;
           msg->spectsrc_id = insp->spectsrc_index;
-          msg->samp_rate = insp->equiv_fs;
+          msg->samp_rate = insp->samp_info.equiv_fs;
           msg->spectrum_size = SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE;
 
           SU_TRYCATCH(
@@ -163,121 +163,56 @@ fail:
 
   return SU_FALSE;
 }
-/*
- * TODO: Store *one port* only per worker. This port is read once all
- * consumers have finished with their buffer.
- */
+
 SUPRIVATE SUBOOL
-suscan_inspector_wk_cb(
-    struct suscan_mq *mq_out,
-    void *wk_private,
-    void *cb_private)
+suscan_analyzer_on_channel_data(
+    const struct sigutils_specttuner_channel *channel,
+    void *private,
+    const SUCOMPLEX *data,
+    SUSCOUNT size)
 {
-  suscan_consumer_t *consumer = (suscan_consumer_t *) wk_private;
-  suscan_inspector_t *insp = (suscan_inspector_t *) cb_private;
-  struct suscan_analyzer_inspector_msg *msg = NULL;
-  unsigned int i;
-  SUSCOUNT samp_count;
-  SUFLOAT value;
-  const SUCOMPLEX *samp_buf;
-  SUSDIFF fed;
-  SUSDIFF got;
+  struct suscan_inspector_task_info *task_info =
+      (struct suscan_inspector_task_info *) private;
 
-  SUBOOL restart = SU_FALSE;
+  /* Channel is not bound yet. No processing is performed */
+  if (task_info == NULL)
+    return SU_TRUE;
 
-  samp_buf   = suscan_consumer_get_buffer(consumer);
-  samp_count = suscan_consumer_get_buffer_size(consumer);
+  /*
+   * It is safe to close channels here: we are already protected
+   * by the sched mutex.
+   */
+  if (task_info->inspector->state != SUSCAN_ASYNC_STATE_RUNNING) {
+    SU_INFO(
+        "Channel not in RUNNING state, setting to HALTED and removing inspector from scheduler\n");
 
-  insp->per_cnt_estimator += samp_count;
-  insp->per_cnt_spectrum  += samp_count;
-
-  while (samp_count > 0) {
-    /* Feed tuner */
+    /* Close channel: no FFT filtering will be performed */
     SU_TRYCATCH(
-        (fed = su_softtuner_feed(&insp->tuner, samp_buf, samp_count)) > 0,
-        goto done);
+        su_specttuner_close_channel(
+            task_info->sched->analyzer->stuner,
+            (su_specttuner_channel_t *) channel),
+        return SU_FALSE);
 
-    /* Read samples */
-    while ((got = su_softtuner_read(
-        &insp->tuner,
-        insp->tuner_output,
-        SUSCAN_INSPECTOR_TUNER_BUF_SIZE)) > 0) {
-      /* Feed inspector and return samples to clients */
-      SU_TRYCATCH(
-          suscan_inspector_sampler_loop(
-              insp,
-              insp->tuner_output,
-              got,
-              consumer->analyzer->mq_out),
-          goto done);
+    /* Remove from scheduler: no further processing will take place */
+    SU_TRYCATCH(
+        suscan_inspsched_remove_task_info(
+            task_info->sched,
+            task_info),
+        return SU_FALSE);
 
-      /* Feed all enabled estimators */
-      for (i = 0; i < insp->estimator_count; ++i)
-        if (suscan_estimator_is_enabled(insp->estimator_list[i]))
-          SU_TRYCATCH(
-              suscan_estimator_feed(
-                  insp->estimator_list[i],
-                  insp->tuner_output,
-                  got),
-              goto done);
+    /* Ready to destroy */
+    task_info->inspector->state = SUSCAN_ASYNC_STATE_HALTED;
 
-      /* Feed spectrum */
-      if (insp->interval_spectrum > 0)
-        SU_TRYCATCH(
-            suscan_inspector_spectrum_loop(
-                insp,
-                insp->tuner_output,
-                got,
-                consumer->analyzer->mq_out),
-            goto done);
-    }
+    /* Task info has been removed, it is safe to destroy it now */
+    suscan_inspector_task_info_destroy(task_info);
 
-    samp_count -= fed;
-    samp_buf   += fed;
+    return SU_TRUE;
   }
 
-  /* Check esimator state and update clients */
-  if (insp->interval_estimator > 0) {
-    if (insp->per_cnt_estimator >= insp->interval_estimator) {
-      insp->per_cnt_estimator = 0;
-      for (i = 0; i < insp->estimator_count; ++i)
-        if (suscan_estimator_is_enabled(insp->estimator_list[i])) {
-          if (suscan_estimator_read(insp->estimator_list[i], &value)) {
-            SU_TRYCATCH(
-                msg = suscan_analyzer_inspector_msg_new(
-                    SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR,
-                    rand()),
-                goto done);
+  task_info->data = data;
+  task_info->size = size;
 
-            msg->enabled = SU_TRUE;
-            msg->estimator_id = i;
-            msg->value = value;
-            msg->inspector_id = insp->inspector_id;
-
-            SU_TRYCATCH(
-                suscan_mq_write(
-                    consumer->analyzer->mq_out,
-                    SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
-                    msg),
-                goto done);
-            msg = NULL; /* Ownership lost */
-          }
-        }
-    }
-  }
-
-  restart = insp->state == SUSCAN_ASYNC_STATE_RUNNING;
-
-done:
-  if (!restart) {
-    insp->state = SUSCAN_ASYNC_STATE_HALTED;
-    suscan_consumer_remove_task(consumer);
-  }
-
-  if (msg != NULL)
-    suscan_analyzer_inspector_msg_destroy(msg);
-
-  return restart;
+  return suscan_inspsched_queue_task(task_info->sched, task_info);
 }
 
 SUINLINE suscan_inspector_t *
@@ -314,33 +249,91 @@ suscan_analyzer_dispose_inspector_handle(
   return SU_TRUE;
 }
 
-SUPRIVATE SUHANDLE
-suscan_analyzer_register_inspector(
+SUPRIVATE SUBOOL
+suscan_analyzer_open_inspector(
     suscan_analyzer_t *analyzer,
-    suscan_inspector_t *brinsp)
+    const struct sigutils_channel *channel,
+    struct suscan_analyzer_inspector_msg *msg)
 {
-  SUHANDLE hnd;
+  SUHANDLE hnd = -1;
+  su_specttuner_channel_t *schan = NULL;
+  suscan_inspector_t *new = NULL;
+  unsigned int i;
 
-  if (brinsp->state != SUSCAN_ASYNC_STATE_CREATED)
-    return SU_FALSE;
+  printf("Open channel at %g Hz with %g Hz in bandwidth\n", channel->fc, channel->bw);
 
-  /* Plugged. Append handle to list */
-  /* TODO: Find inspectors in HALTED state, and free them */
-  if ((hnd = PTR_LIST_APPEND_CHECK(analyzer->inspector, brinsp)) == -1)
-    return -1;
+  /* Open a channel to feed this inspector */
+  SU_TRYCATCH(
+      schan = suscan_analyzer_open_channel(
+          analyzer,
+          channel,
+          suscan_analyzer_on_channel_data,
+          NULL),
+      goto fail);
 
-  /* Mark it as running and push to worker */
-  brinsp->state = SUSCAN_ASYNC_STATE_RUNNING;
+  /*
+   * Channel has been opened, and now we have all the required information
+   * to create a new inspector for it.
+   */
+  SU_TRYCATCH(
+      new = suscan_inspector_new(
+          su_channel_detector_get_fs(analyzer->source.detector),
+          schan),
+      goto fail);
 
-  if (!suscan_analyzer_push_task(
-      analyzer,
-      suscan_inspector_wk_cb,
-      brinsp)) {
-    suscan_analyzer_dispose_inspector_handle(analyzer, hnd);
-    return -1;
-  }
+  /************************* POPULATE MESSAGE ********************************/
+  /* Create generic config */
+  SU_TRYCATCH(
+      msg->config = suscan_config_new(psk_inspector_desc),
+      goto fail);
 
-  return hnd;
+  /* Add estimator list */
+  for (i = 0; i < new->estimator_count; ++i)
+    SU_TRYCATCH(
+        PTR_LIST_APPEND_CHECK(
+            msg->estimator,
+            (void *) new->estimator_list[i]->class) != -1,
+        goto fail);
+
+  /* Add applicable spectrum sources */
+  for (i = 0; i < new->spectsrc_count; ++i)
+    SU_TRYCATCH(
+        PTR_LIST_APPEND_CHECK(
+            msg->spectsrc,
+            (void *) new->spectsrc_list[i]->class) != -1,
+        goto fail);
+
+  /*
+   * Append inspector to analyzer's internal list and get a handle.
+   * TODO: Find inspectors in HALTED state, and free them
+   */
+  if ((hnd = PTR_LIST_APPEND_CHECK(analyzer->inspector, new)) == -1)
+    goto fail;
+
+  msg->handle = hnd;
+
+  /*
+   * Data may arrive to the channel in this point. But since it is not
+   * bound yet, it will be discarded.
+   */
+  SU_TRYCATCH(
+      suscan_analyzer_bind_inspector_to_channel(analyzer, schan, new),
+      goto fail);
+
+  /*
+   * At this point: inspector's state is RUNNING, and it is being handled
+   * concurrently by the inspector scheduler.
+   */
+  return SU_TRUE;
+
+fail:
+  if (schan != NULL)
+    (void) suscan_analyzer_close_channel(analyzer, schan);
+
+  if (hnd != -1)
+    (void) suscan_analyzer_dispose_inspector_handle(analyzer, hnd);
+
+  return SU_FALSE;
 }
 
 /*
@@ -357,7 +350,6 @@ suscan_analyzer_parse_inspector_msg(
     suscan_analyzer_t *analyzer,
     struct suscan_analyzer_inspector_msg *msg)
 {
-  suscan_inspector_t *new = NULL;
   suscan_inspector_t *insp = NULL;
   unsigned int i;
   struct suscan_inspector_params params;
@@ -367,45 +359,9 @@ suscan_analyzer_parse_inspector_msg(
 
   switch (msg->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
-      if ((new = suscan_inspector_new(
-          su_channel_detector_get_fs(analyzer->source.detector),
-          &msg->channel)) == NULL)
-        goto done;
-
-      handle = suscan_analyzer_register_inspector(analyzer, new);
-      if (handle == -1)
-        goto done;
-
-      /* Create generic config */
       SU_TRYCATCH(
-          msg->config = suscan_config_new(psk_inspector_desc),
+          suscan_analyzer_open_inspector(analyzer, &msg->channel, msg),
           goto done);
-
-      /* Populate config from params */
-      SU_TRYCATCH(
-          suscan_inspector_params_populate_config(&new->params, msg->config),
-          goto done);
-
-      /* Add estimator list */
-      for (i = 0; i < new->estimator_count; ++i)
-        SU_TRYCATCH(
-            PTR_LIST_APPEND_CHECK(
-                msg->estimator,
-                (void *) new->estimator_list[i]->class) != -1,
-            goto done);
-
-      /* Add applicable spectrum sources */
-      for (i = 0; i < new->spectsrc_count; ++i)
-        SU_TRYCATCH(
-            PTR_LIST_APPEND_CHECK(
-                msg->spectsrc,
-                (void *) new->spectsrc_list[i]->class) != -1,
-            goto done);
-
-      new = NULL;
-
-      msg->handle = handle;
-
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
@@ -553,8 +509,5 @@ suscan_analyzer_parse_inspector_msg(
   ok = SU_TRUE;
 
 done:
-  if (new != NULL)
-    suscan_inspector_destroy(new);
-
   return ok;
 }

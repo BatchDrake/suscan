@@ -18,6 +18,8 @@
 
 */
 
+#define SU_LOG_DOMAIN "worker"
+
 #include "worker.h"
 
 /*
@@ -188,6 +190,26 @@ suscan_worker_destroy(suscan_worker_t *worker)
   free(worker);
 
   return SU_TRUE;
+}
+
+SUBOOL
+suscan_worker_halt(suscan_worker_t *worker)
+{
+  uint32_t type;
+
+  while (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
+    suscan_worker_req_halt(worker);
+
+    /* This worker should not push messages */
+    suscan_mq_read(worker->mq_out, &type);
+
+    if (type != SUSCAN_WORKER_MSG_TYPE_HALT) {
+      SU_ERROR("Unexpected worker message type\n");
+      return SU_FALSE;
+    }
+  }
+
+  return suscan_worker_destroy(worker);
 }
 
 suscan_worker_t *
