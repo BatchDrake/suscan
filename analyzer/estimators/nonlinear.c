@@ -33,7 +33,7 @@ suscan_estimator_nonlinear_ctor(SUSCOUNT fs)
       sigutils_channel_detector_params_INITIALIZER;
 
   cd_params.samp_rate = fs;
-  cd_params.window_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
+  cd_params.window_size = SUSCAN_DEFAULT_ESTIMATOR_BUFSIZ;
   cd_params.tune = SU_FALSE; /* Estimators expect baseband signals */
   cd_params.mode = SU_CHANNEL_DETECTOR_MODE_NONLINEAR_DIFF;
 
@@ -46,12 +46,19 @@ suscan_estimator_nonlinear_feed(
     const SUCOMPLEX *x,
     SUSCOUNT size)
 {
-  SU_TRYCATCH(
-      su_channel_detector_feed_bulk(
-          (su_channel_detector_t *) private,
-          x,
-          size) == size,
-      return SU_FALSE);
+  SUSCOUNT got;
+
+  while (size > 0) {
+    SU_TRYCATCH(
+        (got = su_channel_detector_feed_bulk(
+            (su_channel_detector_t *) private,
+            x,
+            size)) < SUSCAN_DEFAULT_ESTIMATOR_BUFSIZ,
+        return SU_FALSE);
+
+    size -= got;
+    x += got;
+  }
 
   return SU_TRUE;
 }

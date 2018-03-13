@@ -150,7 +150,6 @@ struct suscan_inspector {
   SUFLOAT   sym_period;         /* In samples */
 
   /* Sampler buffers */
-  SUCOMPLEX tuner_output[SUSCAN_INSPECTOR_TUNER_BUF_SIZE];
   SUCOMPLEX sampler_output[SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE];
   SUCOMPLEX sampler_prev; /* Used for interpolation */
   SUSCOUNT  sampler_output_size;

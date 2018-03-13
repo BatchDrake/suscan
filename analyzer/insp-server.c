@@ -100,6 +100,8 @@ suscan_inspector_spectrum_loop(
   SUSDIFF fed;
 
   if (insp->spectsrc_index > 0) {
+    insp->per_cnt_spectrum += samp_count;
+
     src = insp->spectsrc_list[insp->spectsrc_index - 1];
     while (samp_count > 0) {
       /* Ensure the current inspector parameters are up-to-date */
@@ -152,6 +154,65 @@ suscan_inspector_spectrum_loop(
 
       samp_buf   += fed;
       samp_count -= fed;
+    }
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+
+  return SU_FALSE;
+}
+
+SUBOOL
+suscan_inspector_estimator_loop(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count,
+    struct suscan_mq *mq_out)
+{
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  unsigned int i;
+  SUFLOAT value;
+
+  /* Check esimator state and update clients */
+  if (insp->interval_estimator > 0) {
+    insp->per_cnt_estimator += samp_count;
+
+    if (insp->per_cnt_estimator >= insp->interval_estimator) {
+      insp->per_cnt_estimator = 0;
+      for (i = 0; i < insp->estimator_count; ++i)
+        if (suscan_estimator_is_enabled(insp->estimator_list[i])) {
+          if (suscan_estimator_is_enabled(insp->estimator_list[i]))
+            SU_TRYCATCH(
+                suscan_estimator_feed(
+                    insp->estimator_list[i],
+                    samp_buf,
+                    samp_count),
+                goto fail);
+
+          if (suscan_estimator_read(insp->estimator_list[i], &value)) {
+            SU_TRYCATCH(
+                msg = suscan_analyzer_inspector_msg_new(
+                    SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR,
+                    rand()),
+                goto fail);
+
+            msg->enabled = SU_TRUE;
+            msg->estimator_id = i;
+            msg->value = value;
+            msg->inspector_id = insp->inspector_id;
+
+            SU_TRYCATCH(
+                suscan_mq_write(
+                    mq_out,
+                    SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+                    msg),
+                goto fail);
+          }
+        }
     }
   }
 
@@ -285,6 +346,11 @@ suscan_analyzer_open_inspector(
   /* Create generic config */
   SU_TRYCATCH(
       msg->config = suscan_config_new(psk_inspector_desc),
+      goto fail);
+
+  /* Populate config from params */
+  SU_TRYCATCH(
+      suscan_inspector_params_populate_config(&new->params, msg->config),
       goto fail);
 
   /* Add estimator list */

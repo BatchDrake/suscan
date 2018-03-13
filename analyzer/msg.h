@@ -127,15 +127,19 @@ struct suscan_analyzer_inspector_msg {
 };
 
 /************************ Message-generating methods *************************/
-SUBOOL
-suscan_inspector_sampler_loop(
+SUBOOL suscan_inspector_sampler_loop(
     suscan_inspector_t *insp,
     const SUCOMPLEX *samp_buf,
     SUSCOUNT samp_count,
     struct suscan_mq *mq_out);
 
-SUBOOL
-suscan_inspector_spectrum_loop(
+SUBOOL suscan_inspector_spectrum_loop(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count,
+    struct suscan_mq *mq_out);
+
+SUBOOL suscan_inspector_estimator_loop(
     suscan_inspector_t *insp,
     const SUCOMPLEX *samp_buf,
     SUSCOUNT samp_count,

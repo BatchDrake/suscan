@@ -39,9 +39,6 @@ suscan_inpsched_task_cb(
       (struct suscan_inspector_task_info *) cb_private;
   unsigned int i;
 
-  task_info->inspector->per_cnt_estimator += task_info->size;
-  task_info->inspector->per_cnt_spectrum  += task_info->size;
-
   /*
    * We just process the incoming data. If we broke something,
    * mark the inspector as halted.
@@ -55,24 +52,22 @@ suscan_inpsched_task_cb(
       goto fail);
 
   /* Feed all enabled estimators */
-  for (i = 0; i < task_info->inspector->estimator_count; ++i)
-    if (suscan_estimator_is_enabled(task_info->inspector->estimator_list[i]))
-      SU_TRYCATCH(
-          suscan_estimator_feed(
-              task_info->inspector->estimator_list[i],
-              task_info->data,
-              task_info->size),
-          goto fail);
+  SU_TRYCATCH(
+      suscan_inspector_estimator_loop(
+          task_info->inspector,
+          task_info->data,
+          task_info->size,
+          sched->analyzer->mq_out),
+      goto fail);
 
   /* Feed spectrum */
-  if (task_info->inspector->interval_spectrum > 0)
-    SU_TRYCATCH(
-        suscan_inspector_spectrum_loop(
-            task_info->inspector,
-            task_info->data,
-            task_info->size,
-            sched->analyzer->mq_out),
-        goto fail);
+  SU_TRYCATCH(
+      suscan_inspector_spectrum_loop(
+          task_info->inspector,
+          task_info->data,
+          task_info->size,
+          sched->analyzer->mq_out),
+      goto fail);
 
   return SU_FALSE;
 
