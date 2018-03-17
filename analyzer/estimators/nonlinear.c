@@ -53,7 +53,7 @@ suscan_estimator_nonlinear_feed(
         (got = su_channel_detector_feed_bulk(
             (su_channel_detector_t *) private,
             x,
-            size)) < SUSCAN_DEFAULT_ESTIMATOR_BUFSIZ,
+            size)) == size,
         return SU_FALSE);
 
     size -= got;
