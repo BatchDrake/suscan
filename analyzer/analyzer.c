@@ -754,12 +754,6 @@ suscan_analyzer_open_channel(
   params.private = private;
   params.precise = SU_FALSE;
 
-  SU_INFO(
-      "Create channel of bandwidth %lg with guard %lg on %lg\n",
-      params.bw,
-      params.guard,
-      params.f0);
-
   suscan_analyzer_enter_sched(analyzer);
 
   SU_TRYCATCH(
