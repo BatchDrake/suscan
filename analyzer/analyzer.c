@@ -102,8 +102,9 @@ suscan_analyzer_feed_inspectors(
    * should clean the tuner in this case to keep it from having
    * samples from previous calls to feed_bulk.
    */
-  if (su_specttuner_get_channel_count(analyzer->stuner) == 0)
+  if (su_specttuner_get_channel_count(analyzer->stuner) == 0) {
     return SU_TRUE;
+  }
 
   /* This must be performed in a serialized way */
   while (size > 0) {
@@ -748,9 +749,16 @@ suscan_analyzer_open_channel(
           SU_ABS2NORM_FREQ(
               analyzer->source.detector->params.samp_rate,
               chan_info->f_hi - chan_info->f_lo));
-
+  params.guard = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
   params.on_data = on_data;
   params.private = private;
+  params.precise = SU_FALSE;
+
+  SU_INFO(
+      "Create channel of bandwidth %lg with guard %lg on %lg\n",
+      params.bw,
+      params.guard,
+      params.f0);
 
   suscan_analyzer_enter_sched(analyzer);
 
@@ -952,7 +960,7 @@ suscan_analyzer_new(
   }
 
   /* Create spectral tuner, with matching read size */
-  st_params.window_size = config->bufsiz;
+  st_params.window_size = config->bufsiz * 4;
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
 
   /* Create inspector scheduler and barrier */

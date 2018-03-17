@@ -133,7 +133,7 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
     insp->eq.params.mu = insp->params.eq_locked ? 0 : insp->params.eq_mu;
 
     /* Update matched filter */
-    if (mf_changed) {
+    if (mf_changed && insp->sym_period > 0) {
       if (!su_iir_rrc_init(
           &mf,
           suscan_inspector_mf_span(6 * insp->sym_period),
@@ -216,7 +216,7 @@ suscan_inspector_params_initialize(struct suscan_inspector_params *params)
   params->gc_gain = 1;
 
   params->br_ctrl = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
-  params->br_alpha = SU_PREFERED_CLOCK_ALPHA;
+  params->br_alpha = 1e-1;
   params->br_beta  = SU_PREFERED_CLOCK_BETA;
 
   params->fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
@@ -590,16 +590,15 @@ suscan_inspector_new(SUFLOAT fs, const su_specttuner_channel_t *channel)
   new->interval_spectrum  = .1 * new->samp_info.equiv_fs;
 
   /* Get filter bandwidth */
-  bw = .5;
-  //* SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(channel));
+  bw = SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(channel));
 
   /* Create clock detector */
   SU_TRYCATCH(
       su_clock_detector_init(
           &new->cd,
-          1.,      /* Loop gain */
-          .25, /* Baudrate hint */
-          32       /* Buffer size */),
+          1., /* Loop gain */
+          .5 * bw, /* Baudrate hint */
+          32  /* Buffer size */),
       goto fail);
 
   /* Initialize local oscillator */

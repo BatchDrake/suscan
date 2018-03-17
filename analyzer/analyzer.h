@@ -31,6 +31,8 @@
 #include "inspector.h"
 #include "inspsched.h"
 
+#define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 2
+
 struct suscan_analyzer_params {
   struct sigutils_channel_detector_params detector_params;
   SUFLOAT  channel_update_int;

@@ -321,8 +321,6 @@ suscan_analyzer_open_inspector(
   suscan_inspector_t *new = NULL;
   unsigned int i;
 
-  printf("Open channel at %g Hz with %g Hz in bandwidth\n", channel->fc, channel->bw);
-
   /* Open a channel to feed this inspector */
   SU_TRYCATCH(
       schan = suscan_analyzer_open_channel(
