@@ -109,7 +109,7 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
 
     insp->params = insp->params_request;
 
-    fs = insp->equiv_fs; /* Use equivalent sample rate after dectimation */
+    fs = insp->samp_info.equiv_fs;
 
     /* Update inspector according to params */
     if (actual_baud > 0)
@@ -133,7 +133,7 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
     insp->eq.params.mu = insp->params.eq_locked ? 0 : insp->params.eq_mu;
 
     /* Update matched filter */
-    if (mf_changed) {
+    if (mf_changed && insp->sym_period > 0) {
       if (!su_iir_rrc_init(
           &mf,
           suscan_inspector_mf_span(6 * insp->sym_period),
@@ -178,8 +178,6 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
   su_clock_detector_finalize(&insp->cd);
 
   su_equalizer_finalize(&insp->eq);
-
-  su_softtuner_finalize(&insp->tuner);
 
   for (i = 0; i < insp->estimator_count; ++i)
     suscan_estimator_destroy(insp->estimator_list[i]);
@@ -517,7 +515,7 @@ suscan_inspector_add_estimator(suscan_inspector_t *insp, const char *name)
   SU_TRYCATCH(class = suscan_estimator_class_lookup(name), goto fail);
 
   SU_TRYCATCH(
-      estimator = suscan_estimator_new(class, insp->equiv_fs),
+      estimator = suscan_estimator_new(class, insp->samp_info.equiv_fs),
       goto fail);
 
   SU_TRYCATCH(
@@ -560,16 +558,20 @@ fail:
   return SU_FALSE;
 }
 
+/*
+ * TODO: Accurate sample rate and bandwidth can only be obtained after
+ * the channel is opened. The recently created inspector must be updated
+ * according to the specttuner channel opened in the analyzer.
+ */
 suscan_inspector_t *
-suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
+suscan_inspector_new(SUFLOAT fs, const su_specttuner_channel_t *channel)
 {
   suscan_inspector_t *new;
   struct sigutils_equalizer_params eq_params =
       sigutils_equalizer_params_INITIALIZER;
   struct su_agc_params agc_params = su_agc_params_INITIALIZER;
-  struct sigutils_softtuner_params tuner_params =
-      sigutils_softtuner_params_INITIALIZER;
 
+  SUFLOAT bw;
   SUFLOAT tau;
 
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
@@ -579,24 +581,24 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   /* Initialize inspector parameters */
   suscan_inspector_params_initialize(&new->params);
 
-  /* Initialize spectrum parameters */
-  new->interval_estimator = .1 * fs;
-  new->interval_spectrum  = .1 * fs;
+  /* Initialize sampling info */
+  new->samp_info.schan = channel;
+  new->samp_info.equiv_fs = fs / channel->decimation;
 
-  /* Configure tuner from channel parameters */
-  tuner_params.samp_rate = fs;
-  su_softtuner_params_adjust_to_channel(&tuner_params, channel);
-  SU_TRYCATCH(su_softtuner_init(&new->tuner, &tuner_params), goto fail);
+  /* Spectrum and estimator updates */
+  new->interval_estimator = .1 * new->samp_info.equiv_fs;
+  new->interval_spectrum  = .1 * new->samp_info.equiv_fs;
 
-  new->equiv_fs = (SUFLOAT) fs / tuner_params.decimation;
+  /* Get filter bandwidth */
+  bw = SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(channel));
 
   /* Create clock detector */
   SU_TRYCATCH(
       su_clock_detector_init(
           &new->cd,
-          1.,
-          .5 * SU_ABS2NORM_BAUD(new->equiv_fs, tuner_params.bw),
-          32),
+          1., /* Loop gain */
+          .5 * bw, /* Baudrate hint */
+          32  /* Buffer size */),
       goto fail);
 
   /* Initialize local oscillator */
@@ -604,7 +606,7 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
   new->phase = 1.;
 
   /* Initialize AGC */
-  tau = new->equiv_fs / tuner_params.bw; /* Samples per symbol */
+  tau = 1. / bw; /* Samples per symbol */
 
   agc_params.fast_rise_t = tau * SUSCAN_INSPECTOR_FAST_RISE_FRAC;
   agc_params.fast_fall_t = tau * SUSCAN_INSPECTOR_FAST_FALL_FRAC;
@@ -632,31 +634,30 @@ suscan_inspector_new(SUSCOUNT fs, const struct sigutils_channel *channel)
       su_costas_init(
           &new->costas_2,
           SU_COSTAS_KIND_BPSK,
-          0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw),
-          3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw)),
+          0         /* Frequency hint */,
+          bw        /* Arm bandwidth */,
+          3         /* Order */,
+          2e-2 * bw /* Loop bandwidth */),
       goto fail);
 
   SU_TRYCATCH(
       su_costas_init(
           &new->costas_4,
           SU_COSTAS_KIND_QPSK,
-          0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw),
-          3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw)),
+          0         /* Frequency hint */,
+          bw        /* Arm bandwidth */,
+          3         /* Order */,
+          2e-2 * bw /* Loop bandwidth */),
       goto fail);
-
 
   SU_TRYCATCH(
       su_costas_init(
           &new->costas_8,
           SU_COSTAS_KIND_8PSK,
-          0,
-          SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw),
-          3,
-          1e-2 * SU_ABS2NORM_FREQ(new->equiv_fs, tuner_params.bw)),
+          0         /* Frequency hint */,
+          bw        /* Arm bandwidth */,
+          3         /* Order */,
+          2e-2 * bw /* Loop bandwidth */),
       goto fail);
 
   /* Initialize equalizer */

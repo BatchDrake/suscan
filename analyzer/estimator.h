@@ -23,6 +23,8 @@
 
 #include <sigutils/sigutils.h>
 
+#define SUSCAN_DEFAULT_ESTIMATOR_BUFSIZ 1024
+
 struct suscan_estimator_class {
   const char *name;
   const char *desc;
