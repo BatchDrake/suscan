@@ -6,6 +6,8 @@
 - Prevent self-correcting blocks from drifting (add limits)
 - Update inspector tab with information from Costas/Gardner's blocks
 - Add button to reset internal states of self-correcting blocks
+- Add configuration tab for look & feel properties
+- Add option to change Costas loop arm gains
 
 #### Desirable
 - Add SoapySDR support
