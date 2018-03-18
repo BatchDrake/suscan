@@ -247,7 +247,7 @@ sugtk_lcd_update_display(SuGtkLcd *lcd)
           cr,
           p + glyph_width * (1 - .1),
           glyph_height - glyph_width * .3,
-          glyph_width * .05,
+          glyph_width * .1,
           0,
           2 * M_PI);
       cairo_fill(cr);
