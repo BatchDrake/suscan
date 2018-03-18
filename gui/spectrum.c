@@ -1317,6 +1317,7 @@ sugtk_spectrum_on_button_press_event(
               spect,
               freq)) != NULL) {
             spect->menu_channel = *channel;
+            spect->menu_channel.ft = spect->fc; /* This must be fixed */
             spect->menu_fc = channel->fc;
 
             snprintf(

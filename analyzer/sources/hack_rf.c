@@ -18,6 +18,8 @@
 
 */
 
+#define SU_LOG_DOMAIN "hackrf"
+
 #include <config.h>
 #include <string.h>
 #include "source.h"
@@ -299,6 +301,8 @@ su_block_hackRF_acquire(
       SU_WARNING(
           "HackRF is delivering samples way too fast: samples lost (%lld)\n",
           state->stream.pos - out->pos);
+      SU_WARNING(
+          "Try incrementing buffer size\n");
       out->pos = state->stream.pos;
     }
   } while (got < 1);
