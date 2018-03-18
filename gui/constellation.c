@@ -41,7 +41,7 @@ G_DEFINE_TYPE(SuGtkConstellation, sugtk_constellation, GTK_TYPE_DRAWING_AREA);
   SUGTK_CONSTELLATION_TO_SCR_X(cons, x), \
   SUGTK_CONSTELLATION_TO_SCR_Y(cons, y)
 
-#define SUGTK_CONSTELLATION_POINT_RADIUS 1e-2
+#define SUGTK_CONSTELLATION_POINT_RADIUS 3e-3
 
 static void
 sugtk_constellation_redraw(SuGtkConstellation *constellation)
