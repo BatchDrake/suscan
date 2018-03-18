@@ -216,7 +216,7 @@ suscan_inspector_params_initialize(struct suscan_inspector_params *params)
   params->gc_gain = 1;
 
   params->br_ctrl = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
-  params->br_alpha = 1e-1;
+  params->br_alpha = SU_PREFERED_CLOCK_ALPHA;
   params->br_beta  = SU_PREFERED_CLOCK_BETA;
 
   params->fc_ctrl = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
@@ -637,7 +637,7 @@ suscan_inspector_new(SUFLOAT fs, const su_specttuner_channel_t *channel)
           0         /* Frequency hint */,
           bw        /* Arm bandwidth */,
           3         /* Order */,
-          1e-2 * bw /* Loop bandwidth */),
+          2e-2 * bw /* Loop bandwidth */),
       goto fail);
 
   SU_TRYCATCH(
@@ -647,7 +647,7 @@ suscan_inspector_new(SUFLOAT fs, const su_specttuner_channel_t *channel)
           0         /* Frequency hint */,
           bw        /* Arm bandwidth */,
           3         /* Order */,
-          1e-2 * bw /* Loop bandwidth */),
+          2e-2 * bw /* Loop bandwidth */),
       goto fail);
 
   SU_TRYCATCH(
@@ -657,7 +657,7 @@ suscan_inspector_new(SUFLOAT fs, const su_specttuner_channel_t *channel)
           0         /* Frequency hint */,
           bw        /* Arm bandwidth */,
           3         /* Order */,
-          1e-2 * bw /* Loop bandwidth */),
+          2e-2 * bw /* Loop bandwidth */),
       goto fail);
 
   /* Initialize equalizer */
