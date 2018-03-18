@@ -549,13 +549,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->freqLabel =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
       gui->preferencesButton =
           GTK_BUTTON(gtk_builder_get_object(
               gui->builder,
@@ -884,6 +877,13 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "nbSymTool")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->freqBox =
+          GTK_BOX(gtk_builder_get_object(
+              gui->builder,
+              "bFreq")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
@@ -906,6 +906,10 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
   gtk_widget_set_vexpand(GTK_WIDGET(gui->spectrum), TRUE);
 
   gtk_widget_show(GTK_WIDGET(gui->spectrum));
+
+  gui->freqLcd = SUGTK_LCD(sugtk_lcd_new());
+  gtk_box_pack_start(gui->freqBox, GTK_WIDGET(gui->freqLcd), TRUE, TRUE, 0);
+  gtk_widget_show(GTK_WIDGET(gui->freqLcd));
 
   return SU_TRUE;
 }
@@ -1126,20 +1130,7 @@ fail:
 void
 suscan_gui_set_freq(suscan_gui_t *gui, uint64_t freq)
 {
-  int i;
-  char freq_banner[] = "0,000.000.000 MHz";
-  char portion[4];
-
-  for (i = 2; i >= 0; --i) {
-    snprintf(portion, 4, "%03d", freq % 1000);
-    freq /= 1000;
-
-    memcpy(freq_banner + 2 + 4 * i, portion, 3);
-  }
-
-  freq_banner[0] = '0' + (freq % 10);
-
-  gtk_label_set_text(gui->freqLabel, freq_banner);
+  sugtk_lcd_set_value(gui->freqLcd, freq);
 }
 
 SUBOOL

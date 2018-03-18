@@ -29,6 +29,7 @@
 #include "spectrum.h"
 #include "inspector.h"
 #include "symtool.h"
+#include "lcd.h"
 
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
@@ -85,10 +86,11 @@ struct suscan_gui {
   GtkComboBox *sourceCombo;
   GtkHeaderBar *headerBar;
   GtkMenuBar *menuBar;
-  GtkLabel *freqLabel;
   GObject *sourceAlignment;
   GtkMenu *recentMenu;
   GtkMenuItem *emptyMenuItem;
+  GtkBox *freqBox;
+  SuGtkLcd *freqLcd;
 
   GtkRadioMenuItem    *spectrogramMenuItem;
   GtkRadioMenuItem    *waterfallMenuItem;

@@ -326,25 +326,11 @@
                             <property name="can_focus">False</property>
                             <property name="left_padding">12</property>
                             <child>
-                              <object class="GtkBox">
+                              <object class="GtkBox" id="bFreq">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
-                                  <object class="GtkLabel" id="lMainViewsSummaryFreq">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="label">0,000.000.000 MHz</property>
-                                    <attributes>
-                                      <attribute name="font-desc" value="LCD Italic 28"/>
-                                      <attribute name="foreground" value="#ffffa5a50000"/>
-                                      <attribute name="background" value="#000000000000"/>
-                                    </attributes>
-                                  </object>
-                                  <packing>
-                                    <property name="expand">False</property>
-                                    <property name="fill">True</property>
-                                    <property name="position">0</property>
-                                  </packing>
+                                  <placeholder/>
                                 </child>
                               </object>
                             </child>
