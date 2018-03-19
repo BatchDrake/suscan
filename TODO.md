@@ -8,6 +8,9 @@
 - Add button to reset internal states of self-correcting blocks
 - Add configuration tab for look & feel properties
 - Add option to change Costas loop arm gains
+- Change Start/Stop button color
+- Add option to save inspector configuration
+- Tweak throttle speed
 
 #### Desirable
 - Add SoapySDR support
