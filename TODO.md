@@ -10,6 +10,7 @@
 - Add option to change Costas loop arm gains
 - Change Start/Stop button color
 - Add option to save inspector configuration
+- Tweak throttle speed
 
 #### Desirable
 - Add SoapySDR support
