@@ -731,43 +731,36 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->spectrogramMenuItem =
-          GTK_RADIO_MENU_ITEM(gtk_builder_get_object(
+      gui->waterfallModeToggleButton =
+          GTK_TOGGLE_BUTTON(gtk_builder_get_object(
               gui->builder,
-              "miSpectrogram")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->waterfallMenuItem =
-          GTK_RADIO_MENU_ITEM(gtk_builder_get_object(
-              gui->builder,
-              "miWaterfall")),
+              "tbWaterfallMode")),
           return SU_FALSE);
 
   SU_TRYCATCH(
       gui->overlayChannelToggleButton =
-          GTK_TOGGLE_TOOL_BUTTON(gtk_builder_get_object(
+          GTK_TOGGLE_BUTTON(gtk_builder_get_object(
               gui->builder,
               "tbOverlayChannels")),
           return SU_FALSE);
 
   SU_TRYCATCH(
       gui->autoGainToggleButton =
-          GTK_TOGGLE_TOOL_BUTTON(gtk_builder_get_object(
+          GTK_TOGGLE_BUTTON(gtk_builder_get_object(
               gui->builder,
               "tbAutoGain")),
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->gainScaleButton =
-          GTK_SCALE_BUTTON(gtk_builder_get_object(
+      gui->gainScale =
+          GTK_SCALE(gtk_builder_get_object(
               gui->builder,
               "sbRefLevel")),
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->rangeScaleButton =
-          GTK_SCALE_BUTTON(gtk_builder_get_object(
+      gui->rangeScale =
+          GTK_SCALE(gtk_builder_get_object(
               gui->builder,
               "sbRange")),
           return SU_FALSE);

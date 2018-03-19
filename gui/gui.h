@@ -92,12 +92,11 @@ struct suscan_gui {
   GtkBox *freqBox;
   SuGtkLcd *freqLcd;
 
-  GtkRadioMenuItem    *spectrogramMenuItem;
-  GtkRadioMenuItem    *waterfallMenuItem;
-  GtkToggleToolButton *overlayChannelToggleButton;
-  GtkToggleToolButton *autoGainToggleButton;
-  GtkScaleButton      *gainScaleButton;
-  GtkScaleButton      *rangeScaleButton;
+  GtkToggleButton   *waterfallModeToggleButton;
+  GtkToggleButton   *overlayChannelToggleButton;
+  GtkToggleButton   *autoGainToggleButton;
+  GtkScale          *gainScale;
+  GtkScale          *rangeScale;
 
   GtkTreeViewColumn *centerFrequencyCol;
   GtkTreeViewColumn *snrCol;
