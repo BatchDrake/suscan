@@ -63,7 +63,8 @@ typedef SUFLOAT gsufloat;
 #define SUGTK_SPECTRUM_FREQ_SCALE_DEFAULT  1
 #define SUGTK_SPECTRUM_DBS_PER_DIV_DEFAULT 10
 #define SUGTK_SPECTRUM_REF_LEVEL_DEFAULT   0
-#define SUGTK_SPECTRUM_AGC_ALPHA .1
+#define SUGTK_SPECTRUM_AGC_ALPHA           .1
+#define SUGTK_SPECTRUM_S_WF_RATIO_DEFAULT  .25
 
 #define SUGTK_SPECTRUM_SETTER_PROTO(type, name) \
   void JOIN(sugtk_spectrum_set_, name) (SuGtkSpectrum *spect, type value)
@@ -81,6 +82,7 @@ enum SuGtkSpectrumParam {
 enum SuGtkSpectrumMode {
   SUGTK_SPECTRUM_MODE_SPECTROGRAM,
   SUGTK_SPECTRUM_MODE_WATERFALL,
+  SUGTK_SPECTRUM_MODE_BOTH
 };
 
 struct _SuGtkSpectrum;
@@ -119,7 +121,12 @@ struct _SuGtkSpectrum
 
   /* Geometry of the plot area */
   gsufloat g_width;
-  gsufloat g_height;
+  gsufloat g_height; /* Used by axes */
+  gsufloat s_height; /* Spectrum height */
+  gsufloat w_height; /* Waterfall height */
+
+  gsufloat s_wf_ratio;
+  gsufloat w_top;
 
   /* Surfaces */
   cairo_surface_t *sf_spectrum; /* This is actually the main surface */
@@ -140,7 +147,7 @@ struct _SuGtkSpectrum
   gboolean auto_level;
   gboolean dc_skip;
   gboolean smooth_N0;
-  gsufloat  agc_alpha;
+  gsufloat agc_alpha;
 
   /* Autolevel state */
   gsufloat last_max;

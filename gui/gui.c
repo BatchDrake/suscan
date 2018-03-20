@@ -893,6 +893,8 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
       suscan_gui_on_open_inspector,
       gui);
 
+  gtk_toggle_button_set_active(gui->waterfallModeToggleButton, TRUE);
+
   gtk_grid_attach(gui->spectrumGrid, GTK_WIDGET(gui->spectrum), 0, 0, 1, 1);
 
   gtk_widget_set_hexpand(GTK_WIDGET(gui->spectrum), TRUE);

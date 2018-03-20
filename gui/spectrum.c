@@ -33,6 +33,9 @@ G_DEFINE_TYPE(SuGtkSpectrum, sugtk_spectrum, GTK_TYPE_DRAWING_AREA);
 #define SUGTK_SPECTRUM_TO_SCR(s, x, y)         \
   sugtk_spectrum_to_scr_x(s, x), sugtk_spectrum_to_scr_y(s, y)
 
+#define SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(s, x, y)         \
+  sugtk_spectrum_to_scr_x(s, x), sugtk_spectrum_spectrogram_to_scr_y(s, y)
+
 #define SUGTK_SPECTRUM_SETTER(type, name)   \
 SUGTK_SPECTRUM_SETTER_PROTO(type, name)     \
 {                                           \
@@ -78,11 +81,39 @@ sugtk_spectrum_to_scr_y(const SuGtkSpectrum *s, gsufloat y)
   return -y * s->g_height + SUGTK_SPECTRUM_TOP_PADDING;
 }
 
+#if 0
 static inline float
 sugtk_spectrum_from_scr_y(const SuGtkSpectrum *s, gsufloat y)
 {
   return (-y - SUGTK_SPECTRUM_TOP_PADDING) / s->g_height;
 }
+#endif
+
+static inline float
+sugtk_spectrum_spectrogram_to_scr_y(const SuGtkSpectrum *s, gsufloat y)
+{
+  return -y * s->s_height + SUGTK_SPECTRUM_TOP_PADDING;
+}
+
+static inline float
+sugtk_spectrum_spectrogram_from_scr_y(const SuGtkSpectrum *s, gsufloat y)
+{
+  return (-y - SUGTK_SPECTRUM_TOP_PADDING) / s->s_height;
+}
+
+#if 0
+static inline float
+sugtk_spectrum_waterfall_to_scr_y(const SuGtkSpectrum *s, gsufloat y)
+{
+  return -y * s->s_height + SUGTK_SPECTRUM_TOP_PADDING;
+}
+
+static inline float
+sugtk_spectrum_waterfall_from_scr_y(const SuGtkSpectrum *s, gsufloat y)
+{
+  return (-y - SUGTK_SPECTRUM_TOP_PADDING) / s->s_height;
+}
+#endif
 
 /* Coordinate adjust according to scaling parameters */
 static inline float
@@ -107,6 +138,104 @@ static inline float
 sugtk_spectrum_adjust_y_inv(const SuGtkSpectrum *s, gsufloat y)
 {
   return y * s->dbs_per_div * SUGTK_SPECTRUM_VERTICAL_DIVS + s->ref_level;
+}
+
+/******************************** GUI setup **********************************/
+static void
+sugtk_spectrum_reconfigure_surfaces(SuGtkSpectrum *spect)
+{
+  GtkWidget *widget = GTK_WIDGET(spect);
+
+  cairo_surface_t *old_surf0;
+  cairo_surface_t *old_surf1;
+  cairo_t *cr;
+  gsufloat old_g_width;
+  gsufloat ratio;
+
+  /* Update geometry parameters */
+  old_g_width = spect->g_width;
+
+  spect->g_width =
+      spect->width
+      - SUGTK_SPECTRUM_LEFT_PADDING
+      - SUGTK_SPECTRUM_RIGHT_PADDING
+      - 2;
+
+  spect->g_height =
+      spect->height
+        - SUGTK_SPECTRUM_TOP_PADDING
+        - SUGTK_SPECTRUM_BOTTOM_PADDING
+        - 2;
+
+  switch (spect->mode) {
+    case SUGTK_SPECTRUM_MODE_SPECTROGRAM:
+      spect->s_height = spect->g_height;
+      break;
+
+    case SUGTK_SPECTRUM_MODE_WATERFALL:
+      spect->w_height = spect->g_height;
+      spect->w_top = 0;
+      break;
+
+    case SUGTK_SPECTRUM_MODE_BOTH:
+      spect->s_height = spect->s_wf_ratio * spect->g_height;
+      spect->w_height = (1 - spect->s_wf_ratio) * spect->g_height;
+      spect->w_top    = spect->s_height;
+      break;
+  }
+
+  /* Save waterfall surfaces for posterior rescaling  */
+  old_surf0 = spect->sf_wf[0];
+  old_surf1 = spect->sf_wf[1];
+
+  /* Create similar surfaces */
+  if (spect->sf_spectrum != NULL)
+    cairo_surface_destroy(spect->sf_spectrum);
+
+  spect->sf_spectrum = gdk_window_create_similar_surface(
+      gtk_widget_get_window(widget),
+      CAIRO_CONTENT_COLOR,
+      spect->width,
+      spect->height);
+
+  spect->sf_wf[0] = gdk_window_create_similar_surface(
+      gtk_widget_get_window(widget),
+      CAIRO_CONTENT_COLOR,
+      spect->g_width,
+      spect->g_height);
+
+  spect->sf_wf[1] = gdk_window_create_similar_surface(
+      gtk_widget_get_window(widget),
+      CAIRO_CONTENT_COLOR,
+      spect->g_width,
+      spect->g_height);
+
+  /* Rescale existing waterfall according to the new ratio */
+  ratio = spect->g_width / old_g_width;
+
+  if (old_surf0 != NULL) {
+    cr = cairo_create(spect->sf_wf[0]);
+    if (ratio != 1) {
+      cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
+      cairo_scale(cr, ratio, 1);
+    }
+    cairo_set_source_surface(cr, old_surf0, 0, 0);
+    cairo_paint(cr);
+    cairo_destroy(cr);
+    cairo_surface_destroy(old_surf0);
+  }
+
+  if (old_surf1 != NULL) {
+    cr = cairo_create(spect->sf_wf[1]);
+    if (ratio != 1) {
+      cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
+      cairo_scale(cr, ratio, 1);
+    }
+    cairo_set_source_surface(cr, old_surf1, 0, 0);
+    cairo_paint(cr);
+    cairo_destroy(cr);
+    cairo_surface_destroy(old_surf1);
+  }
 }
 
 /************************** Channel information ******************************/
@@ -147,11 +276,11 @@ sugtk_spectrum_redraw_spectrogram(SuGtkSpectrum *spect, cairo_t *cr)
     cairo_set_dash(cr, NULL, 0, 0);
 
     /* Draw noise level (if applicable) */
-    if (spect->N0 > 0) {
+    if (spect->mode == SUGTK_SPECTRUM_MODE_SPECTROGRAM && spect->N0 > 0) {
       cairo_set_source_rgb(cr, 0, 1., 1.);
       cairo_move_to(
           cr,
-          SUGTK_SPECTRUM_TO_SCR(
+          SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(
               spect,
               -.5,
               sugtk_spectrum_adjust_y(
@@ -160,7 +289,7 @@ sugtk_spectrum_redraw_spectrogram(SuGtkSpectrum *spect, cairo_t *cr)
 
       cairo_line_to(
           cr,
-          SUGTK_SPECTRUM_TO_SCR(
+          SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(
               spect,
               .5,
               sugtk_spectrum_adjust_y(
@@ -199,7 +328,7 @@ sugtk_spectrum_redraw_spectrogram(SuGtkSpectrum *spect, cairo_t *cr)
 
         cairo_move_to(
             cr,
-            SUGTK_SPECTRUM_TO_SCR(
+            SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(
                 spect,
                 x_prev_adj,
                 sugtk_spectrum_adjust_y(spect, psd)));
@@ -210,7 +339,7 @@ sugtk_spectrum_redraw_spectrogram(SuGtkSpectrum *spect, cairo_t *cr)
 
         cairo_line_to(
             cr,
-            SUGTK_SPECTRUM_TO_SCR(
+            SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(
                 spect,
                 x_adj,
                 sugtk_spectrum_adjust_y(spect, psd)));
@@ -417,14 +546,14 @@ sugtk_spectrum_redraw_waterfall(SuGtkSpectrum *spect, cairo_t *cr)
       cr,
       spect->sf_wf[spect->flip],
       SUGTK_SPECTRUM_LEFT_PADDING,
-      SUGTK_SPECTRUM_TOP_PADDING);
+      SUGTK_SPECTRUM_TOP_PADDING + spect->w_top);
 
   cairo_rectangle(
       cr,
       SUGTK_SPECTRUM_LEFT_PADDING,
-      SUGTK_SPECTRUM_TOP_PADDING,
+      SUGTK_SPECTRUM_TOP_PADDING + spect->w_top,
       spect->g_width,
-      spect->g_height);
+      spect->w_height);
 
   cairo_fill(cr);
 
@@ -433,7 +562,7 @@ sugtk_spectrum_redraw_waterfall(SuGtkSpectrum *spect, cairo_t *cr)
    * so that channels painted on top are more visible
    */
 
-  if (spect->show_channels) {
+  if (spect->show_channels && spect->mode == SUGTK_SPECTRUM_MODE_WATERFALL) {
     cairo_set_source_rgb(cr, 0, 0, 0);
     cairo_paint_with_alpha(cr, .5);
   }
@@ -457,7 +586,7 @@ sugtk_spectrum_redraw_levels(SuGtkSpectrum *spect, cairo_t *cr)
 
   cairo_set_source_rgba(cr, 1, 1, 1, 1);
 
-  if (spect->mode == SUGTK_SPECTRUM_MODE_SPECTROGRAM)
+  if (spect->mode != SUGTK_SPECTRUM_MODE_WATERFALL)
     for (i = 1; i < SUGTK_SPECTRUM_VERTICAL_DIVS; ++i) {
       snprintf(
           text,
@@ -470,7 +599,7 @@ sugtk_spectrum_redraw_levels(SuGtkSpectrum *spect, cairo_t *cr)
       cairo_move_to(
           cr,
           7.5,
-          sugtk_spectrum_to_scr_y(
+          sugtk_spectrum_spectrogram_to_scr_y(
               spect,
               -i * SUGTK_SPECTRUM_DY));
 
@@ -521,15 +650,15 @@ sugtk_spectrum_redraw_levels(SuGtkSpectrum *spect, cairo_t *cr)
 static void
 sugtk_spectrum_redraw_axes(SuGtkSpectrum *spectrum, cairo_t *cr)
 {
-  static const double axis_pattern[] = {5.0, 5.0};
+  static const double axis_pattern[] = {1.0, 1.0};
   int i;
 
   cairo_set_line_width(cr, 1);
 
   sugtk_spectrum_redraw_levels(spectrum, cr);
 
-  /* Draw axes in spectrogram mode */
-  if (spectrum->mode == SUGTK_SPECTRUM_MODE_SPECTROGRAM) {
+  /* Draw axes in spectrogram or hybrid mode */
+  if (spectrum->mode != SUGTK_SPECTRUM_MODE_WATERFALL) {
     cairo_set_dash(cr, axis_pattern, 2, 0);
 
     for (
@@ -544,10 +673,16 @@ sugtk_spectrum_redraw_axes(SuGtkSpectrum *spectrum, cairo_t *cr)
 
       cairo_move_to(
           cr,
-          SUGTK_SPECTRUM_TO_SCR(spectrum, i * SUGTK_SPECTRUM_DX, 0));
+          SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(
+              spectrum,
+              i * SUGTK_SPECTRUM_DX,
+              0));
       cairo_line_to(
           cr,
-          SUGTK_SPECTRUM_TO_SCR(spectrum, i * SUGTK_SPECTRUM_DX, -1));
+          SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(
+              spectrum,
+              i * SUGTK_SPECTRUM_DX,
+              -1));
 
       cairo_stroke(cr);
     }
@@ -555,10 +690,16 @@ sugtk_spectrum_redraw_axes(SuGtkSpectrum *spectrum, cairo_t *cr)
     for (i = 1; i < SUGTK_SPECTRUM_VERTICAL_DIVS; ++i) {
       cairo_move_to(
           cr,
-          SUGTK_SPECTRUM_TO_SCR(spectrum, -.5, -i * SUGTK_SPECTRUM_DY));
+          SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(
+              spectrum,
+              -.5,
+              -i * SUGTK_SPECTRUM_DY));
       cairo_line_to(
           cr,
-          SUGTK_SPECTRUM_TO_SCR(spectrum, .5, -i * SUGTK_SPECTRUM_DY));
+          SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(
+              spectrum,
+              .5,
+              -i * SUGTK_SPECTRUM_DY));
 
       cairo_stroke(cr);
     }
@@ -636,8 +777,8 @@ sugtk_spectrum_redraw_channel(
     xscr2 = sugtk_spectrum_to_scr_x(spectrum, x2);
 
     /* Draw levels only if spectrogram mode is enabled */
-    if (channel->S0 > channel->N0
-        && spectrum->mode == SUGTK_SPECTRUM_MODE_SPECTROGRAM) {
+    if (channel->S0 > channel->N0 &&
+        spectrum->mode != SUGTK_SPECTRUM_MODE_WATERFALL) {
       y1 = sugtk_spectrum_adjust_y(
           spectrum,
           channel->S0);
@@ -645,8 +786,8 @@ sugtk_spectrum_redraw_channel(
           spectrum,
           channel->N0);
 
-      yscr1 = sugtk_spectrum_to_scr_y(spectrum, y1);
-      yscr2 = sugtk_spectrum_to_scr_y(spectrum, y2);
+      yscr1 = sugtk_spectrum_spectrogram_to_scr_y(spectrum, y1);
+      yscr2 = sugtk_spectrum_spectrogram_to_scr_y(spectrum, y2);
     } else {
       yscr1 = SUGTK_SPECTRUM_TOP_PADDING;
       yscr2 = spectrum->height - SUGTK_SPECTRUM_BOTTOM_PADDING - 1;
@@ -721,6 +862,11 @@ sugtk_spectrum_redraw(SuGtkSpectrum *spect)
 
     case SUGTK_SPECTRUM_MODE_WATERFALL:
       sugtk_spectrum_redraw_waterfall(spect, cr);
+      break;
+
+    case SUGTK_SPECTRUM_MODE_BOTH:
+      sugtk_spectrum_redraw_spectrogram(spect, cr);
+      sugtk_spectrum_redraw_waterfall(spect, cr);
   }
 
   if (spect->samp_rate > 0) {
@@ -776,6 +922,7 @@ sugtk_spectrum_set_defaults(SuGtkSpectrum *spect)
   spect->ref_level     = SUGTK_SPECTRUM_REF_LEVEL_DEFAULT;
   spect->dbs_per_div   = SUGTK_SPECTRUM_DBS_PER_DIV_DEFAULT;
   spect->agc_alpha     = SUGTK_SPECTRUM_AGC_ALPHA;
+  spect->s_wf_ratio    = SUGTK_SPECTRUM_S_WF_RATIO_DEFAULT;
   spect->dc_skip       = TRUE;
 }
 
@@ -792,8 +939,6 @@ sugtk_spectrum_reset(SuGtkSpectrum *spect)
     spect->psd_data_smooth = NULL;
   }
 
-  sugtk_spectrum_set_defaults(spect);
-
   sugtk_spectrum_refresh_hard(spect);
 }
 
@@ -802,7 +947,6 @@ SUGTK_SPECTRUM_SETTER(gboolean, auto_level);
 SUGTK_SPECTRUM_SETTER(gboolean, dc_skip);
 SUGTK_SPECTRUM_SETTER(gboolean, smooth_N0);
 SUGTK_SPECTRUM_SETTER(gboolean, has_menu);
-SUGTK_SPECTRUM_SETTER(enum SuGtkSpectrumMode, mode);
 SUGTK_SPECTRUM_SETTER(gsufloat, freq_offset);
 SUGTK_SPECTRUM_SETTER(gsufloat, freq_scale);
 SUGTK_SPECTRUM_SETTER(gsufloat, ref_level);
@@ -824,6 +968,16 @@ SUGTK_SPECTRUM_GETTER(gsufloat, dbs_per_div);
 SUGTK_SPECTRUM_GETTER(gsufloat, agc_alpha);
 SUGTK_SPECTRUM_GETTER(gsufloat, N0);
 SUGTK_SPECTRUM_GETTER(guint, samp_rate);
+
+SUGTK_SPECTRUM_SETTER_PROTO(enum SuGtkSpectrumMode, mode)
+{
+  /* Setting the spectrum mode is kind of tricky */
+  spect->mode = value;
+
+  sugtk_spectrum_reconfigure_surfaces(spect);
+
+  sugtk_spectrum_refresh_hard(spect);
+}
 
 void
 sugtk_spectrum_update(
@@ -995,11 +1149,11 @@ sugtk_spectrum_parse_dragging(
   /* Change reference level */
   y = sugtk_spectrum_adjust_y_inv(
       spect,
-      sugtk_spectrum_from_scr_y(spect, -ev->y));
+      sugtk_spectrum_spectrogram_from_scr_y(spect, -ev->y));
 
   ly = sugtk_spectrum_adjust_y_inv(
       spect,
-      sugtk_spectrum_from_scr_y(spect, -spect->last_y));
+      sugtk_spectrum_spectrogram_from_scr_y(spect, -spect->last_y));
 
   /* Change reference level only applies to spectrogram */
   if (!spect->auto_level
@@ -1059,6 +1213,8 @@ sugtk_spectrum_parse_selection(
         .5 * (spect->selection.f_lo + spect->selection.f_hi);
 
     spect->selection.ft = spect->fc;
+
+    sugtk_spectrum_refresh_hard(spect);
   }
 }
 
@@ -1069,83 +1225,11 @@ sugtk_spectrum_on_configure_event(
     gpointer data)
 {
   SuGtkSpectrum *spect = SUGTK_SPECTRUM(widget);
-  cairo_surface_t *old_surf0;
-  cairo_surface_t *old_surf1;
-  cairo_t *cr;
-  gsufloat old_g_width;
-  gsufloat ratio;
-
-  /* Update geometry parameters */
-  old_g_width = spect->g_width;
 
   spect->height = event->height;
   spect->width  = event->width;
 
-
-  spect->g_width =
-      spect->width
-      - SUGTK_SPECTRUM_LEFT_PADDING
-      - SUGTK_SPECTRUM_RIGHT_PADDING
-      - 2;
-
-  spect->g_height =
-      spect->height
-        - SUGTK_SPECTRUM_TOP_PADDING
-        - SUGTK_SPECTRUM_BOTTOM_PADDING
-        - 2;
-
-  /* Save waterfall surfaces for posterior rescaling  */
-  old_surf0 = spect->sf_wf[0];
-  old_surf1 = spect->sf_wf[1];
-
-  /* Create similar surfaces */
-  if (spect->sf_spectrum != NULL)
-    cairo_surface_destroy(spect->sf_spectrum);
-
-  spect->sf_spectrum = gdk_window_create_similar_surface(
-      gtk_widget_get_window(widget),
-      CAIRO_CONTENT_COLOR,
-      spect->width,
-      spect->height);
-
-  spect->sf_wf[0] = gdk_window_create_similar_surface(
-      gtk_widget_get_window(widget),
-      CAIRO_CONTENT_COLOR,
-      spect->g_width,
-      spect->g_height);
-
-  spect->sf_wf[1] = gdk_window_create_similar_surface(
-      gtk_widget_get_window(widget),
-      CAIRO_CONTENT_COLOR,
-      spect->g_width,
-      spect->g_height);
-
-  /* Rescale existing waterfall according to the new ratio */
-  ratio = spect->g_width / old_g_width;
-
-  if (old_surf0 != NULL) {
-    cr = cairo_create(spect->sf_wf[0]);
-    if (ratio != 1) {
-      cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
-      cairo_scale(cr, ratio, 1);
-    }
-    cairo_set_source_surface(cr, old_surf0, 0, 0);
-    cairo_paint(cr);
-    cairo_destroy(cr);
-    cairo_surface_destroy(old_surf0);
-  }
-
-  if (old_surf1 != NULL) {
-    cr = cairo_create(spect->sf_wf[1]);
-    if (ratio != 1) {
-      cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
-      cairo_scale(cr, ratio, 1);
-    }
-    cairo_set_source_surface(cr, old_surf1, 0, 0);
-    cairo_paint(cr);
-    cairo_destroy(cr);
-    cairo_surface_destroy(old_surf1);
-  }
+  sugtk_spectrum_reconfigure_surfaces(spect);
 
   sugtk_spectrum_refresh_hard(spect);
 
@@ -1259,19 +1343,16 @@ sugtk_spectrum_on_motion_notify_event(
   ev_adjusted.x = round(ev->x);
 
   if (ev_adjusted.state & GDK_BUTTON1_MASK) {
-    selection_mode = ev_adjusted.state & GDK_SHIFT_MASK;
+    selection_mode = !(ev_adjusted.state & GDK_SHIFT_MASK);
 
     /* Check whether dragging mode is enabled */
-    if (!selection_mode)
+    if (!selection_mode) {
       sugtk_spectrum_parse_dragging(spectrum, &ev_adjusted);
-    else
-      spectrum->dragging = FALSE;
-
-    /* Check whether selection mode is enabled */
-    if (selection_mode)
-      sugtk_spectrum_parse_selection(spectrum, &ev_adjusted);
-    else
       spectrum->selecting = FALSE;
+    } else {
+      sugtk_spectrum_parse_selection(spectrum, &ev_adjusted);
+      spectrum->dragging = FALSE;
+    }
   } else {
     spectrum->dragging  = FALSE;
     spectrum->selecting = FALSE;

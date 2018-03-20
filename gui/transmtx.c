@@ -43,7 +43,8 @@ sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
   complex phi_step, phi0;
   complex phi_j, phi_i;
   guint i, j, ndx;
-  const double dashes[] = {4.};
+  const double thres_dashes[] = {1.};
+  const double circ_dashes[] = {4.};
 
   cairo_set_source_rgb(cr, 0, 0, 0);
   cairo_paint(cr);
@@ -76,7 +77,7 @@ sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
 
     cairo_set_line_width(cr, 1);
     cairo_set_source_rgb(cr, .5, .5, .5);
-    cairo_set_dash(cr, dashes, 1, 0);
+    cairo_set_dash(cr, circ_dashes, 1, 0);
 
     cairo_stroke(cr);
 
@@ -88,7 +89,7 @@ sugtk_trans_mtx_draw_graph(SuGtkTransMtx *mtx, cairo_t *cr)
 
       cairo_set_line_width(cr, 1);
       cairo_set_source_rgb(cr, .5, .5, .5);
-      cairo_set_dash(cr, dashes, 1, 0);
+      cairo_set_dash(cr, thres_dashes, 1, 0);
       cairo_move_to(cr, x0, y0);
       cairo_line_to(cr, w_half, h_half);
       cairo_stroke(cr);

@@ -216,8 +216,14 @@ suscan_spectrum_on_settings_changed(GtkWidget *widget, gpointer data)
   sugtk_spectrum_set_mode(
       gui->spectrum,
       gtk_toggle_button_get_active(gui->waterfallModeToggleButton)
-        ? SUGTK_SPECTRUM_MODE_WATERFALL
+        ? SUGTK_SPECTRUM_MODE_BOTH
         : SUGTK_SPECTRUM_MODE_SPECTROGRAM);
+
+  gtk_button_set_label(
+      GTK_BUTTON(gui->waterfallModeToggleButton),
+      gtk_toggle_button_get_active(gui->waterfallModeToggleButton)
+      ? "Waterfall"
+      : "Spectrogram");
 
   gtk_widget_set_sensitive(
       GTK_WIDGET(gui->gainScale),

@@ -46,7 +46,7 @@ G_DEFINE_TYPE(SuGtkConstellation, sugtk_constellation, GTK_TYPE_DRAWING_AREA);
 static void
 sugtk_constellation_redraw(SuGtkConstellation *constellation)
 {
-  static const double axis_pattern[] = {5.0, 5.0};
+  static const double axis_pattern[] = {1.0, 1.0};
   gfloat bright;
   guint i, n;
   cairo_t *cr;
