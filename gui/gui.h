@@ -169,6 +169,9 @@ struct suscan_gui {
 
   /* Keep a list of the last configurations used */
   PTR_LIST(struct suscan_gui_recent, recent);
+
+  /* Flag to prevent nested callback calling */
+  SUBOOL updating_settings;
 };
 
 typedef struct suscan_gui suscan_gui_t;
