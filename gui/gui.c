@@ -661,7 +661,7 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->spectrumSampleRate =
+      gui->spectrumSampleRateLabel =
           GTK_LABEL(gtk_builder_get_object(
               gui->builder,
               "lSpectrumSampleRate")),

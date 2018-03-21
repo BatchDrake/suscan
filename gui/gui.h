@@ -117,7 +117,7 @@ struct suscan_gui {
   GtkLevelBar *n0LevelBar;
   GtkLabel *n0Label;
 
-  GtkLabel *spectrumSampleRate;
+  GtkLabel *spectrumSampleRateLabel;
   GtkLabel *spectrumDbsPerDivLabel;
   GtkLabel *spectrumRefLevelLabel;
   GtkLabel *spectrumFreqScaleLabel;
@@ -158,7 +158,6 @@ struct suscan_gui {
   GThread *async_thread;
 
   /* Main spectrum */
-  SUSCOUNT current_samp_rate;
   SuGtkSpectrum *spectrum;
 
   /* Inspector tab list */

@@ -95,6 +95,7 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      gtk_label_set_text(gui->spectrumSampleRateLabel, "N/A");
       sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       break;
 
@@ -267,6 +268,9 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_psd_msg *msg;
   char text[32];
+  static const char *units[] = {"sps", "ksps", "Msps"};
+  SUFLOAT fs;
+  unsigned int i;
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_psd_msg *) envelope->private;
@@ -291,6 +295,18 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
       "%.2lg dB",
       sugtk_spectrum_get_dbs_per_div(envelope->gui->spectrum));
   gtk_label_set_text(envelope->gui->spectrumDbsPerDivLabel, text);
+
+  fs = msg->samp_rate;
+
+  for (i = 0; i < 3 && fs > 1e3; ++i)
+    fs *= 1e-3;
+
+  if (i == 3)
+    snprintf(text, sizeof(text), "ridiculous");
+  else
+    snprintf(text, sizeof(text), "%lg %s", fs, units[i]);
+
+  gtk_label_set_text(envelope->gui->spectrumSampleRateLabel, text);
 
   sugtk_spectrum_update_from_psd_msg(
       envelope->gui->spectrum,
