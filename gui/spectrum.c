@@ -42,6 +42,16 @@ SUGTK_SPECTRUM_SETTER_PROTO(type, name)     \
   spect->name = value;                      \
 }
 
+#define SUGTK_SPECTRUM_SETTER_REDRAW(type, name)  \
+SUGTK_SPECTRUM_SETTER_PROTO(type, name)           \
+{                                                 \
+  spect->name = value;                            \
+                                                  \
+  sugtk_spectrum_reconfigure_surfaces(spect);     \
+                                                  \
+  sugtk_spectrum_refresh_hard(spect);             \
+}
+
 #define SUGTK_SPECTRUM_GETTER(type, name)   \
 SUGTK_SPECTRUM_GETTER_PROTO(type, name)     \
 {                                           \
@@ -957,6 +967,8 @@ SUGTK_SPECTRUM_SETTER(gboolean, auto_level);
 SUGTK_SPECTRUM_SETTER(gboolean, dc_skip);
 SUGTK_SPECTRUM_SETTER(gboolean, smooth_N0);
 SUGTK_SPECTRUM_SETTER(gboolean, has_menu);
+SUGTK_SPECTRUM_SETTER_REDRAW(enum SuGtkSpectrumMode, mode);
+SUGTK_SPECTRUM_SETTER_REDRAW(gsufloat, s_wf_ratio);
 SUGTK_SPECTRUM_SETTER(gsufloat, freq_offset);
 SUGTK_SPECTRUM_SETTER(gsufloat, freq_scale);
 SUGTK_SPECTRUM_SETTER(gsufloat, ref_level);
@@ -971,6 +983,7 @@ SUGTK_SPECTRUM_GETTER(gboolean, dc_skip);
 SUGTK_SPECTRUM_GETTER(gboolean, smooth_N0);
 SUGTK_SPECTRUM_GETTER(gboolean, has_menu);
 SUGTK_SPECTRUM_GETTER(enum SuGtkSpectrumMode, mode);
+SUGTK_SPECTRUM_GETTER(gsufloat, s_wf_ratio);
 SUGTK_SPECTRUM_GETTER(gsufloat, freq_offset);
 SUGTK_SPECTRUM_GETTER(gsufloat, freq_scale);
 SUGTK_SPECTRUM_GETTER(gsufloat, ref_level);
@@ -978,16 +991,6 @@ SUGTK_SPECTRUM_GETTER(gsufloat, dbs_per_div);
 SUGTK_SPECTRUM_GETTER(gsufloat, agc_alpha);
 SUGTK_SPECTRUM_GETTER(gsufloat, N0);
 SUGTK_SPECTRUM_GETTER(guint, samp_rate);
-
-SUGTK_SPECTRUM_SETTER_PROTO(enum SuGtkSpectrumMode, mode)
-{
-  /* Setting the spectrum mode is kind of tricky */
-  spect->mode = value;
-
-  sugtk_spectrum_reconfigure_surfaces(spect);
-
-  sugtk_spectrum_refresh_hard(spect);
-}
 
 void
 sugtk_spectrum_update(
@@ -999,11 +1002,11 @@ sugtk_spectrum_update(
     gsufloat N0)
 {
   gsufloat *old_data = spect->psd_data;
-  guint    old_size = spect->psd_size;
+  guint     old_size = spect->psd_size;
   gsufloat  max = 0;
   gsufloat  range;
-  guint    i;
-  guint    skip;
+  guint     i;
+  guint     skip;
 
   spect->fc        = fc;
   spect->psd_data  = spectrum_data;

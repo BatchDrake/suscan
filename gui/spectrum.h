@@ -108,7 +108,7 @@ struct _SuGtkSpectrum
   /* Spectrum data */
   gsufloat *psd_data;
   gsufloat *psd_data_smooth;
-  guint    psd_size;
+  guint     psd_size;
   gsufloat  N0;
   gsufloat  fc;
 
@@ -217,6 +217,7 @@ SUGTK_SPECTRUM_SETTER_PROTO(gboolean, dc_skip);
 SUGTK_SPECTRUM_SETTER_PROTO(gboolean, smooth_N0);
 SUGTK_SPECTRUM_SETTER_PROTO(gboolean, has_menu);
 SUGTK_SPECTRUM_SETTER_PROTO(enum SuGtkSpectrumMode, mode);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, s_wf_ratio);
 SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, freq_offset);
 SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, freq_scale);
 SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, ref_level);
@@ -231,6 +232,7 @@ SUGTK_SPECTRUM_GETTER_PROTO(gboolean, dc_skip);
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, smooth_N0);
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, has_menu);
 SUGTK_SPECTRUM_GETTER_PROTO(enum SuGtkSpectrumMode, mode);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, s_wf_ratio);
 SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, freq_offset);
 SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, freq_scale);
 SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, ref_level);
