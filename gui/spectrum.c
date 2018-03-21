@@ -582,7 +582,7 @@ sugtk_spectrum_redraw_levels(SuGtkSpectrum *spect, cairo_t *cr)
       cr,
       "Inconsolata",
       CAIRO_FONT_SLANT_NORMAL,
-      CAIRO_FONT_WEIGHT_NORMAL);
+      CAIRO_FONT_WEIGHT_BOLD);
 
   cairo_set_source_rgba(cr, 1, 1, 1, 1);
 
@@ -669,7 +669,7 @@ sugtk_spectrum_redraw_axes(SuGtkSpectrum *spectrum, cairo_t *cr)
       if (i == 0)
         cairo_set_source_rgb(cr, 1, 1, 1);
       else
-        cairo_set_source_rgb(cr, 0, 0.5, 0);
+        cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
 
       cairo_move_to(
           cr,
@@ -706,8 +706,18 @@ sugtk_spectrum_redraw_axes(SuGtkSpectrum *spectrum, cairo_t *cr)
   }
 
   /* Draw border */
-  cairo_set_source_rgb(cr, 0, 0.5, 0);
+  cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
   cairo_set_dash(cr, NULL, 0, 0);
+
+  if (spectrum->mode == SUGTK_SPECTRUM_MODE_BOTH) {
+    cairo_move_to(
+        cr,
+        SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(spectrum, -.5, -1));
+    cairo_line_to(
+        cr,
+        SUGTK_SPECTRUM_SPECTROGRAM_TO_SCR(spectrum, .5, -1));
+  }
+
   cairo_move_to(
       cr,
       SUGTK_SPECTRUM_TO_SCR(spectrum, -.5, 0));
