@@ -201,6 +201,14 @@ suscan_on_source_changed(GtkWidget *widget, gpointer data)
 }
 
 void
+suscan_spectrum_on_center(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  sugtk_spectrum_set_freq_offset(gui->spectrum, 0);
+}
+
+void
 suscan_spectrum_on_settings_changed(GtkWidget *widget, gpointer data)
 {
   suscan_gui_t *gui = (suscan_gui_t *) data;
@@ -220,12 +228,6 @@ suscan_spectrum_on_settings_changed(GtkWidget *widget, gpointer data)
         gtk_toggle_button_get_active(gui->autoGainToggleButton));
 
     auto_level = sugtk_spectrum_get_auto_level(gui->spectrum);
-
-    sugtk_spectrum_set_mode(
-        gui->spectrum,
-        gtk_toggle_button_get_active(gui->waterfallModeToggleButton)
-          ? SUGTK_SPECTRUM_MODE_BOTH
-          : SUGTK_SPECTRUM_MODE_SPECTROGRAM);
 
     if (sugtk_spectrum_get_s_wf_ratio(gui->spectrum) !=
         gtk_range_get_value(GTK_RANGE(gui->panadapterScale)))
@@ -250,12 +252,6 @@ suscan_spectrum_on_settings_changed(GtkWidget *widget, gpointer data)
             gtk_range_get_value(GTK_RANGE(gui->rangeScale)));
       }
     }
-
-    gtk_button_set_label(
-        GTK_BUTTON(gui->waterfallModeToggleButton),
-        gtk_toggle_button_get_active(gui->waterfallModeToggleButton)
-        ? "Waterfall"
-        : "Spectrogram");
 
     gtk_widget_set_sensitive(
         GTK_WIDGET(gui->gainScale),

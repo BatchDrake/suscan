@@ -92,7 +92,6 @@ struct suscan_gui {
   GtkBox *freqBox;
   SuGtkLcd *freqLcd;
 
-  GtkToggleButton   *waterfallModeToggleButton;
   GtkToggleButton   *overlayChannelToggleButton;
   GtkToggleButton   *autoGainToggleButton;
   GtkScale          *gainScale;
@@ -117,11 +116,8 @@ struct suscan_gui {
   GtkLevelBar *n0LevelBar;
   GtkLabel *n0Label;
 
+  /* Source summary */
   GtkLabel *spectrumSampleRateLabel;
-  GtkLabel *spectrumDbsPerDivLabel;
-  GtkLabel *spectrumRefLevelLabel;
-  GtkLabel *spectrumFreqScaleLabel;
-  GtkLabel *spectrumFreqOffsetLabel;
 
   GtkNotebook *analyzerViewsNotebook;
 

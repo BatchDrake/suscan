@@ -1549,8 +1549,6 @@ sugtk_spectrum_init(SuGtkSpectrum *self)
       "scroll-event",
       (GCallback) sugtk_spectrum_on_scroll_event,
       NULL);
-
-  sugtk_spectrum_set_defaults(self);
 }
 
 GtkWidget *
@@ -1573,6 +1571,8 @@ sugtk_spectrum_new(void)
       gtk_separator_menu_item_new());
 
   gtk_widget_set_sensitive(GTK_WIDGET(spect->channelHeaderMenuItem), FALSE);
+
+  sugtk_spectrum_set_defaults(spect);
 
   return GTK_WIDGET(spect);
 }

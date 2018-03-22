@@ -519,113 +519,13 @@
                                             <property name="top_attach">0</property>
                                           </packing>
                                         </child>
-                                        <child>
-                                          <object class="GtkLabel" id="lSpectrumDbsPerDiv">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <property name="halign">start</property>
-                                            <property name="label" translatable="yes">10 dB</property>
-                                          </object>
-                                          <packing>
-                                            <property name="left_attach">1</property>
-                                            <property name="top_attach">1</property>
-                                          </packing>
-                                        </child>
-                                        <child>
-                                          <object class="GtkLabel">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <property name="halign">start</property>
-                                            <property name="hexpand">False</property>
-                                            <property name="label" translatable="yes">dBs/div:</property>
-                                          </object>
-                                          <packing>
-                                            <property name="left_attach">0</property>
-                                            <property name="top_attach">1</property>
-                                          </packing>
-                                        </child>
-                                        <child>
-                                          <object class="GtkLabel">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <property name="halign">start</property>
-                                            <property name="hexpand">False</property>
-                                            <property name="label" translatable="yes">Reference level:</property>
-                                          </object>
-                                          <packing>
-                                            <property name="left_attach">0</property>
-                                            <property name="top_attach">2</property>
-                                          </packing>
-                                        </child>
-                                        <child>
-                                          <object class="GtkLabel">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <property name="halign">start</property>
-                                            <property name="hexpand">False</property>
-                                            <property name="label" translatable="yes">Frequency scale:</property>
-                                          </object>
-                                          <packing>
-                                            <property name="left_attach">0</property>
-                                            <property name="top_attach">3</property>
-                                          </packing>
-                                        </child>
-                                        <child>
-                                          <object class="GtkLabel">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <property name="halign">start</property>
-                                            <property name="hexpand">False</property>
-                                            <property name="label" translatable="yes">Frequency offset:</property>
-                                          </object>
-                                          <packing>
-                                            <property name="left_attach">0</property>
-                                            <property name="top_attach">4</property>
-                                          </packing>
-                                        </child>
-                                        <child>
-                                          <object class="GtkLabel" id="lSpectrumRefLevel">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <property name="halign">start</property>
-                                            <property name="label" translatable="yes">0 dB</property>
-                                          </object>
-                                          <packing>
-                                            <property name="left_attach">1</property>
-                                            <property name="top_attach">2</property>
-                                          </packing>
-                                        </child>
-                                        <child>
-                                          <object class="GtkLabel" id="lSpectrumFreqScale">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <property name="halign">start</property>
-                                            <property name="label" translatable="yes">1x</property>
-                                          </object>
-                                          <packing>
-                                            <property name="left_attach">1</property>
-                                            <property name="top_attach">3</property>
-                                          </packing>
-                                        </child>
-                                        <child>
-                                          <object class="GtkLabel" id="lSpectrumFreqOffset">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <property name="halign">start</property>
-                                            <property name="label" translatable="yes">0 Hz</property>
-                                          </object>
-                                          <packing>
-                                            <property name="left_attach">1</property>
-                                            <property name="top_attach">4</property>
-                                          </packing>
-                                        </child>
                                       </object>
                                     </child>
                                     <child type="label">
                                       <object class="GtkLabel">
                                         <property name="visible">True</property>
                                         <property name="can_focus">False</property>
-                                        <property name="label" translatable="yes">Summary</property>
+                                        <property name="label" translatable="yes">Source summary</property>
                                       </object>
                                     </child>
                                   </object>
@@ -667,23 +567,6 @@
                                             <property name="hexpand">True</property>
                                             <property name="vexpand">True</property>
                                             <child>
-                                              <object class="GtkToggleButton" id="tbWaterfallMode">
-                                                <property name="label" translatable="yes">Spectrum</property>
-                                                <property name="visible">True</property>
-                                                <property name="can_focus">True</property>
-                                                <property name="receives_default">True</property>
-                                                <property name="margin_top">3</property>
-                                                <property name="margin_bottom">3</property>
-                                                <property name="vexpand">False</property>
-                                                <signal name="toggled" handler="suscan_spectrum_on_settings_changed" swapped="no"/>
-                                              </object>
-                                              <packing>
-                                                <property name="left_attach">0</property>
-                                                <property name="top_attach">0</property>
-                                                <property name="width">2</property>
-                                              </packing>
-                                            </child>
-                                            <child>
                                               <object class="GtkToggleButton" id="tbAutoGain">
                                                 <property name="label" translatable="yes">Auto</property>
                                                 <property name="visible">True</property>
@@ -691,7 +574,7 @@
                                                 <property name="receives_default">True</property>
                                                 <property name="margin_top">3</property>
                                                 <property name="margin_bottom">3</property>
-                                                <property name="active">True</property>
+                                                <property name="hexpand">True</property>
                                                 <signal name="toggled" handler="suscan_spectrum_on_settings_changed" swapped="no"/>
                                               </object>
                                               <packing>
@@ -707,7 +590,6 @@
                                                 <property name="receives_default">True</property>
                                                 <property name="margin_top">3</property>
                                                 <property name="margin_bottom">3</property>
-                                                <property name="active">True</property>
                                                 <signal name="toggled" handler="suscan_spectrum_on_settings_changed" swapped="no"/>
                                               </object>
                                               <packing>
@@ -795,6 +677,21 @@
                                               <packing>
                                                 <property name="left_attach">0</property>
                                                 <property name="top_attach">4</property>
+                                              </packing>
+                                            </child>
+                                            <child>
+                                              <object class="GtkButton" id="bCenter">
+                                                <property name="label" translatable="yes">Center</property>
+                                                <property name="visible">True</property>
+                                                <property name="can_focus">True</property>
+                                                <property name="receives_default">True</property>
+                                                <signal name="activate" handler="suscan_spectrum_on_center" swapped="no"/>
+                                                <signal name="clicked" handler="suscan_spectrum_on_center" swapped="no"/>
+                                              </object>
+                                              <packing>
+                                                <property name="left_attach">0</property>
+                                                <property name="top_attach">0</property>
+                                                <property name="width">2</property>
                                               </packing>
                                             </child>
                                           </object>

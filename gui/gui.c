@@ -668,34 +668,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->spectrumDbsPerDivLabel =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lSpectrumDbsPerDiv")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->spectrumRefLevelLabel =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lSpectrumRefLevel")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->spectrumFreqScaleLabel =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lSpectrumFreqScale")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->spectrumFreqOffsetLabel =
-          GTK_LABEL(gtk_builder_get_object(
-            gui->builder,
-            "lSpectrumFreqOffset")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
       gui->analyzerViewsNotebook =
           GTK_NOTEBOOK(gtk_builder_get_object(
             gui->builder,
@@ -728,13 +700,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           GTK_MENU_ITEM(gtk_builder_get_object(
               gui->builder,
               "miEmpty")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->waterfallModeToggleButton =
-          GTK_TOGGLE_BUTTON(gtk_builder_get_object(
-              gui->builder,
-              "tbWaterfallMode")),
           return SU_FALSE);
 
   SU_TRYCATCH(
@@ -900,8 +865,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
       suscan_gui_on_open_inspector,
       gui);
 
-  gtk_toggle_button_set_active(gui->waterfallModeToggleButton, TRUE);
-
   gtk_grid_attach(gui->spectrumGrid, GTK_WIDGET(gui->spectrum), 0, 0, 1, 1);
 
   gtk_widget_set_hexpand(GTK_WIDGET(gui->spectrum), TRUE);
@@ -909,6 +872,22 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
 
   gtk_widget_show(GTK_WIDGET(gui->spectrum));
 
+  sugtk_spectrum_set_mode(gui->spectrum, SUGTK_SPECTRUM_MODE_BOTH);
+  sugtk_spectrum_set_show_channels(gui->spectrum, TRUE);
+
+  /* Update GUI on spectrum state */
+
+  gui->updating_settings = SU_TRUE;
+  gtk_toggle_button_set_active(
+      gui->overlayChannelToggleButton,
+      sugtk_spectrum_get_show_channels(gui->spectrum));
+  gui->updating_settings = SU_FALSE;
+
+  gtk_toggle_button_set_active(
+      gui->autoGainToggleButton,
+      sugtk_spectrum_get_auto_level(gui->spectrum));
+
+  /* Add frequency LCD */
   gui->freqLcd = SUGTK_LCD(sugtk_lcd_new());
   gtk_box_pack_start(gui->freqBox, GTK_WIDGET(gui->freqLcd), TRUE, TRUE, 0);
   gtk_widget_show(GTK_WIDGET(gui->freqLcd));

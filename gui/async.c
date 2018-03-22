@@ -289,13 +289,6 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
       envelope->gui->n0LevelBar,
       1e-2 * (SU_POWER_DB(msg->N0) + 100));
 
-  snprintf(
-      text,
-      sizeof(text),
-      "%.2lg dB",
-      sugtk_spectrum_get_dbs_per_div(envelope->gui->spectrum));
-  gtk_label_set_text(envelope->gui->spectrumDbsPerDivLabel, text);
-
   fs = msg->samp_rate;
 
   for (i = 0; i < 3 && fs > 1e3; ++i)
