@@ -568,7 +568,9 @@ sugtk_sym_view_on_configure_event(
       event->width,
       event->height);
 
-  /* We don't need to queue a refresh here */
+  /* Yup. We needed a hard refresh here after all. */
+  sugtk_sym_view_refresh_hard(view);
+
   return TRUE;
 }
 
@@ -580,6 +582,8 @@ sugtk_sym_view_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
   cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
   cairo_set_source_surface(cr, view->surface, 0, 0);
   cairo_paint(cr);
+
+  return FALSE;
 }
 
 guint
