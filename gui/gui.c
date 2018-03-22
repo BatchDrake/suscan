@@ -876,7 +876,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
   sugtk_spectrum_set_show_channels(gui->spectrum, TRUE);
 
   /* Update GUI on spectrum state */
-
   gui->updating_settings = SU_TRUE;
   gtk_toggle_button_set_active(
       gui->overlayChannelToggleButton,
