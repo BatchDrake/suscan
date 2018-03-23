@@ -309,7 +309,7 @@ sugtk_spectrum_redraw_spectrogram(SuGtkSpectrum *spect, cairo_t *cr)
       cairo_stroke(cr);
     }
 
-    cairo_set_source_rgb(cr, 1., 1., 0);
+    gdk_cairo_set_source_rgba(cr, &spect->fg_color);
 
     step = (int) floor(
         spect->psd_size / (spect->width * spect->freq_scale));
@@ -370,7 +370,7 @@ sugtk_spectrum_move_waterfall(SuGtkSpectrum *spect, gsufloat off_x)
 
   /* Take second surface and dump it to the first with an x-offset */
   cr = cairo_create(spect->sf_wf[0]);
-  cairo_set_source_rgb(cr, 0, 0, 0);
+  gdk_cairo_set_source_rgba(cr, &spect->bg_color);
   cairo_paint(cr);
   cairo_set_source_surface(cr, spect->sf_wf[1], off_x, 0);
   cairo_rectangle(
@@ -397,7 +397,7 @@ sugtk_spectrum_scale_waterfall(SuGtkSpectrum *spect, gsufloat factor)
 
   /* Take second surface and dump it scaled */
   cr = cairo_create(spect->sf_wf[0]);
-  cairo_set_source_rgb(cr, 0, 0, 0);
+  gdk_cairo_set_source_rgba(cr, &spect->bg_color);
   cairo_paint(cr);
   cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
   cairo_translate(cr, spect->g_width / 2, 0);
@@ -495,7 +495,7 @@ sugtk_spectrum_commit_waterfall_line(SuGtkSpectrum *spect)
     sugtk_spectrum_get_waterfall_limits(spect, &start, &end);
 
     /* Set background to black */
-    cairo_set_source_rgb(cr_wf, 0, 0, 0);
+    gdk_cairo_set_source_rgba(cr_wf, &spect->bg_color);
     cairo_move_to(cr_wf, 0, 0);
     cairo_line_to(cr_wf, spect->g_width - 1, 0);
     cairo_stroke(cr_wf);
@@ -573,7 +573,7 @@ sugtk_spectrum_redraw_waterfall(SuGtkSpectrum *spect, cairo_t *cr)
    */
 
   if (spect->show_channels && spect->mode == SUGTK_SPECTRUM_MODE_WATERFALL) {
-    cairo_set_source_rgb(cr, 0, 0, 0);
+    gdk_cairo_set_source_rgba(cr, &spect->bg_color);
     cairo_paint_with_alpha(cr, .5);
   }
 }
@@ -594,7 +594,7 @@ sugtk_spectrum_redraw_levels(SuGtkSpectrum *spect, cairo_t *cr)
       CAIRO_FONT_SLANT_NORMAL,
       CAIRO_FONT_WEIGHT_BOLD);
 
-  cairo_set_source_rgba(cr, 1, 1, 1, 1);
+  gdk_cairo_set_source_rgba(cr, &spect->text_color);
 
   if (spect->mode != SUGTK_SPECTRUM_MODE_WATERFALL)
     for (i = 1; i < SUGTK_SPECTRUM_VERTICAL_DIVS; ++i) {
@@ -677,9 +677,9 @@ sugtk_spectrum_redraw_axes(SuGtkSpectrum *spectrum, cairo_t *cr)
         ++i) {
 
       if (i == 0)
-        cairo_set_source_rgb(cr, 1, 1, 1);
+        gdk_cairo_set_source_rgba(cr, &spectrum->text_color);
       else
-        cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+        gdk_cairo_set_source_rgba(cr, &spectrum->axes_color);
 
       cairo_move_to(
           cr,
@@ -716,7 +716,7 @@ sugtk_spectrum_redraw_axes(SuGtkSpectrum *spectrum, cairo_t *cr)
   }
 
   /* Draw border */
-  cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+  gdk_cairo_set_source_rgba(cr, &spectrum->axes_color);
   cairo_set_dash(cr, NULL, 0, 0);
 
   if (spectrum->mode == SUGTK_SPECTRUM_MODE_BOTH) {
@@ -872,7 +872,7 @@ sugtk_spectrum_redraw(SuGtkSpectrum *spect)
 
   cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
 
-  cairo_set_source_rgb(cr, 0, 0, 0);
+  gdk_cairo_set_source_rgba(cr, &spect->bg_color);
   cairo_paint(cr);
 
   switch (spect->mode) {
@@ -944,6 +944,11 @@ sugtk_spectrum_set_defaults(SuGtkSpectrum *spect)
   spect->agc_alpha     = SUGTK_SPECTRUM_AGC_ALPHA;
   spect->s_wf_ratio    = SUGTK_SPECTRUM_S_WF_RATIO_DEFAULT;
   spect->dc_skip       = TRUE;
+
+  (void) gdk_rgba_parse(&spect->bg_color,   "#000000");
+  (void) gdk_rgba_parse(&spect->fg_color,   "#ffff00");
+  (void) gdk_rgba_parse(&spect->axes_color, "#808080");
+  (void) gdk_rgba_parse(&spect->text_color, "#ffffff");
 }
 
 void
@@ -976,6 +981,10 @@ SUGTK_SPECTRUM_SETTER_REDRAW(gsufloat, dbs_per_div);
 SUGTK_SPECTRUM_SETTER(gsufloat, agc_alpha);
 SUGTK_SPECTRUM_SETTER(gsufloat, N0);
 SUGTK_SPECTRUM_SETTER(guint, samp_rate);
+SUGTK_SPECTRUM_SETTER_REDRAW(GdkRGBA, fg_color);
+SUGTK_SPECTRUM_SETTER_REDRAW(GdkRGBA, bg_color);
+SUGTK_SPECTRUM_SETTER_REDRAW(GdkRGBA, text_color);
+SUGTK_SPECTRUM_SETTER_REDRAW(GdkRGBA, axes_color);
 
 SUGTK_SPECTRUM_GETTER(gboolean, show_channels);
 SUGTK_SPECTRUM_GETTER(gboolean, auto_level);
@@ -991,6 +1000,10 @@ SUGTK_SPECTRUM_GETTER(gsufloat, dbs_per_div);
 SUGTK_SPECTRUM_GETTER(gsufloat, agc_alpha);
 SUGTK_SPECTRUM_GETTER(gsufloat, N0);
 SUGTK_SPECTRUM_GETTER(guint, samp_rate);
+SUGTK_SPECTRUM_GETTER(GdkRGBA, fg_color);
+SUGTK_SPECTRUM_GETTER(GdkRGBA, bg_color);
+SUGTK_SPECTRUM_GETTER(GdkRGBA, text_color);
+SUGTK_SPECTRUM_GETTER(GdkRGBA, axes_color);
 
 void
 sugtk_spectrum_update(

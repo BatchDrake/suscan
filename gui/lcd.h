@@ -58,19 +58,19 @@ struct _SuGtkLcd
   gfloat glyph_width;
   gfloat glyph_height;
 
+  /* Computed values */
+  gfloat curr_thickness;
+  gfloat curr_length;
+
+  /* Parameters */
   gfloat thickness;
   gfloat padding;
   gfloat size;
   guint  length;
   gulong value;
 
-  gfloat fg_r;
-  gfloat fg_g;
-  gfloat fg_b;
-
-  gfloat bg_r;
-  gfloat bg_g;
-  gfloat bg_b;
+  GdkRGBA fg_color;
+  GdkRGBA bg_color;
 };
 
 struct _SuGtkLcdClass
@@ -83,6 +83,8 @@ typedef struct _SuGtkLcdClass SuGtkLcdClass;
 
 GType sugtk_lcd_get_type(void);
 GtkWidget *sugtk_lcd_new(void);
+void sugtk_lcd_set_fg_color(SuGtkLcd *lcd, GdkRGBA color);
+void sugtk_lcd_set_bg_color(SuGtkLcd *lcd, GdkRGBA color);
 
 void sugtk_lcd_set_value(SuGtkLcd *lcd, gulong value);
 

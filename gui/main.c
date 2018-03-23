@@ -57,6 +57,9 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
     if (response == 0) { /* Okay pressed */
       config = suscan_gui_get_selected_src_ui(gui);
 
+      /* We load these always */
+      suscan_gui_settings_from_dialog(gui);
+
       if (!suscan_gui_analyzer_params_from_dialog(gui)) {
         suscan_error(
             gui,

@@ -28,18 +28,6 @@
 
 G_DEFINE_TYPE(SuGtkLcd, sugtk_lcd, GTK_TYPE_DRAWING_AREA);
 
-struct sugtk_lcd_seg_params {
-  gfloat thickness;
-  gfloat length;
-  gfloat fg_r;
-  gfloat fg_g;
-  gfloat fg_b;
-
-  gfloat bg_r;
-  gfloat bg_g;
-  gfloat bg_b;
-};
-
 static void
 sugtk_lcd_line_to_ex(
     cairo_t *cr,
@@ -57,35 +45,35 @@ sugtk_lcd_line_to_ex(
 
 static void
 sugtk_lcd_draw_segment(
+    const SuGtkLcd *lcd,
     cairo_surface_t *sf,
     gfloat x,
     gfloat y,
-    gboolean vert,
-    const struct sugtk_lcd_seg_params *params)
+    gboolean vert)
 {
   cairo_t *cr;
   gfloat halfthick;
 
   cr = cairo_create(sf);
 
-  cairo_set_source_rgb(cr, params->fg_r, params->fg_g, params->fg_b);
+  gdk_cairo_set_source_rgba(cr, &lcd->fg_color);
 
-  halfthick = params->thickness / 2;
+  halfthick = lcd->curr_thickness / 2;
 
   cairo_set_line_width(cr, .5);
 
   cairo_line_to(cr, x, y);
 
   sugtk_lcd_line_to_ex(cr, x, y, halfthick, -halfthick, vert);
-  sugtk_lcd_line_to_ex(cr, x, y, params->length - halfthick, -halfthick, vert);
-  sugtk_lcd_line_to_ex(cr, x, y, params->length, 0, vert);
-  sugtk_lcd_line_to_ex(cr, x, y, params->length - halfthick, halfthick, vert);
+  sugtk_lcd_line_to_ex(cr, x, y, lcd->curr_length - halfthick, -halfthick, vert);
+  sugtk_lcd_line_to_ex(cr, x, y, lcd->curr_length, 0, vert);
+  sugtk_lcd_line_to_ex(cr, x, y, lcd->curr_length - halfthick, halfthick, vert);
   sugtk_lcd_line_to_ex(cr, x, y, halfthick, halfthick, vert);
 
   cairo_close_path(cr);
   cairo_fill_preserve(cr);
 
-  cairo_set_source_rgb(cr, params->bg_r, params->bg_g, params->bg_b);
+  gdk_cairo_set_source_rgba(cr, &lcd->bg_color);
   cairo_stroke(cr);
 
   cairo_destroy(cr);
@@ -93,11 +81,11 @@ sugtk_lcd_draw_segment(
 
 static void
 sugtk_lcd_draw_glyph(
+    const SuGtkLcd *lcd,
     cairo_surface_t *sf,
     gfloat x,
     gfloat y,
-    guint segmask,
-    const struct sugtk_lcd_seg_params *params)
+    guint segmask)
 {
   cairo_t *cr;
   unsigned int i;
@@ -112,28 +100,28 @@ sugtk_lcd_draw_glyph(
   };
 
   cr = cairo_create(sf);
-  cairo_set_source_rgb(cr, params->bg_r, params->bg_g, params->bg_b);
+  gdk_cairo_set_source_rgba(cr, &lcd->bg_color);
   cairo_paint(cr);
   cairo_destroy(cr);
 
   for (i = 0; i < 7; ++i)
     if (segmask & (1 << i))
       sugtk_lcd_draw_segment(
+          lcd,
           sf,
-          x + params->length * offsets[i].x,
-          y + params->length * offsets[i].y,
-          offsets[i].vert,
-          params);
+          x + lcd->curr_length * offsets[i].x,
+          y + lcd->curr_length * offsets[i].y,
+          offsets[i].vert);
 }
 
 
 static void
 sugtk_lcd_draw_digit(
+    SuGtkLcd *lcd,
     cairo_surface_t *sf,
     gfloat x,
     gfloat y,
-    guint digit,
-    const struct sugtk_lcd_seg_params *params)
+    guint digit)
 {
   digit = digit % 10;
   static const guint digit_masks[10] = {
@@ -149,7 +137,7 @@ sugtk_lcd_draw_digit(
       /* 9 */ ~SUGTK_LCD_SEG_BOTTOM_LEFT
   };
 
-  sugtk_lcd_draw_glyph(sf, x, y, digit_masks[digit], params);
+  sugtk_lcd_draw_glyph(lcd, sf, x, y, digit_masks[digit]);
 }
 
 static void
@@ -189,17 +177,8 @@ sugtk_lcd_update_glyphs(SuGtkLcd *lcd)
   guint glyph_width  = lcd->glyph_width;
   guint glyph_height = lcd->glyph_height;
 
-  struct sugtk_lcd_seg_params params =
-  {
-      glyph_width * lcd->thickness,
-      (1 - 2 * lcd->padding) * glyph_width, /* length */
-      lcd->fg_r, /* fg_r */
-      lcd->fg_g, /* fg_g */
-      lcd->fg_b, /* fg_b */
-      lcd->bg_r, /* bg_r */
-      lcd->bg_g, /* bg_g */
-      lcd->bg_b  /* bg_b */
-  };
+  lcd->curr_thickness = glyph_width * lcd->thickness;
+  lcd->curr_length = (1 - 2 * lcd->padding) * glyph_width;
 
   for (i = 0; i < 10; ++i) {
     if (lcd->sf_glyphs[i] != NULL)
@@ -212,11 +191,11 @@ sugtk_lcd_update_glyphs(SuGtkLcd *lcd)
           glyph_height);
 
     sugtk_lcd_draw_digit(
+        lcd,
         lcd->sf_glyphs[i],
-        (glyph_width - params.length) / 2,
-        (glyph_height - 2 * params.length) / 2,
-        i,
-        &params);
+        (glyph_width - lcd->curr_length) / 2,
+        (glyph_height - 2 * lcd->curr_length) / 2,
+        i);
   }
 }
 
@@ -232,7 +211,7 @@ sugtk_lcd_update_display(SuGtkLcd *lcd)
 
   cr = cairo_create(lcd->sf_display);
 
-  cairo_set_source_rgb(cr, lcd->bg_r, lcd->bg_g, lcd->bg_b);
+  gdk_cairo_set_source_rgba(cr, &lcd->bg_color);
   cairo_paint(cr);
 
   for (i = 0; i < 10; ++i) {
@@ -242,7 +221,7 @@ sugtk_lcd_update_display(SuGtkLcd *lcd)
     cairo_fill(cr);
 
     if (i % 3 == 0) {
-      cairo_set_source_rgb(cr, lcd->fg_r, lcd->fg_g, lcd->fg_b);
+      gdk_cairo_set_source_rgba(cr, &lcd->fg_color);
       cairo_arc(
           cr,
           p + glyph_width * (1 - .1),
@@ -277,6 +256,37 @@ sugtk_lcd_set_value(SuGtkLcd *lcd, gulong value)
   gtk_widget_queue_draw(GTK_WIDGET(lcd));
 }
 
+static void
+sugtk_lcd_recreate_surfaces(SuGtkLcd *lcd)
+{
+  if (lcd->sf_display != NULL)
+    cairo_surface_destroy(lcd->sf_display);
+
+  lcd->sf_display = gdk_window_create_similar_surface(
+      gtk_widget_get_window(GTK_WIDGET(lcd)),
+      CAIRO_CONTENT_COLOR,
+      lcd->width,
+      lcd->height);
+}
+
+void
+sugtk_lcd_set_fg_color(SuGtkLcd *lcd, GdkRGBA color)
+{
+  lcd->fg_color = color;
+  sugtk_lcd_update_glyphs(lcd);
+  sugtk_lcd_update_display(lcd);
+  gtk_widget_queue_draw(GTK_WIDGET(lcd));
+}
+
+void
+sugtk_lcd_set_bg_color(SuGtkLcd *lcd, GdkRGBA color)
+{
+  lcd->bg_color = color;
+  sugtk_lcd_update_glyphs(lcd);
+  sugtk_lcd_update_display(lcd);
+  gtk_widget_queue_draw(GTK_WIDGET(lcd));
+}
+
 static gboolean
 sugtk_lcd_on_configure_event(
     GtkWidget *widget,
@@ -291,15 +301,7 @@ sugtk_lcd_on_configure_event(
   lcd->glyph_width  = event->height / 2;
   lcd->glyph_height = event->height;
 
-  if (lcd->sf_display != NULL)
-    cairo_surface_destroy(lcd->sf_display);
-
-  lcd->sf_display = gdk_window_create_similar_surface(
-      gtk_widget_get_window(widget),
-      CAIRO_CONTENT_COLOR,
-      lcd->width,
-      lcd->height);
-
+  sugtk_lcd_recreate_surfaces(lcd);
   sugtk_lcd_update_glyphs(lcd);
   sugtk_lcd_update_display(lcd);
 
@@ -338,6 +340,21 @@ sugtk_lcd_init(SuGtkLcd *self)
       "draw",
       (GCallback) sugtk_lcd_on_draw,
       NULL);
+
+  self->size = 20;
+  self->length = 10;
+  self->padding = .2;
+  self->thickness = .2;
+
+  self->fg_color.red   = .15;
+  self->fg_color.green = .15;
+  self->fg_color.blue  = .15;
+  self->fg_color.alpha = 1;
+
+  self->bg_color.red   = (gfloat) 0x90 / 0xff;
+  self->bg_color.green = (gfloat) 0xb1 / 0xff;
+  self->bg_color.blue  = (gfloat) 0x56 / 0xff;
+  self->bg_color.alpha = 1;
 }
 
 GtkWidget *
@@ -346,20 +363,9 @@ sugtk_lcd_new(void)
   GtkWidget *widget = (GtkWidget *) g_object_new(SUGTK_TYPE_LCD, NULL);
   SuGtkLcd *lcd = SUGTK_LCD(widget);
 
-  lcd->size = 20;
-  lcd->length = 10;
-  lcd->padding = .2;
-  lcd->thickness = .2;
-
-  lcd->fg_r = .15;
-  lcd->fg_g = .15;
-  lcd->fg_b = .15;
-
-  lcd->bg_r = (gfloat) 0x90 / 0xff;
-  lcd->bg_g = (gfloat) 0xb1 / 0xff;
-  lcd->bg_b = (gfloat) 0x56 / 0xff;
-
-  gtk_widget_set_size_request(widget, lcd->size * (lcd->length + 2), 2 * lcd->size);
+  gtk_widget_set_size_request(
+      widget,
+      lcd->size * (lcd->length + 2), 2 * lcd->size);
 
   return widget;
 }

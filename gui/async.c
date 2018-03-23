@@ -169,7 +169,7 @@ suscan_async_stopped_cb(gpointer user_data)
        * and exit main loop
        */
       suscan_gui_store_recent(gui);
-      suscan_gui_store_analyzer_params(gui);
+      suscan_gui_store_settings(gui);
       suscan_gui_destroy(gui);
       gtk_main_quit();
       break;
@@ -391,6 +391,9 @@ suscan_async_parse_inspector_msg(gpointer user_data)
               msg->config,
               msg->handle),
           goto done);
+
+      /* Apply current GUI settings */
+      suscan_gui_apply_settings_on_inspector(envelope->gui, new_insp);
 
       /* Add available estimators */
       for (i = 0; i < msg->estimator_count; ++i)
@@ -712,7 +715,7 @@ suscan_gui_quit(suscan_gui_t *gui)
     case SUSCAN_GUI_STATE_STOPPED:
       /* GUI already stopped, proceed to stop safely */
       suscan_gui_store_recent(gui);
-      suscan_gui_store_analyzer_params(gui);
+      suscan_gui_store_settings(gui);
       suscan_gui_destroy(gui);
       gtk_main_quit();
       break;

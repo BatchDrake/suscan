@@ -16,6 +16,7 @@
 - Add measurements menu to inspector spectrum
 - Save channel list as XML
 - Fix spectrum glitches on poor noise floor level calculation
+- Save inspector configuration as a .c file
 
 #### Desirable
 - Add SoapySDR support

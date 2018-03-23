@@ -218,6 +218,96 @@ suscan_gui_text_entry_get_scount(GtkEntry *entry, SUSCOUNT *result)
   return TRUE;
 }
 
+void
+suscan_gui_settings_to_dialog(suscan_gui_t *gui)
+{
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paFgColorButton),
+      &gui->settings.pa_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paBgColorButton),
+      &gui->settings.pa_bg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paTextColorButton),
+      &gui->settings.pa_text);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspFgColorButton),
+      &gui->settings.insp_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspBgColorButton),
+      &gui->settings.insp_bg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspTextColorButton),
+      &gui->settings.insp_text);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdFgColorButton),
+      &gui->settings.lcd_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdBgColorButton),
+      &gui->settings.lcd_bg);
+}
+
+void
+suscan_gui_settings_from_dialog(suscan_gui_t *gui)
+{
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paFgColorButton),
+      &gui->settings.pa_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paBgColorButton),
+      &gui->settings.pa_bg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paTextColorButton),
+      &gui->settings.pa_text);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspFgColorButton),
+      &gui->settings.insp_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspBgColorButton),
+      &gui->settings.insp_bg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspAxesColorButton),
+      &gui->settings.insp_axes);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspTextColorButton),
+      &gui->settings.insp_text);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdFgColorButton),
+      &gui->settings.lcd_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdBgColorButton),
+      &gui->settings.lcd_bg);
+
+  suscan_gui_apply_settings(gui);
+}
+
 SUBOOL
 suscan_gui_analyzer_params_from_dialog(suscan_gui_t *gui)
 {
@@ -849,13 +939,86 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "bFreq")),
           return SU_FALSE);
 
+  /* Settings dialog widgets */
+  SU_TRYCATCH(
+      gui->paFgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbPaFg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->paBgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbPaBg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->paTextColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbPaText")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->paAxesColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbPaAxes")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->inspFgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbInspFg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->inspBgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbInspBg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->inspTextColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbInspText")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->inspAxesColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbInspAxes")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->lcdFgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbLcdFg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->lcdBgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbLcdBg")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
 
   gtk_combo_box_set_active(gui->sourceCombo, 0);
 
+  /* Update preferences */
   suscan_gui_analyzer_params_to_dialog(gui);
+  suscan_gui_settings_to_dialog(gui);
 
   /* Add spectrum view */
   gui->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
@@ -1051,6 +1214,39 @@ suscan_quit_cb(GtkWidget *obj, gpointer data)
   suscan_gui_quit(gui);
 }
 
+void
+suscan_gui_apply_settings_on_inspector(
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp)
+{
+  sugtk_spectrum_set_fg_color(insp->spectrum, gui->settings.insp_fg);
+  sugtk_spectrum_set_bg_color(insp->spectrum, gui->settings.insp_bg);
+  sugtk_spectrum_set_text_color(insp->spectrum, gui->settings.insp_text);
+  sugtk_spectrum_set_axes_color(insp->spectrum, gui->settings.insp_axes);
+
+  sugtk_constellation_set_fg_color(insp->constellation, gui->settings.insp_fg);
+  sugtk_constellation_set_bg_color(insp->constellation, gui->settings.insp_bg);
+  sugtk_constellation_set_axes_color(insp->constellation, gui->settings.insp_axes);
+}
+
+void
+suscan_gui_apply_settings(suscan_gui_t *gui)
+{
+  unsigned int i;
+
+  sugtk_spectrum_set_fg_color(gui->spectrum, gui->settings.pa_fg);
+  sugtk_spectrum_set_bg_color(gui->spectrum, gui->settings.pa_bg);
+  sugtk_spectrum_set_text_color(gui->spectrum, gui->settings.pa_text);
+  sugtk_spectrum_set_axes_color(gui->spectrum, gui->settings.pa_axes);
+
+  sugtk_lcd_set_fg_color(gui->freqLcd, gui->settings.lcd_fg);
+  sugtk_lcd_set_bg_color(gui->freqLcd, gui->settings.lcd_bg);
+
+  for (i = 0; i < gui->inspector_count; ++i)
+    if (gui->inspector_list[i] != NULL)
+      suscan_gui_apply_settings_on_inspector(gui, gui->inspector_list[i]);
+}
+
 suscan_gui_t *
 suscan_gui_new(int argc, char **argv)
 {
@@ -1077,7 +1273,7 @@ suscan_gui_new(int argc, char **argv)
   SU_TRYCATCH(gui = calloc(1, sizeof(suscan_gui_t)), goto fail);
 
   SU_TRYCATCH(
-      gui->settings = g_settings_new(SUSCAN_GUI_SETTINGS_ID),
+      gui->g_settings = g_settings_new(SUSCAN_GUI_SETTINGS_ID),
       goto fail);
 
   SU_TRYCATCH(
@@ -1086,9 +1282,11 @@ suscan_gui_new(int argc, char **argv)
 
   gtk_builder_connect_signals(gui->builder, gui);
 
-  suscan_gui_retrieve_analyzer_params(gui);
+  suscan_gui_load_settings(gui);
 
   SU_TRYCATCH(suscan_gui_load_all_widgets(gui), goto fail);
+
+  suscan_gui_apply_settings(gui);
 
   g_signal_connect(
       GTK_WIDGET(gui->main),

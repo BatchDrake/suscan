@@ -21,15 +21,10 @@
 #ifndef _GUI_SPECTRUM_H
 #define _GUI_SPECTRUM_H
 
-#include <glib-object.h>
-#include <gtk/gtk.h>
-#include <util.h>
-#include <stdint.h>
+#include "sugtk.h"
 #include <sigutils/softtune.h>
 
 G_BEGIN_DECLS
-
-typedef SUFLOAT gsufloat;
 
 #define SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS 40 /* 25 fps */
 #define SUGTK_TYPE_SPECTRUM            (sugtk_spectrum_get_type ())
@@ -118,6 +113,12 @@ struct _SuGtkSpectrum
   /* Widget geometry */
   gsufloat width;
   gsufloat height;
+
+  /* Colors */
+  GdkRGBA fg_color;
+  GdkRGBA bg_color;
+  GdkRGBA text_color;
+  GdkRGBA axes_color;
 
   /* Geometry of the plot area */
   gsufloat g_width;
@@ -225,6 +226,10 @@ SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, dbs_per_div);
 SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, agc_alpha);
 SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, N0);
 SUGTK_SPECTRUM_SETTER_PROTO(guint, samp_rate);
+SUGTK_SPECTRUM_SETTER_PROTO(GdkRGBA, fg_color);
+SUGTK_SPECTRUM_SETTER_PROTO(GdkRGBA, bg_color);
+SUGTK_SPECTRUM_SETTER_PROTO(GdkRGBA, text_color);
+SUGTK_SPECTRUM_SETTER_PROTO(GdkRGBA, axes_color);
 
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, show_channels);
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, auto_level);
@@ -240,6 +245,10 @@ SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, dbs_per_div);
 SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, agc_alpha);
 SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, N0);
 SUGTK_SPECTRUM_GETTER_PROTO(guint, samp_rate);
+SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, fg_color);
+SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, bg_color);
+SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, text_color);
+SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, axes_color);
 
 G_END_DECLS
 
