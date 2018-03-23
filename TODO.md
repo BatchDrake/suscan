@@ -11,6 +11,10 @@
 - Change Start/Stop button color
 - Add option to save inspector configuration
 - Tweak throttle speed
+- Add button to freeze channel view
+- Add channel view context menu
+- Add measurements menu to inspector spectrum
+- Save channel list as XML
 
 #### Desirable
 - Add SoapySDR support
