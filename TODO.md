@@ -15,6 +15,7 @@
 - Add channel view context menu
 - Add measurements menu to inspector spectrum
 - Save channel list as XML
+- Fix spectrum glitches on poor noise floor level calculation
 
 #### Desirable
 - Add SoapySDR support
