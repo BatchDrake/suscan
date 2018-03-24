@@ -28,7 +28,7 @@
 #include "worker.h"
 #include "source.h"
 #include "throttle.h"
-#include "inspector.h"
+#include "inspector/inspector.h"
 #include "inspsched.h"
 
 #define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.5

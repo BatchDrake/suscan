@@ -122,7 +122,6 @@ struct suscan_analyzer_inspector_msg {
     };
 
     struct suscan_analyzer_params params;
-    struct suscan_inspector_params insp_params;
   };
 };
 

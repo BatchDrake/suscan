@@ -32,7 +32,7 @@
 
 #include <sigutils/sigutils.h>
 
-#include "inspector.h"
+#include "inspector/inspector.h"
 #include "mq.h"
 #include "msg.h"
 
