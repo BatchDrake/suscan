@@ -21,15 +21,10 @@
 #ifndef _GUI_SPECTRUM_H
 #define _GUI_SPECTRUM_H
 
-#include <glib-object.h>
-#include <gtk/gtk.h>
-#include <util.h>
-#include <stdint.h>
+#include "sugtk.h"
 #include <sigutils/softtune.h>
 
 G_BEGIN_DECLS
-
-typedef SUFLOAT gsufloat;
 
 #define SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS 40 /* 25 fps */
 #define SUGTK_TYPE_SPECTRUM            (sugtk_spectrum_get_type ())
@@ -63,7 +58,8 @@ typedef SUFLOAT gsufloat;
 #define SUGTK_SPECTRUM_FREQ_SCALE_DEFAULT  1
 #define SUGTK_SPECTRUM_DBS_PER_DIV_DEFAULT 10
 #define SUGTK_SPECTRUM_REF_LEVEL_DEFAULT   0
-#define SUGTK_SPECTRUM_AGC_ALPHA .1
+#define SUGTK_SPECTRUM_AGC_ALPHA           .1
+#define SUGTK_SPECTRUM_S_WF_RATIO_DEFAULT  .25
 
 #define SUGTK_SPECTRUM_SETTER_PROTO(type, name) \
   void JOIN(sugtk_spectrum_set_, name) (SuGtkSpectrum *spect, type value)
@@ -81,6 +77,7 @@ enum SuGtkSpectrumParam {
 enum SuGtkSpectrumMode {
   SUGTK_SPECTRUM_MODE_SPECTROGRAM,
   SUGTK_SPECTRUM_MODE_WATERFALL,
+  SUGTK_SPECTRUM_MODE_BOTH
 };
 
 struct _SuGtkSpectrum;
@@ -106,7 +103,7 @@ struct _SuGtkSpectrum
   /* Spectrum data */
   gsufloat *psd_data;
   gsufloat *psd_data_smooth;
-  guint    psd_size;
+  guint     psd_size;
   gsufloat  N0;
   gsufloat  fc;
 
@@ -117,9 +114,20 @@ struct _SuGtkSpectrum
   gsufloat width;
   gsufloat height;
 
+  /* Colors */
+  GdkRGBA fg_color;
+  GdkRGBA bg_color;
+  GdkRGBA text_color;
+  GdkRGBA axes_color;
+
   /* Geometry of the plot area */
   gsufloat g_width;
-  gsufloat g_height;
+  gsufloat g_height; /* Used by axes */
+  gsufloat s_height; /* Spectrum height */
+  gsufloat w_height; /* Waterfall height */
+
+  gsufloat s_wf_ratio;
+  gsufloat w_top;
 
   /* Surfaces */
   cairo_surface_t *sf_spectrum; /* This is actually the main surface */
@@ -140,7 +148,7 @@ struct _SuGtkSpectrum
   gboolean auto_level;
   gboolean dc_skip;
   gboolean smooth_N0;
-  gsufloat  agc_alpha;
+  gsufloat agc_alpha;
 
   /* Autolevel state */
   gsufloat last_max;
@@ -210,6 +218,7 @@ SUGTK_SPECTRUM_SETTER_PROTO(gboolean, dc_skip);
 SUGTK_SPECTRUM_SETTER_PROTO(gboolean, smooth_N0);
 SUGTK_SPECTRUM_SETTER_PROTO(gboolean, has_menu);
 SUGTK_SPECTRUM_SETTER_PROTO(enum SuGtkSpectrumMode, mode);
+SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, s_wf_ratio);
 SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, freq_offset);
 SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, freq_scale);
 SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, ref_level);
@@ -217,6 +226,10 @@ SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, dbs_per_div);
 SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, agc_alpha);
 SUGTK_SPECTRUM_SETTER_PROTO(gsufloat, N0);
 SUGTK_SPECTRUM_SETTER_PROTO(guint, samp_rate);
+SUGTK_SPECTRUM_SETTER_PROTO(GdkRGBA, fg_color);
+SUGTK_SPECTRUM_SETTER_PROTO(GdkRGBA, bg_color);
+SUGTK_SPECTRUM_SETTER_PROTO(GdkRGBA, text_color);
+SUGTK_SPECTRUM_SETTER_PROTO(GdkRGBA, axes_color);
 
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, show_channels);
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, auto_level);
@@ -224,6 +237,7 @@ SUGTK_SPECTRUM_GETTER_PROTO(gboolean, dc_skip);
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, smooth_N0);
 SUGTK_SPECTRUM_GETTER_PROTO(gboolean, has_menu);
 SUGTK_SPECTRUM_GETTER_PROTO(enum SuGtkSpectrumMode, mode);
+SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, s_wf_ratio);
 SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, freq_offset);
 SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, freq_scale);
 SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, ref_level);
@@ -231,6 +245,10 @@ SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, dbs_per_div);
 SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, agc_alpha);
 SUGTK_SPECTRUM_GETTER_PROTO(gsufloat, N0);
 SUGTK_SPECTRUM_GETTER_PROTO(guint, samp_rate);
+SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, fg_color);
+SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, bg_color);
+SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, text_color);
+SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, axes_color);
 
 G_END_DECLS
 

@@ -57,6 +57,9 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
     if (response == 0) { /* Okay pressed */
       config = suscan_gui_get_selected_src_ui(gui);
 
+      /* We load these always */
+      suscan_gui_settings_from_dialog(gui);
+
       if (!suscan_gui_analyzer_params_from_dialog(gui)) {
         suscan_error(
             gui,
@@ -201,34 +204,67 @@ suscan_on_source_changed(GtkWidget *widget, gpointer data)
 }
 
 void
-suscan_spectrum_on_settings_changed(GtkWidget *widget, gpointer data)
+suscan_spectrum_on_center(GtkWidget *widget, gpointer data)
 {
   suscan_gui_t *gui = (suscan_gui_t *) data;
 
-  sugtk_spectrum_set_show_channels(
-      gui->spectrum,
-      gtk_toggle_tool_button_get_active(gui->overlayChannelToggleButton));
+  sugtk_spectrum_set_freq_offset(gui->spectrum, 0);
+}
 
-  sugtk_spectrum_set_auto_level(
-      gui->spectrum,
-      gtk_toggle_tool_button_get_active(gui->autoGainToggleButton));
+void
+suscan_spectrum_on_settings_changed(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gboolean auto_level, prev_auto_level;
 
-  if (gtk_check_menu_item_get_active(
-      GTK_CHECK_MENU_ITEM(gui->spectrogramMenuItem)))
-    sugtk_spectrum_set_mode(
+  if (!gui->updating_settings) {
+    gui->updating_settings = SU_TRUE;
+
+    sugtk_spectrum_set_show_channels(
         gui->spectrum,
-        SUGTK_SPECTRUM_MODE_SPECTROGRAM);
-  else if (gtk_check_menu_item_get_active(
-      GTK_CHECK_MENU_ITEM(gui->waterfallMenuItem)))
-    sugtk_spectrum_set_mode(
-        gui->spectrum,
-        SUGTK_SPECTRUM_MODE_WATERFALL);
+        gtk_toggle_button_get_active(gui->overlayChannelToggleButton));
 
-  gtk_widget_set_sensitive(
-      GTK_WIDGET(gui->gainScaleButton),
-      !sugtk_spectrum_get_auto_level(gui->spectrum));
-  gtk_widget_set_sensitive(
-      GTK_WIDGET(gui->rangeScaleButton),
-      !sugtk_spectrum_get_auto_level(gui->spectrum));
+    prev_auto_level = sugtk_spectrum_get_auto_level(gui->spectrum);
+
+    sugtk_spectrum_set_auto_level(
+        gui->spectrum,
+        gtk_toggle_button_get_active(gui->autoGainToggleButton));
+
+    auto_level = sugtk_spectrum_get_auto_level(gui->spectrum);
+
+    if (sugtk_spectrum_get_s_wf_ratio(gui->spectrum) !=
+        gtk_range_get_value(GTK_RANGE(gui->panadapterScale)))
+      sugtk_spectrum_set_s_wf_ratio(
+          gui->spectrum,
+          gtk_range_get_value(GTK_RANGE(gui->panadapterScale)));
+
+    if (!auto_level) {
+      if (prev_auto_level) {
+        gtk_range_set_value(
+            GTK_RANGE(gui->gainScale),
+            sugtk_spectrum_get_ref_level(gui->spectrum));
+        gtk_range_set_value(
+            GTK_RANGE(gui->rangeScale),
+            sugtk_spectrum_get_dbs_per_div(gui->spectrum));
+      } else {
+        sugtk_spectrum_set_ref_level(
+            gui->spectrum,
+            gtk_range_get_value(GTK_RANGE(gui->gainScale)));
+        sugtk_spectrum_set_dbs_per_div(
+            gui->spectrum,
+            gtk_range_get_value(GTK_RANGE(gui->rangeScale)));
+      }
+    }
+
+    gtk_widget_set_sensitive(
+        GTK_WIDGET(gui->gainScale),
+        !sugtk_spectrum_get_auto_level(gui->spectrum));
+    gtk_widget_set_sensitive(
+        GTK_WIDGET(gui->rangeScale),
+        !sugtk_spectrum_get_auto_level(gui->spectrum));
+
+    gui->updating_settings = SU_FALSE;
+  }
+
 }
 

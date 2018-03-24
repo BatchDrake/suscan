@@ -194,7 +194,7 @@ suscan_gui_retrieve_recent(suscan_gui_t *gui)
   unsigned int i = 0;
 
   SU_TRYCATCH(
-      confs = g_settings_get_strv(gui->settings, "recent-sources"),
+      confs = g_settings_get_strv(gui->g_settings, "recent-sources"),
       return);
 
   while (confs[i] != NULL) {
@@ -238,7 +238,7 @@ suscan_gui_store_recent(suscan_gui_t *gui)
       confs[i] = (gchar *) gui->recent_list[i]->conf_string;
     confs[i] = NULL;
 
-    g_settings_set_strv(gui->settings, "recent-sources", confs);
+    g_settings_set_strv(gui->g_settings, "recent-sources", confs);
 
     free(confs);
 

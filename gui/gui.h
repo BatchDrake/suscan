@@ -29,6 +29,7 @@
 #include "spectrum.h"
 #include "inspector.h"
 #include "symtool.h"
+#include "lcd.h"
 
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
@@ -65,9 +66,25 @@ struct suscan_gui_recent {
   struct suscan_source_config *config;
 };
 
+struct suscan_gui_settings {
+  GdkRGBA pa_fg;
+  GdkRGBA pa_bg;
+  GdkRGBA pa_axes;
+  GdkRGBA pa_text;
+
+  GdkRGBA insp_fg;
+  GdkRGBA insp_bg;
+  GdkRGBA insp_axes;
+  GdkRGBA insp_text;
+
+  GdkRGBA lcd_fg;
+  GdkRGBA lcd_bg;
+};
+
 struct suscan_gui {
   /* Application settings */
-  GSettings *settings;
+  GSettings *g_settings;
+  struct suscan_gui_settings settings;
 
   /* Widgets */
   GtkBuilder *builder;
@@ -85,17 +102,17 @@ struct suscan_gui {
   GtkComboBox *sourceCombo;
   GtkHeaderBar *headerBar;
   GtkMenuBar *menuBar;
-  GtkLabel *freqLabel;
   GObject *sourceAlignment;
   GtkMenu *recentMenu;
   GtkMenuItem *emptyMenuItem;
+  GtkBox *freqBox;
+  SuGtkLcd *freqLcd;
 
-  GtkRadioMenuItem    *spectrogramMenuItem;
-  GtkRadioMenuItem    *waterfallMenuItem;
-  GtkToggleToolButton *overlayChannelToggleButton;
-  GtkToggleToolButton *autoGainToggleButton;
-  GtkScaleButton      *gainScaleButton;
-  GtkScaleButton      *rangeScaleButton;
+  GtkToggleButton   *overlayChannelToggleButton;
+  GtkToggleButton   *autoGainToggleButton;
+  GtkScale          *gainScale;
+  GtkScale          *rangeScale;
+  GtkScale          *panadapterScale;
 
   GtkTreeViewColumn *centerFrequencyCol;
   GtkTreeViewColumn *snrCol;
@@ -115,11 +132,22 @@ struct suscan_gui {
   GtkLevelBar *n0LevelBar;
   GtkLabel *n0Label;
 
-  GtkLabel *spectrumSampleRate;
-  GtkLabel *spectrumDbsPerDivLabel;
-  GtkLabel *spectrumRefLevelLabel;
-  GtkLabel *spectrumFreqScaleLabel;
-  GtkLabel *spectrumFreqOffsetLabel;
+  /* Setting dialogs widgets */
+  GtkColorButton *paFgColorButton;
+  GtkColorButton *paBgColorButton;
+  GtkColorButton *paTextColorButton;
+  GtkColorButton *paAxesColorButton;
+
+  GtkColorButton *inspFgColorButton;
+  GtkColorButton *inspBgColorButton;
+  GtkColorButton *inspTextColorButton;
+  GtkColorButton *inspAxesColorButton;
+
+  GtkColorButton *lcdFgColorButton;
+  GtkColorButton *lcdBgColorButton;
+
+  /* Source summary */
+  GtkLabel *spectrumSampleRateLabel;
 
   GtkNotebook *analyzerViewsNotebook;
 
@@ -156,7 +184,6 @@ struct suscan_gui {
   GThread *async_thread;
 
   /* Main spectrum */
-  SUSCOUNT current_samp_rate;
   SuGtkSpectrum *spectrum;
 
   /* Inspector tab list */
@@ -167,11 +194,18 @@ struct suscan_gui {
 
   /* Keep a list of the last configurations used */
   PTR_LIST(struct suscan_gui_recent, recent);
+
+  /* Flag to prevent nested callback calling */
+  SUBOOL updating_settings;
 };
 
 typedef struct suscan_gui suscan_gui_t;
 
 void suscan_gui_destroy(suscan_gui_t *gui);
+
+void suscan_gui_apply_settings_on_inspector(
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp);
 
 suscan_gui_t *suscan_gui_new(int argc, char **argv);
 
@@ -225,6 +259,15 @@ SUBOOL suscan_gui_set_title(suscan_gui_t *gui, const char *title);
 void suscan_gui_set_src_ui(
     suscan_gui_t *gui,
     struct suscan_gui_src_ui *ui);
+
+/* GUI settings */
+void suscan_gui_settings_from_dialog(suscan_gui_t *gui);
+void suscan_gui_settings_to_dialog(suscan_gui_t *gui);
+
+void suscan_gui_apply_settings(suscan_gui_t *gui);
+void suscan_gui_apply_settings_on_inspector(
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp);
 
 /* Analyzer params API */
 void suscan_gui_analyzer_params_to_dialog(suscan_gui_t *gui);
@@ -296,8 +339,8 @@ void suscan_gui_retrieve_recent(suscan_gui_t *gui);
 
 void suscan_gui_store_recent(suscan_gui_t *gui);
 
-void suscan_gui_retrieve_analyzer_params(suscan_gui_t *gui);
+void suscan_gui_load_settings(suscan_gui_t *gui);
 
-void suscan_gui_store_analyzer_params(suscan_gui_t *gui);
+void suscan_gui_store_settings(suscan_gui_t *gui);
 
 #endif /* _GUI_GUI_H */

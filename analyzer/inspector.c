@@ -637,7 +637,7 @@ suscan_inspector_new(SUFLOAT fs, const su_specttuner_channel_t *channel)
           0         /* Frequency hint */,
           bw        /* Arm bandwidth */,
           3         /* Order */,
-          2e-2 * bw /* Loop bandwidth */),
+          1e-2 * bw /* Loop bandwidth */),
       goto fail);
 
   SU_TRYCATCH(
@@ -647,7 +647,7 @@ suscan_inspector_new(SUFLOAT fs, const su_specttuner_channel_t *channel)
           0         /* Frequency hint */,
           bw        /* Arm bandwidth */,
           3         /* Order */,
-          2e-2 * bw /* Loop bandwidth */),
+          1e-2 * bw /* Loop bandwidth */),
       goto fail);
 
   SU_TRYCATCH(
@@ -657,7 +657,7 @@ suscan_inspector_new(SUFLOAT fs, const su_specttuner_channel_t *channel)
           0         /* Frequency hint */,
           bw        /* Arm bandwidth */,
           3         /* Order */,
-          2e-2 * bw /* Loop bandwidth */),
+          1e-2 * bw /* Loop bandwidth */),
       goto fail);
 
   /* Initialize equalizer */

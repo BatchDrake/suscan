@@ -46,7 +46,7 @@ G_DEFINE_TYPE(SuGtkConstellation, sugtk_constellation, GTK_TYPE_DRAWING_AREA);
 static void
 sugtk_constellation_redraw(SuGtkConstellation *constellation)
 {
-  static const double axis_pattern[] = {5.0, 5.0};
+  static const double axis_pattern[] = {1.0, 1.0};
   gfloat bright;
   guint i, n;
   cairo_t *cr;
@@ -55,7 +55,7 @@ sugtk_constellation_redraw(SuGtkConstellation *constellation)
 
   cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
 
-  cairo_set_source_rgb(cr, 0, 0, 0);
+  gdk_cairo_set_source_rgba(cr, &constellation->bg_color);
 
   /* Paint in black */
   cairo_paint(cr);
@@ -63,7 +63,7 @@ sugtk_constellation_redraw(SuGtkConstellation *constellation)
   cairo_set_line_width(cr, 1);
 
   /* Draw axes */
-  cairo_set_source_rgb(cr, 0, 0.5, 0);
+  gdk_cairo_set_source_rgba(cr, &constellation->axes_color);
 
   cairo_set_dash(cr, axis_pattern, 2, 0);
 
@@ -102,7 +102,10 @@ sugtk_constellation_redraw(SuGtkConstellation *constellation)
           * MIN(constellation->width, constellation->height),
         0,
         2 * M_PI);
-    cairo_set_source_rgba(cr, 1.0, 1.0, 0.0, bright);
+
+    constellation->fg_color.alpha = bright;
+
+    gdk_cairo_set_source_rgba(cr, &constellation->fg_color);
 
     cairo_fill_preserve(cr);
 
@@ -200,6 +203,30 @@ sugtk_constellation_on_configure_event(
   return TRUE;
 }
 
+void
+sugtk_constellation_set_fg_color(SuGtkConstellation *constellation, GdkRGBA color)
+{
+  constellation->fg_color = color;
+  sugtk_constellation_redraw(constellation);
+  gtk_widget_queue_draw(GTK_WIDGET(constellation));
+}
+
+void
+sugtk_constellation_set_bg_color(SuGtkConstellation *constellation, GdkRGBA color)
+{
+  constellation->bg_color = color;
+  sugtk_constellation_redraw(constellation);
+  gtk_widget_queue_draw(GTK_WIDGET(constellation));
+}
+
+void
+sugtk_constellation_set_axes_color(SuGtkConstellation *constellation, GdkRGBA color)
+{
+  constellation->axes_color = color;
+  sugtk_constellation_redraw(constellation);
+  gtk_widget_queue_draw(GTK_WIDGET(constellation));
+}
+
 static gboolean
 sugtk_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
@@ -230,6 +257,21 @@ sugtk_constellation_init(SuGtkConstellation *self)
       "draw",
       (GCallback) sugtk_constellation_on_draw,
       NULL);
+
+  self->fg_color.red   = 1;
+  self->fg_color.green = 1;
+  self->fg_color.blue  = 0;
+  self->fg_color.alpha = 1;
+
+  self->bg_color.red   = 0;
+  self->bg_color.green = 0;
+  self->bg_color.blue  = 0;
+  self->bg_color.alpha = 1;
+
+  self->axes_color.red   = .5;
+  self->axes_color.green = .5;
+  self->axes_color.blue  = .5;
+  self->axes_color.alpha = 1;
 
   self->phase = 1;
 }

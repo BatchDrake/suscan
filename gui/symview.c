@@ -568,7 +568,9 @@ sugtk_sym_view_on_configure_event(
       event->width,
       event->height);
 
-  /* We don't need to queue a refresh here */
+  /* Yup. We needed a hard refresh here after all. */
+  sugtk_sym_view_refresh_hard(view);
+
   return TRUE;
 }
 
@@ -580,6 +582,8 @@ sugtk_sym_view_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
   cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
   cairo_set_source_surface(cr, view->surface, 0, 0);
   cairo_paint(cr);
+
+  return FALSE;
 }
 
 guint
@@ -645,10 +649,23 @@ sugtk_sym_view_on_button_release_event(
     gpointer data)
 {
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
+  uint32_t offset;
 
   switch (event->button.button) {
     case GDK_BUTTON_PRIMARY:
-      view->sel_started = FALSE;
+      if (view->sel_started) {
+        view->sel_started = FALSE;
+
+        offset = sugtk_sym_view_coords_to_offset(
+            view,
+            event->motion.x,
+            event->motion.y);
+
+        if (view->sel_off0 == offset) {
+          view->selection = FALSE;
+          sugtk_sym_view_refresh(view);
+        }
+      }
       break;
   }
 

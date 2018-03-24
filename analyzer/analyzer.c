@@ -739,7 +739,7 @@ suscan_analyzer_open_channel(
       SU_NORM2ANG_FREQ(
           SU_ABS2NORM_FREQ(
               analyzer->source.detector->params.samp_rate,
-              chan_info->fc));
+              chan_info->fc - chan_info->ft));
 
   if (params.f0 < 0)
     params.f0 += 2 * PI;

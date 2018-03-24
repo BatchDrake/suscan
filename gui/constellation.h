@@ -56,6 +56,10 @@ struct _SuGtkConstellation
   gcomplex phase;
   gcomplex history[SUGTK_CONSTELLATION_HISTORY];
 
+  GdkRGBA fg_color;
+  GdkRGBA bg_color;
+  GdkRGBA axes_color;
+
   guint p;
 
   struct timeval last_redraw_time;
@@ -82,6 +86,19 @@ void sugtk_constellation_push(SuGtkConstellation *mtx, gcomplex sample);
 
 /* This is what actually triggers the redraw */
 void sugtk_constellation_commit(SuGtkConstellation *mtx);
+
+/* Generic look & feel methods */
+void sugtk_constellation_set_fg_color(
+    SuGtkConstellation *constellation,
+    GdkRGBA color);
+
+void sugtk_constellation_set_bg_color(
+    SuGtkConstellation *constellation,
+    GdkRGBA color);
+
+void sugtk_constellation_set_axes_color(
+    SuGtkConstellation *constellation,
+    GdkRGBA color);
 
 G_END_DECLS
 
