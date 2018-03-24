@@ -48,6 +48,7 @@
     <property name="website">github.com/BatchDrake/suscan</property>
     <property name="website_label" translatable="yes">Main repository at GitHub</property>
     <property name="authors">Gonzalo José Carracedo Carballal &lt;BatchDrake@gmail.com&gt;</property>
+    <property name="translator_credits" translatable="yes">Jacobo Bouzas Quiroga &lt;jacobo.bouzas@mundo-R.com&gt;</property>
     <property name="logo">icon-color-about.png</property>
     <property name="license_type">gpl-3-0</property>
     <child internal-child="vbox">
