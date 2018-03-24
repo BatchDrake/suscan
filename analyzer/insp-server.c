@@ -308,6 +308,7 @@ suscan_analyzer_dispose_inspector_handle(
 SUPRIVATE SUBOOL
 suscan_analyzer_open_inspector(
     suscan_analyzer_t *analyzer,
+    const char *class,
     const struct sigutils_channel *channel,
     struct suscan_analyzer_inspector_msg *msg)
 {
@@ -331,7 +332,7 @@ suscan_analyzer_open_inspector(
    */
   SU_TRYCATCH(
       new = suscan_inspector_new(
-          "psk",
+          class,
           su_channel_detector_get_fs(analyzer->source.detector),
           schan),
       goto fail);
@@ -412,7 +413,10 @@ suscan_analyzer_parse_inspector_msg(
   switch (msg->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
       SU_TRYCATCH(
-          suscan_analyzer_open_inspector(analyzer, &msg->channel, msg),
+          suscan_analyzer_open_inspector(
+              analyzer,
+              msg->class,
+              &msg->channel, msg),
           goto done);
       break;
 

@@ -579,6 +579,7 @@ suscan_gui_on_open_inspector(
   SU_TRYCATCH(
       suscan_analyzer_open_async(
           gui->analyzer,
+          "psk",
           channel,
           rand()),
       return);

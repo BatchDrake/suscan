@@ -148,11 +148,13 @@ SUBOOL suscan_analyzer_set_params_async(
 
 SUBOOL suscan_analyzer_open_async(
     suscan_analyzer_t *analyzer,
+    const char *class,
     const struct sigutils_channel *channel,
     uint32_t req_id);
 
 SUHANDLE suscan_analyzer_open(
     suscan_analyzer_t *analyzer,
+    const char *class,
     const struct sigutils_channel *channel);
 
 SUBOOL suscan_analyzer_close_async(
