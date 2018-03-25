@@ -159,6 +159,7 @@ SUBOOL suscan_gui_inspector_feed_w_batch(
     const struct suscan_analyzer_sample_batch_msg *msg);
 
 suscan_gui_inspector_t *suscan_gui_inspector_new(
+    const char *class,
     const struct sigutils_channel *channel,
     const suscan_config_t *config,
     SUHANDLE handle);

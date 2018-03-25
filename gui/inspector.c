@@ -837,13 +837,11 @@ suscan_gui_inspector_on_config_changed(suscan_gui_inspector_t *insp)
 {
   struct suscan_field_value *value;
 
-  SU_TRYCATCH(
-      value = suscan_config_get_value(
-          insp->config,
-          "afc.bits-per-symbol"),
-      return SU_FALSE);
-
-  insp->bits_per_symbol = value->as_int;
+  value = suscan_config_get_value(insp->config, "afc.bits-per-symbol");
+  if (value != NULL)
+    insp->bits_per_symbol = value->as_int;
+  else
+    insp->bits_per_symbol = 1;
 
   sugtk_trans_mtx_set_order(insp->transMatrix, 1 << insp->bits_per_symbol);
 
@@ -905,8 +903,20 @@ suscan_gui_inspector_populate_channel_summary(suscan_gui_inspector_t *insp)
   gtk_label_set_text(insp->snrLabel, text);
 }
 
+SUPRIVATE const char *
+suscan_gui_inspector_class_to_desc(const char *class)
+{
+  const struct suscan_inspector_interface *iface;
+
+  if ((iface = suscan_inspector_interface_lookup(class)) == NULL)
+    return class;
+  else
+    return iface->desc;
+}
+
 suscan_gui_inspector_t *
 suscan_gui_inspector_new(
+    const char *class,
     const struct sigutils_channel *channel,
     const suscan_config_t *config,
     SUHANDLE handle)
@@ -945,7 +955,8 @@ suscan_gui_inspector_new(
 
   SU_TRYCATCH(
       page_label = strbuild(
-          "PSK inspector at %lli Hz",
+          "%s at %lli Hz",
+          suscan_gui_inspector_class_to_desc(class),
           (uint64_t) round(channel->fc)),
       goto fail);
 
