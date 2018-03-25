@@ -326,7 +326,8 @@ suscan_fsk_inspector_feed(
         break;
     }
 
-    det_x = (const_gain * SU_C_CONJ(last)) / (last * SU_C_CONJ(last));
+    det_x = (const_gain * SU_C_CONJ(last)) /
+        (.5 * (const_gain * SU_C_CONJ(const_gain) + last * SU_C_CONJ(last)) + 1e-8);
 
     last = const_gain;
 
