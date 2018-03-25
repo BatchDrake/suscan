@@ -97,12 +97,12 @@ suscan_gui_inspector_decide(
   char sym_ndx;
 
   switch (inspector->bits_per_symbol) {
-    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2:
+    case 1:
       /* BPSK decision */
       sym_ndx = arg > 0;
       break;
 
-    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4:
+    case 2:
       /* QPSK decision */
       if (0 < arg && arg <= .5 * M_PI)
         sym_ndx = 0;
@@ -114,7 +114,7 @@ suscan_gui_inspector_decide(
         sym_ndx = 3;
       break;
 
-    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8:
+    case 3:
       /* 8PSK decision */
       if (0 < arg && arg <= .25 * M_PI)
         sym_ndx = 0;
@@ -270,15 +270,15 @@ suscan_gui_inspector_to_filename(
   tm = localtime(&now);
 
   switch (inspector->bits_per_symbol) {
-    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2:
+    case 1:
       demod = "bpsk";
       break;
 
-    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4:
+    case 2:
       demod = "qpsk";
       break;
 
-    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8:
+    case 3:
       demod = "8psk";
       break;
 

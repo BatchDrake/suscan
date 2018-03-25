@@ -66,6 +66,11 @@ struct suscan_gui_recent {
   struct suscan_source_config *config;
 };
 
+struct suscan_gui_spectrum_action {
+  struct suscan_gui *gui;
+  const struct suscan_inspector_interface *insp_iface;
+};
+
 struct suscan_gui_settings {
   GdkRGBA pa_fg;
   GdkRGBA pa_bg;
@@ -185,6 +190,9 @@ struct suscan_gui {
 
   /* Main spectrum */
   SuGtkSpectrum *spectrum;
+
+  /* Spectrum actions */
+  PTR_LIST(struct suscan_gui_spectrum_action, action);
 
   /* Inspector tab list */
   PTR_LIST(suscan_gui_inspector_t, inspector);

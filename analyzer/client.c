@@ -32,7 +32,7 @@
 
 #include <sigutils/sigutils.h>
 
-#include "inspector.h"
+#include "inspector/inspector.h"
 #include "mq.h"
 #include "msg.h"
 
@@ -73,6 +73,7 @@ done:
 SUBOOL
 suscan_analyzer_open_async(
     suscan_analyzer_t *analyzer,
+    const char *class,
     const struct sigutils_channel *channel,
     uint32_t req_id)
 {
@@ -84,6 +85,8 @@ suscan_analyzer_open_async(
           SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN,
           req_id),
       goto done);
+
+  SU_TRYCATCH(req->class = strdup(class), goto done);
 
   req->channel = *channel;
 
@@ -109,6 +112,7 @@ done:
 SUHANDLE
 suscan_analyzer_open(
     suscan_analyzer_t *analyzer,
+    const char *class,
     const struct sigutils_channel *channel)
 {
   struct suscan_analyzer_inspector_msg *resp = NULL;
@@ -116,7 +120,7 @@ suscan_analyzer_open(
   SUHANDLE handle = -1;
 
   SU_TRYCATCH(
-      suscan_analyzer_open_async(analyzer, channel, req_id),
+      suscan_analyzer_open_async(analyzer, class, channel, req_id),
       goto done);
 
   SU_TRYCATCH(

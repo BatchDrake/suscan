@@ -99,6 +99,7 @@ suscan_open_all_channels(
   for (i = 0; i < report->result_count; ++i) {
     handle = suscan_analyzer_open(
         analyzer,
+        "psk",
         &report->results[i].channel);
     if (handle == -1) {
       SU_ERROR("Failed to open baud inspector\n");

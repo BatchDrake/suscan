@@ -67,6 +67,13 @@ suscan_gui_destroy(suscan_gui_t *gui)
 {
   unsigned int i;
 
+  for (i = 0; i < gui->action_count; ++i)
+    if (gui->action_list[i] != NULL)
+      free(gui->action_list[i]);
+
+  if (gui->action_list != NULL)
+    free(gui->action_list);
+
   for (i = 0; i < gui->inspector_count; ++i)
     if (gui->inspector_list[i] != NULL)
       suscan_gui_inspector_destroy(gui->inspector_list[i]);
@@ -573,18 +580,77 @@ suscan_gui_on_open_inspector(
     const struct sigutils_channel *channel,
     gpointer data)
 {
-  suscan_gui_t *gui = (suscan_gui_t *) data;
+  struct suscan_gui_spectrum_action *action =
+      (struct suscan_gui_spectrum_action *) data;
 
   /* Send open message. We will open new tab on response */
   SU_TRYCATCH(
       suscan_analyzer_open_async(
-          gui->analyzer,
+          action->gui->analyzer,
+          action->insp_iface->name,
           channel,
           rand()),
       return);
 }
 
-SUBOOL
+SUPRIVATE SUBOOL
+suscan_gui_add_inspector_action(
+    suscan_gui_t *gui,
+    const struct suscan_inspector_interface *insp_iface)
+{
+  char *action_text = NULL;
+  struct suscan_gui_spectrum_action *action = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(action_text = strbuild("Open %s", insp_iface->desc), goto done);
+
+  SU_TRYCATCH(
+      action = calloc(1, sizeof(struct suscan_gui_spectrum_action)),
+      goto done);
+
+  action->gui = gui;
+  action->insp_iface = insp_iface;
+
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(gui->action, action) != -1, goto done);
+
+  (void) sugtk_spectrum_add_menu_action(
+      gui->spectrum,
+      action_text,
+      suscan_gui_on_open_inspector,
+      action);
+
+  action = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (action_text != NULL)
+    free(action_text);
+
+  if (action != NULL)
+    free(action);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_add_all_inspector_actions(suscan_gui_t *gui)
+{
+  const struct suscan_inspector_interface **iface_list;
+  unsigned int iface_count;
+  unsigned int i;
+
+  suscan_inspector_interface_get_list(&iface_list, &iface_count);
+
+  for (i = 0; i < iface_count; ++i)
+    SU_TRYCATCH(
+        suscan_gui_add_inspector_action(gui, iface_list[i]),
+        return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
 suscan_gui_load_all_widgets(suscan_gui_t *gui)
 {
   SU_TRYCATCH(
@@ -1022,11 +1088,7 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
 
   /* Add spectrum view */
   gui->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
-  (void) sugtk_spectrum_add_menu_action(
-      gui->spectrum,
-      "Open PSK inspector",
-      suscan_gui_on_open_inspector,
-      gui);
+  SU_TRYCATCH(suscan_gui_add_all_inspector_actions(gui), return SU_FALSE);
 
   gtk_grid_attach(gui->spectrumGrid, GTK_WIDGET(gui->spectrum), 0, 0, 1, 1);
 

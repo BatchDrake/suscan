@@ -24,20 +24,18 @@
 #include <pthread.h>
 #include <stdint.h>
 
-/*
- * This is the server application: the worker that processes messages and
- * forwards samples to the inspector
- */
-
 #define SU_LOG_DOMAIN "suscan-inspector-server"
 
 #include <sigutils/sigutils.h>
 
-#include "inspector.h"
+#include "inspector/inspector.h"
 #include "mq.h"
 #include "msg.h"
 
-extern suscan_config_desc_t *psk_inspector_desc;
+/*
+ * This is the server application: the worker that processes messages and
+ * forwards samples to the inspector
+ */
 
 SUBOOL
 suscan_inspector_sampler_loop(
@@ -57,13 +55,13 @@ suscan_inspector_sampler_loop(
         (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
         goto fail);
 
-    if (insp->sampler_output_size > 0) {
+    if (suscan_inspector_get_output_length(insp) > 0) {
       /* New sampes produced by sampler: send to client */
       SU_TRYCATCH(
           msg = suscan_analyzer_sample_batch_msg_new(
               insp->inspector_id,
-              insp->sampler_output,
-              insp->sampler_output_size),
+              suscan_inspector_get_output_buffer(insp),
+              suscan_inspector_get_output_length(insp)),
           goto fail);
 
       SU_TRYCATCH(
@@ -104,9 +102,6 @@ suscan_inspector_spectrum_loop(
 
     src = insp->spectsrc_list[insp->spectsrc_index - 1];
     while (samp_count > 0) {
-      /* Ensure the current inspector parameters are up-to-date */
-      suscan_inspector_assert_params(insp);
-
       fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
 
       if (fed < samp_count) {
@@ -313,6 +308,7 @@ suscan_analyzer_dispose_inspector_handle(
 SUPRIVATE SUBOOL
 suscan_analyzer_open_inspector(
     suscan_analyzer_t *analyzer,
+    const char *class,
     const struct sigutils_channel *channel,
     struct suscan_analyzer_inspector_msg *msg)
 {
@@ -336,20 +332,14 @@ suscan_analyzer_open_inspector(
    */
   SU_TRYCATCH(
       new = suscan_inspector_new(
+          class,
           su_channel_detector_get_fs(analyzer->source.detector),
           schan),
       goto fail);
 
   /************************* POPULATE MESSAGE ********************************/
-  /* Create generic config */
-  SU_TRYCATCH(
-      msg->config = suscan_config_new(psk_inspector_desc),
-      goto fail);
-
-  /* Populate config from params */
-  SU_TRYCATCH(
-      suscan_inspector_params_populate_config(&new->params, msg->config),
-      goto fail);
+  SU_TRYCATCH(msg->config = suscan_inspector_create_config(new), goto fail);
+  SU_TRYCATCH(suscan_inspector_get_config(new, msg->config), goto fail);
 
   /* Add estimator list */
   for (i = 0; i < new->estimator_count; ++i)
@@ -416,7 +406,6 @@ suscan_analyzer_parse_inspector_msg(
 {
   suscan_inspector_t *insp = NULL;
   unsigned int i;
-  struct suscan_inspector_params params;
   SUHANDLE handle = -1;
   SUBOOL ok = SU_FALSE;
   SUBOOL update_baud;
@@ -424,7 +413,10 @@ suscan_analyzer_parse_inspector_msg(
   switch (msg->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
       SU_TRYCATCH(
-          suscan_analyzer_open_inspector(analyzer, &msg->channel, msg),
+          suscan_analyzer_open_inspector(
+              analyzer,
+              msg->class,
+              &msg->channel, msg),
           goto done);
       break;
 
@@ -478,15 +470,11 @@ suscan_analyzer_parse_inspector_msg(
         /* Retrieve current inspector params */
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG;
 
-        /* Convert them to generic config */
         SU_TRYCATCH(
-            msg->config = suscan_config_new(psk_inspector_desc),
+            msg->config = suscan_inspector_create_config(insp),
             goto done);
 
-        /* Populate config from params */
-        SU_TRYCATCH(
-            suscan_inspector_params_populate_config(&insp->params, msg->config),
-            goto done);
+        SU_TRYCATCH(suscan_inspector_get_config(insp, msg->config), goto done);
       }
       break;
 
@@ -497,13 +485,8 @@ suscan_analyzer_parse_inspector_msg(
         /* No such handle */
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
-        /* Parse config and extract parameters */
-        SU_TRYCATCH(
-            suscan_inspector_params_initialize_from_config(&params, msg->config),
-            goto done);
-
-        /* Store the parameter update request */
-        suscan_inspector_request_params(insp, &params);
+        /* Configuration stored as a config request */
+        SU_TRYCATCH(suscan_inspector_set_config(insp, msg->config), goto done);
       }
       break;
 
