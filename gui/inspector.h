@@ -27,6 +27,7 @@
 #include "codec.h"
 
 #include "constellation.h"
+#include "waveform.h"
 #include "transmtx.h"
 #include "modemctl.h"
 #include "estimatorui.h"
@@ -61,10 +62,12 @@ struct suscan_gui_inspector {
   GtkToggleToolButton *autoFitToggleButton;
   GtkNotebook         *constellationNotebook;
   SuGtkConstellation  *constellation;
+  SuGtkWaveForm       *phasePlot;
   SuGtkTransMtx       *transMatrix;
   SuGtkSpectrum       *spectrum;
   GtkAlignment        *constellationAlignment;
   GtkAlignment        *transAlignment;
+  GtkAlignment        *phasePlotAlignment;
   GtkAlignment        *spectrumAlignment;
   GtkGrid             *controlsGrid;
   GtkGrid             *estimatorGrid;
@@ -76,59 +79,6 @@ struct suscan_gui_inspector {
 
   /* Estimator UIs */
   PTR_LIST(suscan_gui_estimatorui_t, estimator);
-
-#if 0
-  /* Gain control widgets */
-  GtkRadioButton *automaticGainRadioButton;
-  GtkRadioButton *manualGainRadioButton;
-  GtkAlignment   *gainManualAlignment;
-  GtkEntry       *gainEntry;
-  GtkScale       *gainFineTuneScale;
-
-  /* Carrier control alignment */
-  GtkRadioButton *costas2RadioButton;
-  GtkRadioButton *costas4RadioButton;
-  GtkRadioButton *costas8RadioButton;
-  GtkRadioButton *manualRadioButton;
-  GtkAlignment   *carrierManualAlignment;
-  GtkEntry       *carrierOffsetEntry;
-  GtkScale       *fineTuneScale;
-  GtkScale       *phaseScale;
-
-  /* Clock control widgets */
-  GtkRadioButton *clockGardnerRadioButton;
-  GtkRadioButton *clockManualRadioButton;
-  GtkRadioButton *clockDisableButton;
-  GtkAlignment   *clockGardnerAlignment;
-  GtkEntry       *gardnerAlphaEntry;
-  GtkCheckButton *gardnerEnableBetaCheckButton;
-  GtkEntry       *gardnerBetaEntry;
-  GtkAlignment   *clockManualAlignment;
-  GtkEntry       *baudRateEntry;
-  GtkScale       *symbolPhaseScale;
-  GtkButton      *setBaudRateButton;
-  GtkButton      *detectBaudRateFACButton;
-  GtkButton      *detectBaudRateNLNButton;
-  GtkScale       *fineBaudScale;
-
-  /* Matched filter widgets */
-  GtkRadioButton *matchedFilterBypassRadioButton;
-  GtkRadioButton *matchedFilterRRCRadioButton;
-  GtkGrid        *rootRaisedCosineGrid;
-  GtkScale       *rollOffScale;
-
-  /* Equalizer widgets */
-  GtkRadioButton *eqBypassRadioButton;
-  GtkRadioButton *eqCMARadioButton;
-  GtkGrid        *eqCMAGrid;
-  GtkEntry       *eqMuEntry;
-
-  /* Spectrum source widgets */
-  GtkRadioButton *powerSpectrumRadioButton;
-  GtkRadioButton *cycloSpectrumRadioButton;
-  GtkRadioButton *noSpectrumRadioButton;
-
-#endif
 
   /* Symbol recorder widgets */
   GtkGrid        *recorderGrid;

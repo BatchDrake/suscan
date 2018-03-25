@@ -83,6 +83,7 @@
                     <property name="height_request">-1</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="scrollable">True</property>
                     <child>
                       <object class="GtkAlignment" id="aConstellation">
                         <property name="visible">True</property>
@@ -106,7 +107,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkAlignment" id="aTransition">
+                      <object class="GtkAlignment" id="aPhasePlot">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <child>
@@ -121,13 +122,39 @@
                       <object class="GtkLabel">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Transition</property>
+                        <property name="label" translatable="yes">Phase plot</property>
                         <attributes>
                           <attribute name="font-desc" value="&lt;Introducir valor&gt; 8"/>
                         </attributes>
                       </object>
                       <packing>
                         <property name="position">1</property>
+                        <property name="tab_fill">False</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkAlignment" id="aTransition">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <child>
+                          <placeholder/>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                    <child type="tab">
+                      <object class="GtkLabel">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Transition</property>
+                        <attributes>
+                          <attribute name="font-desc" value="&lt;Introducir valor&gt; 8"/>
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="position">2</property>
                         <property name="tab_fill">False</property>
                       </packing>
                     </child>

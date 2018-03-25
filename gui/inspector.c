@@ -230,13 +230,16 @@ suscan_gui_inspector_feed_w_batch(
             sugtk_sym_view_code_to_pixel_helper(insp->bits_per_symbol, bits));
       }
 
-      /* Feed transition matrix */
+      /* Feed transition matrix and phase plot */
       sugtk_trans_mtx_push(insp->transMatrix, bits);
+      sugtk_waveform_push(insp->phasePlot, SU_C_ARG(msg->samples[i]) / PI);
     }
 
   /* Transition matrix has been fed. Update */
-  if (full_samp_count > 0)
+  if (full_samp_count > 0) {
     sugtk_trans_mtx_commit(insp->transMatrix);
+    sugtk_waveform_commit(insp->phasePlot);
+  }
 
   if (insp->recording) {
     /* Wake up all listeners with new data */
@@ -738,6 +741,13 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
               "aConstellation")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->phasePlotAlignment =
+          GTK_ALIGNMENT(gtk_builder_get_object(
+              inspector->builder,
+              "aPhasePlot")),
+          return SU_FALSE);
+
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
@@ -781,6 +791,18 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   gtk_widget_set_vexpand(GTK_WIDGET(inspector->transMatrix), TRUE);
 
   gtk_widget_show(GTK_WIDGET(inspector->transMatrix));
+
+  /* Add phase plot widget */
+  inspector->phasePlot = SUGTK_WAVEFORM(sugtk_waveform_new());
+
+  gtk_container_add(
+      GTK_CONTAINER(inspector->phasePlotAlignment),
+      GTK_WIDGET(inspector->phasePlot));
+
+  gtk_widget_set_hexpand(GTK_WIDGET(inspector->phasePlot), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(inspector->phasePlot), TRUE);
+
+  gtk_widget_show(GTK_WIDGET(inspector->phasePlot));
 
   /* Add constellation widget */
   inspector->constellation = SUGTK_CONSTELLATION(sugtk_constellation_new());
