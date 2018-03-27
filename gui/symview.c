@@ -113,16 +113,10 @@ sugtk_sym_view_clear_internal(SuGtkSymView *view)
     view->data_buf = NULL;
   }
 
-  if (view->surface != NULL) {
-    cairo_surface_destroy(view->surface);
-    view->surface = NULL;
-  }
-
   view->data_alloc = 0;
   view->data_size = 0;
   view->window_offset = 0;
 }
-
 
 static void
 sugtk_sym_view_redraw(SuGtkSymView *view)
@@ -513,6 +507,11 @@ sugtk_sym_view_dispose(GObject* object)
    * Remember: this function may be called several times on the
    * same object.
    */
+  if (view->surface != NULL) {
+    cairo_surface_destroy(view->surface);
+    view->surface = NULL;
+  }
+
   if (view->fft_plan != NULL) {
     fftw_destroy_plan(view->fft_plan);
     view->fft_plan = NULL;
@@ -560,9 +559,6 @@ sugtk_sym_view_on_configure_event(
 {
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
 
-  if (view->autofit)
-    sugtk_sym_view_set_width(view, event->width / view->window_zoom);
-
   if (view->surface != NULL)
     cairo_surface_destroy(view->surface);
 
@@ -572,7 +568,9 @@ sugtk_sym_view_on_configure_event(
       event->width,
       event->height);
 
-  /* Yup. We needed a hard refresh here after all. */
+  if (view->autofit)
+    sugtk_sym_view_set_width(view, event->width / view->window_zoom);
+
   sugtk_sym_view_refresh_hard(view);
 
   return TRUE;
