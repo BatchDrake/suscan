@@ -52,6 +52,7 @@ G_BEGIN_DECLS
 #define SUGTK_SPECTRUM_BOTTOM_PADDING 30
 
 #define SUGTK_SPECTRUM_AUTO_LEVEL_RANGE_SCALE_DB 1.5
+#define SUGTK_SPECTRUM_MIN_AUTO_RANGE SUGTK_SPECTRUM_VERTICAL_DIVS
 
 /* Defaults */
 #define SUGTK_SPECTRUM_FREQ_OFFSET_DEFAULT 0
@@ -149,6 +150,7 @@ struct _SuGtkSpectrum
   gboolean dc_skip;
   gboolean smooth_N0;
   gsufloat agc_alpha;
+  gfloat prev_N0;
 
   /* Autolevel state */
   gsufloat last_max;

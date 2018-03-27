@@ -1088,6 +1088,8 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
 
   /* Add spectrum view */
   gui->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
+  sugtk_spectrum_set_smooth_N0(gui->spectrum, TRUE);
+
   SU_TRYCATCH(suscan_gui_add_all_inspector_actions(gui), return SU_FALSE);
 
   gtk_grid_attach(gui->spectrumGrid, GTK_WIDGET(gui->spectrum), 0, 0, 1, 1);

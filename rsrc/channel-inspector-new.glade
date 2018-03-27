@@ -191,6 +191,7 @@
                               <packing>
                                 <property name="left_attach">0</property>
                                 <property name="top_attach">3</property>
+                                <property name="width">2</property>
                               </packing>
                             </child>
                             <child>
@@ -206,6 +207,7 @@
                               <packing>
                                 <property name="left_attach">0</property>
                                 <property name="top_attach">2</property>
+                                <property name="width">2</property>
                               </packing>
                             </child>
                             <child>
@@ -222,6 +224,7 @@
                               <packing>
                                 <property name="left_attach">0</property>
                                 <property name="top_attach">0</property>
+                                <property name="width">2</property>
                               </packing>
                             </child>
                             <child>
@@ -235,6 +238,20 @@
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
+                                <property name="top_attach">1</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkButton">
+                                <property name="label" translatable="yes">Reset</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="margin_bottom">3</property>
+                                <signal name="clicked" handler="suscan_inspector_on_spectrum_center" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
                                 <property name="top_attach">1</property>
                               </packing>
                             </child>

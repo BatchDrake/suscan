@@ -313,7 +313,6 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
-    case SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD:
       suscan_analyzer_psd_msg_destroy(ptr);
       break;
 

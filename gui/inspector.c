@@ -827,6 +827,7 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 
   /* Add spectrum widget */
   inspector->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
+  sugtk_spectrum_set_smooth_N0(inspector->spectrum, TRUE);
 
   gtk_container_add(
       GTK_CONTAINER(inspector->spectrumAlignment),
@@ -1309,10 +1310,20 @@ suscan_inspector_on_change_spectrum(GtkWidget *widget, gpointer data)
       inspector->inshnd,
       id,
       rand());
+
+  sugtk_spectrum_reset(inspector->spectrum);
 }
 
 void
 suscan_inspector_on_spectrum_center(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+
+  sugtk_spectrum_reset(inspector->spectrum);
+}
+
+void
+suscan_inspector_on_spectrum_reset(GtkWidget *widget, gpointer data)
 {
   suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
 

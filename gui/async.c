@@ -312,33 +312,6 @@ done:
 }
 
 SUPRIVATE gboolean
-suscan_async_update_inspector_spectrum_cb(gpointer user_data)
-{
-  struct suscan_gui_msg_envelope *envelope;
-  struct suscan_analyzer_psd_msg *msg;
-  suscan_gui_inspector_t *insp = NULL;
-
-  envelope = (struct suscan_gui_msg_envelope *) user_data;
-  msg = (struct suscan_analyzer_psd_msg *) envelope->private;
-
-  if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
-    goto done;
-
-  SU_TRYCATCH(
-      insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
-      goto done);
-
-  msg->fc = 0; /* Frequency reference is wrt channel's carrier */
-
-  sugtk_spectrum_update_from_psd_msg(insp->spectrum, msg);
-
-done:
-  suscan_gui_msg_envelope_destroy(envelope);
-
-  return G_SOURCE_REMOVE;
-}
-
-SUPRIVATE gboolean
 suscan_async_parse_sample_batch_msg(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
@@ -480,13 +453,14 @@ suscan_async_parse_inspector_msg(gpointer user_data)
           insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
           goto done);
 
-      sugtk_spectrum_update(
-          insp->spectrum,
-          suscan_analyzer_inspector_msg_take_spectrum(msg),
-          msg->spectrum_size,
-          msg->samp_rate,
-          msg->fc,
-          msg->N0);
+      if (msg->spectrum_size > 0)
+        sugtk_spectrum_update(
+            insp->spectrum,
+            suscan_analyzer_inspector_msg_take_spectrum(msg),
+            msg->spectrum_size,
+            msg->samp_rate,
+            msg->fc,
+            msg->N0);
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
@@ -593,18 +567,6 @@ suscan_gui_async_thread(gpointer data)
           }
 
           g_idle_add(suscan_async_parse_sample_batch_msg, envelope);
-          break;
-
-        case SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD:
-          if ((envelope = suscan_gui_msg_envelope_new(
-              gui,
-              type,
-              private)) == NULL) {
-            suscan_analyzer_dispose_message(type, private);
-            break;
-          }
-
-          g_idle_add(suscan_async_update_inspector_spectrum_cb, envelope);
           break;
 
         case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS: /* End of stream */

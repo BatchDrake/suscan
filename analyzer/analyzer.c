@@ -102,9 +102,8 @@ suscan_analyzer_feed_inspectors(
    * should clean the tuner in this case to keep it from having
    * samples from previous calls to feed_bulk.
    */
-  if (su_specttuner_get_channel_count(analyzer->stuner) == 0) {
+  if (su_specttuner_get_channel_count(analyzer->stuner) == 0)
     return SU_TRUE;
-  }
 
   /* This must be performed in a serialized way */
   while (size > 0) {

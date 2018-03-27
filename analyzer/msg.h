@@ -35,7 +35,7 @@
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR     0x6 /* Channel inspector */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PSD           0x7 /* Main spectrum */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES       0x8 /* Sample batch */
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD      0x9 /* Inspector spectrum */
+
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xa /* Analyzer params */
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0

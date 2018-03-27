@@ -964,6 +964,8 @@ sugtk_spectrum_reset(SuGtkSpectrum *spect)
     spect->psd_data_smooth = NULL;
   }
 
+  spect->prev_N0 = 0;
+
   sugtk_spectrum_refresh_hard(spect);
 }
 
@@ -1047,10 +1049,20 @@ sugtk_spectrum_update(
         if (spect->smooth_N0 && spect->psd_data_smooth[i] < N0)
           N0 = spect->psd_data_smooth[i];
       }
+
+      if (spect->smooth_N0) {
+        if (spect->prev_N0 == 0) {
+          spect->prev_N0 = N0;
+        } else {
+          spect->prev_N0 += SUGTK_SPECTRUM_ALPHA * (N0 - spect->prev_N0);
+          N0 = spect->prev_N0;
+        }
+      }
     } else {
       /* Sizes don't match, reset smoothed spectrum */
       free(spect->psd_data_smooth);
       spect->psd_data_smooth = NULL;
+      spect->prev_N0 = 0;
     }
 
     /* We don't need old_data anymore */
@@ -1059,7 +1071,7 @@ sugtk_spectrum_update(
   }
 
   if (spect->auto_level) {
-    skip = spect->dc_skip ? spect->psd_size / 8 : 0;
+    skip = spect->dc_skip ? 4 : 0;
 
     for (i = skip; i < spect->psd_size - skip; ++i)
       if (spect->psd_data[i] > max)
@@ -1073,6 +1085,9 @@ sugtk_spectrum_update(
         SUGTK_SPECTRUM_AUTO_LEVEL_RANGE_SCALE_DB
         * (spect->last_max - SU_POWER_DB(N0));
 
+    if (range < SUGTK_SPECTRUM_MIN_AUTO_RANGE)
+      range = SUGTK_SPECTRUM_MIN_AUTO_RANGE;
+
     spect->dbs_per_div +=
         spect->agc_alpha
         * (range * SUGTK_SPECTRUM_DY - spect->dbs_per_div);
@@ -1083,6 +1098,7 @@ sugtk_spectrum_update(
      * SUSCAN_GUI_SPECTRUM_AUTO_LEVEL_RANGE_SCALE_DB, we correct its
      * layout
      */
+
     spect->ref_level +=
         spect->agc_alpha
         * (SU_POWER_DB(N0) + range - spect->ref_level);
