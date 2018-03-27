@@ -804,7 +804,7 @@ sugtk_spectrum_redraw_channel(
           channel->S0);
       y2 = sugtk_spectrum_adjust_y(
           spectrum,
-          channel->N0);
+          spectrum->smooth_N0 ? SU_POWER_DB(spectrum->prev_N0) : channel->N0);
 
       yscr1 = sugtk_spectrum_spectrogram_to_scr_y(spectrum, y1);
       yscr2 = sugtk_spectrum_spectrogram_to_scr_y(spectrum, y2);
