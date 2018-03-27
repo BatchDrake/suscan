@@ -403,6 +403,12 @@ suscan_psk_inspector_feed(
         break;
     }
 
+    if (psk_insp->cur_params.eq.eq_conf == SUSCAN_INSPECTOR_EQUALIZER_CMA) {
+      suscan_inspector_lock(insp);
+      det_x = su_equalizer_feed(&psk_insp->eq, det_x);
+      suscan_inspector_unlock(insp);
+    }
+
     /* Perform frequency correction */
     switch (psk_insp->cur_params.fc.fc_ctrl) {
       case SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL:
@@ -461,11 +467,7 @@ suscan_psk_inspector_feed(
 
     /* Apply channel equalizer, if enabled */
     if (new_sample) {
-      if (psk_insp->cur_params.eq.eq_conf == SUSCAN_INSPECTOR_EQUALIZER_CMA) {
-        suscan_inspector_lock(insp);
-        output = su_equalizer_feed(&psk_insp->eq, output);
-        suscan_inspector_unlock(insp);
-      }
+
 
       /* Reduce amplitude so it fits in the constellation window */
       suscan_inspector_push_sample(insp, output * .75);

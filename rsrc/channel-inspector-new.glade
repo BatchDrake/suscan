@@ -165,30 +165,135 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkFrame">
+                  <object class="GtkNotebook">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="margin_left">3</property>
-                    <property name="margin_right">3</property>
-                    <property name="margin_top">3</property>
-                    <property name="label_xalign">0</property>
-                    <property name="shadow_type">in</property>
+                    <property name="can_focus">True</property>
                     <child>
-                      <object class="GtkAlignment" id="aSpectrum">
+                      <object class="GtkGrid">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="left_padding">12</property>
+                        <property name="hexpand">True</property>
+                        <property name="vexpand">True</property>
                         <child>
-                          <placeholder/>
+                          <object class="GtkGrid">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="vexpand">False</property>
+                            <child>
+                              <object class="GtkToggleButton">
+                                <property name="label" translatable="yes">Spectrogram</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="margin_bottom">3</property>
+                                <signal name="toggled" handler="suscan_inspector_on_toggle_spectrum_mode" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">3</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkToggleButton">
+                                <property name="label" translatable="yes">Auto-level</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="margin_bottom">3</property>
+                                <property name="active">True</property>
+                                <signal name="toggled" handler="suscan_inspector_on_toggle_spectrum_autolevel" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">2</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkComboBoxText" id="cbSpectrumSource">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="margin_bottom">3</property>
+                                <property name="active">0</property>
+                                <items>
+                                  <item id="0" translatable="yes">None</item>
+                                </items>
+                                <signal name="changed" handler="suscan_inspector_on_change_spectrum" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkButton">
+                                <property name="label" translatable="yes">Center</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="margin_bottom">3</property>
+                                <signal name="clicked" handler="suscan_inspector_on_spectrum_center" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">1</property>
+                              </packing>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="left_attach">1</property>
+                            <property name="top_attach">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkAlignment" id="aSpectrum">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="hexpand">True</property>
+                            <property name="vexpand">True</property>
+                            <property name="left_padding">12</property>
+                            <child>
+                              <placeholder/>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="left_attach">0</property>
+                            <property name="top_attach">0</property>
+                          </packing>
                         </child>
                       </object>
                     </child>
-                    <child type="label">
+                    <child type="tab">
                       <object class="GtkLabel">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Spectrum</property>
                       </object>
+                      <packing>
+                        <property name="tab_fill">False</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkAlignment" id="aHistogram">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <child>
+                          <placeholder/>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                    <child type="tab">
+                      <object class="GtkLabel">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Histogram</property>
+                      </object>
+                      <packing>
+                        <property name="position">1</property>
+                        <property name="tab_fill">False</property>
+                      </packing>
                     </child>
                   </object>
                   <packing>
@@ -702,114 +807,7 @@
                         <property name="vexpand">False</property>
                         <property name="left_padding">12</property>
                         <child>
-                          <object class="GtkGrid">
-                            <property name="visible">True</property>
-                            <property name="can_focus">False</property>
-                            <property name="vexpand">False</property>
-                            <child>
-                              <object class="GtkLabel">
-                                <property name="visible">True</property>
-                                <property name="can_focus">False</property>
-                                <property name="halign">start</property>
-                                <property name="margin_left">3</property>
-                                <property name="margin_right">3</property>
-                                <property name="margin_top">3</property>
-                                <property name="margin_bottom">3</property>
-                                <property name="label" translatable="yes">Spectrum source</property>
-                              </object>
-                              <packing>
-                                <property name="left_attach">0</property>
-                                <property name="top_attach">0</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkComboBoxText" id="cbSpectrumSource">
-                                <property name="visible">True</property>
-                                <property name="can_focus">False</property>
-                                <property name="margin_left">3</property>
-                                <property name="margin_right">3</property>
-                                <property name="margin_top">3</property>
-                                <property name="margin_bottom">3</property>
-                                <property name="hexpand">True</property>
-                                <property name="active">0</property>
-                                <items>
-                                  <item id="0" translatable="yes">None</item>
-                                </items>
-                                <signal name="changed" handler="suscan_inspector_on_change_spectrum" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left_attach">1</property>
-                                <property name="top_attach">0</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkGrid">
-                                <property name="visible">True</property>
-                                <property name="can_focus">False</property>
-                                <property name="hexpand">True</property>
-                                <child>
-                                  <object class="GtkButton">
-                                    <property name="label" translatable="yes">Center</property>
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
-                                    <property name="receives_default">True</property>
-                                    <property name="margin_left">3</property>
-                                    <property name="margin_right">3</property>
-                                    <property name="margin_top">3</property>
-                                    <property name="margin_bottom">3</property>
-                                    <property name="hexpand">True</property>
-                                    <signal name="clicked" handler="suscan_inspector_on_spectrum_center" swapped="no"/>
-                                  </object>
-                                  <packing>
-                                    <property name="left_attach">0</property>
-                                    <property name="top_attach">0</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkToggleButton">
-                                    <property name="label" translatable="yes">Auto-level</property>
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
-                                    <property name="receives_default">True</property>
-                                    <property name="margin_left">3</property>
-                                    <property name="margin_right">3</property>
-                                    <property name="margin_top">3</property>
-                                    <property name="margin_bottom">3</property>
-                                    <property name="hexpand">True</property>
-                                    <property name="active">True</property>
-                                    <signal name="toggled" handler="suscan_inspector_on_toggle_spectrum_autolevel" swapped="no"/>
-                                  </object>
-                                  <packing>
-                                    <property name="left_attach">1</property>
-                                    <property name="top_attach">0</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkToggleButton">
-                                    <property name="label" translatable="yes">Spectrogram</property>
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
-                                    <property name="receives_default">True</property>
-                                    <property name="margin_left">3</property>
-                                    <property name="margin_right">3</property>
-                                    <property name="margin_top">3</property>
-                                    <property name="margin_bottom">3</property>
-                                    <property name="hexpand">True</property>
-                                    <signal name="toggled" handler="suscan_inspector_on_toggle_spectrum_mode" swapped="no"/>
-                                  </object>
-                                  <packing>
-                                    <property name="left_attach">2</property>
-                                    <property name="top_attach">0</property>
-                                  </packing>
-                                </child>
-                              </object>
-                              <packing>
-                                <property name="left_attach">0</property>
-                                <property name="top_attach">1</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                          </object>
+                          <placeholder/>
                         </child>
                       </object>
                     </child>
@@ -817,7 +815,7 @@
                       <object class="GtkLabel">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Spectrum config</property>
+                        <property name="label" translatable="yes">Channel recorder</property>
                       </object>
                     </child>
                   </object>

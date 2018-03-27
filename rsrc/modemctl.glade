@@ -15,6 +15,7 @@
     <property name="margin_right">3</property>
     <property name="margin_top">3</property>
     <property name="margin_bottom">3</property>
+    <property name="hexpand">True</property>
     <property name="label_xalign">0</property>
     <property name="shadow_type">in</property>
     <child>
@@ -23,6 +24,7 @@
         <property name="can_focus">False</property>
         <property name="margin_top">3</property>
         <property name="margin_bottom">3</property>
+        <property name="hexpand">True</property>
         <property name="left_padding">12</property>
         <child>
           <object class="GtkGrid">
@@ -68,9 +70,10 @@
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
+                <property name="hexpand">True</property>
                 <items>
                   <item id="0" translatable="yes">None</item>
-                  <item id="1" translatable="yes">Square root of Raised-Cosine</item>
+                  <item id="1" translatable="yes">SRRC</item>
                 </items>
                 <signal name="changed" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
               </object>
@@ -87,6 +90,7 @@
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
+                <property name="hexpand">True</property>
                 <property name="adjustment">adjustment1</property>
                 <property name="show_fill_level">True</property>
                 <property name="round_digits">2</property>
@@ -133,11 +137,13 @@
         <property name="margin_right">3</property>
         <property name="margin_top">3</property>
         <property name="margin_bottom">3</property>
+        <property name="hexpand">True</property>
         <property name="left_padding">12</property>
         <child>
           <object class="GtkGrid">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="hexpand">True</property>
             <child>
               <object class="GtkLabel">
                 <property name="visible">True</property>
@@ -194,6 +200,8 @@
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
+                <property name="hexpand">True</property>
+                <property name="width_chars">6</property>
                 <signal name="activate" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
                 <signal name="focus-out-event" handler="suscan_gui_modemctl_on_change_event" swapped="no"/>
               </object>
@@ -210,6 +218,8 @@
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
+                <property name="hexpand">True</property>
+                <property name="width_chars">6</property>
                 <signal name="activate" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
                 <signal name="focus-out-event" handler="suscan_gui_modemctl_on_change_event" swapped="no"/>
               </object>
@@ -222,6 +232,7 @@
               <object class="GtkScale" id="sCRPhase">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="hexpand">True</property>
                 <property name="adjustment">adjustment2</property>
                 <property name="round_digits">1</property>
                 <property name="digits">3</property>
@@ -257,6 +268,7 @@
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
+                <property name="hexpand">True</property>
                 <items>
                   <item id="0" translatable="yes">Manual</item>
                   <item id="1" translatable="yes">Gardner's method</item>
@@ -318,7 +330,6 @@
           <object class="GtkGrid">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="hexpand">True</property>
             <child>
               <object class="GtkLabel">
                 <property name="visible">True</property>
@@ -376,6 +387,7 @@
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
                 <property name="hexpand">True</property>
+                <property name="width_chars">6</property>
                 <property name="text" translatable="yes">0,00</property>
                 <property name="input_purpose">number</property>
                 <property name="climb_rate">0.01</property>
@@ -581,6 +593,7 @@
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
+                <property name="width_chars">6</property>
                 <property name="text" translatable="yes">1e-3</property>
                 <signal name="activate" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
                 <signal name="focus-out-event" handler="suscan_gui_modemctl_on_change_event" swapped="no"/>
@@ -624,7 +637,6 @@
           <object class="GtkGrid">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="hexpand">True</property>
             <child>
               <object class="GtkLabel">
                 <property name="visible">True</property>
@@ -649,6 +661,7 @@
                 <property name="margin_right">3</property>
                 <property name="margin_top">3</property>
                 <property name="margin_bottom">3</property>
+                <property name="width_chars">6</property>
                 <property name="input_purpose">number</property>
                 <signal name="activate" handler="suscan_gui_modemctl_on_change_generic" swapped="no"/>
                 <signal name="focus-out-event" handler="suscan_gui_modemctl_on_change_event" swapped="no"/>
@@ -675,7 +688,7 @@
             </child>
             <child>
               <object class="GtkToggleButton" id="tbAGCAuto">
-                <property name="label" translatable="yes">Automatic</property>
+                <property name="label" translatable="yes">Auto</property>
                 <property name="name">tbAGC</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>

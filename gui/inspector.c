@@ -233,12 +233,14 @@ suscan_gui_inspector_feed_w_batch(
       /* Feed transition matrix and phase plot */
       sugtk_trans_mtx_push(insp->transMatrix, bits);
       sugtk_waveform_push(insp->phasePlot, SU_C_ARG(msg->samples[i]) / PI);
+      sugtk_histogram_push(insp->histogram, SU_C_ARG(msg->samples[i]));
     }
 
   /* Transition matrix has been fed. Update */
   if (full_samp_count > 0) {
     sugtk_trans_mtx_commit(insp->transMatrix);
     sugtk_waveform_commit(insp->phasePlot);
+    sugtk_histogram_commit(insp->histogram);
   }
 
   if (insp->recording) {
@@ -748,6 +750,13 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
               "aPhasePlot")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->histogramAlignment =
+          GTK_ALIGNMENT(gtk_builder_get_object(
+              inspector->builder,
+              "aHistogram")),
+          return SU_FALSE);
+
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
@@ -828,6 +837,18 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 
   gtk_widget_show(GTK_WIDGET(inspector->spectrum));
 
+  /* Add histogram widget */
+  inspector->histogram = SUGTK_HISTOGRAM(sugtk_histogram_new());
+
+  gtk_container_add(
+      GTK_CONTAINER(inspector->histogramAlignment),
+      GTK_WIDGET(inspector->histogram));
+
+  gtk_widget_set_hexpand(GTK_WIDGET(inspector->histogram), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(inspector->histogram), TRUE);
+
+  gtk_widget_show(GTK_WIDGET(inspector->histogram));
+
   /* Somehow Glade fails to set these default values */
   gtk_toggle_tool_button_set_active(
       GTK_TOGGLE_TOOL_BUTTON(inspector->autoScrollToggleButton),
@@ -866,6 +887,12 @@ suscan_gui_inspector_on_config_changed(suscan_gui_inspector_t *insp)
     insp->bits_per_symbol = 1;
 
   sugtk_trans_mtx_set_order(insp->transMatrix, 1 << insp->bits_per_symbol);
+
+  /* TODO: Fix ASAP */
+  insp->histogram->decider_params.bits = insp->bits_per_symbol;
+  sugtk_histogram_set_decider_params(
+      insp->histogram,
+      &insp->histogram->decider_params);
 
   return SU_TRUE;
 }

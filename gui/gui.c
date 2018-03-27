@@ -1293,6 +1293,10 @@ suscan_gui_apply_settings_on_inspector(
   sugtk_waveform_set_fg_color(insp->phasePlot, gui->settings.insp_fg);
   sugtk_waveform_set_bg_color(insp->phasePlot, gui->settings.insp_bg);
   sugtk_waveform_set_axes_color(insp->phasePlot, gui->settings.insp_axes);
+
+  sugtk_histogram_set_fg_color(insp->histogram, gui->settings.insp_fg);
+  sugtk_histogram_set_bg_color(insp->histogram, gui->settings.insp_bg);
+  sugtk_histogram_set_axes_color(insp->histogram, gui->settings.insp_axes);
 }
 
 void

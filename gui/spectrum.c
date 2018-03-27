@@ -1399,7 +1399,7 @@ sugtk_spectrum_on_button_press_event(
     gpointer data)
 {
   SuGtkSpectrum *spect = SUGTK_SPECTRUM(widget);
-  char header[64];
+  char header[80];
   gsufloat x;
   gsufloat freq;
   const struct sigutils_channel *channel;
@@ -1430,7 +1430,8 @@ sugtk_spectrum_on_button_press_event(
             snprintf(
                 header,
                 sizeof(header),
-                "Channel @ %lld Hz",
+                "%lld Hz @ %lld Hz",
+                (uint64_t) round(channel->f_hi - channel->f_lo),
                 (uint64_t) round(channel->fc));
 
             gtk_menu_item_set_label(
