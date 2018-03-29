@@ -34,6 +34,9 @@ G_DEFINE_TYPE(SuGtkHistogram, sugtk_histogram, GTK_TYPE_DRAWING_AREA);
 #define SUGTK_HISTOGRAM_TO_SCR_X(cons, x) \
   (.5 * ((x) + 1.) * (cons)->width)
 
+#define SUGTK_HISTOGRAM_FROM_SCR_X(cons, x) \
+  (2. * (gfloat) x / (cons)->width - 1.)
+
 #define SUGTK_HISTOGRAM_TO_SCR_Y(cons, y) \
   (.5 * (-(y) + 1.) * (cons)->height)
 
@@ -47,6 +50,7 @@ static void
 sugtk_histogram_redraw(SuGtkHistogram *histogram)
 {
   static const double axis_pattern[] = {1.0, 1.0};
+  char text[32];
   gfloat bright;
   gfloat last = 0;
   gfloat scale_y;
@@ -67,7 +71,6 @@ sugtk_histogram_redraw(SuGtkHistogram *histogram)
 
   /* Draw axes */
   gdk_cairo_set_source_rgba(cr, &histogram->axes_color);
-
   cairo_set_dash(cr, axis_pattern, 2, 0);
 
   /* Draw floor */
@@ -136,6 +139,64 @@ sugtk_histogram_redraw(SuGtkHistogram *histogram)
     }
   }
 
+
+  /* If there was a selection, paint it */
+  if (histogram->selection) {
+    gdk_cairo_set_source_rgba(cr, &histogram->axes_color);
+    cairo_move_to(
+        cr,
+        SUGTK_HISTOGRAM_TO_SCR_X(histogram, histogram->sel_min),
+        SUGTK_HISTOGRAM_TO_SCR_Y(histogram, -1));
+    cairo_line_to(
+        cr,
+        SUGTK_HISTOGRAM_TO_SCR_X(histogram, histogram->sel_min),
+        SUGTK_HISTOGRAM_TO_SCR_Y(histogram, 1));
+    cairo_stroke(cr);
+
+    cairo_move_to(
+        cr,
+        SUGTK_HISTOGRAM_TO_SCR_X(histogram, histogram->sel_max),
+        SUGTK_HISTOGRAM_TO_SCR_Y(histogram, -1));
+    cairo_line_to(
+        cr,
+        SUGTK_HISTOGRAM_TO_SCR_X(histogram, histogram->sel_max),
+        SUGTK_HISTOGRAM_TO_SCR_Y(histogram, 1));
+    cairo_stroke(cr);
+
+    cairo_set_dash(cr, axis_pattern, 2, 0);
+    cairo_move_to(
+        cr,
+        SUGTK_HISTOGRAM_TO_SCR_X(histogram, histogram->sel_min),
+        SUGTK_HISTOGRAM_TO_SCR_Y(histogram, 0));
+    cairo_line_to(
+        cr,
+        SUGTK_HISTOGRAM_TO_SCR_X(histogram, histogram->sel_max),
+        SUGTK_HISTOGRAM_TO_SCR_Y(histogram, 0));
+    cairo_stroke(cr);
+
+    cairo_select_font_face(
+        cr,
+        "Inconsolata",
+        CAIRO_FONT_SLANT_NORMAL,
+        CAIRO_FONT_WEIGHT_BOLD);
+
+    snprintf(
+        text,
+        sizeof(text),
+        "%d%%",
+        (int) round(50 * (histogram->sel_max - histogram->sel_min)));
+
+    cairo_move_to(
+        cr,
+        SUGTK_HISTOGRAM_TO_SCR_X(
+            histogram,
+            .5 * (histogram->sel_max + histogram->sel_min)) - 8,
+        SUGTK_HISTOGRAM_TO_SCR_Y(histogram, 0) - 3);
+    cairo_show_text(
+        cr,
+        text);
+  }
+
   cairo_destroy(cr);
 }
 
@@ -199,6 +260,11 @@ sugtk_histogram_dispose(GObject* object)
   if (histogram->sf_histogram != NULL) {
     cairo_surface_destroy(histogram->sf_histogram);
     histogram->sf_histogram = NULL;
+  }
+
+  if (histogram->deciderMenu != NULL) {
+    gtk_widget_destroy(GTK_WIDGET(histogram->deciderMenu));
+    histogram->deciderMenu = NULL;
   }
 
   G_OBJECT_CLASS(sugtk_histogram_parent_class)->dispose(object);
@@ -304,13 +370,99 @@ sugtk_histogram_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 }
 
 static void
+sugtk_histogram_parse_selection(
+    SuGtkHistogram *histogram,
+    const GdkEventMotion *ev)
+{
+  gfloat x;
+  gfloat lx;
+
+  x = SUGTK_HISTOGRAM_FROM_SCR_X(histogram, ev->x);
+  lx = SUGTK_HISTOGRAM_FROM_SCR_X(histogram, histogram->last_x);
+
+  if (x < lx) {
+    histogram->sel_min = x;
+    histogram->sel_max = lx;
+  } else {
+    histogram->sel_min = lx;
+    histogram->sel_max = x;
+  }
+
+  sugtk_histogram_redraw(histogram);
+  gtk_widget_queue_draw(GTK_WIDGET(histogram));
+}
+
+static gboolean
+sugtk_histogram_on_motion_notify_event(
+    GtkWidget *widget,
+    GdkEventMotion *ev,
+    gpointer data)
+{
+  SuGtkHistogram *histogram = SUGTK_HISTOGRAM(widget);
+  GdkEventMotion ev_adjusted;
+
+  ev_adjusted = *ev;
+  ev_adjusted.x = round(ev->x);
+
+  if (ev_adjusted.state & GDK_BUTTON1_MASK) {
+    histogram->selection = TRUE; /* This is a selection */
+    histogram->selecting = TRUE; /* And also, we are selecting */
+    sugtk_histogram_parse_selection(histogram, &ev_adjusted);
+  } else {
+    histogram->selecting = FALSE; /* Not selecting */
+    histogram->last_x = ev_adjusted.x;
+  }
+
+  return TRUE;
+}
+
+static gboolean
+sugtk_histogram_on_button_press_event(
+    GtkWidget *widget,
+    GdkEventButton *ev,
+    gpointer data)
+{
+  SuGtkHistogram *histogram = SUGTK_HISTOGRAM(widget);
+
+  if (ev->type == GDK_BUTTON_PRESS) {
+    switch (ev->button) {
+      case 1:
+        /* Reset selection */
+        if (histogram->selection) {
+          histogram->selection = FALSE;
+          sugtk_histogram_redraw(histogram);
+          gtk_widget_queue_draw(GTK_WIDGET(histogram));
+        }
+        break;
+
+      case 3:
+        /* Menu */
+        gtk_widget_set_sensitive(
+            GTK_WIDGET(histogram->setDecider),
+            histogram->selection);
+        gtk_widget_show_all(GTK_WIDGET(histogram->deciderMenu));
+        gtk_menu_popup_at_pointer(histogram->deciderMenu, (GdkEvent *) ev);
+        break;
+    }
+  }
+
+  return TRUE;
+}
+
+static void
 sugtk_histogram_init(SuGtkHistogram *self)
 {
   struct sigutils_decider_params params = sigutils_decider_params_INITIALIZER;
 
   gtk_widget_set_events(
       GTK_WIDGET(self),
-      GDK_EXPOSURE_MASK);
+        GDK_EXPOSURE_MASK
+      | GDK_POINTER_MOTION_MASK
+      | GDK_BUTTON_MOTION_MASK
+      | GDK_BUTTON1_MOTION_MASK
+      | GDK_BUTTON3_MOTION_MASK
+      | GDK_BUTTON_PRESS_MASK
+      | GDK_STRUCTURE_MASK);
 
   g_signal_connect(
       self,
@@ -323,6 +475,38 @@ sugtk_histogram_init(SuGtkHistogram *self)
       "draw",
       (GCallback) sugtk_histogram_on_draw,
       NULL);
+
+  g_signal_connect(
+      self,
+      "button-press-event",
+      (GCallback) sugtk_histogram_on_button_press_event,
+      NULL);
+
+  g_signal_connect(
+      self,
+      "motion-notify-event",
+      (GCallback) sugtk_histogram_on_motion_notify_event,
+      NULL);
+
+  self->deciderMenu = GTK_MENU(gtk_menu_new());
+
+  self->setDecider =
+      GTK_MENU_ITEM(gtk_menu_item_new_with_label("Update decider with selection"));
+  gtk_menu_shell_append(
+      GTK_MENU_SHELL(self->deciderMenu),
+      GTK_WIDGET(self->setDecider));
+  gtk_widget_set_sensitive(GTK_WIDGET(self->setDecider), FALSE);
+
+  gtk_menu_shell_append(
+      GTK_MENU_SHELL(self->deciderMenu),
+      gtk_separator_menu_item_new());
+
+  self->resetDecider =
+      GTK_MENU_ITEM(gtk_menu_item_new_with_label("Reset decider range"));
+  gtk_menu_shell_append(
+      GTK_MENU_SHELL(self->deciderMenu),
+      GTK_WIDGET(self->resetDecider));
+  gtk_widget_set_sensitive(GTK_WIDGET(self->resetDecider), FALSE);
 
   self->fg_color.red   = 1;
   self->fg_color.green = 1;

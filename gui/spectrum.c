@@ -1521,8 +1521,10 @@ sugtk_spectrum_dispose(GObject* object)
     spect->sf_spectrum = NULL;
   }
 
-  if (spect->channelMenu != NULL)
+  if (spect->channelMenu != NULL) {
     gtk_widget_destroy(GTK_WIDGET(spect->channelMenu));
+    spect->channelMenu = NULL;
+  }
 
   G_OBJECT_CLASS(sugtk_spectrum_parent_class)->dispose(object);
 }

@@ -65,6 +65,18 @@ struct _SuGtkHistogram
   gfloat h_inv;
   gfloat bins[SUGTK_HISTOGRAM_LENGTH];
 
+  /* Range selection */
+  gboolean selecting;
+  gboolean selection;
+  gfloat last_x;
+  gfloat sel_min;
+  gfloat sel_max;
+
+  /* Menu */
+  GtkMenu *deciderMenu;
+  GtkMenuItem *setDecider;
+  GtkMenuItem *resetDecider;
+
   GdkRGBA fg_color;
   GdkRGBA bg_color;
   GdkRGBA axes_color;
