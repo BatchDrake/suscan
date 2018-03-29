@@ -829,6 +829,7 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   inspector->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
   sugtk_spectrum_set_smooth_N0(inspector->spectrum, TRUE);
   sugtk_spectrum_set_has_menu(inspector->spectrum, TRUE);
+  sugtk_spectrum_set_dc_skip(inspector->spectrum, FALSE);
 
   gtk_container_add(
       GTK_CONTAINER(inspector->spectrumAlignment),
