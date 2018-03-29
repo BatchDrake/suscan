@@ -357,6 +357,8 @@ sugtk_trans_mtx_init(SuGtkTransMtx *self)
       "button-press-event",
       (GCallback) sugtk_trans_mtx_on_button_press_event,
       NULL);
+
+  self->graph_mode = TRUE;
 }
 
 void
