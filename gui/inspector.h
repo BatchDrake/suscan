@@ -33,6 +33,8 @@
 #include "modemctl.h"
 #include "estimatorui.h"
 
+#include <sigutils/decider.h>
+
 #define SUSCAN_GUI_INSPECTOR_SPECTRUM_AGC_ALPHA .5
 #define SUSCAN_GUI_INSPECTOR_SPECTRUM_MODE SUGTK_SPECTRUM_MODE_SPECTROGRAM
 
@@ -49,8 +51,9 @@ struct suscan_gui_inspector {
 
   /* Current inspector configuration and cached values */
   suscan_config_t *config;
-  unsigned int bits_per_symbol;
   unsigned int baudrate;
+  su_decider_t decider;
+  struct sigutils_decider_params decider_params;
 
   /* GTK Builder */
   GtkBuilder     *builder;
@@ -104,6 +107,12 @@ struct suscan_gui_inspector {
 };
 
 typedef struct suscan_gui_inspector suscan_gui_inspector_t;
+
+SUINLINE unsigned int
+suscan_gui_inspector_get_bits(const suscan_gui_inspector_t *insp)
+{
+  return insp->decider_params.bits;
+}
 
 /* Inspector GUI functions */
 SUBOOL suscan_gui_inspector_feed_w_batch(

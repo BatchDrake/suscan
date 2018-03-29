@@ -88,57 +88,28 @@ suscan_gui_inspector_close(suscan_gui_inspector_t *insp)
   gtk_widget_set_sensitive(GTK_WIDGET(insp->channelInspectorGrid), FALSE);
 }
 
+SUPRIVATE void
+suscan_gui_inspector_set_bits(suscan_gui_inspector_t *insp, unsigned int bpp)
+{
+  insp->decider_params.bits = bpp;
+
+  if (bpp != 0)
+    su_decider_init(&insp->decider, &insp->decider_params);
+
+  sugtk_histogram_set_decider_params(insp->histogram, &insp->decider_params);
+
+  sugtk_trans_mtx_set_order(insp->transMatrix, 1 << bpp);
+}
+
 SUSYMBOL
 suscan_gui_inspector_decide(
     const suscan_gui_inspector_t *inspector,
     SUCOMPLEX sample)
 {
-  SUFLOAT arg = SU_C_ARG(sample);
-  char sym_ndx;
-
-  switch (inspector->bits_per_symbol) {
-    case 1:
-      /* BPSK decision */
-      sym_ndx = arg > 0;
-      break;
-
-    case 2:
-      /* QPSK decision */
-      if (0 < arg && arg <= .5 * M_PI)
-        sym_ndx = 0;
-      else if (.5 * M_PI < arg && arg <= M_PI)
-        sym_ndx = 1;
-      else if (-M_PI < arg && arg <= -.5 * M_PI)
-        sym_ndx = 2;
-      else
-        sym_ndx = 3;
-      break;
-
-    case 3:
-      /* 8PSK decision */
-      if (0 < arg && arg <= .25 * M_PI)
-        sym_ndx = 0;
-      else if (.25 * M_PI < arg && arg <= .5 * M_PI)
-        sym_ndx = 1;
-      else if (.5 * M_PI < arg && arg <= .75 * M_PI)
-        sym_ndx = 2;
-      else if (.75 * M_PI < arg && arg <= M_PI)
-        sym_ndx = 3;
-      else if (-M_PI < arg && arg <= -.75 * M_PI)
-        sym_ndx = 4;
-      else if (-.75 * M_PI < arg && arg <= -.5 * M_PI)
-        sym_ndx = 5;
-      else if (-.5 * M_PI < arg && arg <= -.25 * M_PI)
-        sym_ndx = 6;
-      else
-        sym_ndx = 7;
-      break;
-
-    default:
-      return SU_NOSYMBOL;
-  }
-
-  return '0' + sym_ndx;
+  if (suscan_gui_inspector_get_bits(inspector) > 0)
+    return SU_TOSYM(su_decider_decide(&inspector->decider, SU_C_ARG(sample)));
+  else
+    return SU_NOSYMBOL;
 }
 
 SUPRIVATE void
@@ -227,7 +198,9 @@ suscan_gui_inspector_feed_w_batch(
         /* Update symbol view */
         sugtk_sym_view_append(
             insp->symbolView,
-            sugtk_sym_view_code_to_pixel_helper(insp->bits_per_symbol, bits));
+            sugtk_sym_view_code_to_pixel_helper(
+                suscan_gui_inspector_get_bits(insp),
+                bits));
       }
 
       /* Feed transition matrix and phase plot */
@@ -274,7 +247,7 @@ suscan_gui_inspector_to_filename(
   time(&now);
   tm = localtime(&now);
 
-  switch (inspector->bits_per_symbol) {
+  switch (suscan_gui_inspector_get_bits(inspector)) {
     case 1:
       demod = "bpsk";
       break;
@@ -469,20 +442,16 @@ suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
   struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
   suscan_gui_inspector_t *as_inspector;
 
-  unsigned int bits;
-
   if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ui))
     return;  /* Weird */
 
   /* We can do this because this symsrc is actually an inspector tab */
   as_inspector = (suscan_gui_inspector_t *) ui->symsrc;
 
-  bits = as_inspector->bits_per_symbol;
-
   (void) suscan_gui_inspector_open_codec_tab(
       as_inspector,
       ui,
-      as_inspector->bits_per_symbol,
+      suscan_gui_inspector_get_bits(as_inspector),
       SUSCAN_CODEC_DIRECTION_FORWARDS,
       as_inspector->symbolView,
       ui->symsrc->symbuf);
@@ -494,20 +463,16 @@ suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
   struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
   suscan_gui_inspector_t *as_inspector;
 
-  unsigned int bits;
-
   if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ui))
     return;  /* Weird */
 
   /* We can do this because this symsrc is actually an inspector tab */
   as_inspector = (suscan_gui_inspector_t *) ui->symsrc;
 
-  bits = as_inspector->bits_per_symbol;
-
   (void) suscan_gui_inspector_open_codec_tab(
       as_inspector,
       ui,
-      as_inspector->bits_per_symbol,
+      suscan_gui_inspector_get_bits(as_inspector),
       SUSCAN_CODEC_DIRECTION_BACKWARDS,
       as_inspector->symbolView,
       ui->symsrc->symbuf);
@@ -885,17 +850,9 @@ suscan_gui_inspector_on_config_changed(suscan_gui_inspector_t *insp)
 
   value = suscan_config_get_value(insp->config, "afc.bits-per-symbol");
   if (value != NULL)
-    insp->bits_per_symbol = value->as_int;
+    suscan_gui_inspector_set_bits(insp, value->as_int);
   else
-    insp->bits_per_symbol = 1;
-
-  sugtk_trans_mtx_set_order(insp->transMatrix, 1 << insp->bits_per_symbol);
-
-  /* TODO: Fix ASAP */
-  insp->histogram->decider_params.bits = insp->bits_per_symbol;
-  sugtk_histogram_set_decider_params(
-      insp->histogram,
-      &insp->histogram->decider_params);
+    suscan_gui_inspector_set_bits(insp, 1);
 
   return SU_TRUE;
 }
@@ -974,6 +931,7 @@ suscan_gui_inspector_new(
     SUHANDLE handle)
 {
   suscan_gui_inspector_t *new = NULL;
+  struct sigutils_decider_params params = sigutils_decider_params_INITIALIZER;
   char *page_label = NULL;
   unsigned int i;
 
@@ -985,6 +943,7 @@ suscan_gui_inspector_new(
   new->channel = *channel;
   new->index = -1;
   new->inshnd = handle;
+  new->decider_params = params;
 
   SU_TRYCATCH(new->config = suscan_config_new(config->desc), return SU_FALSE);
 
@@ -1016,6 +975,9 @@ suscan_gui_inspector_new(
 
   free(page_label);
   page_label = NULL;
+
+  /* Set bits per symbol to 0 */
+  suscan_gui_inspector_set_bits(new, 0);
 
   /* Initialize inspector-specific set of modem controls */
   SU_TRYCATCH(
@@ -1084,9 +1046,6 @@ suscan_inspector_on_save(
 {
   suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
   char *new_fname = NULL;
-  uint8_t bpsym;
-
-  bpsym = insp->bits_per_symbol;
 
   SU_TRYCATCH(
       new_fname = suscan_gui_inspector_to_filename(insp, "symbols", ".log"),
@@ -1097,7 +1056,7 @@ suscan_inspector_on_save(
           insp->symbolView,
           "Save symbol view",
           new_fname,
-          bpsym),
+          suscan_gui_inspector_get_bits(insp)),
       goto done);
 
 done:
