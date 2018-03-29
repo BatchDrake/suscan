@@ -1070,12 +1070,12 @@ sugtk_spectrum_update(
       free(old_data);
   }
 
-  if (spect->auto_level) {
+  if (spect->auto_level && spect->psd_data_smooth != NULL) {
     skip = spect->dc_skip ? 4 : 0;
 
     for (i = skip; i < spect->psd_size - skip; ++i)
-      if (spect->psd_data[i] > max)
-        max = spect->psd_data[i];
+      if (spect->psd_data_smooth[i] > max)
+        max = spect->psd_data_smooth[i];
 
     spect->last_max +=
         spect->agc_alpha * (SU_POWER_DB(max) - spect->last_max);
