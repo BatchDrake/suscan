@@ -106,7 +106,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       break;
 
     case SUSCAN_GUI_STATE_RUNNING:
-      sugtk_spectrum_reset(gui->spectrum);
       subtitle = "Running";
       suscan_gui_change_button_icon(
           GTK_BUTTON(gui->toggleConnect),
@@ -636,6 +635,8 @@ suscan_gui_connect(suscan_gui_t *gui)
         gui,
         "Existing inspectors",
         "The opened inspector tabs will remain in idle state");
+
+  sugtk_spectrum_reset(gui->spectrum);
 
   if ((gui->analyzer = suscan_analyzer_new(
       &gui->analyzer_params,
