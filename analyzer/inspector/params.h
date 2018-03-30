@@ -56,6 +56,7 @@ struct suscan_inspector_fc_params {
   enum suscan_inspector_carrier_control fc_ctrl;
   SUFLOAT fc_off;     /* Offset frequency */
   SUFLOAT fc_phi;     /* Carrier phase */
+  SUFLOAT fc_loopbw;  /* Loop bandwidth */
 };
 
 SUBOOL suscan_config_desc_add_fc_params(suscan_config_desc_t *desc);

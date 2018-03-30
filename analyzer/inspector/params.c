@@ -133,6 +133,15 @@ suscan_config_desc_add_fc_params(suscan_config_desc_t *desc)
           "Carrier offset (Hz)"),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "afc.loop-bw",
+          "Loop bandwidth (Hz)"),
+      return SU_FALSE);
+
   return SU_TRUE;
 }
 
@@ -163,6 +172,16 @@ suscan_inspector_fc_params_parse(
 
   params->fc_off = value->as_float;
 
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "afc.loop-bw"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->fc_loopbw = value->as_float;
+
   return SU_TRUE;
 }
 
@@ -191,6 +210,13 @@ suscan_inspector_fc_params_save(
           config,
           "afc.offset",
           params->fc_off),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "afc.loop-bw",
+          params->fc_loopbw),
       return SU_FALSE);
 
   return SU_TRUE;

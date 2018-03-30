@@ -310,9 +310,11 @@
                             <property name="can_focus">True</property>
                             <property name="hexpand">True</property>
                             <property name="vexpand">True</property>
+                            <property name="resize_mode">queue</property>
                             <property name="position">700</property>
                             <property name="position_set">True</property>
                             <property name="wide_handle">True</property>
+                            <signal name="size-allocate" handler="suscan_gui_on_size_allocate" swapped="no"/>
                             <child>
                               <object class="GtkNotebook">
                                 <property name="visible">True</property>

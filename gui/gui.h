@@ -35,8 +35,9 @@
 #define PKGDATADIR "/usr"
 #endif
 
-#define SUSCAN_GUI_SETTINGS_ID "org.actinid.SUScan"
-#define SUSCAN_GUI_MAX_CHANNELS 10
+#define SUSCAN_GUI_SETTINGS_ID          "org.actinid.SUScan"
+#define SUSCAN_GUI_MAX_CHANNELS         10
+#define SUSCAN_GUI_SPECTRUM_PANEL_WIDTH 320
 
 struct suscan_gui_cfgui {
   suscan_config_t *config; /* Borrowed pointer */
