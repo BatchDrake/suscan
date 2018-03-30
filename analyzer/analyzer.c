@@ -160,7 +160,7 @@ suscan_source_wk_cb(
   mutex_acquired = SU_TRUE;
 
   /* With non-real time sources, use throttle to control CPU usage */
-  if (source->config->source->real_time)
+  if (suscan_analyzer_is_real_time(analyzer))
     read_size = analyzer->read_size;
   else
     read_size = suscan_throttle_get_portion(
@@ -186,7 +186,7 @@ suscan_source_wk_cb(
     dbg_rate_counter += got;
 #endif
 
-    if (!source->config->source->real_time)
+    if (!suscan_analyzer_is_real_time(analyzer))
       suscan_throttle_advance(&source->throttle, got);
 
     /* Feed channel detector! */
@@ -203,7 +203,7 @@ suscan_source_wk_cb(
     /* Check channel update */
     if (source->interval_channels > 0) {
       if (source->per_cnt_channels
-          >= source->interval_channels * source->detector->params.samp_rate) {
+          >= source->interval_channels * source->effective_samp_rate) {
         source->per_cnt_channels = 0;
 
         SU_TRYCATCH(
@@ -215,7 +215,7 @@ suscan_source_wk_cb(
     /* Check spectrum update */
     if (source->interval_psd > 0) {
       if (source->per_cnt_psd
-          >= source->interval_psd * source->detector->params.samp_rate) {
+          >= source->interval_psd * source->effective_samp_rate) {
         source->per_cnt_psd = 0;
 
         SU_TRYCATCH(
@@ -338,6 +338,39 @@ suscan_wait_for_halt(suscan_analyzer_t *analyzer)
   }
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_override_throttle(suscan_analyzer_t *analyzer, SUSCOUNT val)
+{
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(!suscan_analyzer_is_real_time(analyzer), goto done);
+
+  SU_TRYCATCH(
+      pthread_mutex_lock(&analyzer->source.det_mutex) != -1,
+      goto done);
+  mutex_acquired = SU_TRUE;
+
+  suscan_throttle_init(&analyzer->source.throttle, val);
+
+  analyzer->source.effective_samp_rate = val;
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&analyzer->source.det_mutex);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_reset_throttle(suscan_analyzer_t *analyzer)
+{
+  return suscan_analyzer_override_throttle(
+      analyzer,
+      analyzer->source.detector->params.samp_rate);
+}
 
 SUPRIVATE void *
 suscan_analyzer_thread(void *data)
@@ -346,6 +379,7 @@ suscan_analyzer_thread(void *data)
   su_channel_detector_t *new_detector = NULL;
   struct sigutils_channel_detector_params new_det_params;
   const struct suscan_analyzer_params *new_params;
+  const struct suscan_analyzer_throttle_msg *throttle;
   void *private = NULL;
   uint32_t type;
   SUBOOL mutex_acquired = SU_FALSE;
@@ -407,6 +441,19 @@ suscan_analyzer_thread(void *data)
           /* Not belonging to us anymore */
           private = NULL;
 
+          break;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
+          throttle = (const struct suscan_analyzer_throttle_msg *) private;
+          if (throttle->samp_rate == 0) {
+            SU_TRYCATCH(
+                suscan_analyzer_reset_throttle(analyzer),
+                goto done);
+          } else {
+            SU_TRYCATCH(
+                suscan_analyzer_override_throttle(analyzer, throttle->samp_rate),
+                goto done);
+          }
           break;
 
         case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
@@ -693,6 +740,8 @@ suscan_analyzer_source_init(
      */
     suscan_throttle_init(&source->throttle, params.samp_rate);
   }
+
+  source->effective_samp_rate = params.samp_rate;
 
   ok = SU_TRUE;
 

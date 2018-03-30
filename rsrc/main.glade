@@ -38,6 +38,12 @@
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
   </object>
+  <object class="GtkAdjustment" id="aThrottleOverride">
+    <property name="lower">1</property>
+    <property name="upper">6000000</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">10</property>
+  </object>
   <object class="GtkAboutDialog" id="dlAbout">
     <property name="can_focus">False</property>
     <property name="icon">icon-color.png</property>
@@ -501,7 +507,7 @@
                                             <property name="can_focus">False</property>
                                             <property name="halign">start</property>
                                             <property name="hexpand">False</property>
-                                            <property name="label" translatable="yes">Sample rate:</property>
+                                            <property name="label" translatable="yes">Sample rate</property>
                                           </object>
                                           <packing>
                                             <property name="left_attach">0</property>
@@ -518,6 +524,52 @@
                                           <packing>
                                             <property name="left_attach">1</property>
                                             <property name="top_attach">0</property>
+                                            <property name="width">2</property>
+                                          </packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkCheckButton" id="cbThrottleOverride">
+                                            <property name="label" translatable="yes">Throttle override</property>
+                                            <property name="visible">True</property>
+                                            <property name="sensitive">False</property>
+                                            <property name="can_focus">True</property>
+                                            <property name="receives_default">False</property>
+                                            <property name="draw_indicator">True</property>
+                                            <signal name="toggled" handler="suscan_gui_on_throttle_override" swapped="no"/>
+                                          </object>
+                                          <packing>
+                                            <property name="left_attach">0</property>
+                                            <property name="top_attach">1</property>
+                                          </packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkSpinButton" id="sbThrottleSampRate">
+                                            <property name="visible">True</property>
+                                            <property name="sensitive">False</property>
+                                            <property name="can_focus">True</property>
+                                            <property name="input_purpose">digits</property>
+                                            <property name="adjustment">aThrottleOverride</property>
+                                            <property name="numeric">True</property>
+                                            <property name="update_policy">if-valid</property>
+                                            <property name="value">192000</property>
+                                            <signal name="value-changed" handler="suscan_gui_on_throttle_override" swapped="no"/>
+                                          </object>
+                                          <packing>
+                                            <property name="left_attach">1</property>
+                                            <property name="top_attach">1</property>
+                                          </packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkLabel">
+                                            <property name="visible">True</property>
+                                            <property name="can_focus">False</property>
+                                            <property name="margin_left">3</property>
+                                            <property name="margin_right">3</property>
+                                            <property name="label" translatable="yes">sps</property>
+                                          </object>
+                                          <packing>
+                                            <property name="left_attach">2</property>
+                                            <property name="top_attach">1</property>
                                           </packing>
                                         </child>
                                       </object>

@@ -162,8 +162,8 @@ struct _SuGtkSpectrum
   gfloat   last_y;
 
   gfloat   prev_ev_x;
-  gsufloat  original_ref_level;
-  gsufloat  original_freq_offset;
+  gsufloat original_ref_level;
+  gsufloat original_freq_offset;
 
   /* Channel integration */
   struct sigutils_channel selection;

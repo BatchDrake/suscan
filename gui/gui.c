@@ -1076,6 +1076,20 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "cbLcdBg")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->throttleSampRateSpinButton =
+          GTK_SPIN_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "sbThrottleSampRate")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->throttleOverrideCheckButton =
+          GTK_CHECK_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbThrottleOverride")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);

@@ -59,6 +59,9 @@ struct suscan_analyzer_source {
 
   SUSCOUNT per_cnt_channels;
   SUSCOUNT per_cnt_psd;
+
+  SUSCOUNT effective_samp_rate; /* Used for GUI */
+
   uint64_t fc; /* Center frequency of source */
 };
 
@@ -97,6 +100,12 @@ struct suscan_analyzer {
 };
 
 typedef struct suscan_analyzer suscan_analyzer_t;
+
+SUINLINE SUBOOL
+suscan_analyzer_is_real_time(const suscan_analyzer_t *analyzer)
+{
+  return analyzer->source.config->source->real_time;
+}
 
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
 struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg(
@@ -144,6 +153,11 @@ SUBOOL suscan_analyzer_bind_inspector_to_channel(
 SUBOOL suscan_analyzer_set_params_async(
     suscan_analyzer_t *analyzer,
     const struct suscan_analyzer_params *params,
+    uint32_t req_id);
+
+SUBOOL suscan_analyzer_set_throttle_async(
+    suscan_analyzer_t *analyzer,
+    SUSCOUNT samp_rate,
     uint32_t req_id);
 
 SUBOOL suscan_analyzer_open_async(

@@ -95,6 +95,12 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleOverrideCheckButton),
+          FALSE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleSampRateSpinButton),
+          FALSE);
       gtk_label_set_text(gui->spectrumSampleRateLabel, "N/A");
       sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       break;
@@ -109,6 +115,16 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleOverrideCheckButton),
+          !suscan_analyzer_is_real_time(gui->analyzer));
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleSampRateSpinButton),
+          FALSE);
+      if (!suscan_analyzer_is_real_time(gui->analyzer))
+        gtk_toggle_button_set_active(
+            GTK_TOGGLE_BUTTON(gui->throttleOverrideCheckButton),
+            FALSE);
       sugtk_spectrum_set_has_menu(gui->spectrum, TRUE);
       break;
 
@@ -117,6 +133,12 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleOverrideCheckButton),
+          FALSE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleSampRateSpinButton),
+          FALSE);
       sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       suscan_gui_detach_all_inspectors(gui);
       break;
@@ -130,6 +152,12 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleOverrideCheckButton),
+          FALSE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleSampRateSpinButton),
+          FALSE);
       sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       suscan_gui_detach_all_inspectors(gui);
       break;

@@ -112,6 +112,8 @@ struct suscan_gui {
   GtkMenuItem *emptyMenuItem;
   GtkBox *freqBox;
   SuGtkLcd *freqLcd;
+  GtkSpinButton *throttleSampRateSpinButton;
+  GtkCheckButton *throttleOverrideCheckButton;
 
   GtkToggleButton   *overlayChannelToggleButton;
   GtkToggleButton   *autoGainToggleButton;

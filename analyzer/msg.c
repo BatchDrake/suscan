@@ -319,6 +319,10 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
       suscan_analyzer_sample_batch_msg_destroy(ptr);
       break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
+      free(ptr);
+      break;
   }
 }
 

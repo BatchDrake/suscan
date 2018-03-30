@@ -964,7 +964,19 @@ sugtk_spectrum_reset(SuGtkSpectrum *spect)
     spect->psd_data_smooth = NULL;
   }
 
-  spect->prev_N0 = 0;
+  spect->freq_offset = SUGTK_SPECTRUM_FREQ_OFFSET_DEFAULT;
+  spect->freq_scale  = SUGTK_SPECTRUM_FREQ_SCALE_DEFAULT;
+  spect->ref_level   = SUGTK_SPECTRUM_REF_LEVEL_DEFAULT;
+  spect->dbs_per_div = SUGTK_SPECTRUM_DBS_PER_DIV_DEFAULT;
+
+  spect->N0        = 0;
+  spect->prev_N0   = 0;
+  spect->selection.bw = 0;
+  spect->selecting = FALSE;
+  spect->psd_size  = 0;
+  spect->samp_rate = 0;
+  spect->fc        = 0;
+  spect->last_max  = 0;
 
   sugtk_spectrum_refresh_hard(spect);
 }
