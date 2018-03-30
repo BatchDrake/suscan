@@ -869,8 +869,13 @@ suscan_gui_inspector_on_config_changed(suscan_gui_inspector_t *insp)
 {
   struct suscan_field_value *value;
 
-  value = suscan_config_get_value(insp->config, "afc.bits-per-symbol");
-  if (value != NULL)
+  if ((value = suscan_config_get_value(
+      insp->config,
+      "afc.bits-per-symbol")) != NULL)
+    suscan_gui_inspector_set_bits(insp, value->as_int);
+  else if ((value = suscan_config_get_value(
+      insp->config,
+      "fsk.bits-per-symbol")) != NULL)
     suscan_gui_inspector_set_bits(insp, value->as_int);
   else
     suscan_gui_inspector_set_bits(insp, 1);

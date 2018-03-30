@@ -56,6 +56,7 @@ struct suscan_fsk_inspector_params {
   struct suscan_inspector_gc_params gc;
   struct suscan_inspector_mf_params mf;
   struct suscan_inspector_br_params br;
+  struct suscan_inspector_fsk_params fsk;
 };
 
 struct suscan_fsk_inspector {
@@ -104,6 +105,8 @@ suscan_fsk_inspector_params_initialize(
 
   params->mf.mf_conf  = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
   params->mf.mf_rolloff = SUSCAN_FSK_INSPECTOR_DEFAULT_ROLL_OFF;
+
+  params->fsk.bits_per_tone = 1;
 }
 
 SUPRIVATE void
@@ -212,6 +215,10 @@ suscan_fsk_inspector_get_config(void *private, suscan_config_t *config)
       suscan_inspector_br_params_save(&insp->cur_params.br, config),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+      suscan_inspector_fsk_params_save(&insp->cur_params.fsk, config),
+      return SU_FALSE);
+
   return SU_TRUE;
 }
 
@@ -232,6 +239,10 @@ suscan_fsk_inspector_parse_config(void *private, const suscan_config_t *config)
 
   SU_TRYCATCH(
       suscan_inspector_br_params_parse(&insp->req_params.br, config),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_inspector_fsk_params_parse(&insp->req_params.fsk, config),
       return SU_FALSE);
 
   return SU_TRUE;
@@ -405,6 +416,7 @@ suscan_fsk_inspector_register(void)
 
   /* Add all configuration parameters */
   SU_TRYCATCH(suscan_config_desc_add_gc_params(iface.cfgdesc), return SU_FALSE);
+  SU_TRYCATCH(suscan_config_desc_add_fsk_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_mf_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_br_params(iface.cfgdesc), return SU_FALSE);
 

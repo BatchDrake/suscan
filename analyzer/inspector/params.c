@@ -531,3 +531,54 @@ suscan_inspector_br_params_save(
   return SU_TRUE;
 }
 
+/****************************** FSK config ***********************************/
+SUBOOL
+suscan_config_desc_add_fsk_params(suscan_config_desc_t *desc)
+{
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "fsk.bits-per-symbol",
+          "Bits per FSK tone"),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_fsk_params_parse(
+    struct suscan_inspector_fsk_params *params,
+    const suscan_config_t *config)
+{
+  struct suscan_field_value *value;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "fsk.bits-per-symbol"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->bits_per_tone = value->as_int;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_fsk_params_save(
+    const struct suscan_inspector_fsk_params *params,
+    suscan_config_t *config)
+{
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "fsk.bits-per-symbol",
+          params->bits_per_tone),
+      return SU_FALSE);
+
+  return SU_TRUE;
+
+}
