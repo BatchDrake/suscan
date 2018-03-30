@@ -91,6 +91,8 @@ struct _SuGtkHistogram
 struct _SuGtkHistogramClass
 {
   GtkDrawingAreaClass parent_class;
+
+  int sig_set_decider;
 };
 
 typedef struct _SuGtkHistogram      SuGtkHistogram;

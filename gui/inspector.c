@@ -29,7 +29,7 @@
 #include "gui.h"
 #include "inspector.h"
 
-void suscan_inspector_on_reshape(GtkWidget *widget, gpointer data);
+void suscan_gui_inspector_on_reshape(GtkWidget *widget, gpointer data);
 
 void
 suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
@@ -544,6 +544,23 @@ fail:
   return SU_FALSE;
 }
 
+SUPRIVATE void
+suscan_gui_inspector_on_set_decider(
+    SuGtkHistogram *hist,
+    const struct sigutils_decider_params *params,
+    gpointer data)
+{
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
+
+  /* We only keep limit information */
+  insp->decider_params.min_val = params->min_val;
+  insp->decider_params.max_val = params->max_val;
+
+  /* Initialize decider appropriately */
+  if (insp->decider_params.bits != 0)
+    su_decider_init(&insp->decider, &insp->decider_params);
+}
+
 SUPRIVATE SUBOOL
 suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 {
@@ -728,7 +745,7 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   g_signal_connect(
       G_OBJECT(inspector->symbolView),
       "reshape",
-      G_CALLBACK(suscan_inspector_on_reshape),
+      G_CALLBACK(suscan_gui_inspector_on_reshape),
       inspector);
 
   gtk_grid_attach(
@@ -780,7 +797,6 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 
   /* Add constellation widget */
   inspector->constellation = SUGTK_CONSTELLATION(sugtk_constellation_new());
-
   gtk_container_add(
       GTK_CONTAINER(inspector->constellationAlignment),
       GTK_WIDGET(inspector->constellation));
@@ -807,13 +823,18 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 
   /* Add histogram widget */
   inspector->histogram = SUGTK_HISTOGRAM(sugtk_histogram_new());
-
   gtk_container_add(
       GTK_CONTAINER(inspector->histogramAlignment),
       GTK_WIDGET(inspector->histogram));
 
   gtk_widget_set_hexpand(GTK_WIDGET(inspector->histogram), TRUE);
   gtk_widget_set_vexpand(GTK_WIDGET(inspector->histogram), TRUE);
+
+  g_signal_connect(
+      G_OBJECT(inspector->histogram),
+      "set-decider",
+      G_CALLBACK(suscan_gui_inspector_on_set_decider),
+      inspector);
 
   gtk_widget_show(GTK_WIDGET(inspector->histogram));
 
@@ -1177,7 +1198,7 @@ suscan_inspector_on_set_width(
 }
 
 void
-suscan_inspector_on_reshape(GtkWidget *widget, gpointer data)
+suscan_gui_inspector_on_reshape(GtkWidget *widget, gpointer data)
 {
   suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 

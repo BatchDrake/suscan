@@ -278,6 +278,18 @@ sugtk_histogram_class_init(SuGtkHistogramClass *class)
   g_object_class = G_OBJECT_CLASS(class);
 
   g_object_class->dispose = sugtk_histogram_dispose;
+
+  class->sig_set_decider =  g_signal_new(
+      "set-decider",
+      G_TYPE_FROM_CLASS (g_object_class),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_NO_RECURSE | G_SIGNAL_NO_HOOKS,
+      0, /* class offset */
+      NULL /* accumulator */,
+      NULL /* accu_data */,
+      g_cclosure_marshal_VOID__POINTER, /* marshaller */
+      G_TYPE_NONE /* return_type */,
+      1,
+      G_TYPE_POINTER); /* n_params */
 }
 
 static gboolean
@@ -450,9 +462,67 @@ sugtk_histogram_on_button_press_event(
 }
 
 static void
+sugtk_histogram_on_set_params(GtkWidget *widget, gpointer data)
+{
+  SuGtkHistogram *histogram = SUGTK_HISTOGRAM(data);
+  gfloat rel_min, rel_max;
+  gfloat width;
+  gfloat half_bin;
+  struct sigutils_decider_params params = histogram->decider_params;
+
+  if (histogram->selection) {
+    histogram->selection = FALSE;
+
+    width = params.max_val - params.min_val;
+    rel_min = .5 * (histogram->sel_min + 1);
+    rel_max = .5 * (histogram->sel_max + 1);
+
+    /*
+     * Compute the size of the interval and half the bin size. Append
+     * this value to both ends of the interval (we are selecting the
+     * centroids, not the thresholds)
+     */
+    half_bin = (rel_max - rel_min) / (2 * histogram->levels);
+    rel_min -= half_bin;
+    rel_max += half_bin;
+
+    params.max_val = params.min_val + rel_max * width;
+    params.min_val = params.min_val + rel_min * width;
+
+    g_signal_emit(
+        histogram,
+        SUGTK_HISTOGRAM_GET_CLASS(histogram)->sig_set_decider,
+        0,
+        &params);
+
+    sugtk_histogram_set_decider_params(histogram, &params);
+  }
+}
+
+static void
+sugtk_histogram_on_reset(GtkWidget *widget, gpointer data)
+{
+  SuGtkHistogram *histogram = SUGTK_HISTOGRAM(data);
+  struct sigutils_decider_params params = sigutils_decider_params_INITIALIZER;
+
+  params.bits = histogram->decider_params.bits;
+  histogram->selection = FALSE;
+
+  g_signal_emit(
+      histogram,
+      SUGTK_HISTOGRAM_GET_CLASS(histogram)->sig_set_decider,
+      0,
+      &params);
+
+  sugtk_histogram_set_decider_params(histogram, &params);
+}
+
+static void
 sugtk_histogram_init(SuGtkHistogram *self)
 {
   struct sigutils_decider_params params = sigutils_decider_params_INITIALIZER;
+
+  self->sf_histogram = NULL;
 
   gtk_widget_set_events(
       GTK_WIDGET(self),
@@ -491,22 +561,32 @@ sugtk_histogram_init(SuGtkHistogram *self)
   self->deciderMenu = GTK_MENU(gtk_menu_new());
 
   self->setDecider =
-      GTK_MENU_ITEM(gtk_menu_item_new_with_label("Update decider with selection"));
+      GTK_MENU_ITEM(gtk_menu_item_new_with_label("Update decider"));
   gtk_menu_shell_append(
       GTK_MENU_SHELL(self->deciderMenu),
       GTK_WIDGET(self->setDecider));
   gtk_widget_set_sensitive(GTK_WIDGET(self->setDecider), FALSE);
+  g_signal_connect(
+      GTK_WIDGET(self->setDecider),
+      "activate",
+      (GCallback) sugtk_histogram_on_set_params,
+      self);
 
   gtk_menu_shell_append(
       GTK_MENU_SHELL(self->deciderMenu),
       gtk_separator_menu_item_new());
 
   self->resetDecider =
-      GTK_MENU_ITEM(gtk_menu_item_new_with_label("Reset decider range"));
+      GTK_MENU_ITEM(gtk_menu_item_new_with_label("Reset range"));
   gtk_menu_shell_append(
       GTK_MENU_SHELL(self->deciderMenu),
       GTK_WIDGET(self->resetDecider));
-  gtk_widget_set_sensitive(GTK_WIDGET(self->resetDecider), FALSE);
+  gtk_widget_set_sensitive(GTK_WIDGET(self->resetDecider), TRUE);
+  g_signal_connect(
+      GTK_WIDGET(self->resetDecider),
+      "activate",
+      (GCallback) sugtk_histogram_on_reset,
+      self);
 
   self->fg_color.red   = 1;
   self->fg_color.green = 1;
