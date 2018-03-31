@@ -200,8 +200,11 @@ suscan_gui_codec_async_set_done(gpointer user_data)
   struct suscan_gui_codec_state *state =
       (struct suscan_gui_codec_state *) user_data;
 
-  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN)
+  if (state->state != SUSCAN_GUI_CODEC_STATE_ORPHAN) {
+    /* Re-enable symbol view autoscroll */
+    sugtk_sym_view_set_autoscroll(state->owner->symbolView, TRUE);
     state->owner->pending_done = SU_TRUE;
+  }
 
   return G_SOURCE_REMOVE;
 }
