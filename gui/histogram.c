@@ -451,7 +451,7 @@ sugtk_histogram_on_button_press_event(
         /* Menu */
         gtk_widget_set_sensitive(
             GTK_WIDGET(histogram->setDecider),
-            histogram->selection);
+            histogram->selection && histogram->levels > 1);
         gtk_widget_show_all(GTK_WIDGET(histogram->deciderMenu));
         gtk_menu_popup_at_pointer(histogram->deciderMenu, (GdkEvent *) ev);
         break;
@@ -482,7 +482,7 @@ sugtk_histogram_on_set_params(GtkWidget *widget, gpointer data)
      * this value to both ends of the interval (we are selecting the
      * centroids, not the thresholds)
      */
-    half_bin = (rel_max - rel_min) / (2 * histogram->levels);
+    half_bin = (rel_max - rel_min) / (2 * (histogram->levels - 1));
     rel_min -= half_bin;
     rel_max += half_bin;
 
