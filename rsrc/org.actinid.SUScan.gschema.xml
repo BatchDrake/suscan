@@ -4,6 +4,61 @@
 
 <schemalist>
   <schema id="org.actinid.SUScan" path="/org/actinid/SUScan/">
+    <!-- General GUI settings -->
+    <key name="pa-bg-color" type="s">
+      <default>"#000000"</default>
+      <summary>Panadapter background color</summary>
+      <description>Background color of the panadapter widget</description>
+    </key>
+    <key name="pa-fg-color" type="s">
+      <default>"#ffff00"</default>
+      <summary>Panadapter foreground color</summary>
+      <description>Foreground color of the panadapter widget</description>
+    </key>
+    <key name="pa-axes-color" type="s">
+      <default>"#808080"</default>
+      <summary>Panadapter axes color</summary>
+      <description>Color of panadapter axes</description>
+    </key>
+    <key name="pa-text-color" type="s">
+      <default>"#ffffff"</default>
+      <summary>Panadapter text color</summary>
+      <description>Color of panadapter text</description>
+    </key>
+    
+    <key name="insp-bg-color" type="s">
+      <default>"#000000"</default>
+      <summary>Inspector spectrum background color</summary>
+      <description>Background color of the inspector spectrum</description>
+    </key>
+    <key name="insp-fg-color" type="s">
+      <default>"#ffff00"</default>
+      <summary>Inspector spectrum foreground color</summary>
+      <description>Foreground color of the inspector spectrum</description>
+    </key>
+    <key name="insp-axes-color" type="s">
+      <default>"#808080"</default>
+      <summary>Inspector spectrum axes color</summary>
+      <description>Color of inspector spectrum axes</description>
+    </key>
+    <key name="insp-text-color" type="s">
+      <default>"#ffffff"</default>
+      <summary>Inspector spectrum text color</summary>
+      <description>Color of inspector spectrum text</description>
+    </key>
+    
+    <key name="lcd-bg-color" type="s">
+      <default>"#90b156"</default>
+      <summary>Frequency LCD background color</summary>
+      <description>Background color of the frequency LCD</description>
+    </key>
+    <key name="lcd-fg-color" type="s">
+      <default>"#000000"</default>
+      <summary>Frequency LCD foreground color</summary>
+      <description>Foreground color of the frequency LCD</description>
+    </key>
+    
+    <!-- Analyzer-related settings -->
     <key name="recent-sources" type="as">
       <default>[]</default>
       <summary>Recent sources</summary>

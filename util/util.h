@@ -111,8 +111,8 @@
   int     name ## _count = 0;
 
 #define PTR_LIST_CONST(type, name)                   \
-  type *const * name ## _list = NULL;                \
-  int           name ## _count = 0;
+  const type ** name ## _list;                       \
+  int           name ## _count;
 
 #define PTR_LIST_EXTERN(type, name)                  \
   extern type ** name ## _list;                      \
@@ -185,6 +185,7 @@ int grow_buf_append_null(grow_buf_t *buf);
 void *grow_buf_get_buffer(const grow_buf_t *buf);
 size_t grow_buf_get_size(const grow_buf_t *buf);
 void grow_buf_finalize(grow_buf_t *buf);
+void grow_buf_shrink(grow_buf_t *buf);
 void grow_buf_clear(grow_buf_t *buf);
 int grow_buf_transfer(grow_buf_t *dest, grow_buf_t *src);
 

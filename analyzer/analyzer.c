@@ -89,6 +89,57 @@ SUSCOUNT dbg_rate_last_second;
 #endif
 
 SUPRIVATE SUBOOL
+suscan_analyzer_feed_inspectors(
+    suscan_analyzer_t *analyzer,
+    const SUCOMPLEX *data,
+    SUSCOUNT size)
+{
+  SUSDIFF got;
+  SUBOOL ok = SU_TRUE;
+
+  /*
+   * No opened channels. We can avoid doing extra work. However, we
+   * should clean the tuner in this case to keep it from having
+   * samples from previous calls to feed_bulk.
+   */
+  if (su_specttuner_get_channel_count(analyzer->stuner) == 0)
+    return SU_TRUE;
+
+  /* This must be performed in a serialized way */
+  while (size > 0) {
+
+    /*
+     * Must be protected from access by the analyzer thread: right now,
+     * only the source worker can access the tuner.
+     */
+    suscan_analyzer_enter_sched(analyzer);
+    got = su_specttuner_feed_bulk_single(analyzer->stuner, data, size);
+
+    if (su_specttuner_new_data(analyzer->stuner)) {
+      /*
+       * New data has been queued to the existing inspectors. We must
+       * ensure that all of them are done by issuing a barrier at the end
+       * of the worker queue.
+       */
+
+      suscan_inspsched_sync(analyzer->sched);
+
+      su_specttuner_ack_data(analyzer->stuner);
+    }
+
+    suscan_analyzer_leave_sched(analyzer);
+
+    if (got == -1)
+      ok = SU_FALSE;
+
+    data += got;
+    size -= got;
+  }
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
 suscan_source_wk_cb(
     struct suscan_mq *mq_out,
     void *wk_private,
@@ -109,7 +160,7 @@ suscan_source_wk_cb(
   mutex_acquired = SU_TRUE;
 
   /* With non-real time sources, use throttle to control CPU usage */
-  if (source->config->source->real_time)
+  if (suscan_analyzer_is_real_time(analyzer))
     read_size = analyzer->read_size;
   else
     read_size = suscan_throttle_get_portion(
@@ -135,9 +186,10 @@ suscan_source_wk_cb(
     dbg_rate_counter += got;
 #endif
 
-    if (!source->config->source->real_time)
+    if (!suscan_analyzer_is_real_time(analyzer))
       suscan_throttle_advance(&source->throttle, got);
 
+    /* Feed channel detector! */
     SU_TRYCATCH(
         su_channel_detector_feed_bulk(
             source->detector,
@@ -151,7 +203,7 @@ suscan_source_wk_cb(
     /* Check channel update */
     if (source->interval_channels > 0) {
       if (source->per_cnt_channels
-          >= source->interval_channels * source->detector->params.samp_rate) {
+          >= source->interval_channels * source->effective_samp_rate) {
         source->per_cnt_channels = 0;
 
         SU_TRYCATCH(
@@ -163,7 +215,7 @@ suscan_source_wk_cb(
     /* Check spectrum update */
     if (source->interval_psd > 0) {
       if (source->per_cnt_psd
-          >= source->interval_psd * source->detector->params.samp_rate) {
+          >= source->interval_psd * source->effective_samp_rate) {
         source->per_cnt_psd = 0;
 
         SU_TRYCATCH(
@@ -171,6 +223,12 @@ suscan_source_wk_cb(
             goto done);
       }
     }
+
+    /* Feed inspectors! */
+    SU_TRYCATCH(
+        suscan_analyzer_feed_inspectors(analyzer, analyzer->read_buf, got),
+        goto done);
+
   } else {
     analyzer->eos = SU_TRUE;
     analyzer->cpu_usage = 0;
@@ -280,6 +338,39 @@ suscan_wait_for_halt(suscan_analyzer_t *analyzer)
   }
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_override_throttle(suscan_analyzer_t *analyzer, SUSCOUNT val)
+{
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(!suscan_analyzer_is_real_time(analyzer), goto done);
+
+  SU_TRYCATCH(
+      pthread_mutex_lock(&analyzer->source.det_mutex) != -1,
+      goto done);
+  mutex_acquired = SU_TRUE;
+
+  suscan_throttle_init(&analyzer->source.throttle, val);
+
+  analyzer->source.effective_samp_rate = val;
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&analyzer->source.det_mutex);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_reset_throttle(suscan_analyzer_t *analyzer)
+{
+  return suscan_analyzer_override_throttle(
+      analyzer,
+      analyzer->source.detector->params.samp_rate);
+}
 
 SUPRIVATE void *
 suscan_analyzer_thread(void *data)
@@ -288,6 +379,7 @@ suscan_analyzer_thread(void *data)
   su_channel_detector_t *new_detector = NULL;
   struct sigutils_channel_detector_params new_det_params;
   const struct suscan_analyzer_params *new_params;
+  const struct suscan_analyzer_throttle_msg *throttle;
   void *private = NULL;
   uint32_t type;
   SUBOOL mutex_acquired = SU_FALSE;
@@ -349,6 +441,19 @@ suscan_analyzer_thread(void *data)
           /* Not belonging to us anymore */
           private = NULL;
 
+          break;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
+          throttle = (const struct suscan_analyzer_throttle_msg *) private;
+          if (throttle->samp_rate == 0) {
+            SU_TRYCATCH(
+                suscan_analyzer_reset_throttle(analyzer),
+                goto done);
+          } else {
+            SU_TRYCATCH(
+                suscan_analyzer_override_throttle(analyzer, throttle->samp_rate),
+                goto done);
+          }
           break;
 
         case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
@@ -636,6 +741,8 @@ suscan_analyzer_source_init(
     suscan_throttle_init(&source->throttle, params.samp_rate);
   }
 
+  source->effective_samp_rate = params.samp_rate;
+
   ok = SU_TRUE;
 
 done:
@@ -643,37 +750,134 @@ done:
 }
 
 /********************** Suscan analyzer public API ***************************/
-SUPRIVATE unsigned int
-suscan_get_min_consumer_workers(void)
+void
+suscan_analyzer_source_barrier(suscan_analyzer_t *analyzer)
 {
-  long count;
+  pthread_barrier_wait(&analyzer->barrier);
+}
 
-  if ((count = sysconf(_SC_NPROCESSORS_ONLN)) < 2)
-    count = 2;
+void
+suscan_analyzer_enter_sched(suscan_analyzer_t *analyzer)
+{
+  pthread_mutex_lock(&analyzer->sched_lock);
+}
 
-  return count - 1;
+void
+suscan_analyzer_leave_sched(suscan_analyzer_t *analyzer)
+{
+  pthread_mutex_unlock(&analyzer->sched_lock);
+}
+
+su_specttuner_channel_t *
+suscan_analyzer_open_channel(
+    suscan_analyzer_t *analyzer,
+    const struct sigutils_channel *chan_info,
+    SUBOOL (*on_data) (
+        const struct sigutils_specttuner_channel *channel,
+        void *private,
+        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
+        SUSCOUNT size),
+        void *private)
+{
+  su_specttuner_channel_t *channel = NULL;
+  struct sigutils_specttuner_channel_params params =
+      sigutils_specttuner_channel_params_INITIALIZER;
+
+  params.f0 =
+      SU_NORM2ANG_FREQ(
+          SU_ABS2NORM_FREQ(
+              analyzer->source.detector->params.samp_rate,
+              chan_info->fc - chan_info->ft));
+
+  if (params.f0 < 0)
+    params.f0 += 2 * PI;
+
+  params.bw =
+      SU_NORM2ANG_FREQ(
+          SU_ABS2NORM_FREQ(
+              analyzer->source.detector->params.samp_rate,
+              chan_info->f_hi - chan_info->f_lo));
+  params.guard = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
+  params.on_data = on_data;
+  params.private = private;
+  params.precise = SU_FALSE;
+
+  suscan_analyzer_enter_sched(analyzer);
+
+  SU_TRYCATCH(
+      channel = su_specttuner_open_channel(analyzer->stuner, &params),
+      goto done);
+
+done:
+  suscan_analyzer_leave_sched(analyzer);
+
+  return channel;
 }
 
 SUBOOL
-suscan_analyzer_push_task(
+suscan_analyzer_close_channel(
     suscan_analyzer_t *analyzer,
-    SUBOOL (*func) (
-          struct suscan_mq *mq_out,
-          void *wk_private,
-          void *cb_private),
-    void *private)
+    su_specttuner_channel_t *channel)
 {
-  if (!suscan_consumer_push_task(
-      analyzer->consumer_list[analyzer->next_consumer],
-      func,
-      private))
-    return SU_FALSE;
+  SUBOOL ok;
 
-  /* Increment next consumer counter */
-  analyzer->next_consumer =
-      (analyzer->next_consumer + 1) % analyzer->consumer_count;
+  suscan_analyzer_enter_sched(analyzer);
 
-  return SU_TRUE;
+  ok = su_specttuner_close_channel(analyzer->stuner, channel);
+
+  suscan_analyzer_leave_sched(analyzer);
+
+  return ok;
+}
+
+/*
+ * There is no explicit UNBIND. Unbind happens inside
+ * suscan_analyzer_on_channel_data when the inspector state
+ * is different from RUNNING.
+ */
+
+SUBOOL
+suscan_analyzer_bind_inspector_to_channel(
+    suscan_analyzer_t *analyzer,
+    su_specttuner_channel_t *channel,
+    suscan_inspector_t *insp)
+{
+  struct suscan_inspector_task_info *task_info = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      task_info = suscan_inspector_task_info_new(insp),
+      return SU_FALSE);
+
+  task_info->channel = channel;
+
+  suscan_analyzer_enter_sched(analyzer);
+
+  SU_TRYCATCH(
+      suscan_inspsched_append_task_info(analyzer->sched, task_info),
+      goto done);
+
+  /*
+   * Task info registered, binding it to the inspector. Time to bind
+   * this task to the channel, so it knows that to do when new data
+   * arrives to it.
+   */
+  channel->params.private = task_info;
+
+  /* Now we can say that the inspector is actually running */
+  insp->state = SUSCAN_ASYNC_STATE_RUNNING;
+
+  task_info = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  suscan_analyzer_leave_sched(analyzer);
+
+  if (task_info != NULL)
+    suscan_inspector_task_info_destroy(task_info);
+
+  return ok;
 }
 
 void
@@ -712,19 +916,25 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
       return;
     }
 
-  for (i = 0; i < analyzer->consumer_count; ++i)
-    if (analyzer->consumer_list[i] != NULL)
-      if (!suscan_consumer_destroy(analyzer->consumer_list[i])) {
-        SU_ERROR("Consumer worker destruction failed, memory leak ahead\n");
-        return;
-      }
+  /* Halt all inspector scheduler workers */
+  if (analyzer->sched != NULL) {
+    if (!suscan_inspsched_destroy(analyzer->sched)) {
+      SU_ERROR("Failed to shutdown inspector scheduler, memory leak ahead\n");
+      return;
+    }
+
+    /* FIXME: Add flag to prevent initialization errors! */
+    pthread_barrier_destroy(&analyzer->barrier);
+
+    pthread_mutex_destroy(&analyzer->sched_lock);
+  }
 
   /* Consume any pending messages */
   suscan_analyzer_consume_mq(&analyzer->mq_in);
 
-  /* All workers destroyed, it's safe now to delete the worker list */
-  if (analyzer->consumer_list != NULL)
-    free(analyzer->consumer_list);
+  /* Free spectral tuner */
+  if (analyzer->stuner != NULL)
+    su_specttuner_destroy(analyzer->stuner);
 
   /* Free read buffer */
   if (analyzer->read_buf != NULL)
@@ -752,77 +962,87 @@ suscan_analyzer_new(
     struct suscan_source_config *config,
     struct suscan_mq *mq)
 {
-  suscan_analyzer_t *analyzer = NULL;
-  suscan_consumer_t *consumer;
+  suscan_analyzer_t *new = NULL;
+  struct sigutils_specttuner_params st_params =
+      sigutils_specttuner_params_INITIALIZER;
   unsigned int worker_count;
   unsigned int i;
 
-  if ((analyzer = calloc(1, sizeof (suscan_analyzer_t))) == NULL) {
+  if ((new = calloc(1, sizeof (suscan_analyzer_t))) == NULL) {
     SU_ERROR("Cannot allocate analyzer\n");
     goto fail;
   }
 
   /* Allocate read buffer */
-  if ((analyzer->read_buf = malloc(config->bufsiz * sizeof(SUCOMPLEX)))
+  if ((new->read_buf = malloc(config->bufsiz * sizeof(SUCOMPLEX)))
       == NULL) {
     SU_ERROR("Failed to allocate read buffer\n");
     goto fail;
   }
 
-  analyzer->read_size = config->bufsiz;
+  new->read_size = config->bufsiz;
 
   /* Create input message queue */
-  if (!suscan_mq_init(&analyzer->mq_in)) {
+  if (!suscan_mq_init(&new->mq_in)) {
     SU_ERROR("Cannot allocate input MQ\n");
     goto fail;
   }
 
   /* Initialize source */
-  if (!suscan_analyzer_source_init(params, &analyzer->source, config)) {
+  if (!suscan_analyzer_source_init(params, &new->source, config)) {
     SU_ERROR("Failed to initialize source\n");
     goto fail;
   }
 
   /* Create source worker */
-  if ((analyzer->source_wk = suscan_worker_new(&analyzer->mq_in, analyzer))
+  if ((new->source_wk = suscan_worker_new(&new->mq_in, new))
       == NULL) {
     SU_ERROR("Cannot create source worker thread\n");
     goto fail;
   }
 
-  /* Create consumer workers */
-  worker_count = suscan_get_min_consumer_workers();
-  for (i = 0; i < worker_count; ++i) {
-    if ((consumer = suscan_consumer_new(analyzer)) == NULL) {
-      SU_ERROR("Failed to create consumer object\n");
-      goto fail;
-    }
+  /* Create spectral tuner, with matching read size */
+  st_params.window_size = config->bufsiz * 4;
+  SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
 
-    if (PTR_LIST_APPEND_CHECK(analyzer->consumer, consumer) == -1) {
-      SU_ERROR("Cannot append consumer to list\n");
-      suscan_consumer_destroy(consumer);
-      goto fail;
-    }
-  }
+  /* Create inspector scheduler and barrier */
+  SU_TRYCATCH(new->sched = suscan_inspsched_new(new), goto fail);
 
-  analyzer->mq_out = mq;
+  /*
+   * During barrier initialization, we take the number of scheduler workers
+   * plus 1 (the source worker)
+   */
+  SU_TRYCATCH(
+      pthread_barrier_init(
+          &new->barrier,
+          NULL,
+          suscan_inspsched_get_num_workers(new->sched) + 1) == 0,
+      goto fail);
+
+  /*
+   * This mutex will protect the spectral tuner from concurrent access by
+   * consumer, analyzer and scheduler worker threads
+   */
+  SU_TRYCATCH(pthread_mutex_init(&new->sched_lock, NULL) == 0, goto fail);
+
+  new->mq_out = mq;
 
   if (pthread_create(
-      &analyzer->thread,
+      &new->thread,
       NULL,
       suscan_analyzer_thread,
-      analyzer) == -1) {
+      new) == -1) {
     SU_ERROR("Cannot create main thread\n");
     goto fail;
   }
 
-  analyzer->running = SU_TRUE;
+  new->running = SU_TRUE;
 
-  return analyzer;
+  return new;
 
 fail:
-  if (analyzer != NULL)
-    suscan_analyzer_destroy(analyzer);
+  if (new != NULL)
+    suscan_analyzer_destroy(new);
 
   return NULL;
 }

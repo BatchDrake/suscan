@@ -105,8 +105,8 @@ done:
   return result;
 }
 
-void
-sugtk_sym_view_clear(SuGtkSymView *view)
+static void
+sugtk_sym_view_clear_internal(SuGtkSymView *view)
 {
   if (view->data_buf != NULL) {
     free(view->data_buf);
@@ -118,220 +118,11 @@ sugtk_sym_view_clear(SuGtkSymView *view)
   view->window_offset = 0;
 }
 
-static gboolean
-sugtk_sym_view_append_internal(SuGtkSymView *view, uint8_t data)
-{
-  uint8_t *tmp = NULL;
-  guint new_alloc;
-  gboolean ok = FALSE;
-
-  if (view->data_alloc <= view->data_size) {
-    if (view->data_alloc > 0)
-      new_alloc = view->data_alloc << 1;
-    else
-      new_alloc = 1;
-
-    if ((tmp = realloc(view->data_buf, new_alloc)) == NULL)
-      goto fail;
-
-    view->data_alloc = new_alloc;
-    view->data_buf = tmp;
-    tmp = NULL;
-  }
-
-  view->data_buf[view->data_size++] = data;
-
-  ok = TRUE;
-
-fail:
-  if (tmp != NULL)
-    free(tmp);
-
-  return ok;
-}
-
-static guint
-sugtk_sym_view_get_height(SuGtkSymView *view)
-{
-  return gtk_widget_get_allocated_height(GTK_WIDGET(view))
-        / view->window_zoom;
-}
-
-gboolean
-sugtk_sym_view_append(SuGtkSymView *view, uint8_t data)
-{
-  guint i;
-  guint width;
-  guint height;
-
-  for (i = 0; i < SUGTK_SYM_VIEW_STRIDE_ALIGN; ++i)
-    if (!sugtk_sym_view_append_internal(view, data))
-      return FALSE;
-
-  if (view->autoscroll) {
-    width = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_width;
-    height = sugtk_sym_view_get_height(view);
-
-    if (width * height < view->data_size)
-      view->window_offset =
-          width * (1 + view->data_size / width - height)
-          / SUGTK_SYM_VIEW_STRIDE_ALIGN;
-  }
-
-  return TRUE;
-}
-
-void
-sugtk_sym_view_set_autoscroll(SuGtkSymView *view, gboolean value)
-{
-  view->autoscroll = value;
-}
-
-void
-sugtk_sym_view_set_autofit(SuGtkSymView *view, gboolean value)
-{
-  view->autofit = value;
-
-  if (value)
-    sugtk_sym_view_set_width(
-        view,
-        gtk_widget_get_allocated_width(GTK_WIDGET(view)) / view->window_zoom);
-}
-
-gboolean
-sugtk_sym_view_set_width(SuGtkSymView *view, guint width)
-{
-  if (width < 1)
-    return FALSE;
-
-  view->window_width = width;
-
-  return TRUE;
-}
-
-guint
-sugtk_sym_view_get_width(const SuGtkSymView *view)
-{
-  return view->window_width;
-}
-
-gboolean
-sugtk_sym_view_set_zoom(SuGtkSymView *view, guint zoom)
-{
-  if (zoom < 1)
-    return FALSE;
-
-  view->window_zoom = zoom;
-
-  if (view->autofit)
-    sugtk_sym_view_set_width(
-        view,
-        gtk_widget_get_allocated_width(GTK_WIDGET(view)) / view->window_zoom);
-
-  return TRUE;
-}
-
-guint
-sugtk_sym_view_get_zoom(const SuGtkSymView *view)
-{
-  return view->window_zoom;
-}
-
-gboolean
-sugtk_sym_view_set_offset(SuGtkSymView *view, guint offset)
-{
-  if (offset >= view->data_size)
-    return FALSE;
-
-  view->window_offset = offset;
-
-  return TRUE;
-}
-
-guint
-sugtk_sym_view_get_offset(const SuGtkSymView *view)
-{
-  return view->window_offset;
-}
-
-const uint8_t *
-sugtk_sym_get_buffer_bytes(const SuGtkSymView *view)
-{
-  return view->data_buf;
-}
-
-size_t
-sugtk_sym_get_buffer_size(const SuGtkSymView *view)
-{
-  return view->data_size;
-}
-
-GtkMenu *
-sugtk_sym_view_get_menu(const SuGtkSymView *view)
-{
-  return view->menu;
-}
-
 static void
-sugtk_sym_view_dispose(GObject* object)
+sugtk_sym_view_redraw(SuGtkSymView *view)
 {
-  SuGtkSymView *view;
-
-  view = SUGTK_SYM_VIEW(object);
-
-  sugtk_sym_view_clear(view);
-
-  /*
-   * Remember: this function may be called several times on the
-   * same object.
-   */
-  if (view->fft_plan != NULL) {
-    fftw_destroy_plan(view->fft_plan);
-    view->fft_plan = NULL;
-  }
-
-  if (view->fft_plan_rev != NULL) {
-    fftw_destroy_plan(view->fft_plan_rev);
-    view->fft_plan_rev = NULL;
-  }
-
-  if (view->fft_buf != NULL) {
-    fftw_free(view->fft_buf);
-    view->fft_buf = NULL;
-  }
-
-  G_OBJECT_CLASS(sugtk_sym_view_parent_class)->dispose(object);
-}
-
-static void
-sugtk_sym_view_class_init(SuGtkSymViewClass *class)
-{
-  GObjectClass  *g_object_class;
-
-  g_object_class = G_OBJECT_CLASS(class);
-
-  g_object_class->dispose = sugtk_sym_view_dispose;
-}
-
-static gboolean
-sugtk_sym_view_on_configure_event(
-    GtkWidget *widget,
-    GdkEventConfigure *event,
-    gpointer data)
-{
-  SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
-
-  if (view->autofit)
-    sugtk_sym_view_set_width(view, event->width / view->window_zoom);
-
-  return TRUE;
-}
-
-static gboolean
-suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
-{
-  SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
   cairo_surface_t *surface;
+  cairo_t *cr;
   guint stride;
   guint height;
   guint width;
@@ -345,6 +136,10 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
   guint sel_width, sel_tmp;
 
   gboolean selection = FALSE;
+
+  cr = cairo_create(view->surface);
+
+  cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
 
   /* Precedence is imortant here */
   width = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_width;
@@ -479,7 +274,318 @@ suscan_constellation_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     }
   }
 
+  cairo_destroy(cr);
+}
+
+void
+sugtk_sym_view_refresh_hard(SuGtkSymView *view)
+{
+  if (view->reshaped) {
+    g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    view->reshaped = FALSE;
+  }
+
+  sugtk_sym_view_redraw(view);
+  gtk_widget_queue_draw(GTK_WIDGET(view));
+}
+
+void
+sugtk_sym_view_refresh(SuGtkSymView *view)
+{
+  struct timeval tv, sub;
+
+  gettimeofday(&tv, NULL);
+  timersub(&tv, &view->last_redraw_time, &sub);
+
+  if (sub.tv_usec > SUGTK_SYM_VIEW_MIN_REDRAW_INTERVAL_MS * 1000) {
+    sugtk_sym_view_refresh_hard(view);
+    view->last_redraw_time = tv;
+  }
+}
+
+
+void
+sugtk_sym_view_clear(SuGtkSymView *view)
+{
+  sugtk_sym_view_clear_internal(view);
+
+  sugtk_sym_view_refresh_hard(view);
+}
+
+static gboolean
+sugtk_sym_view_append_internal(SuGtkSymView *view, uint8_t data)
+{
+  uint8_t *tmp = NULL;
+  guint new_alloc;
+  gboolean ok = FALSE;
+
+  if (view->data_alloc <= view->data_size) {
+    if (view->data_alloc > 0)
+      new_alloc = view->data_alloc << 1;
+    else
+      new_alloc = 1;
+
+    if ((tmp = realloc(view->data_buf, new_alloc)) == NULL)
+      goto fail;
+
+    view->data_alloc = new_alloc;
+    view->data_buf = tmp;
+    tmp = NULL;
+  }
+
+  view->data_buf[view->data_size++] = data;
+
+  ok = TRUE;
+
+fail:
+  if (tmp != NULL)
+    free(tmp);
+
+  return ok;
+}
+
+guint
+sugtk_sym_view_get_height(SuGtkSymView *view)
+{
+  return gtk_widget_get_allocated_height(GTK_WIDGET(view))
+        / view->window_zoom;
+}
+
+gboolean
+sugtk_sym_view_append(SuGtkSymView *view, uint8_t data)
+{
+  guint i;
+  guint width;
+  guint height;
+
+  for (i = 0; i < SUGTK_SYM_VIEW_STRIDE_ALIGN; ++i)
+    if (!sugtk_sym_view_append_internal(view, data))
+      return FALSE;
+
+  if (view->autoscroll) {
+    width = SUGTK_SYM_VIEW_STRIDE_ALIGN * view->window_width;
+    height = sugtk_sym_view_get_height(view);
+
+    if (width * height < view->data_size) {
+      view->window_offset =
+          width * (1 + view->data_size / width - height)
+          / SUGTK_SYM_VIEW_STRIDE_ALIGN;
+
+      view->reshaped = TRUE;
+    }
+  }
+
+  sugtk_sym_view_refresh(view);
+
   return TRUE;
+}
+
+void
+sugtk_sym_view_set_autoscroll(SuGtkSymView *view, gboolean value)
+{
+  view->autoscroll = value;
+}
+
+void
+sugtk_sym_view_set_autofit(SuGtkSymView *view, gboolean value)
+{
+  view->autofit = value;
+
+  if (value)
+    sugtk_sym_view_set_width(
+        view,
+        gtk_widget_get_allocated_width(GTK_WIDGET(view)) / view->window_zoom);
+}
+
+gboolean
+sugtk_sym_view_set_width(SuGtkSymView *view, guint width)
+{
+  if (width < 1)
+    return FALSE;
+
+  if (view->window_width != width) {
+    view->window_width = width;
+    view->reshaped = TRUE;
+    sugtk_sym_view_refresh_hard(view);
+  }
+
+  return TRUE;
+}
+
+guint
+sugtk_sym_view_get_width(const SuGtkSymView *view)
+{
+  return view->window_width;
+}
+
+gboolean
+sugtk_sym_view_set_zoom(SuGtkSymView *view, guint zoom)
+{
+  if (zoom < 1)
+    return FALSE;
+
+  if (view->window_zoom != zoom) {
+    view->window_zoom = zoom;
+
+    if (view->autofit)
+      sugtk_sym_view_set_width(
+          view,
+          gtk_widget_get_allocated_width(GTK_WIDGET(view)) / view->window_zoom);
+
+    view->reshaped = TRUE;
+    sugtk_sym_view_refresh_hard(view);
+  }
+
+  return TRUE;
+}
+
+guint
+sugtk_sym_view_get_zoom(const SuGtkSymView *view)
+{
+  return view->window_zoom;
+}
+
+gboolean
+sugtk_sym_view_set_offset(SuGtkSymView *view, guint offset)
+{
+  int max_offset;
+  int32_t data_size;
+  data_size = view->data_size / SUGTK_SYM_VIEW_STRIDE_ALIGN;
+
+  max_offset = data_size
+      - sugtk_sym_view_get_width(view) * (sugtk_sym_view_get_height(view) - 1);
+
+  if (max_offset < 0)
+    max_offset = 0;
+
+  if (offset > (guint) max_offset)
+    return FALSE;
+
+  if (view->window_offset != offset) {
+    view->window_offset = offset;
+    view->reshaped = TRUE;
+    sugtk_sym_view_refresh_hard(view);
+  }
+
+  return TRUE;
+}
+
+guint
+sugtk_sym_view_get_offset(const SuGtkSymView *view)
+{
+  return view->window_offset;
+}
+
+const uint8_t *
+sugtk_sym_view_get_buffer_bytes(const SuGtkSymView *view)
+{
+  return view->data_buf;
+}
+
+size_t
+sugtk_sym_view_get_buffer_size(const SuGtkSymView *view)
+{
+  return view->data_size;
+}
+
+GtkMenu *
+sugtk_sym_view_get_menu(const SuGtkSymView *view)
+{
+  return view->menu;
+}
+
+static void
+sugtk_sym_view_dispose(GObject* object)
+{
+  SuGtkSymView *view;
+
+  view = SUGTK_SYM_VIEW(object);
+
+  sugtk_sym_view_clear_internal(view);
+
+  /*
+   * Remember: this function may be called several times on the
+   * same object.
+   */
+  if (view->surface != NULL) {
+    cairo_surface_destroy(view->surface);
+    view->surface = NULL;
+  }
+
+  if (view->fft_plan != NULL) {
+    fftw_destroy_plan(view->fft_plan);
+    view->fft_plan = NULL;
+  }
+
+  if (view->fft_plan_rev != NULL) {
+    fftw_destroy_plan(view->fft_plan_rev);
+    view->fft_plan_rev = NULL;
+  }
+
+  if (view->fft_buf != NULL) {
+    fftw_free(view->fft_buf);
+    view->fft_buf = NULL;
+  }
+
+  G_OBJECT_CLASS(sugtk_sym_view_parent_class)->dispose(object);
+}
+
+static void
+sugtk_sym_view_class_init(SuGtkSymViewClass *class)
+{
+  GObjectClass  *g_object_class;
+
+  g_object_class = G_OBJECT_CLASS(class);
+
+  g_object_class->dispose = sugtk_sym_view_dispose;
+
+  class->sig_reshape =  g_signal_new(
+      "reshape",
+      G_TYPE_FROM_CLASS (g_object_class),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_NO_RECURSE | G_SIGNAL_NO_HOOKS,
+      0, /* class offset */
+      NULL /* accumulator */,
+      NULL /* accu_data */,
+      NULL, /* marshaller */
+      G_TYPE_NONE /* return_type */,
+      0);     /* n_params */
+}
+
+static gboolean
+sugtk_sym_view_on_configure_event(
+    GtkWidget *widget,
+    GdkEventConfigure *event,
+    gpointer data)
+{
+  SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
+
+  if (view->surface != NULL)
+    cairo_surface_destroy(view->surface);
+
+  view->surface = gdk_window_create_similar_surface(
+      gtk_widget_get_window(widget),
+      CAIRO_CONTENT_COLOR,
+      event->width,
+      event->height);
+
+  if (view->autofit)
+    sugtk_sym_view_set_width(view, event->width / view->window_zoom);
+
+  sugtk_sym_view_refresh_hard(view);
+
+  return TRUE;
+}
+
+static gboolean
+sugtk_sym_view_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+{
+  SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
+
+  cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+  cairo_set_source_surface(cr, view->surface, 0, 0);
+  cairo_paint(cr);
+
+  return FALSE;
 }
 
 guint
@@ -545,10 +651,23 @@ sugtk_sym_view_on_button_release_event(
     gpointer data)
 {
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
+  uint32_t offset;
 
   switch (event->button.button) {
     case GDK_BUTTON_PRIMARY:
-      view->sel_started = FALSE;
+      if (view->sel_started) {
+        view->sel_started = FALSE;
+
+        offset = sugtk_sym_view_coords_to_offset(
+            view,
+            event->motion.x,
+            event->motion.y);
+
+        if (view->sel_off0 == offset) {
+          view->selection = FALSE;
+          sugtk_sym_view_refresh(view);
+        }
+      }
       break;
   }
 
@@ -569,6 +688,8 @@ sugtk_sym_view_on_motion_notify_event(
 
     view->sel_off1 = offset;
     view->selection = TRUE;
+
+    sugtk_sym_view_refresh_hard(view);
   }
 
   return TRUE;
@@ -869,8 +990,8 @@ sugtk_sym_view_save_helper(
       goto done;
     }
 
-    bytes = sugtk_sym_get_buffer_bytes(view);
-    size = sugtk_sym_get_buffer_size(view);
+    bytes = sugtk_sym_view_get_buffer_bytes(view);
+    size = sugtk_sym_view_get_buffer_size(view);
 
     for (i = 0; i < size; i += SUGTK_SYM_VIEW_STRIDE_ALIGN) {
       result = sugtk_sym_view_pixel_to_code_helper(bits_per_symbol, bytes[i])
@@ -908,6 +1029,7 @@ sugtk_sym_view_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpointer data)
   gboolean delta;
   int delta_int;
   int new_offset;
+
   SuGtkSymView *view = (SuGtkSymView *) widget;
 
   if (ev->direction == GDK_SCROLL_SMOOTH && !view->autoscroll) {
@@ -924,6 +1046,8 @@ sugtk_sym_view_on_scroll(GtkWidget *widget, GdkEventScroll *ev, gpointer data)
       new_offset = 0;
 
     sugtk_sym_view_set_offset(view, new_offset);
+
+    sugtk_sym_view_refresh_hard(view);
   }
 }
 
@@ -1011,7 +1135,7 @@ sugtk_sym_view_init(SuGtkSymView *self)
   g_signal_connect(
       self,
       "draw",
-      (GCallback) suscan_constellation_on_draw,
+      (GCallback) sugtk_sym_view_on_draw,
       NULL);
 
   g_signal_connect(

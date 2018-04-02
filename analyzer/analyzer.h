@@ -28,8 +28,10 @@
 #include "worker.h"
 #include "source.h"
 #include "throttle.h"
-#include "inspector.h"
-#include "consumer.h"
+#include "inspector/inspector.h"
+#include "inspsched.h"
+
+#define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.5
 
 struct suscan_analyzer_params {
   struct sigutils_channel_detector_params detector_params;
@@ -57,6 +59,9 @@ struct suscan_analyzer_source {
 
   SUSCOUNT per_cnt_channels;
   SUSCOUNT per_cnt_psd;
+
+  SUSCOUNT effective_samp_rate; /* Used for GUI */
+
   uint64_t fc; /* Center frequency of source */
 };
 
@@ -81,19 +86,26 @@ struct suscan_analyzer {
   SUCOMPLEX *read_buf;
   SUSCOUNT   read_size;
 
+  /* Spectral tuner */
+  su_specttuner_t    *stuner;
+
   /* Inspector objects */
-  PTR_LIST(suscan_inspector_t, inspector);
-
-  /* Consumer workers (initially idle) */
-  PTR_LIST(suscan_consumer_t, consumer);
-
-  unsigned int next_consumer; /* Next consumer worker to use */
+  PTR_LIST(suscan_inspector_t, inspector); /* This list owns inspectors */
+  suscan_inspsched_t *sched; /* Inspector scheduler */
+  pthread_mutex_t     sched_lock;
+  pthread_barrier_t   barrier; /* Sched barrier */
 
   /* Analyzer thread */
   pthread_t thread;
 };
 
 typedef struct suscan_analyzer suscan_analyzer_t;
+
+SUINLINE SUBOOL
+suscan_analyzer_is_real_time(const suscan_analyzer_t *analyzer)
+{
+  return analyzer->source.config->source->real_time;
+}
 
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
 struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg(
@@ -111,27 +123,52 @@ suscan_analyzer_t *suscan_analyzer_new(
     const struct suscan_analyzer_params *params,
     struct suscan_source_config *config,
     struct suscan_mq *mq);
-SUBOOL suscan_analyzer_push_task(
-    suscan_analyzer_t *analyzer,
-    SUBOOL (*func) (
-          struct suscan_mq *mq_out,
-          void *wk_private,
-          void *cb_private),
-    void *private);
 
+void suscan_analyzer_source_barrier(suscan_analyzer_t *analyzer);
+
+void suscan_analyzer_enter_sched(suscan_analyzer_t *analyzer);
+
+void suscan_analyzer_leave_sched(suscan_analyzer_t *analyzer);
+
+su_specttuner_channel_t *suscan_analyzer_open_channel(
+    suscan_analyzer_t *analyzer,
+    const struct sigutils_channel *chan_info,
+    SUBOOL (*on_data) (
+        const struct sigutils_specttuner_channel *channel,
+        void *private,
+        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
+        SUSCOUNT size),
+        void *private);
+
+SUBOOL
+suscan_analyzer_close_channel(
+    suscan_analyzer_t *analyzer,
+    su_specttuner_channel_t *channel);
+
+SUBOOL suscan_analyzer_bind_inspector_to_channel(
+    suscan_analyzer_t *analyzer,
+    su_specttuner_channel_t *channel,
+    suscan_inspector_t *insp);
 
 SUBOOL suscan_analyzer_set_params_async(
     suscan_analyzer_t *analyzer,
     const struct suscan_analyzer_params *params,
     uint32_t req_id);
 
+SUBOOL suscan_analyzer_set_throttle_async(
+    suscan_analyzer_t *analyzer,
+    SUSCOUNT samp_rate,
+    uint32_t req_id);
+
 SUBOOL suscan_analyzer_open_async(
     suscan_analyzer_t *analyzer,
+    const char *class,
     const struct sigutils_channel *channel,
     uint32_t req_id);
 
 SUHANDLE suscan_analyzer_open(
     suscan_analyzer_t *analyzer,
+    const char *class,
     const struct sigutils_channel *channel);
 
 SUBOOL suscan_analyzer_close_async(
@@ -143,20 +180,30 @@ SUBOOL suscan_analyzer_close(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle);
 
-SUBOOL suscan_analyzer_get_info_async(
+SUBOOL
+suscan_analyzer_set_inspector_id_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
+    uint32_t inspector_id,
     uint32_t req_id);
 
-SUBOOL suscan_analyzer_get_info(
+SUBOOL suscan_analyzer_set_inspector_config_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
-    struct suscan_baud_det_result *result);
+    const suscan_config_t *config,
+    uint32_t req_id);
 
-SUBOOL suscan_analyzer_set_inspector_params_async(
+SUBOOL suscan_analyzer_inspector_estimator_cmd_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
-    const struct suscan_inspector_params *params,
+    uint32_t estimator_id,
+    SUBOOL enabled,
+    uint32_t req_id);
+
+SUBOOL suscan_analyzer_inspector_set_spectrum_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    uint32_t spectsrc_id,
     uint32_t req_id);
 
 SUBOOL suscan_analyzer_reset_equalizer_async(

@@ -38,7 +38,7 @@ suscan_gui_recent_destroy(struct suscan_gui_recent *recent)
 
 struct suscan_gui_recent *
 suscan_gui_recent_new(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     char *conf_string)
 {
   struct suscan_gui_recent *new = NULL;
@@ -96,7 +96,7 @@ suscan_gui_on_open_recent(GtkWidget *widget, gpointer *data)
 }
 
 SUPRIVATE void
-suscan_gui_update_recent_menu(struct suscan_gui *gui)
+suscan_gui_update_recent_menu(suscan_gui_t *gui)
 {
   GList *children, *iter;
   GtkWidget *item;
@@ -135,7 +135,7 @@ suscan_gui_update_recent_menu(struct suscan_gui *gui)
 
 SUBOOL
 suscan_gui_append_recent(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     const struct suscan_source_config *config)
 {
   SUBOOL ok = SU_FALSE;
@@ -186,7 +186,7 @@ done:
 }
 
 void
-suscan_gui_retrieve_recent(struct suscan_gui *gui)
+suscan_gui_retrieve_recent(suscan_gui_t *gui)
 {
   struct suscan_gui_recent *recent = NULL;
   gchar **confs;
@@ -194,7 +194,7 @@ suscan_gui_retrieve_recent(struct suscan_gui *gui)
   unsigned int i = 0;
 
   SU_TRYCATCH(
-      confs = g_settings_get_strv(gui->settings, "recent-sources"),
+      confs = g_settings_get_strv(gui->g_settings, "recent-sources"),
       return);
 
   while (confs[i] != NULL) {
@@ -224,7 +224,7 @@ done:
 }
 
 void
-suscan_gui_store_recent(struct suscan_gui *gui)
+suscan_gui_store_recent(suscan_gui_t *gui)
 {
   const gchar **confs = NULL;
   unsigned int i;
@@ -238,7 +238,7 @@ suscan_gui_store_recent(struct suscan_gui *gui)
       confs[i] = (gchar *) gui->recent_list[i]->conf_string;
     confs[i] = NULL;
 
-    g_settings_set_strv(gui->settings, "recent-sources", confs);
+    g_settings_set_strv(gui->g_settings, "recent-sources", confs);
 
     free(confs);
 

@@ -28,6 +28,8 @@
 #include <sys/types.h>
 #include <sys/select.h>
 
+#define SU_LOG_DOMAIN "fingerprint"
+
 #include "suscan.h"
 
 #define SUSCAN_CHLIST_SKIP_CHANNELS 50
@@ -36,7 +38,6 @@
 struct suscan_fingerprint_chresult {
   struct sigutils_channel channel;
   SUHANDLE br_handle; /* Baudrate inspector handle */
-  struct suscan_baud_det_result baudrate;
 };
 
 struct suscan_fingerprint_report {
@@ -98,6 +99,7 @@ suscan_open_all_channels(
   for (i = 0; i < report->result_count; ++i) {
     handle = suscan_analyzer_open(
         analyzer,
+        "psk",
         &report->results[i].channel);
     if (handle == -1) {
       SU_ERROR("Failed to open baud inspector\n");
@@ -134,6 +136,8 @@ suscan_get_all_baudrates(
   SUHANDLE handle;
 
   for (i = 0; i < report->result_count; ++i) {
+    /* TODO: Implement */
+#if 0
     if (!suscan_analyzer_get_info(
         analyzer,
         report->results[i].br_handle,
@@ -141,6 +145,7 @@ suscan_get_all_baudrates(
       SU_ERROR("Failed to get baudrate for channel #%d\n", i + 1);
       return SU_FALSE;
     }
+#endif
   }
 
   return SU_TRUE;
@@ -157,14 +162,14 @@ suscan_print_report(
 
   for (i = 0; i < report->result_count; ++i)
     printf(
-        "%2d. | %+8.1lf Hz | %7.1lf (%7.1lf) Hz | %5.1lf dB | %8lg | %8lg \n",
+        "%2d. | %+8.1lf Hz | %7.1lf (%7.1lf) Hz | %5.1lf dB | %8s | %8s \n",
         i + 1,
         report->results[i].channel.fc,
         report->results[i].channel.bw,
         report->results[i].channel.f_hi - report->results[i].channel.f_lo,
         report->results[i].channel.snr,
-        round(report->results[i].baudrate.fac),
-        round(report->results[i].baudrate.nln));
+        "N/A",
+        "N/A");
 }
 
 SUBOOL

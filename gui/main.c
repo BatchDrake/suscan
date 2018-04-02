@@ -23,7 +23,7 @@
 #include "gui.h"
 
 gint
-suscan_settings_dialog_run(struct suscan_gui *gui)
+suscan_settings_dialog_run(suscan_gui_t *gui)
 {
   gint response;
 
@@ -37,7 +37,7 @@ suscan_settings_dialog_run(struct suscan_gui *gui)
 void
 suscan_on_about(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
 
   (void) gtk_dialog_run(gui->aboutDialog);
   gtk_widget_hide(GTK_WIDGET(gui->aboutDialog));
@@ -47,7 +47,7 @@ suscan_on_about(GtkWidget *widget, gpointer data)
 void
 suscan_on_settings(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
   struct suscan_gui_src_ui *config;
   gint response;
 
@@ -56,6 +56,9 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
 
     if (response == 0) { /* Okay pressed */
       config = suscan_gui_get_selected_src_ui(gui);
+
+      /* We load these always */
+      suscan_gui_settings_from_dialog(gui);
 
       if (!suscan_gui_analyzer_params_from_dialog(gui)) {
         suscan_error(
@@ -95,7 +98,7 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
 void
 suscan_on_toggle_connect(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
 
   switch (gui->state) {
     case SUSCAN_GUI_STATE_STOPPED:
@@ -117,22 +120,8 @@ suscan_on_toggle_connect(GtkWidget *widget, gpointer data)
   }
 }
 
-void
-suscan_on_open_inspector(GtkWidget *widget, gpointer data)
-{
-  struct suscan_gui *gui = (struct suscan_gui *) data;
-
-  /* Send open message. We will open new tab on response */
-  SU_TRYCATCH(
-      suscan_analyzer_open_async(
-          gui->analyzer,
-          &gui->selected_channel,
-          rand()),
-      return);
-}
-
 struct suscan_gui_src_ui *
-suscan_gui_get_selected_src_ui(const struct suscan_gui *gui)
+suscan_gui_get_selected_src_ui(const suscan_gui_t *gui)
 {
   struct suscan_gui_src_ui *ui;
   GtkTreeIter iter;
@@ -152,7 +141,7 @@ suscan_gui_get_selected_src_ui(const struct suscan_gui *gui)
 
 SUBOOL
 suscan_gui_set_selected_src_ui(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     const struct suscan_gui_src_ui *new_ui)
 {
   GtkTreeIter iter;
@@ -183,9 +172,9 @@ suscan_gui_set_selected_src_ui(
 }
 
 void
-suscan_on_source_changed(GtkWidget *widget, gpointer *data)
+suscan_on_source_changed(GtkWidget *widget, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
   struct suscan_gui_src_ui *config;
   GList *list;
   GtkWidget *cfgui = NULL;
@@ -213,3 +202,109 @@ suscan_on_source_changed(GtkWidget *widget, gpointer *data)
 
   gtk_window_resize(GTK_WINDOW(gui->settingsDialog), 1, 1);
 }
+
+void
+suscan_spectrum_on_center(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  sugtk_spectrum_set_freq_offset(gui->spectrum, 0);
+}
+
+void
+suscan_spectrum_on_settings_changed(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gboolean auto_level, prev_auto_level;
+
+  if (!gui->updating_settings) {
+    gui->updating_settings = SU_TRUE;
+
+    sugtk_spectrum_set_show_channels(
+        gui->spectrum,
+        gtk_toggle_button_get_active(gui->overlayChannelToggleButton));
+
+    prev_auto_level = sugtk_spectrum_get_auto_level(gui->spectrum);
+
+    sugtk_spectrum_set_auto_level(
+        gui->spectrum,
+        gtk_toggle_button_get_active(gui->autoGainToggleButton));
+
+    auto_level = sugtk_spectrum_get_auto_level(gui->spectrum);
+
+    if (sugtk_spectrum_get_s_wf_ratio(gui->spectrum) !=
+        gtk_range_get_value(GTK_RANGE(gui->panadapterScale)))
+      sugtk_spectrum_set_s_wf_ratio(
+          gui->spectrum,
+          gtk_range_get_value(GTK_RANGE(gui->panadapterScale)));
+
+    if (!auto_level) {
+      if (prev_auto_level) {
+        gtk_range_set_value(
+            GTK_RANGE(gui->gainScale),
+            sugtk_spectrum_get_ref_level(gui->spectrum));
+        gtk_range_set_value(
+            GTK_RANGE(gui->rangeScale),
+            sugtk_spectrum_get_dbs_per_div(gui->spectrum));
+      } else {
+        sugtk_spectrum_set_ref_level(
+            gui->spectrum,
+            gtk_range_get_value(GTK_RANGE(gui->gainScale)));
+        sugtk_spectrum_set_dbs_per_div(
+            gui->spectrum,
+            gtk_range_get_value(GTK_RANGE(gui->rangeScale)));
+      }
+    }
+
+    gtk_widget_set_sensitive(
+        GTK_WIDGET(gui->gainScale),
+        !sugtk_spectrum_get_auto_level(gui->spectrum));
+    gtk_widget_set_sensitive(
+        GTK_WIDGET(gui->rangeScale),
+        !sugtk_spectrum_get_auto_level(gui->spectrum));
+
+    gui->updating_settings = SU_FALSE;
+  }
+}
+
+void
+suscan_gui_on_throttle_override(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gboolean overriden;
+
+  overriden = gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(gui->throttleOverrideCheckButton));
+
+  gtk_widget_set_sensitive(
+      GTK_WIDGET(gui->throttleSampRateSpinButton),
+      overriden);
+
+  if (gui->analyzer != NULL) {
+    if (overriden)
+      suscan_analyzer_set_throttle_async(
+          gui->analyzer,
+          gtk_spin_button_get_value(gui->throttleSampRateSpinButton),
+          rand());
+    else
+      suscan_analyzer_set_throttle_async(
+          gui->analyzer,
+          0,
+          rand());
+  }
+}
+
+void
+suscan_gui_on_size_allocate(
+    GtkWidget *widget,
+    GtkAllocation *allocation,
+    gpointer data)
+{
+  if (allocation->width > SUSCAN_GUI_SPECTRUM_PANEL_WIDTH) {
+    gtk_paned_set_position(
+        GTK_PANED(widget),
+        allocation->width - SUSCAN_GUI_SPECTRUM_PANEL_WIDTH);
+  }
+}
+
+

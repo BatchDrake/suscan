@@ -24,42 +24,28 @@
 #include <pthread.h>
 #include <stdint.h>
 
+#define SU_LOG_DOMAIN "suscan-inspector-server"
+
+#include <sigutils/sigutils.h>
+
+#include "inspector/inspector.h"
+#include "mq.h"
+#include "msg.h"
+
 /*
  * This is the server application: the worker that processes messages and
  * forwards samples to the inspector
  */
 
-#define SU_LOG_DOMAIN "suscan-inspector-server"
-
-#include <sigutils/sigutils.h>
-
-#include "inspector.h"
-#include "mq.h"
-#include "msg.h"
-
-/*
- * TODO: Store *one port* only per worker. This port is read once all
- * consumers have finished with their buffer.
- */
-SUPRIVATE SUBOOL
-suscan_inspector_wk_cb(
-    struct suscan_mq *mq_out,
-    void *wk_private,
-    void *cb_private)
+SUBOOL
+suscan_inspector_sampler_loop(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count,
+    struct suscan_mq *mq_out)
 {
-  suscan_consumer_t *consumer = (suscan_consumer_t *) wk_private;
-  suscan_inspector_t *insp = (suscan_inspector_t *) cb_private;
-  unsigned int i;
-  int fed;
-  SUSCOUNT samp_count;
-  const SUCOMPLEX *samp_buf;
-  struct suscan_analyzer_sample_batch_msg *batch_msg = NULL;
-  SUBOOL restart = SU_FALSE;
-
-  samp_buf   = suscan_consumer_get_buffer(consumer);
-  samp_count = suscan_consumer_get_buffer_size(consumer);
-
-  insp->per_cnt_psd += samp_count;
+  struct suscan_analyzer_sample_batch_msg *msg = NULL;
+  SUSDIFF fed;
 
   while (samp_count > 0) {
     /* Ensure the current inspector parameters are up-to-date */
@@ -67,77 +53,222 @@ suscan_inspector_wk_cb(
 
     SU_TRYCATCH(
         (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
-        goto done);
+        goto fail);
 
-    if (insp->sym_new_sample) {
-      /* Sampler was triggered */
-      if (batch_msg == NULL)
-        SU_TRYCATCH(
-            batch_msg = suscan_analyzer_sample_batch_msg_new(
-                insp->params.inspector_id),
-            goto done);
+    if (suscan_inspector_get_output_length(insp) > 0) {
+      /* New sampes produced by sampler: send to client */
+      SU_TRYCATCH(
+          msg = suscan_analyzer_sample_batch_msg_new(
+              insp->inspector_id,
+              suscan_inspector_get_output_buffer(insp),
+              suscan_inspector_get_output_length(insp)),
+          goto fail);
 
       SU_TRYCATCH(
-          suscan_analyzer_sample_batch_msg_append_sample(
-              batch_msg,
-              insp->sym_sampler_output),
-          goto done);
+          suscan_mq_write(mq_out, SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES, msg),
+          goto fail);
 
+      msg = NULL; /* We don't own this anymore */
     }
 
     samp_buf   += fed;
     samp_count -= fed;
   }
 
-  /* Check spectrum update */
-  if (insp->interval_psd > 0 && insp->pending)
-    if (insp->per_cnt_psd
-        >= insp->interval_psd
-        * su_channel_detector_get_fs(insp->fac_baud_det)) {
-      insp->per_cnt_psd = 0;
+  return SU_TRUE;
 
-      switch (insp->params.psd_source) {
-        case SUSCAN_INSPECTOR_PSD_SOURCE_FAC:
-          if (!suscan_inspector_send_psd(insp, consumer, insp->fac_baud_det))
-            goto done;
-          break;
+fail:
+  if (msg != NULL)
+    suscan_analyzer_sample_batch_msg_destroy(msg);
 
-        case SUSCAN_INSPECTOR_PSD_SOURCE_NLN:
-          if (!suscan_inspector_send_psd(insp, consumer, insp->nln_baud_det))
-            goto done;
-          break;
+  return SU_FALSE;
+}
 
-        default:
-          /* Prevent warnings */
-          break;
+SUBOOL
+suscan_inspector_spectrum_loop(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count,
+    struct suscan_mq *mq_out)
+{
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  suscan_spectsrc_t *src = NULL;
+  unsigned int i;
+  SUFLOAT N0;
+  SUSDIFF fed;
+
+  if (insp->spectsrc_index > 0) {
+    insp->per_cnt_spectrum += samp_count;
+
+    src = insp->spectsrc_list[insp->spectsrc_index - 1];
+    while (samp_count > 0) {
+      fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
+
+      if (fed < samp_count) {
+        if (insp->per_cnt_spectrum >= insp->interval_spectrum) {
+          insp->per_cnt_spectrum = 0;
+          SU_TRYCATCH(
+              msg = suscan_analyzer_inspector_msg_new(
+                  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM,
+                  rand()),
+              goto fail);
+
+          msg->inspector_id = insp->inspector_id;
+          msg->spectsrc_id = insp->spectsrc_index;
+          msg->samp_rate = insp->samp_info.equiv_fs;
+          msg->spectrum_size = SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE;
+
+          SU_TRYCATCH(
+              msg->spectrum_data = malloc(msg->spectrum_size * sizeof(SUFLOAT)),
+              goto fail);
+
+          SU_TRYCATCH(
+              suscan_spectsrc_calculate(src, msg->spectrum_data),
+              goto fail);
+
+          /* Use signal floor as noise level */
+          N0 = msg->spectrum_data[0];
+          for (i = 1; i < msg->spectrum_size; ++i)
+            if (N0 > msg->spectrum_data[i])
+              N0 = msg->spectrum_data[i];
+
+          msg->N0 = N0;
+
+          SU_TRYCATCH(
+              suscan_mq_write(
+                  mq_out,
+                  SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+                  msg),
+              goto fail);
+
+          msg = NULL; /* We don't own this anymore */
+        } else {
+          SU_TRYCATCH(suscan_spectsrc_drop(src), goto fail);
+        }
       }
 
-      insp->pending = SU_FALSE;
+      samp_buf   += fed;
+      samp_count -= fed;
     }
+  }
 
-  /* Got samples, send message batch */
-  if (batch_msg != NULL) {
+  return SU_TRUE;
+
+fail:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+
+  return SU_FALSE;
+}
+
+SUBOOL
+suscan_inspector_estimator_loop(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count,
+    struct suscan_mq *mq_out)
+{
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  unsigned int i;
+  SUFLOAT value;
+
+  /* Check esimator state and update clients */
+  if (insp->interval_estimator > 0) {
+    insp->per_cnt_estimator += samp_count;
+
+    if (insp->per_cnt_estimator >= insp->interval_estimator) {
+      insp->per_cnt_estimator = 0;
+      for (i = 0; i < insp->estimator_count; ++i)
+        if (suscan_estimator_is_enabled(insp->estimator_list[i])) {
+          if (suscan_estimator_is_enabled(insp->estimator_list[i]))
+            SU_TRYCATCH(
+                suscan_estimator_feed(
+                    insp->estimator_list[i],
+                    samp_buf,
+                    samp_count),
+                goto fail);
+
+          if (suscan_estimator_read(insp->estimator_list[i], &value)) {
+            SU_TRYCATCH(
+                msg = suscan_analyzer_inspector_msg_new(
+                    SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR,
+                    rand()),
+                goto fail);
+
+            msg->enabled = SU_TRUE;
+            msg->estimator_id = i;
+            msg->value = value;
+            msg->inspector_id = insp->inspector_id;
+
+            SU_TRYCATCH(
+                suscan_mq_write(
+                    mq_out,
+                    SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+                    msg),
+                goto fail);
+          }
+        }
+    }
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_on_channel_data(
+    const struct sigutils_specttuner_channel *channel,
+    void *private,
+    const SUCOMPLEX *data,
+    SUSCOUNT size)
+{
+  struct suscan_inspector_task_info *task_info =
+      (struct suscan_inspector_task_info *) private;
+
+  /* Channel is not bound yet. No processing is performed */
+  if (task_info == NULL)
+    return SU_TRUE;
+
+  /*
+   * It is safe to close channels here: we are already protected
+   * by the sched mutex.
+   */
+  if (task_info->inspector->state != SUSCAN_ASYNC_STATE_RUNNING) {
+    SU_INFO(
+        "Channel not in RUNNING state, setting to HALTED and removing inspector from scheduler\n");
+
+    /* Close channel: no FFT filtering will be performed */
     SU_TRYCATCH(
-        suscan_mq_write(
-            consumer->analyzer->mq_out,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES,
-            batch_msg),
-        goto done);
-    batch_msg = NULL;
+        su_specttuner_close_channel(
+            task_info->sched->analyzer->stuner,
+            (su_specttuner_channel_t *) channel),
+        return SU_FALSE);
+
+    /* Remove from scheduler: no further processing will take place */
+    SU_TRYCATCH(
+        suscan_inspsched_remove_task_info(
+            task_info->sched,
+            task_info),
+        return SU_FALSE);
+
+    /* Ready to destroy */
+    task_info->inspector->state = SUSCAN_ASYNC_STATE_HALTED;
+
+    /* Task info has been removed, it is safe to destroy it now */
+    suscan_inspector_task_info_destroy(task_info);
+
+    return SU_TRUE;
   }
 
-  restart = insp->state == SUSCAN_ASYNC_STATE_RUNNING;
+  task_info->data = data;
+  task_info->size = size;
 
-done:
-  if (!restart) {
-    insp->state = SUSCAN_ASYNC_STATE_HALTED;
-    suscan_consumer_remove_task(consumer);
-  }
-
-  if (batch_msg != NULL)
-    suscan_analyzer_sample_batch_msg_destroy(batch_msg);
-
-  return restart;
+  return suscan_inspsched_queue_task(task_info->sched, task_info);
 }
 
 SUINLINE suscan_inspector_t *
@@ -174,33 +305,89 @@ suscan_analyzer_dispose_inspector_handle(
   return SU_TRUE;
 }
 
-SUPRIVATE SUHANDLE
-suscan_analyzer_register_inspector(
+SUPRIVATE SUBOOL
+suscan_analyzer_open_inspector(
     suscan_analyzer_t *analyzer,
-    suscan_inspector_t *brinsp)
+    const char *class,
+    const struct sigutils_channel *channel,
+    struct suscan_analyzer_inspector_msg *msg)
 {
-  SUHANDLE hnd;
+  SUHANDLE hnd = -1;
+  su_specttuner_channel_t *schan = NULL;
+  suscan_inspector_t *new = NULL;
+  unsigned int i;
 
-  if (brinsp->state != SUSCAN_ASYNC_STATE_CREATED)
-    return SU_FALSE;
+  /* Open a channel to feed this inspector */
+  SU_TRYCATCH(
+      schan = suscan_analyzer_open_channel(
+          analyzer,
+          channel,
+          suscan_analyzer_on_channel_data,
+          NULL),
+      goto fail);
 
-  /* Plugged. Append handle to list */
-  /* TODO: Find inspectors in HALTED state, and free them */
-  if ((hnd = PTR_LIST_APPEND_CHECK(analyzer->inspector, brinsp)) == -1)
-    return -1;
+  /*
+   * Channel has been opened, and now we have all the required information
+   * to create a new inspector for it.
+   */
+  SU_TRYCATCH(
+      new = suscan_inspector_new(
+          class,
+          su_channel_detector_get_fs(analyzer->source.detector),
+          schan),
+      goto fail);
 
-  /* Mark it as running and push to worker */
-  brinsp->state = SUSCAN_ASYNC_STATE_RUNNING;
+  /************************* POPULATE MESSAGE ********************************/
+  SU_TRYCATCH(msg->config = suscan_inspector_create_config(new), goto fail);
+  SU_TRYCATCH(suscan_inspector_get_config(new, msg->config), goto fail);
 
-  if (!suscan_analyzer_push_task(
-      analyzer,
-      suscan_inspector_wk_cb,
-      brinsp)) {
-    suscan_analyzer_dispose_inspector_handle(analyzer, hnd);
-    return -1;
-  }
+  /* Add estimator list */
+  for (i = 0; i < new->estimator_count; ++i)
+    SU_TRYCATCH(
+        PTR_LIST_APPEND_CHECK(
+            msg->estimator,
+            (void *) new->estimator_list[i]->class) != -1,
+        goto fail);
 
-  return hnd;
+  /* Add applicable spectrum sources */
+  for (i = 0; i < new->spectsrc_count; ++i)
+    SU_TRYCATCH(
+        PTR_LIST_APPEND_CHECK(
+            msg->spectsrc,
+            (void *) new->spectsrc_list[i]->class) != -1,
+        goto fail);
+
+  /*
+   * Append inspector to analyzer's internal list and get a handle.
+   * TODO: Find inspectors in HALTED state, and free them
+   */
+  if ((hnd = PTR_LIST_APPEND_CHECK(analyzer->inspector, new)) == -1)
+    goto fail;
+
+  msg->handle = hnd;
+
+  /*
+   * Data may arrive to the channel in this point. But since it is not
+   * bound yet, it will be discarded.
+   */
+  SU_TRYCATCH(
+      suscan_analyzer_bind_inspector_to_channel(analyzer, schan, new),
+      goto fail);
+
+  /*
+   * At this point: inspector's state is RUNNING, and it is being handled
+   * concurrently by the inspector scheduler.
+   */
+  return SU_TRUE;
+
+fail:
+  if (schan != NULL)
+    (void) suscan_analyzer_close_channel(analyzer, schan);
+
+  if (hnd != -1)
+    (void) suscan_analyzer_dispose_inspector_handle(analyzer, hnd);
+
+  return SU_FALSE;
 }
 
 /*
@@ -209,7 +396,7 @@ suscan_analyzer_register_inspector(
  */
 
 /*
- * TODO: Protect access to inspector object!
+ * TODO: !!!!!!!!! Protect access to inspector object !!!!!!!!!!!!!!!
  */
 
 SUBOOL
@@ -217,42 +404,63 @@ suscan_analyzer_parse_inspector_msg(
     suscan_analyzer_t *analyzer,
     struct suscan_analyzer_inspector_msg *msg)
 {
-  suscan_inspector_t *new = NULL;
   suscan_inspector_t *insp = NULL;
+  unsigned int i;
   SUHANDLE handle = -1;
   SUBOOL ok = SU_FALSE;
   SUBOOL update_baud;
 
   switch (msg->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
-      if ((new = suscan_inspector_new(
-          su_channel_detector_get_fs(analyzer->source.detector),
-          &msg->channel)) == NULL)
-        goto done;
-
-      handle = suscan_analyzer_register_inspector(analyzer, new);
-      if (handle == -1)
-        goto done;
-      new = NULL;
-
-      msg->handle = handle;
+      SU_TRYCATCH(
+          suscan_analyzer_open_inspector(
+              analyzer,
+              msg->class,
+              &msg->channel, msg),
+          goto done);
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INFO:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
       if ((insp = suscan_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
-        /* Retrieve current esimate for message kind */
-        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO;
-        msg->baud.fac = insp->fac_baud_det->baud;
-        msg->baud.nln = insp->nln_baud_det->baud;
+        /* TODO: PROTECT!!!!!!!! */
+        insp->inspector_id = msg->inspector_id;
       }
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_INSP_PARAMS:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else if (msg->estimator_id >= insp->estimator_count) {
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT;
+      } else {
+        suscan_estimator_set_enabled(
+            insp->estimator_list[msg->estimator_id],
+            msg->enabled);
+      }
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else if (msg->spectsrc_id > insp->spectsrc_count) {
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT;
+      } else {
+        insp->spectsrc_index = msg->spectsrc_id;
+      }
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
       if ((insp = suscan_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
@@ -260,22 +468,28 @@ suscan_analyzer_parse_inspector_msg(
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
         /* Retrieve current inspector params */
-        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS;
-        msg->insp_params = insp->params;
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG;
+
+        SU_TRYCATCH(
+            msg->config = suscan_inspector_create_config(insp),
+            goto done);
+
+        SU_TRYCATCH(suscan_inspector_get_config(insp, msg->config), goto done);
       }
       break;
 
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_INSP_PARAMS:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
       if ((insp = suscan_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
-        /* Store the parameter update request */
-        suscan_inspector_request_params(insp, &msg->insp_params);
+        /* Configuration stored as a config request */
+        SU_TRYCATCH(suscan_inspector_set_config(insp, msg->config), goto done);
       }
       break;
+
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
       if ((insp = suscan_analyzer_get_inspector(
@@ -295,7 +509,7 @@ suscan_analyzer_parse_inspector_msg(
           msg->handle)) == NULL) {
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
-        msg->inspector_id = insp->params.inspector_id;
+        msg->inspector_id = insp->inspector_id;
 
         if (insp->state == SUSCAN_ASYNC_STATE_HALTED) {
           /*
@@ -329,7 +543,7 @@ suscan_analyzer_parse_inspector_msg(
    * inspector ID in the response.
    */
   if (insp != NULL)
-    msg->inspector_id = insp->params.inspector_id;
+    msg->inspector_id = insp->inspector_id;
 
   if (!suscan_mq_write(
       analyzer->mq_out,
@@ -337,11 +551,10 @@ suscan_analyzer_parse_inspector_msg(
       msg))
     goto done;
 
+  msg = NULL;
+
   ok = SU_TRUE;
 
 done:
-  if (new != NULL)
-    suscan_inspector_destroy(new);
-
   return ok;
 }

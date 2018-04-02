@@ -22,13 +22,14 @@
 
 #define SU_LOG_DOMAIN "gui"
 
+#include "modemctl.h"
 #include "gui.h"
 
 PTR_LIST_EXTERN(struct suscan_source, source); /* Declared in source.c */
 
 void
 suscan_gui_msgbox(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     GtkMessageType type,
     const char *title,
     const char *fmt,
@@ -62,9 +63,16 @@ suscan_gui_msgbox(
 }
 
 void
-suscan_gui_destroy(struct suscan_gui *gui)
+suscan_gui_destroy(suscan_gui_t *gui)
 {
   unsigned int i;
+
+  for (i = 0; i < gui->action_count; ++i)
+    if (gui->action_list[i] != NULL)
+      free(gui->action_list[i]);
+
+  if (gui->action_list != NULL)
+    free(gui->action_list);
 
   for (i = 0; i < gui->inspector_count; ++i)
     if (gui->inspector_list[i] != NULL)
@@ -85,8 +93,6 @@ suscan_gui_destroy(struct suscan_gui *gui)
 
   if (gui->analyzer != NULL)
     suscan_analyzer_destroy(gui->analyzer);
-
-  suscan_spectrum_finalize(&gui->main_spectrum);
 
   suscan_mq_finalize(&gui->mq_out);
 
@@ -131,7 +137,7 @@ suscan_gui_text_entry_set_integer(GtkEntry *entry, int64_t value)
 }
 
 void
-suscan_gui_analyzer_params_to_dialog(struct suscan_gui *gui)
+suscan_gui_analyzer_params_to_dialog(suscan_gui_t *gui)
 {
   suscan_gui_text_entry_set_float(
       gui->alphaEntry,
@@ -198,7 +204,7 @@ suscan_gui_text_entry_get_float(GtkEntry *entry, SUFLOAT *result)
       text = gtk_entry_get_text(entry),
       return FALSE);
 
-  if (sscanf(text, "%lf", result) < 1)
+  if (sscanf(text, SUFLOAT_SCANF_FMT, result) < 1)
     return FALSE;
 
   return TRUE;
@@ -219,8 +225,98 @@ suscan_gui_text_entry_get_scount(GtkEntry *entry, SUSCOUNT *result)
   return TRUE;
 }
 
+void
+suscan_gui_settings_to_dialog(suscan_gui_t *gui)
+{
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paFgColorButton),
+      &gui->settings.pa_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paBgColorButton),
+      &gui->settings.pa_bg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paTextColorButton),
+      &gui->settings.pa_text);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspFgColorButton),
+      &gui->settings.insp_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspBgColorButton),
+      &gui->settings.insp_bg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspTextColorButton),
+      &gui->settings.insp_text);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdFgColorButton),
+      &gui->settings.lcd_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdBgColorButton),
+      &gui->settings.lcd_bg);
+}
+
+void
+suscan_gui_settings_from_dialog(suscan_gui_t *gui)
+{
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paFgColorButton),
+      &gui->settings.pa_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paBgColorButton),
+      &gui->settings.pa_bg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paTextColorButton),
+      &gui->settings.pa_text);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspFgColorButton),
+      &gui->settings.insp_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspBgColorButton),
+      &gui->settings.insp_bg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspAxesColorButton),
+      &gui->settings.insp_axes);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspTextColorButton),
+      &gui->settings.insp_text);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdFgColorButton),
+      &gui->settings.lcd_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdBgColorButton),
+      &gui->settings.lcd_bg);
+
+  suscan_gui_apply_settings(gui);
+}
+
 SUBOOL
-suscan_gui_analyzer_params_from_dialog(struct suscan_gui *gui)
+suscan_gui_analyzer_params_from_dialog(suscan_gui_t *gui)
 {
   struct suscan_analyzer_params params = gui->analyzer_params;
   SUFLOAT snr;
@@ -359,7 +455,7 @@ fail:
 }
 
 SUBOOL
-suscan_gui_populate_source_list(struct suscan_gui *gui)
+suscan_gui_populate_source_list(suscan_gui_t *gui)
 {
   unsigned int i;
   GtkTreeIter new_element;
@@ -385,7 +481,7 @@ suscan_gui_populate_source_list(struct suscan_gui *gui)
 
 struct suscan_gui_src_ui *
 suscan_gui_lookup_source_config(
-    const struct suscan_gui *gui,
+    const suscan_gui_t *gui,
     const struct suscan_source *src)
 {
   GtkTreeIter iter;
@@ -422,7 +518,7 @@ suscan_gui_double_data_func(
     gpointer data)
 {
   const char *fmt = data;
-  gdouble double_val;
+  gsufloat double_val;
   GValue val = G_VALUE_INIT;
   char as_string[32];
 
@@ -438,7 +534,7 @@ suscan_gui_double_data_func(
 }
 
 void
-suscan_setup_column_formats(struct suscan_gui *gui)
+suscan_setup_column_formats(suscan_gui_t *gui)
 {
   gtk_tree_view_column_set_cell_data_func(
       gui->centerFrequencyCol,
@@ -477,8 +573,85 @@ suscan_setup_column_formats(struct suscan_gui *gui)
 
 }
 
-SUBOOL
-suscan_gui_load_all_widgets(struct suscan_gui *gui)
+SUPRIVATE void
+suscan_gui_on_open_inspector(
+    SuGtkSpectrum *spect,
+    gsufloat freq,
+    const struct sigutils_channel *channel,
+    gpointer data)
+{
+  struct suscan_gui_spectrum_action *action =
+      (struct suscan_gui_spectrum_action *) data;
+
+  /* Send open message. We will open new tab on response */
+  SU_TRYCATCH(
+      suscan_analyzer_open_async(
+          action->gui->analyzer,
+          action->insp_iface->name,
+          channel,
+          rand()),
+      return);
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_add_inspector_action(
+    suscan_gui_t *gui,
+    const struct suscan_inspector_interface *insp_iface)
+{
+  char *action_text = NULL;
+  struct suscan_gui_spectrum_action *action = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(action_text = strbuild("Open %s", insp_iface->desc), goto done);
+
+  SU_TRYCATCH(
+      action = calloc(1, sizeof(struct suscan_gui_spectrum_action)),
+      goto done);
+
+  action->gui = gui;
+  action->insp_iface = insp_iface;
+
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(gui->action, action) != -1, goto done);
+
+  (void) sugtk_spectrum_add_menu_action(
+      gui->spectrum,
+      action_text,
+      suscan_gui_on_open_inspector,
+      action);
+
+  action = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (action_text != NULL)
+    free(action_text);
+
+  if (action != NULL)
+    free(action);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_add_all_inspector_actions(suscan_gui_t *gui)
+{
+  const struct suscan_inspector_interface **iface_list;
+  unsigned int iface_count;
+  unsigned int i;
+
+  suscan_inspector_interface_get_list(&iface_list, &iface_count);
+
+  for (i = 0; i < iface_count; ++i)
+    SU_TRYCATCH(
+        suscan_gui_add_inspector_action(gui, iface_list[i]),
+        return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_load_all_widgets(suscan_gui_t *gui)
 {
   SU_TRYCATCH(
       gui->main = GTK_WINDOW(gtk_builder_get_object(gui->builder, "wMain")),
@@ -487,6 +660,11 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
   SU_TRYCATCH(
       gui->headerBar = GTK_HEADER_BAR(
           gtk_builder_get_object(gui->builder, "HeaderBar")),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->spectrumGrid = GTK_GRID(
+          gtk_builder_get_object(gui->builder, "grSpectrum")),
       return SU_FALSE);
 
   gtk_window_set_titlebar(gui->main, GTK_WIDGET(gui->headerBar));
@@ -524,13 +702,6 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
   SU_TRYCATCH(
       gui->toggleConnect =
           GTK_BUTTON(gtk_builder_get_object(gui->builder, "bToggleConnect")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->freqLabel =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lMainViewsSummaryFreq")),
       return SU_FALSE);
 
   SU_TRYCATCH(
@@ -646,60 +817,11 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->spectrumSampleRate =
+      gui->spectrumSampleRateLabel =
           GTK_LABEL(gtk_builder_get_object(
               gui->builder,
               "lSpectrumSampleRate")),
       return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->spectrumDbsPerDivLabel =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lSpectrumDbsPerDiv")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->spectrumRefLevelLabel =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lSpectrumRefLevel")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->spectrumFreqScaleLabel =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lSpectrumFreqScale")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->spectrumFreqOffsetLabel =
-          GTK_LABEL(gtk_builder_get_object(
-            gui->builder,
-            "lSpectrumFreqOffset")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->channelMenu =
-          GTK_MENU(gtk_builder_get_object(
-            gui->builder,
-            "mChannel")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->channelHeaderMenuItem =
-          GTK_MENU_ITEM(gtk_builder_get_object(
-            gui->builder,
-            "miChannelHeader")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->openInspectorMenuItem =
-          GTK_MENU_ITEM(gtk_builder_get_object(
-            gui->builder,
-            "miOpenInspector")),
-          return SU_FALSE);
 
   SU_TRYCATCH(
       gui->analyzerViewsNotebook =
@@ -737,45 +859,38 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->spectrogramMenuItem =
-          GTK_RADIO_MENU_ITEM(gtk_builder_get_object(
-              gui->builder,
-              "miSpectrogram")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->waterfallMenuItem =
-          GTK_RADIO_MENU_ITEM(gtk_builder_get_object(
-              gui->builder,
-              "miWaterfall")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
       gui->overlayChannelToggleButton =
-          GTK_TOGGLE_TOOL_BUTTON(gtk_builder_get_object(
+          GTK_TOGGLE_BUTTON(gtk_builder_get_object(
               gui->builder,
               "tbOverlayChannels")),
           return SU_FALSE);
 
   SU_TRYCATCH(
       gui->autoGainToggleButton =
-          GTK_TOGGLE_TOOL_BUTTON(gtk_builder_get_object(
+          GTK_TOGGLE_BUTTON(gtk_builder_get_object(
               gui->builder,
               "tbAutoGain")),
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->gainScaleButton =
-          GTK_SCALE_BUTTON(gtk_builder_get_object(
+      gui->gainScale =
+          GTK_SCALE(gtk_builder_get_object(
               gui->builder,
               "sbRefLevel")),
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->rangeScaleButton =
-          GTK_SCALE_BUTTON(gtk_builder_get_object(
+      gui->rangeScale =
+          GTK_SCALE(gtk_builder_get_object(
               gui->builder,
               "sbRange")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->panadapterScale =
+          GTK_SCALE(gtk_builder_get_object(
+              gui->builder,
+              "sbPanadapter")),
           return SU_FALSE);
 
   SU_TRYCATCH(
@@ -876,13 +991,146 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
               "lSubTitle")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->symToolNotebook =
+          GTK_NOTEBOOK(gtk_builder_get_object(
+              gui->builder,
+              "nbSymTool")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->freqBox =
+          GTK_BOX(gtk_builder_get_object(
+              gui->builder,
+              "bFreq")),
+          return SU_FALSE);
+
+  /* Settings dialog widgets */
+  SU_TRYCATCH(
+      gui->paFgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbPaFg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->paBgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbPaBg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->paTextColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbPaText")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->paAxesColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbPaAxes")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->inspFgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbInspFg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->inspBgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbInspBg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->inspTextColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbInspText")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->inspAxesColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbInspAxes")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->lcdFgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbLcdFg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->lcdBgColorButton =
+          GTK_COLOR_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbLcdBg")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->throttleSampRateSpinButton =
+          GTK_SPIN_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "sbThrottleSampRate")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->throttleOverrideCheckButton =
+          GTK_CHECK_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbThrottleOverride")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
 
   gtk_combo_box_set_active(gui->sourceCombo, 0);
 
+  /* Update preferences */
   suscan_gui_analyzer_params_to_dialog(gui);
+  suscan_gui_settings_to_dialog(gui);
+
+  /* Add spectrum view */
+  gui->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
+  sugtk_spectrum_set_smooth_N0(gui->spectrum, TRUE);
+
+  SU_TRYCATCH(suscan_gui_add_all_inspector_actions(gui), return SU_FALSE);
+
+  gtk_grid_attach(gui->spectrumGrid, GTK_WIDGET(gui->spectrum), 0, 0, 1, 1);
+
+  gtk_widget_set_hexpand(GTK_WIDGET(gui->spectrum), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(gui->spectrum), TRUE);
+
+  gtk_widget_show(GTK_WIDGET(gui->spectrum));
+
+  sugtk_spectrum_set_mode(gui->spectrum, SUGTK_SPECTRUM_MODE_BOTH);
+  sugtk_spectrum_set_show_channels(gui->spectrum, TRUE);
+
+  /* Update GUI on spectrum state */
+  gui->updating_settings = SU_TRUE;
+  gtk_toggle_button_set_active(
+      gui->overlayChannelToggleButton,
+      sugtk_spectrum_get_show_channels(gui->spectrum));
+  gui->updating_settings = SU_FALSE;
+
+  gtk_toggle_button_set_active(
+      gui->autoGainToggleButton,
+      sugtk_spectrum_get_auto_level(gui->spectrum));
+
+  /* Add frequency LCD */
+  gui->freqLcd = SUGTK_LCD(sugtk_lcd_new());
+  gtk_box_pack_start(gui->freqBox, GTK_WIDGET(gui->freqLcd), TRUE, TRUE, 0);
+  gtk_widget_show(GTK_WIDGET(gui->freqLcd));
 
   return SU_TRUE;
 }
@@ -890,8 +1138,8 @@ suscan_gui_load_all_widgets(struct suscan_gui *gui)
 /************************ Inspector handling methods *************************/
 SUBOOL
 suscan_gui_remove_inspector(
-    struct suscan_gui *gui,
-    struct suscan_gui_inspector *insp)
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp)
 {
   gint num;
   int index = insp->index;
@@ -915,22 +1163,18 @@ suscan_gui_remove_inspector(
 
 SUBOOL
 suscan_gui_add_inspector(
-    struct suscan_gui *gui,
-    struct suscan_gui_inspector *insp)
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp)
 {
-  struct suscan_inspector_params params;
   gint page;
   SUBOOL inspector_added = SU_FALSE;
-
-  /* Local copy of parameters */
-  suscan_inspector_params_initialize(&params);
 
   SU_TRYCATCH(
       (insp->index = PTR_LIST_APPEND_CHECK(gui->inspector, insp)) != -1,
       goto fail);
 
   inspector_added = SU_TRUE;
-  insp->gui = gui;
+  insp->_parent.gui = gui;
 
   SU_TRYCATCH(
       (page = gtk_notebook_append_page_menu(
@@ -947,21 +1191,6 @@ suscan_gui_add_inspector(
 
   gtk_notebook_set_current_page(gui->analyzerViewsNotebook, page);
 
-  /*
-   * Page added. Set initial params. Interface will be unlocked as soon
-   * as we received the response of this message
-   */
-  params.inspector_id = insp->index;
-  insp->params = params;
-
-  SU_TRYCATCH(
-      suscan_analyzer_set_inspector_params_async(
-          gui->analyzer,
-          insp->inshnd,
-          &params,
-          rand()),
-      goto fail);
-
   return TRUE;
 
 fail:
@@ -971,8 +1200,8 @@ fail:
   return FALSE;
 }
 
-struct suscan_gui_inspector *
-suscan_gui_get_inspector(const struct suscan_gui *gui, uint32_t inspector_id)
+suscan_gui_inspector_t *
+suscan_gui_get_inspector(const suscan_gui_t *gui, uint32_t inspector_id)
 {
   if (inspector_id >= gui->inspector_count)
     return NULL;
@@ -980,18 +1209,134 @@ suscan_gui_get_inspector(const struct suscan_gui *gui, uint32_t inspector_id)
   return gui->inspector_list[inspector_id];
 }
 
+/*************************** Symbol tool handling ****************************/
+SUBOOL
+suscan_gui_remove_symtool(
+    suscan_gui_t *gui,
+    suscan_gui_symtool_t *symtool)
+{
+  gint num;
+  int index = symtool->index;
+  if (index < 0 || index >= gui->symtool_count)
+    return SU_FALSE;
+
+  SU_TRYCATCH(gui->symtool_list[index] == symtool, return SU_FALSE);
+
+  SU_TRYCATCH(
+      (num = gtk_notebook_page_num(
+          gui->symToolNotebook,
+          suscan_gui_symtool_get_root(symtool))) != -1,
+      return SU_FALSE);
+
+  gtk_notebook_remove_page(gui->symToolNotebook, num);
+
+  gui->symtool_list[index] = NULL;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_gui_add_symtool(
+    suscan_gui_t *gui,
+    suscan_gui_symtool_t *symtool)
+{
+  gint page;
+  SUBOOL symtool_added = SU_FALSE;
+
+  SU_TRYCATCH(
+      (symtool->index = PTR_LIST_APPEND_CHECK(gui->symtool, symtool)) != -1,
+      goto fail);
+
+  symtool_added = SU_TRUE;
+  symtool->_parent.gui = gui;
+
+  SU_TRYCATCH(
+      (page = gtk_notebook_append_page_menu(
+          gui->symToolNotebook,
+          suscan_gui_symtool_get_root(symtool),
+          suscan_gui_symtool_get_label(symtool),
+          NULL)) >= 0,
+      goto fail);
+
+  gtk_notebook_set_tab_reorderable(
+      gui->symToolNotebook,
+      suscan_gui_symtool_get_label(symtool),
+      TRUE);
+
+  gtk_notebook_set_current_page(gui->symToolNotebook, page);
+
+  return TRUE;
+
+fail:
+  if (symtool_added)
+    (void) suscan_gui_remove_symtool(gui, symtool);
+
+  return FALSE;
+}
+
+suscan_gui_symtool_t *
+suscan_gui_get_symtool(const suscan_gui_t *gui, uint32_t symtool_id)
+{
+  if (symtool_id >= gui->symtool_count)
+    return NULL;
+
+  return gui->symtool_list[symtool_id];
+}
+
+/**************************** Generic GUI methods ****************************/
 SUPRIVATE void
 suscan_quit_cb(GtkWidget *obj, gpointer data)
 {
-  struct suscan_gui *gui = (struct suscan_gui *) data;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
 
   suscan_gui_quit(gui);
 }
 
-struct suscan_gui *
+void
+suscan_gui_apply_settings_on_inspector(
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp)
+{
+  sugtk_spectrum_set_fg_color(insp->spectrum, gui->settings.insp_fg);
+  sugtk_spectrum_set_bg_color(insp->spectrum, gui->settings.insp_bg);
+  sugtk_spectrum_set_text_color(insp->spectrum, gui->settings.insp_text);
+  sugtk_spectrum_set_axes_color(insp->spectrum, gui->settings.insp_axes);
+
+  sugtk_constellation_set_fg_color(insp->constellation, gui->settings.insp_fg);
+  sugtk_constellation_set_bg_color(insp->constellation, gui->settings.insp_bg);
+  sugtk_constellation_set_axes_color(insp->constellation, gui->settings.insp_axes);
+
+  sugtk_waveform_set_fg_color(insp->phasePlot, gui->settings.insp_fg);
+  sugtk_waveform_set_bg_color(insp->phasePlot, gui->settings.insp_bg);
+  sugtk_waveform_set_axes_color(insp->phasePlot, gui->settings.insp_axes);
+
+  sugtk_histogram_set_fg_color(insp->histogram, gui->settings.insp_fg);
+  sugtk_histogram_set_bg_color(insp->histogram, gui->settings.insp_bg);
+  sugtk_histogram_set_axes_color(insp->histogram, gui->settings.insp_axes);
+}
+
+void
+suscan_gui_apply_settings(suscan_gui_t *gui)
+{
+  unsigned int i;
+
+  sugtk_spectrum_set_fg_color(gui->spectrum, gui->settings.pa_fg);
+  sugtk_spectrum_set_bg_color(gui->spectrum, gui->settings.pa_bg);
+  sugtk_spectrum_set_text_color(gui->spectrum, gui->settings.pa_text);
+  sugtk_spectrum_set_axes_color(gui->spectrum, gui->settings.pa_axes);
+
+  sugtk_lcd_set_fg_color(gui->freqLcd, gui->settings.lcd_fg);
+  sugtk_lcd_set_bg_color(gui->freqLcd, gui->settings.lcd_bg);
+
+  for (i = 0; i < gui->inspector_count; ++i)
+    if (gui->inspector_list[i] != NULL)
+      suscan_gui_apply_settings_on_inspector(gui, gui->inspector_list[i]);
+}
+
+suscan_gui_t *
 suscan_gui_new(int argc, char **argv)
 {
-  struct suscan_gui *gui = NULL;
+  suscan_gui_t *gui = NULL;
   GtkCssProvider *provider;
   GError *err = NULL;
 
@@ -1011,10 +1356,10 @@ suscan_gui_new(int argc, char **argv)
       GTK_STYLE_PROVIDER(provider),
       GTK_STYLE_PROVIDER_PRIORITY_USER);
 
-  SU_TRYCATCH(gui = calloc(1, sizeof(struct suscan_gui)), goto fail);
+  SU_TRYCATCH(gui = calloc(1, sizeof(suscan_gui_t)), goto fail);
 
   SU_TRYCATCH(
-      gui->settings = g_settings_new(SUSCAN_GUI_SETTINGS_ID),
+      gui->g_settings = g_settings_new(SUSCAN_GUI_SETTINGS_ID),
       goto fail);
 
   SU_TRYCATCH(
@@ -1023,11 +1368,11 @@ suscan_gui_new(int argc, char **argv)
 
   gtk_builder_connect_signals(gui->builder, gui);
 
-  suscan_gui_retrieve_analyzer_params(gui);
+  suscan_gui_load_settings(gui);
 
   SU_TRYCATCH(suscan_gui_load_all_widgets(gui), goto fail);
 
-  suscan_gui_spectrum_init(&gui->main_spectrum);
+  suscan_gui_apply_settings(gui);
 
   g_signal_connect(
       GTK_WIDGET(gui->main),
@@ -1047,26 +1392,13 @@ fail:
 }
 
 void
-suscan_gui_set_freq(struct suscan_gui *gui, uint64_t freq)
+suscan_gui_set_freq(suscan_gui_t *gui, uint64_t freq)
 {
-  int i;
-  char freq_banner[] = "0,000.000.000 MHz";
-  char portion[4];
-
-  for (i = 2; i >= 0; --i) {
-    snprintf(portion, 4, "%03d", freq % 1000);
-    freq /= 1000;
-
-    memcpy(freq_banner + 2 + 4 * i, portion, 3);
-  }
-
-  freq_banner[0] = '0' + (freq % 10);
-
-  gtk_label_set_text(gui->freqLabel, freq_banner);
+  sugtk_lcd_set_value(gui->freqLcd, freq);
 }
 
 SUBOOL
-suscan_gui_set_title(struct suscan_gui *gui, const char *title)
+suscan_gui_set_title(suscan_gui_t *gui, const char *title)
 {
   char *full_title = NULL;
 
@@ -1083,7 +1415,7 @@ suscan_gui_set_title(struct suscan_gui *gui, const char *title)
 
 void
 suscan_gui_set_src_ui(
-    struct suscan_gui *gui,
+    suscan_gui_t *gui,
     struct suscan_gui_src_ui *ui)
 {
   struct suscan_field_value *val;
@@ -1107,7 +1439,7 @@ suscan_gui_set_src_ui(
 }
 
 void
-suscan_gui_detach_all_inspectors(struct suscan_gui *gui)
+suscan_gui_detach_all_inspectors(suscan_gui_t *gui)
 {
   unsigned int i;
 
@@ -1117,15 +1449,30 @@ suscan_gui_detach_all_inspectors(struct suscan_gui *gui)
 }
 
 SUBOOL
+suscan_gui_helper_preload(void)
+{
+  SU_TRYCATCH(suscan_gui_modemctl_agc_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_afc_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_fsk_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_mf_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_equalizer_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_clock_init(), return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_gui_start(
     int argc,
     char **argv,
     struct suscan_source_config **config_list,
     unsigned int config_count)
 {
-  struct suscan_gui *gui = NULL;
+  suscan_gui_t *gui = NULL;
 
-  SU_TRYCATCH(gui = suscan_gui_new(argc, argv), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_helper_preload(), goto fail);
+
+  SU_TRYCATCH(gui = suscan_gui_new(argc, argv), goto fail);
 
   gtk_widget_show(GTK_WIDGET(gui->main));
 

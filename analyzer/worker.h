@@ -64,6 +64,7 @@ SUBOOL suscan_worker_push(
     void *private);
 void suscan_worker_req_halt(suscan_worker_t *worker);
 SUBOOL suscan_worker_destroy(suscan_worker_t *worker);
+SUBOOL suscan_worker_halt(suscan_worker_t *worker);
 suscan_worker_t *suscan_worker_new(
     struct suscan_mq *mq_out,
     void *private);
