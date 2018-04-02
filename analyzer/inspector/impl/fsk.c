@@ -420,14 +420,7 @@ suscan_fsk_inspector_register(void)
   SU_TRYCATCH(suscan_config_desc_add_mf_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_br_params(iface.cfgdesc), return SU_FALSE);
 
-  /* Add some estimators */
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_estimator(&iface, "baud-fac"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_estimator(&iface, "baud-nonlinear"),
-      return SU_FALSE);
+  /* No estimators yet */
 
   /* Add applicable spectrum sources */
   SU_TRYCATCH(
