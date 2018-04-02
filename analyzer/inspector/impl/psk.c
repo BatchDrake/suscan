@@ -109,7 +109,7 @@ suscan_psk_inspector_params_initialize(
   params->br.br_beta    = SU_PREFERED_CLOCK_BETA;
 
   params->fc.fc_ctrl    = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
-  params->fc.fc_loopbw  = SU_NORM2ABS_FREQ(sinfo->equiv_fs, 1e-2 * sinfo->bw);
+  params->fc.fc_loopbw  = sinfo->equiv_fs / 200; /* Experimental result */
   params->mf.mf_conf    = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
   params->mf.mf_rolloff = SUSCAN_PSK_INSPECTOR_DEFAULT_ROLL_OFF;
 
