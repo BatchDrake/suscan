@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2017 Gonzalo José Carracedo Carballal
+  Copyright (C) 2018 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -96,24 +96,25 @@ suscan_psk_inspector_mf_span(SUSCOUNT span)
 
 SUPRIVATE void
 suscan_psk_inspector_params_initialize(
-    struct suscan_psk_inspector_params *params)
+    struct suscan_psk_inspector_params *params,
+    const struct suscan_inspector_sampling_info *sinfo)
 {
   memset(params, 0, sizeof (struct suscan_psk_inspector_params));
 
-  params->gc.gc_ctrl = SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC;
-  params->gc.gc_gain = 1;
+  params->gc.gc_ctrl    = SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC;
+  params->gc.gc_gain    = 1;
 
-  params->br.br_ctrl  = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
-  params->br.br_alpha = SU_PREFERED_CLOCK_ALPHA;
-  params->br.br_beta  = SU_PREFERED_CLOCK_BETA;
+  params->br.br_ctrl    = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
+  params->br.br_alpha   = SU_PREFERED_CLOCK_ALPHA;
+  params->br.br_beta    = SU_PREFERED_CLOCK_BETA;
 
-  params->fc.fc_ctrl  = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
-
-  params->mf.mf_conf  = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
+  params->fc.fc_ctrl    = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
+  params->fc.fc_loopbw  = sinfo->equiv_fs / 200; /* Experimental result */
+  params->mf.mf_conf    = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
   params->mf.mf_rolloff = SUSCAN_PSK_INSPECTOR_DEFAULT_ROLL_OFF;
 
-  params->eq.eq_conf = SUSCAN_INSPECTOR_EQUALIZER_BYPASS;
-  params->eq.eq_mu   = SUSCAN_PSK_INSPECTOR_DEFAULT_EQ_MU;
+  params->eq.eq_conf    = SUSCAN_INSPECTOR_EQUALIZER_BYPASS;
+  params->eq.eq_mu      = SUSCAN_PSK_INSPECTOR_DEFAULT_EQ_MU;
 }
 
 SUPRIVATE void
@@ -147,7 +148,7 @@ suscan_psk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
 
   new->samp_info = *sinfo;
 
-  suscan_psk_inspector_params_initialize(&new->cur_params);
+  suscan_psk_inspector_params_initialize(&new->cur_params, sinfo);
 
   bw = sinfo->bw;
   tau = 1. /  bw; /* Approximate samples per symbol */
@@ -197,7 +198,7 @@ suscan_psk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
           0         /* Frequency hint */,
           bw        /* Arm bandwidth */,
           3         /* Order */,
-          1e-2 * bw /* Loop bandwidth */),
+          SU_ABS2NORM_FREQ(sinfo->equiv_fs, new->cur_params.fc.fc_loopbw)),
       goto fail);
 
   SU_TRYCATCH(
@@ -207,7 +208,7 @@ suscan_psk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
           0         /* Frequency hint */,
           bw        /* Arm bandwidth */,
           3         /* Order */,
-          1e-2 * bw /* Loop bandwidth */),
+          SU_ABS2NORM_FREQ(sinfo->equiv_fs, new->cur_params.fc.fc_loopbw)),
       goto fail);
 
   SU_TRYCATCH(
@@ -217,7 +218,7 @@ suscan_psk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
           0         /* Frequency hint */,
           bw        /* Arm bandwidth */,
           3         /* Order */,
-          1e-2 * bw /* Loop bandwidth */),
+          SU_ABS2NORM_FREQ(sinfo->equiv_fs, new->cur_params.fc.fc_loopbw)),
       goto fail);
 
   /* Initialize equalizer */
@@ -276,7 +277,7 @@ suscan_psk_inspector_parse_config(void *private, const suscan_config_t *config)
 {
   struct suscan_psk_inspector *insp = (struct suscan_psk_inspector *) private;
 
-  suscan_psk_inspector_params_initialize(&insp->req_params);
+  suscan_psk_inspector_params_initialize(&insp->req_params, &insp->samp_info);
 
   SU_TRYCATCH(
       suscan_inspector_gc_params_parse(&insp->req_params.gc, config),
@@ -308,7 +309,10 @@ suscan_psk_inspector_commit_config(void *private)
 {
   SUFLOAT fs;
   SUBOOL mf_changed;
+  SUBOOL costas_changed;
   SUFLOAT actual_baud;
+  su_costas_t costas;
+
   su_iir_filt_t mf = su_iir_filt_INITIALIZER;
   struct suscan_psk_inspector *insp = (struct suscan_psk_inspector *) private;
 
@@ -319,6 +323,9 @@ suscan_psk_inspector_commit_config(void *private)
   mf_changed =
       (insp->cur_params.br.baud != actual_baud)
       || (insp->cur_params.mf.mf_rolloff != insp->req_params.mf.mf_rolloff);
+
+  costas_changed =
+      insp->cur_params.fc.fc_loopbw != insp->req_params.fc.fc_loopbw;
 
   insp->cur_params = insp->req_params;
 
@@ -366,6 +373,51 @@ suscan_psk_inspector_commit_config(void *private)
     su_ncqo_set_freq(&insp->costas_2.ncqo, 0);
     su_ncqo_set_freq(&insp->costas_4.ncqo, 0);
     su_ncqo_set_freq(&insp->costas_8.ncqo, 0);
+  }
+
+  /* Update Costas loops */
+  if (costas_changed) {
+    SU_TRYCATCH(
+        su_costas_init(
+            &costas,
+            SU_COSTAS_KIND_BPSK,
+            0 /* Frequency hint */,
+            insp->samp_info.bw,
+            3 /* Order */,
+            SU_ABS2NORM_FREQ(
+                insp->samp_info.equiv_fs,
+                insp->cur_params.fc.fc_loopbw)),
+        return);
+    su_costas_finalize(&insp->costas_2);
+    insp->costas_2 = costas;
+
+    SU_TRYCATCH(
+        su_costas_init(
+            &costas,
+            SU_COSTAS_KIND_QPSK,
+            0 /* Frequency hint */,
+            insp->samp_info.bw,
+            3 /* Order */,
+            SU_ABS2NORM_FREQ(
+                insp->samp_info.equiv_fs,
+                insp->cur_params.fc.fc_loopbw)),
+        return);
+    su_costas_finalize(&insp->costas_4);
+    insp->costas_4 = costas;
+
+    SU_TRYCATCH(
+        su_costas_init(
+            &costas,
+            SU_COSTAS_KIND_8PSK,
+            0 /* Frequency hint */,
+            insp->samp_info.bw,
+            3 /* Order */,
+            SU_ABS2NORM_FREQ(
+                insp->samp_info.equiv_fs,
+                insp->cur_params.fc.fc_loopbw)),
+        return);
+    su_costas_finalize(&insp->costas_8);
+    insp->costas_8 = costas;
   }
 }
 

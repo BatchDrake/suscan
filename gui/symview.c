@@ -113,16 +113,10 @@ sugtk_sym_view_clear_internal(SuGtkSymView *view)
     view->data_buf = NULL;
   }
 
-  if (view->surface != NULL) {
-    cairo_surface_destroy(view->surface);
-    view->surface = NULL;
-  }
-
   view->data_alloc = 0;
   view->data_size = 0;
   view->window_offset = 0;
 }
-
 
 static void
 sugtk_sym_view_redraw(SuGtkSymView *view)
@@ -286,6 +280,11 @@ sugtk_sym_view_redraw(SuGtkSymView *view)
 void
 sugtk_sym_view_refresh_hard(SuGtkSymView *view)
 {
+  if (view->reshaped) {
+    g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    view->reshaped = FALSE;
+  }
+
   sugtk_sym_view_redraw(view);
   gtk_widget_queue_draw(GTK_WIDGET(view));
 }
@@ -310,7 +309,6 @@ sugtk_sym_view_clear(SuGtkSymView *view)
 {
   sugtk_sym_view_clear_internal(view);
 
-  g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
   sugtk_sym_view_refresh_hard(view);
 }
 
@@ -372,8 +370,8 @@ sugtk_sym_view_append(SuGtkSymView *view, uint8_t data)
       view->window_offset =
           width * (1 + view->data_size / width - height)
           / SUGTK_SYM_VIEW_STRIDE_ALIGN;
-      g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
-      sugtk_sym_view_refresh(view);
+
+      view->reshaped = TRUE;
     }
   }
 
@@ -407,7 +405,7 @@ sugtk_sym_view_set_width(SuGtkSymView *view, guint width)
 
   if (view->window_width != width) {
     view->window_width = width;
-    g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    view->reshaped = TRUE;
     sugtk_sym_view_refresh_hard(view);
   }
 
@@ -434,7 +432,7 @@ sugtk_sym_view_set_zoom(SuGtkSymView *view, guint zoom)
           view,
           gtk_widget_get_allocated_width(GTK_WIDGET(view)) / view->window_zoom);
 
-    g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    view->reshaped = TRUE;
     sugtk_sym_view_refresh_hard(view);
   }
 
@@ -465,7 +463,7 @@ sugtk_sym_view_set_offset(SuGtkSymView *view, guint offset)
 
   if (view->window_offset != offset) {
     view->window_offset = offset;
-    g_signal_emit(view, SUGTK_SYM_VIEW_GET_CLASS(view)->sig_reshape, 0);
+    view->reshaped = TRUE;
     sugtk_sym_view_refresh_hard(view);
   }
 
@@ -509,6 +507,11 @@ sugtk_sym_view_dispose(GObject* object)
    * Remember: this function may be called several times on the
    * same object.
    */
+  if (view->surface != NULL) {
+    cairo_surface_destroy(view->surface);
+    view->surface = NULL;
+  }
+
   if (view->fft_plan != NULL) {
     fftw_destroy_plan(view->fft_plan);
     view->fft_plan = NULL;
@@ -556,9 +559,6 @@ sugtk_sym_view_on_configure_event(
 {
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
 
-  if (view->autofit)
-    sugtk_sym_view_set_width(view, event->width / view->window_zoom);
-
   if (view->surface != NULL)
     cairo_surface_destroy(view->surface);
 
@@ -568,7 +568,9 @@ sugtk_sym_view_on_configure_event(
       event->width,
       event->height);
 
-  /* Yup. We needed a hard refresh here after all. */
+  if (view->autofit)
+    sugtk_sym_view_set_width(view, event->width / view->window_zoom);
+
   sugtk_sym_view_refresh_hard(view);
 
   return TRUE;

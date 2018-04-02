@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2017 Gonzalo José Carracedo Carballal
+  Copyright (C) 2018 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -235,6 +235,7 @@ SUBOOL
 suscan_init_inspectors(void)
 {
   SU_TRYCATCH(suscan_psk_inspector_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_fsk_inspector_register(), return SU_FALSE);
 
   return SU_TRUE;
 }

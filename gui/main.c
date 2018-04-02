@@ -265,6 +265,46 @@ suscan_spectrum_on_settings_changed(GtkWidget *widget, gpointer data)
 
     gui->updating_settings = SU_FALSE;
   }
-
 }
+
+void
+suscan_gui_on_throttle_override(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gboolean overriden;
+
+  overriden = gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(gui->throttleOverrideCheckButton));
+
+  gtk_widget_set_sensitive(
+      GTK_WIDGET(gui->throttleSampRateSpinButton),
+      overriden);
+
+  if (gui->analyzer != NULL) {
+    if (overriden)
+      suscan_analyzer_set_throttle_async(
+          gui->analyzer,
+          gtk_spin_button_get_value(gui->throttleSampRateSpinButton),
+          rand());
+    else
+      suscan_analyzer_set_throttle_async(
+          gui->analyzer,
+          0,
+          rand());
+  }
+}
+
+void
+suscan_gui_on_size_allocate(
+    GtkWidget *widget,
+    GtkAllocation *allocation,
+    gpointer data)
+{
+  if (allocation->width > SUSCAN_GUI_SPECTRUM_PANEL_WIDTH) {
+    gtk_paned_set_position(
+        GTK_PANED(widget),
+        allocation->width - SUSCAN_GUI_SPECTRUM_PANEL_WIDTH);
+  }
+}
+
 

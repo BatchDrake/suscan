@@ -804,7 +804,7 @@ sugtk_spectrum_redraw_channel(
           channel->S0);
       y2 = sugtk_spectrum_adjust_y(
           spectrum,
-          channel->N0);
+          spectrum->smooth_N0 ? SU_POWER_DB(spectrum->prev_N0) : channel->N0);
 
       yscr1 = sugtk_spectrum_spectrogram_to_scr_y(spectrum, y1);
       yscr2 = sugtk_spectrum_spectrogram_to_scr_y(spectrum, y2);
@@ -964,6 +964,20 @@ sugtk_spectrum_reset(SuGtkSpectrum *spect)
     spect->psd_data_smooth = NULL;
   }
 
+  spect->freq_offset = SUGTK_SPECTRUM_FREQ_OFFSET_DEFAULT;
+  spect->freq_scale  = SUGTK_SPECTRUM_FREQ_SCALE_DEFAULT;
+  spect->ref_level   = SUGTK_SPECTRUM_REF_LEVEL_DEFAULT;
+  spect->dbs_per_div = SUGTK_SPECTRUM_DBS_PER_DIV_DEFAULT;
+
+  spect->N0        = 0;
+  spect->prev_N0   = 0;
+  spect->selection.bw = 0;
+  spect->selecting = FALSE;
+  spect->psd_size  = 0;
+  spect->samp_rate = 0;
+  spect->fc        = 0;
+  spect->last_max  = 0;
+
   sugtk_spectrum_refresh_hard(spect);
 }
 
@@ -1047,10 +1061,20 @@ sugtk_spectrum_update(
         if (spect->smooth_N0 && spect->psd_data_smooth[i] < N0)
           N0 = spect->psd_data_smooth[i];
       }
+
+      if (spect->smooth_N0) {
+        if (spect->prev_N0 == 0) {
+          spect->prev_N0 = N0;
+        } else {
+          spect->prev_N0 += SUGTK_SPECTRUM_ALPHA * (N0 - spect->prev_N0);
+          N0 = spect->prev_N0;
+        }
+      }
     } else {
       /* Sizes don't match, reset smoothed spectrum */
       free(spect->psd_data_smooth);
       spect->psd_data_smooth = NULL;
+      spect->prev_N0 = 0;
     }
 
     /* We don't need old_data anymore */
@@ -1058,12 +1082,12 @@ sugtk_spectrum_update(
       free(old_data);
   }
 
-  if (spect->auto_level) {
-    skip = spect->dc_skip ? spect->psd_size / 8 : 0;
+  if (spect->auto_level && spect->psd_data_smooth != NULL) {
+    skip = spect->dc_skip ? 4 : 0;
 
     for (i = skip; i < spect->psd_size - skip; ++i)
-      if (spect->psd_data[i] > max)
-        max = spect->psd_data[i];
+      if (spect->psd_data_smooth[i] > max)
+        max = spect->psd_data_smooth[i];
 
     spect->last_max +=
         spect->agc_alpha * (SU_POWER_DB(max) - spect->last_max);
@@ -1072,6 +1096,9 @@ sugtk_spectrum_update(
     range =
         SUGTK_SPECTRUM_AUTO_LEVEL_RANGE_SCALE_DB
         * (spect->last_max - SU_POWER_DB(N0));
+
+    if (range < SUGTK_SPECTRUM_MIN_AUTO_RANGE)
+      range = SUGTK_SPECTRUM_MIN_AUTO_RANGE;
 
     spect->dbs_per_div +=
         spect->agc_alpha
@@ -1083,6 +1110,7 @@ sugtk_spectrum_update(
      * SUSCAN_GUI_SPECTRUM_AUTO_LEVEL_RANGE_SCALE_DB, we correct its
      * layout
      */
+
     spect->ref_level +=
         spect->agc_alpha
         * (SU_POWER_DB(N0) + range - spect->ref_level);
@@ -1399,7 +1427,7 @@ sugtk_spectrum_on_button_press_event(
     gpointer data)
 {
   SuGtkSpectrum *spect = SUGTK_SPECTRUM(widget);
-  char header[64];
+  char header[80];
   gsufloat x;
   gsufloat freq;
   const struct sigutils_channel *channel;
@@ -1430,7 +1458,8 @@ sugtk_spectrum_on_button_press_event(
             snprintf(
                 header,
                 sizeof(header),
-                "Channel @ %lld Hz",
+                "%lld Hz @ %lld Hz",
+                (uint64_t) round(channel->f_hi - channel->f_lo),
                 (uint64_t) round(channel->fc));
 
             gtk_menu_item_set_label(
@@ -1504,8 +1533,10 @@ sugtk_spectrum_dispose(GObject* object)
     spect->sf_spectrum = NULL;
   }
 
-  if (spect->channelMenu != NULL)
+  if (spect->channelMenu != NULL) {
     gtk_widget_destroy(GTK_WIDGET(spect->channelMenu));
+    spect->channelMenu = NULL;
+  }
 
   G_OBJECT_CLASS(sugtk_spectrum_parent_class)->dispose(object);
 }

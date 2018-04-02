@@ -95,12 +95,17 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleOverrideCheckButton),
+          FALSE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleSampRateSpinButton),
+          FALSE);
       gtk_label_set_text(gui->spectrumSampleRateLabel, "N/A");
       sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       break;
 
     case SUSCAN_GUI_STATE_RUNNING:
-      sugtk_spectrum_reset(gui->spectrum);
       subtitle = "Running";
       suscan_gui_change_button_icon(
           GTK_BUTTON(gui->toggleConnect),
@@ -109,6 +114,16 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleOverrideCheckButton),
+          !suscan_analyzer_is_real_time(gui->analyzer));
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleSampRateSpinButton),
+          FALSE);
+      if (!suscan_analyzer_is_real_time(gui->analyzer))
+        gtk_toggle_button_set_active(
+            GTK_TOGGLE_BUTTON(gui->throttleOverrideCheckButton),
+            FALSE);
       sugtk_spectrum_set_has_menu(gui->spectrum, TRUE);
       break;
 
@@ -117,6 +132,12 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleOverrideCheckButton),
+          FALSE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleSampRateSpinButton),
+          FALSE);
       sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       suscan_gui_detach_all_inspectors(gui);
       break;
@@ -130,6 +151,12 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleOverrideCheckButton),
+          FALSE);
+      gtk_widget_set_sensitive(
+          GTK_WIDGET(gui->throttleSampRateSpinButton),
+          FALSE);
       sugtk_spectrum_set_has_menu(gui->spectrum, FALSE);
       suscan_gui_detach_all_inspectors(gui);
       break;
@@ -312,33 +339,6 @@ done:
 }
 
 SUPRIVATE gboolean
-suscan_async_update_inspector_spectrum_cb(gpointer user_data)
-{
-  struct suscan_gui_msg_envelope *envelope;
-  struct suscan_analyzer_psd_msg *msg;
-  suscan_gui_inspector_t *insp = NULL;
-
-  envelope = (struct suscan_gui_msg_envelope *) user_data;
-  msg = (struct suscan_analyzer_psd_msg *) envelope->private;
-
-  if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
-    goto done;
-
-  SU_TRYCATCH(
-      insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
-      goto done);
-
-  msg->fc = 0; /* Frequency reference is wrt channel's carrier */
-
-  sugtk_spectrum_update_from_psd_msg(insp->spectrum, msg);
-
-done:
-  suscan_gui_msg_envelope_destroy(envelope);
-
-  return G_SOURCE_REMOVE;
-}
-
-SUPRIVATE gboolean
 suscan_async_parse_sample_batch_msg(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
@@ -387,6 +387,7 @@ suscan_async_parse_inspector_msg(gpointer user_data)
       /* Create new inspector and append to tab */
       SU_TRYCATCH(
           new_insp = suscan_gui_inspector_new(
+              msg->class,
               &msg->channel,
               msg->config,
               msg->handle),
@@ -479,13 +480,14 @@ suscan_async_parse_inspector_msg(gpointer user_data)
           insp = suscan_gui_get_inspector(envelope->gui, msg->inspector_id),
           goto done);
 
-      sugtk_spectrum_update(
-          insp->spectrum,
-          suscan_analyzer_inspector_msg_take_spectrum(msg),
-          msg->spectrum_size,
-          msg->samp_rate,
-          msg->fc,
-          msg->N0);
+      if (msg->spectrum_size > 0)
+        sugtk_spectrum_update(
+            insp->spectrum,
+            suscan_analyzer_inspector_msg_take_spectrum(msg),
+            msg->spectrum_size,
+            msg->samp_rate,
+            msg->fc,
+            msg->N0);
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
@@ -594,18 +596,6 @@ suscan_gui_async_thread(gpointer data)
           g_idle_add(suscan_async_parse_sample_batch_msg, envelope);
           break;
 
-        case SUSCAN_ANALYZER_MESSAGE_TYPE_INSP_PSD:
-          if ((envelope = suscan_gui_msg_envelope_new(
-              gui,
-              type,
-              private)) == NULL) {
-            suscan_analyzer_dispose_message(type, private);
-            break;
-          }
-
-          g_idle_add(suscan_async_update_inspector_spectrum_cb, envelope);
-          break;
-
         case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS: /* End of stream */
           g_idle_add(suscan_async_stopped_cb, gui);
           goto done;
@@ -645,6 +635,8 @@ suscan_gui_connect(suscan_gui_t *gui)
         gui,
         "Existing inspectors",
         "The opened inspector tabs will remain in idle state");
+
+  sugtk_spectrum_reset(gui->spectrum);
 
   if ((gui->analyzer = suscan_analyzer_new(
       &gui->analyzer_params,

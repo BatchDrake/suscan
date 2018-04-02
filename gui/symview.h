@@ -59,6 +59,7 @@ struct _SuGtkSymView
 
   gboolean autofit;
   gboolean autoscroll;
+  gboolean reshaped;
 
   gboolean selection;
   gboolean sel_started;

@@ -69,6 +69,40 @@ done:
   return ok;
 }
 
+SUBOOL
+suscan_analyzer_set_throttle_async(
+    suscan_analyzer_t *analyzer,
+    SUSCOUNT samp_rate,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_throttle_msg *throttle = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      throttle = malloc(sizeof(struct suscan_analyzer_throttle_msg)),
+      goto done);
+
+  throttle->samp_rate = samp_rate;
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE,
+      throttle)) {
+    SU_ERROR("Failed to send throttle command\n");
+    goto done;
+  }
+
+  throttle = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (throttle != NULL)
+    free(throttle);
+
+  return ok;
+}
+
 /****************************** Inspector methods ****************************/
 SUBOOL
 suscan_analyzer_open_async(

@@ -35,7 +35,7 @@ G_BEGIN_DECLS
 #define SUGTK_SPECTRUM_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS  ((obj), SUGTK_TYPE_SPECTRUM, SuGtkSpectrumClass))
 
 /* Layout defines */
-#define SUGTK_SPECTRUM_ALPHA .01
+#define SUGTK_SPECTRUM_ALPHA .1
 
 #define SUGTK_SPECTRUM_HORIZONTAL_DIVS 20
 #define SUGTK_SPECTRUM_VERTICAL_DIVS   10
@@ -52,6 +52,7 @@ G_BEGIN_DECLS
 #define SUGTK_SPECTRUM_BOTTOM_PADDING 30
 
 #define SUGTK_SPECTRUM_AUTO_LEVEL_RANGE_SCALE_DB 1.5
+#define SUGTK_SPECTRUM_MIN_AUTO_RANGE SUGTK_SPECTRUM_VERTICAL_DIVS
 
 /* Defaults */
 #define SUGTK_SPECTRUM_FREQ_OFFSET_DEFAULT 0
@@ -149,6 +150,7 @@ struct _SuGtkSpectrum
   gboolean dc_skip;
   gboolean smooth_N0;
   gsufloat agc_alpha;
+  gfloat prev_N0;
 
   /* Autolevel state */
   gsufloat last_max;
@@ -160,8 +162,8 @@ struct _SuGtkSpectrum
   gfloat   last_y;
 
   gfloat   prev_ev_x;
-  gsufloat  original_ref_level;
-  gsufloat  original_freq_offset;
+  gsufloat original_ref_level;
+  gsufloat original_freq_offset;
 
   /* Channel integration */
   struct sigutils_channel selection;

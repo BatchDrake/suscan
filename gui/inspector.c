@@ -29,7 +29,7 @@
 #include "gui.h"
 #include "inspector.h"
 
-void suscan_inspector_on_reshape(GtkWidget *widget, gpointer data);
+void suscan_gui_inspector_on_reshape(GtkWidget *widget, gpointer data);
 
 void
 suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
@@ -88,57 +88,28 @@ suscan_gui_inspector_close(suscan_gui_inspector_t *insp)
   gtk_widget_set_sensitive(GTK_WIDGET(insp->channelInspectorGrid), FALSE);
 }
 
+SUPRIVATE void
+suscan_gui_inspector_set_bits(suscan_gui_inspector_t *insp, unsigned int bpp)
+{
+  insp->decider_params.bits = bpp;
+
+  if (bpp != 0)
+    su_decider_init(&insp->decider, &insp->decider_params);
+
+  sugtk_histogram_set_decider_params(insp->histogram, &insp->decider_params);
+
+  sugtk_trans_mtx_set_order(insp->transMatrix, 1 << bpp);
+}
+
 SUSYMBOL
 suscan_gui_inspector_decide(
     const suscan_gui_inspector_t *inspector,
     SUCOMPLEX sample)
 {
-  SUFLOAT arg = SU_C_ARG(sample);
-  char sym_ndx;
-
-  switch (inspector->bits_per_symbol) {
-    case 1:
-      /* BPSK decision */
-      sym_ndx = arg > 0;
-      break;
-
-    case 2:
-      /* QPSK decision */
-      if (0 < arg && arg <= .5 * M_PI)
-        sym_ndx = 0;
-      else if (.5 * M_PI < arg && arg <= M_PI)
-        sym_ndx = 1;
-      else if (-M_PI < arg && arg <= -.5 * M_PI)
-        sym_ndx = 2;
-      else
-        sym_ndx = 3;
-      break;
-
-    case 3:
-      /* 8PSK decision */
-      if (0 < arg && arg <= .25 * M_PI)
-        sym_ndx = 0;
-      else if (.25 * M_PI < arg && arg <= .5 * M_PI)
-        sym_ndx = 1;
-      else if (.5 * M_PI < arg && arg <= .75 * M_PI)
-        sym_ndx = 2;
-      else if (.75 * M_PI < arg && arg <= M_PI)
-        sym_ndx = 3;
-      else if (-M_PI < arg && arg <= -.75 * M_PI)
-        sym_ndx = 4;
-      else if (-.75 * M_PI < arg && arg <= -.5 * M_PI)
-        sym_ndx = 5;
-      else if (-.5 * M_PI < arg && arg <= -.25 * M_PI)
-        sym_ndx = 6;
-      else
-        sym_ndx = 7;
-      break;
-
-    default:
-      return SU_NOSYMBOL;
-  }
-
-  return '0' + sym_ndx;
+  if (suscan_gui_inspector_get_bits(inspector) > 0)
+    return SU_TOSYM(su_decider_decide(&inspector->decider, SU_C_ARG(sample)));
+  else
+    return SU_NOSYMBOL;
 }
 
 SUPRIVATE void
@@ -227,16 +198,23 @@ suscan_gui_inspector_feed_w_batch(
         /* Update symbol view */
         sugtk_sym_view_append(
             insp->symbolView,
-            sugtk_sym_view_code_to_pixel_helper(insp->bits_per_symbol, bits));
+            sugtk_sym_view_code_to_pixel_helper(
+                suscan_gui_inspector_get_bits(insp),
+                bits));
       }
 
-      /* Feed transition matrix */
+      /* Feed transition matrix and phase plot */
       sugtk_trans_mtx_push(insp->transMatrix, bits);
+      sugtk_waveform_push(insp->phasePlot, SU_C_ARG(msg->samples[i]) / PI);
+      sugtk_histogram_push(insp->histogram, SU_C_ARG(msg->samples[i]));
     }
 
   /* Transition matrix has been fed. Update */
-  if (full_samp_count > 0)
+  if (full_samp_count > 0) {
     sugtk_trans_mtx_commit(insp->transMatrix);
+    sugtk_waveform_commit(insp->phasePlot);
+    sugtk_histogram_commit(insp->histogram);
+  }
 
   if (insp->recording) {
     /* Wake up all listeners with new data */
@@ -269,7 +247,7 @@ suscan_gui_inspector_to_filename(
   time(&now);
   tm = localtime(&now);
 
-  switch (inspector->bits_per_symbol) {
+  switch (suscan_gui_inspector_get_bits(inspector)) {
     case 1:
       demod = "bpsk";
       break;
@@ -464,20 +442,16 @@ suscan_gui_inspector_run_encoder(GtkWidget *widget, gpointer *data)
   struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
   suscan_gui_inspector_t *as_inspector;
 
-  unsigned int bits;
-
   if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ui))
     return;  /* Weird */
 
   /* We can do this because this symsrc is actually an inspector tab */
   as_inspector = (suscan_gui_inspector_t *) ui->symsrc;
 
-  bits = as_inspector->bits_per_symbol;
-
   (void) suscan_gui_inspector_open_codec_tab(
       as_inspector,
       ui,
-      as_inspector->bits_per_symbol,
+      suscan_gui_inspector_get_bits(as_inspector),
       SUSCAN_CODEC_DIRECTION_FORWARDS,
       as_inspector->symbolView,
       ui->symsrc->symbuf);
@@ -489,20 +463,16 @@ suscan_gui_inspector_run_decoder(GtkWidget *widget, gpointer *data)
   struct suscan_gui_codec_cfg_ui *ui = (struct suscan_gui_codec_cfg_ui *) data;
   suscan_gui_inspector_t *as_inspector;
 
-  unsigned int bits;
-
   if (!suscan_gui_codec_cfg_ui_assert_parent_gui(ui))
     return;  /* Weird */
 
   /* We can do this because this symsrc is actually an inspector tab */
   as_inspector = (suscan_gui_inspector_t *) ui->symsrc;
 
-  bits = as_inspector->bits_per_symbol;
-
   (void) suscan_gui_inspector_open_codec_tab(
       as_inspector,
       ui,
-      as_inspector->bits_per_symbol,
+      suscan_gui_inspector_get_bits(as_inspector),
       SUSCAN_CODEC_DIRECTION_BACKWARDS,
       as_inspector->symbolView,
       ui->symsrc->symbuf);
@@ -572,6 +542,23 @@ fail:
     suscan_gui_estimatorui_destroy(ui);
 
   return SU_FALSE;
+}
+
+SUPRIVATE void
+suscan_gui_inspector_on_set_decider(
+    SuGtkHistogram *hist,
+    const struct sigutils_decider_params *params,
+    gpointer data)
+{
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
+
+  /* We only keep limit information */
+  insp->decider_params.min_val = params->min_val;
+  insp->decider_params.max_val = params->max_val;
+
+  /* Initialize decider appropriately */
+  if (insp->decider_params.bits != 0)
+    su_decider_init(&insp->decider, &insp->decider_params);
 }
 
 SUPRIVATE SUBOOL
@@ -738,13 +725,27 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
               "aConstellation")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->phasePlotAlignment =
+          GTK_ALIGNMENT(gtk_builder_get_object(
+              inspector->builder,
+              "aPhasePlot")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      inspector->histogramAlignment =
+          GTK_ALIGNMENT(gtk_builder_get_object(
+              inspector->builder,
+              "aHistogram")),
+          return SU_FALSE);
+
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
   g_signal_connect(
       G_OBJECT(inspector->symbolView),
       "reshape",
-      G_CALLBACK(suscan_inspector_on_reshape),
+      G_CALLBACK(suscan_gui_inspector_on_reshape),
       inspector);
 
   gtk_grid_attach(
@@ -782,9 +783,20 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 
   gtk_widget_show(GTK_WIDGET(inspector->transMatrix));
 
+  /* Add phase plot widget */
+  inspector->phasePlot = SUGTK_WAVEFORM(sugtk_waveform_new());
+
+  gtk_container_add(
+      GTK_CONTAINER(inspector->phasePlotAlignment),
+      GTK_WIDGET(inspector->phasePlot));
+
+  gtk_widget_set_hexpand(GTK_WIDGET(inspector->phasePlot), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(inspector->phasePlot), TRUE);
+
+  gtk_widget_show(GTK_WIDGET(inspector->phasePlot));
+
   /* Add constellation widget */
   inspector->constellation = SUGTK_CONSTELLATION(sugtk_constellation_new());
-
   gtk_container_add(
       GTK_CONTAINER(inspector->constellationAlignment),
       GTK_WIDGET(inspector->constellation));
@@ -796,6 +808,9 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
 
   /* Add spectrum widget */
   inspector->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
+  sugtk_spectrum_set_smooth_N0(inspector->spectrum, TRUE);
+  sugtk_spectrum_set_has_menu(inspector->spectrum, TRUE);
+  sugtk_spectrum_set_dc_skip(inspector->spectrum, FALSE);
 
   gtk_container_add(
       GTK_CONTAINER(inspector->spectrumAlignment),
@@ -805,6 +820,23 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
   gtk_widget_set_vexpand(GTK_WIDGET(inspector->spectrum), TRUE);
 
   gtk_widget_show(GTK_WIDGET(inspector->spectrum));
+
+  /* Add histogram widget */
+  inspector->histogram = SUGTK_HISTOGRAM(sugtk_histogram_new());
+  gtk_container_add(
+      GTK_CONTAINER(inspector->histogramAlignment),
+      GTK_WIDGET(inspector->histogram));
+
+  gtk_widget_set_hexpand(GTK_WIDGET(inspector->histogram), TRUE);
+  gtk_widget_set_vexpand(GTK_WIDGET(inspector->histogram), TRUE);
+
+  g_signal_connect(
+      G_OBJECT(inspector->histogram),
+      "set-decider",
+      G_CALLBACK(suscan_gui_inspector_on_set_decider),
+      inspector);
+
+  gtk_widget_show(GTK_WIDGET(inspector->histogram));
 
   /* Somehow Glade fails to set these default values */
   gtk_toggle_tool_button_set_active(
@@ -837,15 +869,16 @@ suscan_gui_inspector_on_config_changed(suscan_gui_inspector_t *insp)
 {
   struct suscan_field_value *value;
 
-  SU_TRYCATCH(
-      value = suscan_config_get_value(
-          insp->config,
-          "afc.bits-per-symbol"),
-      return SU_FALSE);
-
-  insp->bits_per_symbol = value->as_int;
-
-  sugtk_trans_mtx_set_order(insp->transMatrix, 1 << insp->bits_per_symbol);
+  if ((value = suscan_config_get_value(
+      insp->config,
+      "afc.bits-per-symbol")) != NULL)
+    suscan_gui_inspector_set_bits(insp, value->as_int);
+  else if ((value = suscan_config_get_value(
+      insp->config,
+      "fsk.bits-per-symbol")) != NULL)
+    suscan_gui_inspector_set_bits(insp, value->as_int);
+  else
+    suscan_gui_inspector_set_bits(insp, 1);
 
   return SU_TRUE;
 }
@@ -905,13 +938,26 @@ suscan_gui_inspector_populate_channel_summary(suscan_gui_inspector_t *insp)
   gtk_label_set_text(insp->snrLabel, text);
 }
 
+SUPRIVATE const char *
+suscan_gui_inspector_class_to_desc(const char *class)
+{
+  const struct suscan_inspector_interface *iface;
+
+  if ((iface = suscan_inspector_interface_lookup(class)) == NULL)
+    return class;
+  else
+    return iface->desc;
+}
+
 suscan_gui_inspector_t *
 suscan_gui_inspector_new(
+    const char *class,
     const struct sigutils_channel *channel,
     const suscan_config_t *config,
     SUHANDLE handle)
 {
   suscan_gui_inspector_t *new = NULL;
+  struct sigutils_decider_params params = sigutils_decider_params_INITIALIZER;
   char *page_label = NULL;
   unsigned int i;
 
@@ -923,6 +969,7 @@ suscan_gui_inspector_new(
   new->channel = *channel;
   new->index = -1;
   new->inshnd = handle;
+  new->decider_params = params;
 
   SU_TRYCATCH(new->config = suscan_config_new(config->desc), return SU_FALSE);
 
@@ -945,7 +992,8 @@ suscan_gui_inspector_new(
 
   SU_TRYCATCH(
       page_label = strbuild(
-          "PSK inspector at %lli Hz",
+          "%s at %lli Hz",
+          suscan_gui_inspector_class_to_desc(class),
           (uint64_t) round(channel->fc)),
       goto fail);
 
@@ -953,6 +1001,9 @@ suscan_gui_inspector_new(
 
   free(page_label);
   page_label = NULL;
+
+  /* Set bits per symbol to 0 */
+  suscan_gui_inspector_set_bits(new, 0);
 
   /* Initialize inspector-specific set of modem controls */
   SU_TRYCATCH(
@@ -1021,9 +1072,6 @@ suscan_inspector_on_save(
 {
   suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
   char *new_fname = NULL;
-  uint8_t bpsym;
-
-  bpsym = insp->bits_per_symbol;
 
   SU_TRYCATCH(
       new_fname = suscan_gui_inspector_to_filename(insp, "symbols", ".log"),
@@ -1034,7 +1082,7 @@ suscan_inspector_on_save(
           insp->symbolView,
           "Save symbol view",
           new_fname,
-          bpsym),
+          suscan_gui_inspector_get_bits(insp)),
       goto done);
 
 done:
@@ -1155,7 +1203,7 @@ suscan_inspector_on_set_width(
 }
 
 void
-suscan_inspector_on_reshape(GtkWidget *widget, gpointer data)
+suscan_gui_inspector_on_reshape(GtkWidget *widget, gpointer data)
 {
   suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
 
@@ -1249,10 +1297,20 @@ suscan_inspector_on_change_spectrum(GtkWidget *widget, gpointer data)
       inspector->inshnd,
       id,
       rand());
+
+  sugtk_spectrum_reset(inspector->spectrum);
 }
 
 void
 suscan_inspector_on_spectrum_center(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+
+  sugtk_spectrum_reset(inspector->spectrum);
+}
+
+void
+suscan_inspector_on_spectrum_reset(GtkWidget *widget, gpointer data)
 {
   suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
 

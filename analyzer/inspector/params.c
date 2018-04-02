@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2017 Gonzalo José Carracedo Carballal
+  Copyright (C) 2018 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -133,6 +133,15 @@ suscan_config_desc_add_fc_params(suscan_config_desc_t *desc)
           "Carrier offset (Hz)"),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "afc.loop-bw",
+          "Loop bandwidth (Hz)"),
+      return SU_FALSE);
+
   return SU_TRUE;
 }
 
@@ -163,6 +172,16 @@ suscan_inspector_fc_params_parse(
 
   params->fc_off = value->as_float;
 
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "afc.loop-bw"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->fc_loopbw = value->as_float;
+
   return SU_TRUE;
 }
 
@@ -191,6 +210,13 @@ suscan_inspector_fc_params_save(
           config,
           "afc.offset",
           params->fc_off),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "afc.loop-bw",
+          params->fc_loopbw),
       return SU_FALSE);
 
   return SU_TRUE;
@@ -531,3 +557,54 @@ suscan_inspector_br_params_save(
   return SU_TRUE;
 }
 
+/****************************** FSK config ***********************************/
+SUBOOL
+suscan_config_desc_add_fsk_params(suscan_config_desc_t *desc)
+{
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "fsk.bits-per-symbol",
+          "Bits per FSK tone"),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_fsk_params_parse(
+    struct suscan_inspector_fsk_params *params,
+    const suscan_config_t *config)
+{
+  struct suscan_field_value *value;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "fsk.bits-per-symbol"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->bits_per_tone = value->as_int;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_fsk_params_save(
+    const struct suscan_inspector_fsk_params *params,
+    suscan_config_t *config)
+{
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "fsk.bits-per-symbol",
+          params->bits_per_tone),
+      return SU_FALSE);
+
+  return SU_TRUE;
+
+}

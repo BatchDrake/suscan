@@ -1076,6 +1076,20 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "cbLcdBg")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->throttleSampRateSpinButton =
+          GTK_SPIN_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "sbThrottleSampRate")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->throttleOverrideCheckButton =
+          GTK_CHECK_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "cbThrottleOverride")),
+          return SU_FALSE);
+
   suscan_gui_populate_source_list(gui);
 
   suscan_setup_column_formats(gui);
@@ -1088,6 +1102,8 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
 
   /* Add spectrum view */
   gui->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
+  sugtk_spectrum_set_smooth_N0(gui->spectrum, TRUE);
+
   SU_TRYCATCH(suscan_gui_add_all_inspector_actions(gui), return SU_FALSE);
 
   gtk_grid_attach(gui->spectrumGrid, GTK_WIDGET(gui->spectrum), 0, 0, 1, 1);
@@ -1289,6 +1305,14 @@ suscan_gui_apply_settings_on_inspector(
   sugtk_constellation_set_fg_color(insp->constellation, gui->settings.insp_fg);
   sugtk_constellation_set_bg_color(insp->constellation, gui->settings.insp_bg);
   sugtk_constellation_set_axes_color(insp->constellation, gui->settings.insp_axes);
+
+  sugtk_waveform_set_fg_color(insp->phasePlot, gui->settings.insp_fg);
+  sugtk_waveform_set_bg_color(insp->phasePlot, gui->settings.insp_bg);
+  sugtk_waveform_set_axes_color(insp->phasePlot, gui->settings.insp_axes);
+
+  sugtk_histogram_set_fg_color(insp->histogram, gui->settings.insp_fg);
+  sugtk_histogram_set_bg_color(insp->histogram, gui->settings.insp_bg);
+  sugtk_histogram_set_axes_color(insp->histogram, gui->settings.insp_axes);
 }
 
 void
@@ -1429,6 +1453,7 @@ suscan_gui_helper_preload(void)
 {
   SU_TRYCATCH(suscan_gui_modemctl_agc_init(), return SU_FALSE);
   SU_TRYCATCH(suscan_gui_modemctl_afc_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_gui_modemctl_fsk_init(), return SU_FALSE);
   SU_TRYCATCH(suscan_gui_modemctl_mf_init(), return SU_FALSE);
   SU_TRYCATCH(suscan_gui_modemctl_equalizer_init(), return SU_FALSE);
   SU_TRYCATCH(suscan_gui_modemctl_clock_init(), return SU_FALSE);

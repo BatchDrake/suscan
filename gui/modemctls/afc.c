@@ -33,6 +33,7 @@ struct suscan_gui_modemctl_afc {
   GtkComboBoxText *fcTypeComboBoxText;
   GtkComboBoxText *fcOrderComboBoxText;
   GtkSpinButton   *fcOffsetSpinButton;
+  GtkSpinButton   *fcLoopBwSpinButton;
 };
 
 void
@@ -58,6 +59,7 @@ suscan_gui_modemctl_afc_update_sensitiveness(
 
   gtk_widget_set_sensitive(GTK_WIDGET(afc->fcOrderComboBoxText), manual);
   gtk_widget_set_sensitive(GTK_WIDGET(afc->fcOffsetSpinButton), manual);
+  gtk_widget_set_sensitive(GTK_WIDGET(afc->fcLoopBwSpinButton), !manual);
 
   if (!manual)
     suscan_gui_modemctl_helper_write_combo_id(
@@ -92,6 +94,14 @@ suscan_gui_modemctl_afc_get(
           SUSCAN_GUI_MODEMCTL_PREFIX "offset",
           gtk_spin_button_get_value(afc->fcOffsetSpinButton)),
       return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          SUSCAN_GUI_MODEMCTL_PREFIX "loop-bw",
+          gtk_spin_button_get_value(afc->fcLoopBwSpinButton)),
+      return SU_FALSE);
+
 
   suscan_gui_modemctl_afc_update_sensitiveness(afc);
 
@@ -133,6 +143,14 @@ suscan_gui_modemctl_afc_set(
 
   gtk_spin_button_set_value(afc->fcOffsetSpinButton, value->as_float);
 
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          SUSCAN_GUI_MODEMCTL_PREFIX "loop-bw"),
+      return SU_FALSE);
+
+  gtk_spin_button_set_value(afc->fcLoopBwSpinButton, value->as_float);
+
   return SU_TRUE;
 }
 
@@ -165,6 +183,13 @@ suscan_gui_modemctl_afc_load_all_widgets(struct suscan_gui_modemctl_afc *afc)
           GTK_SPIN_BUTTON(gtk_builder_get_object(
               afc->builder,
               "sbFCOffset")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      afc->fcLoopBwSpinButton =
+          GTK_SPIN_BUTTON(gtk_builder_get_object(
+              afc->builder,
+              "sbLoopBw")),
           return SU_FALSE);
 
   return SU_TRUE;

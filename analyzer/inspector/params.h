@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2017 Gonzalo José Carracedo Carballal
+  Copyright (C) 2018 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -56,6 +56,7 @@ struct suscan_inspector_fc_params {
   enum suscan_inspector_carrier_control fc_ctrl;
   SUFLOAT fc_off;     /* Offset frequency */
   SUFLOAT fc_phi;     /* Carrier phase */
+  SUFLOAT fc_loopbw;  /* Loop bandwidth */
 };
 
 SUBOOL suscan_config_desc_add_fc_params(suscan_config_desc_t *desc);
@@ -127,5 +128,19 @@ SUBOOL suscan_inspector_br_params_parse(
 SUBOOL suscan_inspector_br_params_save(
     const struct suscan_inspector_br_params *params,
     suscan_config_t *config);
+
+/****************************** FSK config ***********************************/
+struct suscan_inspector_fsk_params {
+  unsigned int bits_per_tone;
+};
+
+SUBOOL suscan_config_desc_add_fsk_params(suscan_config_desc_t *desc);
+SUBOOL suscan_inspector_fsk_params_parse(
+    struct suscan_inspector_fsk_params *params,
+    const suscan_config_t *config);
+SUBOOL suscan_inspector_fsk_params_save(
+    const struct suscan_inspector_fsk_params *params,
+    suscan_config_t *config);
+
 
 #endif /* _INSPECTOR_PARAMS_H */
