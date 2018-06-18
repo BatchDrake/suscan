@@ -206,6 +206,12 @@ suscan_source_get_config(const suscan_source_t *src)
   return src->config;
 }
 
+SUINLINE SUBOOL
+suscan_source_is_capturing(const suscan_source_t *src)
+{
+  return src->capturing;
+}
+
 void suscan_source_destroy(suscan_source_t *config);
 
 SUBOOL suscan_init_sources(void);

@@ -381,10 +381,12 @@ suscan_analyzer_thread(void *data)
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL halt_acked = SU_FALSE;
 
+  SU_TRYCATCH(suscan_source_start_capture(analyzer->source), goto done);
+
   if (!suscan_worker_push(
       analyzer->source_wk,
       suscan_source_wk_cb,
-      &analyzer->source)) {
+      analyzer->source)) {
     suscan_analyzer_send_status(
         analyzer,
         SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
@@ -517,6 +519,9 @@ done:
 
   if (private != NULL)
     suscan_analyzer_dispose_message(type, private);
+
+  if (suscan_source_is_capturing(analyzer->source))
+    suscan_source_stop_capture(analyzer->source);
 
   if (!halt_acked)
     suscan_wait_for_halt(analyzer);
