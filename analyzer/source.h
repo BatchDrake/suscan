@@ -169,7 +169,7 @@ void suscan_source_config_destroy(suscan_source_config_t *);
 /****************************** Source API ***********************************/
 struct suscan_source {
   suscan_source_config_t *config; /* Source may alter configuration! */
-
+  SUBOOL capturing;
   SUBOOL soft_dc_correction;
   SUBOOL soft_iq_balance;
   SUSCOUNT (*read) (
@@ -189,6 +189,9 @@ struct suscan_source {
 };
 
 typedef struct suscan_source suscan_source_t;
+
+SUBOOL suscan_source_stop_capture(suscan_source_t *source);
+SUBOOL suscan_source_start_capture(suscan_source_t *source);
 
 suscan_source_t *suscan_source_new(suscan_source_config_t *config);
 

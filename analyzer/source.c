@@ -715,17 +715,6 @@ suscan_source_open_sdr(suscan_source_t *source)
     return SU_FALSE;
   }
 
-  /* SDR stream opened, activate it */
-  if (SoapySDRDevice_activateStream(
-      source->sdr,
-      source->rx_stream,
-      0,
-      0,
-      0) != 0) {
-    SU_ERROR("Failed to activate stream: %s\n", SoapySDRDevice_lastError());
-    return SU_FALSE;
-  }
-
   return SU_TRUE;
 }
 
@@ -794,12 +783,63 @@ suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
 SUSDIFF
 suscan_source_read(suscan_source_t *source, SUCOMPLEX *buffer, SUSCOUNT max)
 {
+  SU_TRYCATCH(source->capturing, return SU_FALSE);
+
   if (source->read == NULL) {
     SU_ERROR("Signal source has no read() operation\n");
     return -1;
   }
 
   return (source->read) (source, buffer, max);
+}
+
+SUBOOL
+suscan_source_start_capture(suscan_source_t *source)
+{
+  if (source->capturing) {
+    SU_WARNING("start_capture: called twice, already capturing!\n");
+    return SU_TRUE;
+  }
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_SDR) {
+    if (SoapySDRDevice_activateStream(
+        source->sdr,
+        source->rx_stream,
+        0,
+        0,
+        0) != 0) {
+      SU_ERROR("Failed to activate stream: %s\n", SoapySDRDevice_lastError());
+      return SU_FALSE;
+    }
+  }
+
+  source->capturing = SU_TRUE;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_stop_capture(suscan_source_t *source)
+{
+  if (!source->capturing) {
+    SU_WARNING("stop_capture: called twice, already capturing!\n");
+    return SU_TRUE;
+  }
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_SDR) {
+    if (SoapySDRDevice_deactivateStream(
+        source->sdr,
+        source->rx_stream,
+        0,
+        0) != 0) {
+      SU_ERROR("Failed to deactivate stream: %s\n", SoapySDRDevice_lastError());
+      return SU_FALSE;
+    }
+  }
+
+  source->capturing = SU_FALSE;
+
+  return SU_TRUE;
 }
 
 suscan_source_t *
