@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/select.h>
 
+#include <confdb.h>
 #include <suscan.h>
 #include <codec.h>
 
@@ -110,22 +111,6 @@ main(int argc, char *argv[], char *envp[])
     goto done;
   }
 
-  for (i = optind; i < argc; ++i) {
-    if ((config = suscan_source_string_to_config(argv[i])) == NULL) {
-      fprintf(
-          stderr,
-          "%s: cannot parse source string:\n\n  %s\n\n",
-          argv[0],
-          argv[i]);
-      goto done;
-    }
-
-    if (PTR_LIST_APPEND_CHECK(config, config) == -1) {
-      fprintf(stderr, "%s: failed to build source list\n", argv[0]);
-      goto done;
-    }
-  }
-
   switch (mode) {
     case SUSCAN_MODE_GTK_UI:
       gettimeofday(&tv, NULL);
@@ -140,27 +125,7 @@ main(int argc, char *argv[], char *envp[])
       break;
 
     case SUSCAN_MODE_FINGERPRINT:
-      if (config_count == 0) {
-        fprintf(stderr, "%s: no sources given for fingerprint\n", argv[0]);
-        goto done;
-      } else {
-        for (i = 0; i < config_count; ++i) {
-          fprintf(
-              stderr,
-              "%s: fingerprinting `%s'...\n",
-              argv[0],
-              argv[optind + i]);
-          if (!suscan_perform_fingerprint(config_list[i]))
-            fprintf(
-                stderr,
-                "%s: cannot fingerprint `%s'\n",
-                argv[0],
-                argv[optind + i]);
-        }
-
-        exit_code = EXIT_SUCCESS;
-      }
-
+      fprintf(stderr, "%s: fingerprint mode not implemented\n", argv[0]);
       break;
   }
 

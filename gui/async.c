@@ -83,7 +83,7 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
   char *subtitle = NULL;
 
   if (gui->analyzer_source_config != NULL)
-    source_name = gui->analyzer_source_config->source->desc;
+    source_name = suscan_source_config_get_label(gui->analyzer_source_config);
 
   switch (state) {
     case SUSCAN_GUI_STATE_STOPPED:
@@ -93,8 +93,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
           "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), TRUE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
           FALSE);
@@ -112,8 +110,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
           "media-playback-stop-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
           !suscan_analyzer_is_real_time(gui->analyzer));
@@ -131,7 +127,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       subtitle = "Restarting...";
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
           FALSE);
@@ -150,7 +145,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
           "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
           FALSE);
@@ -195,7 +189,6 @@ suscan_async_stopped_cb(gpointer user_data)
        * Stopped was caused by a transition to QUITTING. Destroy GUI
        * and exit main loop
        */
-      suscan_gui_store_recent(gui);
       suscan_gui_store_settings(gui);
       suscan_gui_destroy(gui);
       gtk_main_quit();
@@ -652,9 +645,6 @@ suscan_gui_connect(suscan_gui_t *gui)
           gui),
       goto fail);
 
-  /* Append recent. Not critical */
-  (void) suscan_gui_append_recent(gui, gui->analyzer_source_config);
-
   /* Change state and succeed */
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RUNNING);
 
@@ -706,7 +696,6 @@ suscan_gui_quit(suscan_gui_t *gui)
 
     case SUSCAN_GUI_STATE_STOPPED:
       /* GUI already stopped, proceed to stop safely */
-      suscan_gui_store_recent(gui);
       suscan_gui_store_settings(gui);
       suscan_gui_destroy(gui);
       gtk_main_quit();

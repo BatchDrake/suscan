@@ -6,10 +6,10 @@ suscan_CFLAGS = -I. -I../util -I../codec -I../ctk -I.. -g -O0 \
 	@sigutils_CFLAGS@ 					\
 	@fftw3_CFLAGS@     					\
 	@sndfile_CFLAGS@						\
-	@asoundlib_CFLAGS@					\
 	@gtk3_CFLAGS@								\
-	@hackRF_CFLAGS@ 						\
-	@GLOBAL_CFLAGS@
+	@GLOBAL_CFLAGS@			        \
+	@xml2_CFLAGS@								\
+	@soapysdr_CFLAGS@
 	
 suscan_LDFLAGS = @GLOBAL_LDFLAGS@ -Wl,--whole-archive \
 	-Wl,--allow-multiple-definition
@@ -21,10 +21,9 @@ suscan_LDADD = ../util/libutil.la \
 	@sigutils_LIBS@		 							\
 	@fftw3_LIBS@     								\
 	@sndfile_LIBS@									\
-	@asoundlib_LIBS@								\
-	@bladeRF_LIBS@									\
-	@hackRF_LIBS@ 									\
+	@soapysdr_LIBS@									\
 	@gtk3_LIBS@											\
-	@GLOBAL_LDFLAGS@
+	@xml2_LIBS@										  \
+	@GLOBAL_LDFLAGS@								
 
 suscan_SOURCES = common.c fingerprint.c lib.c main.c suscan.h

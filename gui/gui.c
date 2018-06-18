@@ -22,10 +22,9 @@
 
 #define SU_LOG_DOMAIN "gui"
 
+#include <confdb.h>
 #include "modemctl.h"
 #include "gui.h"
-
-PTR_LIST_EXTERN(struct suscan_source, source); /* Declared in source.c */
 
 void
 suscan_gui_msgbox(
@@ -80,13 +79,6 @@ suscan_gui_destroy(suscan_gui_t *gui)
 
   if (gui->inspector_list != NULL)
     free(gui->inspector_list);
-
-  for (i = 0; i < gui->recent_count; ++i)
-    if (gui->recent_list[i] != NULL)
-      suscan_gui_recent_destroy(gui->recent_list[i]);
-
-  if (gui->recent_list != NULL)
-    free(gui->recent_list);
 
   if (gui->builder != NULL)
     g_object_unref(gui->builder);
@@ -402,113 +394,6 @@ done:
   return ok;
 }
 
-/*************************** Source dialog methods **************************/
-void
-suscan_gui_source_config_destroy(struct suscan_gui_src_ui *config)
-{
-  if (config->config != NULL)
-    suscan_source_config_destroy(config->config);
-
-  if (config->cfgui)
-    suscan_gui_cfgui_destroy(config->cfgui);
-
-  free(config);
-}
-
-void
-suscan_gui_src_ui_to_dialog(const struct suscan_gui_src_ui *ui)
-{
-  suscan_gui_cfgui_dump(ui->cfgui);
-}
-
-SUBOOL
-suscan_gui_src_ui_from_dialog(struct suscan_gui_src_ui *ui)
-{
-  return suscan_gui_cfgui_parse(ui->cfgui);
-}
-
-struct suscan_gui_src_ui *
-suscan_gui_source_config_new(struct suscan_source *source)
-{
-  struct suscan_gui_src_ui *new = NULL;
-
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_gui_src_ui)),
-      goto fail);
-
-  new->source = source;
-
-  SU_TRYCATCH(new->config = suscan_source_config_new(source), goto fail);
-
-  SU_TRYCATCH(
-      new->cfgui = suscan_gui_cfgui_new(new->config->config),
-      goto fail);
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_gui_source_config_destroy(new);
-
-  return NULL;
-}
-
-SUBOOL
-suscan_gui_populate_source_list(suscan_gui_t *gui)
-{
-  unsigned int i;
-  GtkTreeIter new_element;
-  struct suscan_gui_src_ui *config;
-
-  for (i = 0; i < source_count; ++i) {
-    SU_TRYCATCH(
-        config = suscan_gui_source_config_new(source_list[i]),
-        return SU_FALSE);
-    gtk_list_store_append(
-        gui->sourceListStore,
-        &new_element);
-    gtk_list_store_set(
-        gui->sourceListStore,
-        &new_element,
-        0, source_list[i]->desc,
-        1, config,
-        -1);
-  }
-
-  return SU_TRUE;
-}
-
-struct suscan_gui_src_ui *
-suscan_gui_lookup_source_config(
-    const suscan_gui_t *gui,
-    const struct suscan_source *src)
-{
-  GtkTreeIter iter;
-  struct suscan_gui_src_ui *config;
-  gboolean ok;
-
-  ok = gtk_tree_model_get_iter_first(
-      GTK_TREE_MODEL(gui->sourceListStore),
-      &iter);
-
-  while (ok) {
-    gtk_tree_model_get(
-        GTK_TREE_MODEL(gui->sourceListStore),
-        &iter,
-        1,
-        &config,
-        -1);
-
-    if (config->source == src)
-      return config;
-
-    ok = gtk_tree_model_iter_next(GTK_TREE_MODEL(gui->sourceListStore), &iter);
-  }
-
-  return NULL;
-}
-
 SUPRIVATE void
 suscan_gui_double_data_func(
     GtkTreeViewColumn *tree_column,
@@ -685,21 +570,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->sourceGrid = GTK_GRID(
-          gtk_builder_get_object(gui->builder, "grSourceGrid")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->sourceCombo = GTK_COMBO_BOX(
-          gtk_builder_get_object(gui->builder, "cmSourceSelect")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->sourceAlignment =
-          gtk_builder_get_object(gui->builder, "alSourceParams"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
       gui->toggleConnect =
           GTK_BUTTON(gtk_builder_get_object(gui->builder, "bToggleConnect")),
       return SU_FALSE);
@@ -842,13 +712,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           GTK_TREE_VIEW(gtk_builder_get_object(
               gui->builder,
               "tvLogMessages")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->recentMenu =
-          GTK_MENU(gtk_builder_get_object(
-              gui->builder,
-              "mRecents")),
           return SU_FALSE);
 
   SU_TRYCATCH(
@@ -1090,7 +953,33 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "cbThrottleOverride")),
           return SU_FALSE);
 
-  suscan_gui_populate_source_list(gui);
+  SU_TRYCATCH(
+      gui->settingsSelectorStack =
+          GTK_STACK(gtk_builder_get_object(
+              gui->builder,
+              "sSettingsSelector")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->channelDiscoveryFrame =
+          GTK_FRAME(gtk_builder_get_object(
+              gui->builder,
+              "fChannelDiscovery")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->colorsFrame =
+          GTK_FRAME(gtk_builder_get_object(
+              gui->builder,
+              "fColors")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->defaultSourceFrame =
+          GTK_FRAME(gtk_builder_get_object(
+              gui->builder,
+              "fDefaultSource")),
+          return SU_FALSE);
 
   suscan_setup_column_formats(gui);
 
@@ -1380,8 +1269,6 @@ suscan_gui_new(int argc, char **argv)
       G_CALLBACK(suscan_quit_cb),
       gui);
 
-  suscan_gui_retrieve_recent(gui);
-
   return gui;
 
 fail:
@@ -1411,31 +1298,6 @@ suscan_gui_set_title(suscan_gui_t *gui, const char *title)
   free(full_title);
 
   return SU_TRUE;
-}
-
-void
-suscan_gui_set_src_ui(
-    suscan_gui_t *gui,
-    struct suscan_gui_src_ui *ui)
-{
-  struct suscan_field_value *val;
-
-  if (ui == NULL) {
-    (void) suscan_gui_set_title(gui, "No source selected");
-    gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
-    gui->analyzer_source_config = NULL;
-  } else {
-    (void) suscan_gui_set_title(gui, ui->source->desc);
-    gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
-    gui->analyzer_source_config = ui->config;
-
-    if ((val = suscan_source_config_get_value(ui->config, "fc")) != NULL) {
-      if (val->field->type == SUSCAN_FIELD_TYPE_INTEGER)
-        suscan_gui_set_freq(gui, val->as_int);
-      else if (val->field->type == SUSCAN_FIELD_TYPE_FLOAT)
-        suscan_gui_set_freq(gui, val->as_float);
-    }
-  }
 }
 
 void
@@ -1469,6 +1331,8 @@ suscan_gui_start(
     unsigned int config_count)
 {
   suscan_gui_t *gui = NULL;
+
+  SU_TRYCATCH(suscan_confdb_use("gtkui"), goto fail);
 
   SU_TRYCATCH(suscan_gui_helper_preload(), goto fail);
 

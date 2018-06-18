@@ -662,12 +662,14 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
               "dProgress")),
           return SU_FALSE);
 
+#ifdef GTK_PROGRESS_BAR_IS_FIXED
   SU_TRYCATCH(
       inspector->progressBar =
           GTK_PROGRESS_BAR(gtk_builder_get_object(
               inspector->builder,
               "pProgress")),
           return SU_FALSE);
+#endif
 
   SU_TRYCATCH(
       inspector->symViewScrollbar =

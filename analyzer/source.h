@@ -21,85 +21,189 @@
 #ifndef _SOURCE_H
 #define _SOURCE_H
 
-#include <cfg.h>
+#include <sndfile.h>
 #include <sigutils/sigutils.h>
+#include <SoapySDR/Device.h>
+#include <SoapySDR/Formats.h>
+#include "../util/object.h"
 
 #define SUSCAN_SOURCE_DEFAULT_BUFSIZ 4096
 
-struct suscan_source_config;
+/************************** Source config API ********************************/
+enum suscan_source_type {
+  SUSCAN_SOURCE_TYPE_FILE,
+  SUSCAN_SOURCE_TYPE_SDR
+};
 
-struct suscan_source {
-  const char *name;
-  const char *desc;
+enum suscan_source_format {
+  SUSCAN_SOURCE_FORMAT_AUTO,
+  SUSCAN_SOURCE_FORMAT_RAW,
+  SUSCAN_SOURCE_FORMAT_WAV
+};
 
-  SUBOOL real_samp; /* Samples are real numbers */
-  SUBOOL real_time; /* Source is real time */
-
-  suscan_config_desc_t *config_desc;
-
-  su_block_t *(*ctor) (const struct suscan_source_config *);
+struct suscan_source_float_keyval {
+  char *key;
+  SUFLOAT val;
 };
 
 struct suscan_source_config {
-  const struct suscan_source *source;
-  suscan_config_t *config;
-  SUSCOUNT bufsiz;
+  enum suscan_source_type type;
+  enum suscan_source_format format;
+  char *label; /* Label for this configuration */
+
+  /* Common for all source types */
+  SUFREQ  freq;
+  SUFLOAT bandwidth;
+  SUBOOL  iq_balance;
+  SUBOOL  dc_remove;
+  unsigned int samp_rate;
+  unsigned int average;
+
+  /* For file sources */
+  char *path;
+  SUBOOL loop;
+
+  /* For SDR sources */
+  SoapySDRKwargs *soapy_args;
+  char *antenna;
+  unsigned int channel;
+  PTR_LIST(struct suscan_source_float_keyval, gain);
 };
 
-/**************************** Source API *************************************/
-struct suscan_source *suscan_source_lookup(const char *name);
-struct suscan_source *suscan_source_register(
-    const char *name,
-    const char *desc,
-    su_block_t *(*ctor) (const struct suscan_source_config *));
-int suscan_source_lookup_field_id(
-    const struct suscan_source *source,
+typedef struct suscan_source_config suscan_source_config_t;
+
+/* Serialization methods */
+suscan_object_t *suscan_source_config_to_object(
+    const suscan_source_config_t *source);
+
+suscan_source_config_t *suscan_source_config_from_object(
+    const suscan_object_t *object);
+
+const char *suscan_source_config_get_label(const suscan_source_config_t *source);
+SUBOOL suscan_source_config_set_label(
+    suscan_source_config_t *config,
+    const char *label);
+
+SUFLOAT suscan_source_config_get_freq(const suscan_source_config_t *config);
+void suscan_source_config_set_freq(
+    suscan_source_config_t *config,
+    SUFLOAT freq);
+
+SUFLOAT suscan_source_config_get_bandwidth(
+    const suscan_source_config_t *config);
+void suscan_source_config_set_bandwidth(
+    suscan_source_config_t *config,
+    SUFLOAT bandwidth);
+
+SUBOOL suscan_source_config_get_iq_balance(
+    const suscan_source_config_t *config);
+void suscan_source_config_set_iq_balance(
+    suscan_source_config_t *config,
+    SUBOOL iq_balance);
+
+SUBOOL suscan_source_config_get_dc_remove(const suscan_source_config_t *config);
+void suscan_source_config_set_dc_remove(
+    suscan_source_config_t *config,
+    SUBOOL dc_remove);
+
+SUBOOL suscan_source_config_get_loop(const suscan_source_config_t *config);
+void suscan_source_config_set_loop(suscan_source_config_t *config, SUBOOL loop);
+
+const char *suscan_source_config_get_path(const suscan_source_config_t *config);
+SUBOOL suscan_source_config_set_path(
+    suscan_source_config_t *config,
+    const char *path);
+
+const char *suscan_source_config_get_antenna(
+    const suscan_source_config_t *config);
+SUBOOL suscan_source_config_set_antenna(
+    suscan_source_config_t *config,
+    const char *antenna);
+
+unsigned int suscan_source_config_get_samp_rate(
+    const suscan_source_config_t *config);
+void suscan_source_config_set_samp_rate(
+    suscan_source_config_t *config,
+    unsigned int samp_rate);
+
+unsigned int suscan_source_config_get_average(
+    const suscan_source_config_t *config);
+SUBOOL suscan_source_config_set_average(
+    suscan_source_config_t *config,
+    unsigned int average);
+
+unsigned int suscan_source_config_get_channel(
+    const suscan_source_config_t *config);
+void suscan_source_config_set_channel(
+    suscan_source_config_t *config,
+    unsigned int channel);
+
+struct suscan_source_float_keyval *suscan_source_config_lookup_gain(
+    const suscan_source_config_t *config,
     const char *name);
-struct suscan_field *suscan_source_field_id_to_field(
-    const struct suscan_source *source,
-    int id);
-struct suscan_field *suscan_source_lookup_field(
-    const struct suscan_source *source,
+struct suscan_source_float_keyval *suscan_source_config_assert_gain(
+    suscan_source_config_t *config,
     const char *name);
-SUBOOL suscan_source_add_field(
-    struct suscan_source *source,
-    enum suscan_field_type type,
-    SUBOOL optional,
-    const char *name,
-    const char *desc);
-void suscan_source_config_destroy(struct suscan_source_config *config);
-struct suscan_source_config *suscan_source_config_new(
-    const struct suscan_source *source);
-SUBOOL suscan_source_config_set_integer(
-    struct suscan_source_config *cfg,
-    const char *name,
-    uint64_t value);
-SUBOOL suscan_source_config_set_float(
-    struct suscan_source_config *cfg,
+SUFLOAT suscan_source_config_get_gain(
+    const suscan_source_config_t *config,
+    const char *name);
+SUBOOL suscan_source_config_set_gain(
+    const suscan_source_config_t *config,
     const char *name,
     SUFLOAT value);
-SUBOOL suscan_source_config_set_string(
-    struct suscan_source_config *cfg,
-    const char *name,
-    const char *value);
-SUBOOL suscan_source_config_set_file(
-    struct suscan_source_config *cfg,
-    const char *name,
-    const char *value);
-SUBOOL suscan_source_config_set_bool(
-    struct suscan_source_config *cfg,
-    const char *name,
-    SUBOOL value);
-SUBOOL suscan_source_config_copy(
-    struct suscan_source_config *dest,
-    const struct suscan_source_config *src);
-struct suscan_field_value *suscan_source_config_get_value(
-    const struct suscan_source_config *cfg,
-    const char *name);
 
-struct suscan_source_config *suscan_source_string_to_config(const char *string);
+char *suscan_source_config_get_sdr_args(const suscan_source_config_t *config);
+SUBOOL suscan_source_config_set_sdr_args(
+    const suscan_source_config_t *config,
+    const char *args);
 
-char *suscan_source_config_to_string(const struct suscan_source_config *config);
+suscan_source_config_t *suscan_source_config_new(
+    enum suscan_source_type type,
+    enum suscan_source_format format);
+
+suscan_source_config_t *suscan_source_config_clone(
+    const suscan_source_config_t *config);
+
+void suscan_source_config_destroy(suscan_source_config_t *);
+
+/****************************** Source API ***********************************/
+struct suscan_source {
+  suscan_source_config_t *config; /* Source may alter configuration! */
+
+  SUBOOL soft_dc_correction;
+  SUBOOL soft_iq_balance;
+  SUSCOUNT (*read) (
+        struct suscan_source *source,
+        SUCOMPLEX *buffer,
+        SUSCOUNT max);
+
+  /* File sources are accessed through a soundfile handle */
+  SNDFILE *sf;
+  SF_INFO sf_info;
+  SUBOOL iq_file;
+
+  /* SDR sources are accessed through SoapySDR */
+  SoapySDRDevice *sdr;
+  SoapySDRStream *rx_stream;
+  size_t chan_array[1];
+};
+
+typedef struct suscan_source suscan_source_t;
+
+suscan_source_t *suscan_source_new(suscan_source_config_t *config);
+
+SUSDIFF suscan_source_read(
+    suscan_source_t *source,
+    SUCOMPLEX *buffer,
+    SUSCOUNT max);
+
+SUINLINE const suscan_source_config_t *
+suscan_source_get_config(const suscan_source_t *src)
+{
+  return src->config;
+}
+
+void suscan_source_destroy(suscan_source_t *config);
 
 SUBOOL suscan_init_sources(void);
 

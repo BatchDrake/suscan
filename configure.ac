@@ -62,36 +62,18 @@ PKG_CHECK_MODULES(sndfile, sndfile >= 1.0.2, , [AC_MSG_ERROR([Couldn't find libs
 AC_SUBST(sndfile_CFLAGS)
 AC_SUBST(sndfile_LIBS)
 
-PKG_CHECK_MODULES([asoundlib], [ alsa >= 1.0.25 ], , [AC_MSG_ERROR([Couldn't find ALSA libraries])])
-AC_SUBST(asoundlib_CFLAGS)
-AC_SUBST(asoundlib_LIBS)
+PKG_CHECK_MODULES(soapysdr, [ SoapySDR >= 0.7.0 ], , [AC_MSG_ERROR([Couldn't find SoapySDR libraries])])
+AC_SUBST(soapysdr_CFLAGS)
+AC_SUBST(soapysdr_LIBS)
 
-PKG_CHECK_MODULES([gtk3], [ gtk+-3.0 >= 3.22 ], , [AC_MSG_ERROR([Couldn't find GTK3])])
+PKG_CHECK_MODULES([gtk3], [ gtk+-3.0 >= 3.22.0 ], , [AC_MSG_ERROR([Couldn't find GTK3])])
 AC_SUBST(gtk3_CFLAGS)
 AC_SUBST(gtk3_LIBS)
-
-PKG_CHECK_MODULES(bladeRF, [ libbladeRF >= 0.28 ], ac_cv_bladeRF=yes, ac_cv_bladeRF=no)
-
-if test "$ac_cv_bladeRF" != no ; then
-  AC_DEFINE([HAVE_BLADERF], [0], [Compiled with bladeRF support])
-  AC_DEFINE(HAVE_BLADERF,1)
-  AC_SUBST(HAVE_BLADERF)
-fi
-
-AC_SUBST(bladeRF_CFLAGS)
-AC_SUBST(bladeRF_LIBS)
   
-PKG_CHECK_MODULES(hackRF, [ libhackrf >= 0.4 ], ac_cv_hackrf=yes, ac_cv_hackrf=no)
+PKG_CHECK_MODULES([xml2], [ libxml-2.0 >= 2.9.0 ], , [AC_MSG_ERROR([Couldn't find libxml2])])
+AC_SUBST(xml2_CFLAGS)
+AC_SUBST(xml2_LIBS)
 
-if test "$ac_cv_hackrf" != no ; then
-  AC_DEFINE([HAVE_HACKRF], [0], [Compiled with hackRF support])
-  AC_DEFINE(HAVE_HACKRF,1)
-  AC_SUBST(HAVE_HACKRF)
-fi
-
-AC_SUBST(hackRF_CFLAGS)
-AC_SUBST(hackRF_LIBS)
-  
 dnl Macro snippets imported from dependency `util'
 AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(analyzer_CFLAGS)

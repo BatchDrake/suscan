@@ -50,7 +50,7 @@ struct suscan_analyzer_status_msg {
 
 /* Channel notification message */
 struct suscan_analyzer_channel_msg {
-  const struct suscan_source *source;
+  const suscan_source_t *source;
   PTR_LIST(struct sigutils_channel, channel);
   const suscan_analyzer_t *sender;
 };

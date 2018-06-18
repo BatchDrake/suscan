@@ -18,7 +18,7 @@
 
 */
 
-#define SU_LOG_DOMAIN "main"
+#define SU_LOG_DOMAIN "callbacks"
 
 #include "gui.h"
 
@@ -48,15 +48,12 @@ void
 suscan_on_settings(GtkWidget *widget, gpointer data)
 {
   suscan_gui_t *gui = (suscan_gui_t *) data;
-  struct suscan_gui_src_ui *config;
   gint response;
 
   for (;;) {
     response = suscan_settings_dialog_run(gui);
 
-    if (response == 0) { /* Okay pressed */
-      config = suscan_gui_get_selected_src_ui(gui);
-
+    if (response == 0) {
       /* We load these always */
       suscan_gui_settings_from_dialog(gui);
 
@@ -77,22 +74,41 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
               gui,
               "Analyzer params",
               "Failed to send parameters to analyzer thread");
-
-      if (gtk_widget_get_sensitive(GTK_WIDGET(gui->sourceGrid))) {
-        if (!suscan_gui_src_ui_from_dialog(config)) {
-          suscan_error(
-              gui,
-              "Parameter validation",
-              "Invalid values passed to source parameters (see log)");
-          continue;
-        }
-
-        suscan_gui_set_src_ui(gui, config);
-      }
     }
 
     break;
   }
+}
+
+void
+suscan_on_activate_channel_discovery_settings(GtkListBoxRow *row, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  gtk_stack_set_visible_child(
+      gui->settingsSelectorStack,
+      GTK_WIDGET(gui->channelDiscoveryFrame));
+}
+
+void
+suscan_on_activate_color_settings(GtkListBoxRow *row, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  gtk_stack_set_visible_child(
+        gui->settingsSelectorStack,
+        GTK_WIDGET(gui->colorsFrame));
+}
+
+void
+suscan_on_activate_source_settings(GtkListBoxRow *row, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  /* TODO: Add more sources */
+  gtk_stack_set_visible_child(
+      gui->settingsSelectorStack,
+      GTK_WIDGET(gui->defaultSourceFrame));
 }
 
 void
@@ -118,89 +134,6 @@ suscan_on_toggle_connect(GtkWidget *widget, gpointer data)
     default:
       suscan_error(gui, "Error", "Impossiburu!");
   }
-}
-
-struct suscan_gui_src_ui *
-suscan_gui_get_selected_src_ui(const suscan_gui_t *gui)
-{
-  struct suscan_gui_src_ui *ui;
-  GtkTreeIter iter;
-  GtkTreeModel *model;
-  GValue val = G_VALUE_INIT;
-
-  model = gtk_combo_box_get_model(gui->sourceCombo);
-  gtk_combo_box_get_active_iter(gui->sourceCombo, &iter);
-  gtk_tree_model_get_value(model, &iter, 1, &val);
-
-  ui = (struct suscan_gui_src_ui *) g_value_get_pointer(&val);
-
-  g_value_unset(&val);
-
-  return ui;
-}
-
-SUBOOL
-suscan_gui_set_selected_src_ui(
-    suscan_gui_t *gui,
-    const struct suscan_gui_src_ui *new_ui)
-{
-  GtkTreeIter iter;
-  const struct suscan_gui_src_ui *ui;
-  gboolean ok;
-
-  ok = gtk_tree_model_get_iter_first(
-      GTK_TREE_MODEL(gui->sourceListStore),
-      &iter);
-
-  while (ok) {
-    gtk_tree_model_get(
-        GTK_TREE_MODEL(gui->sourceListStore),
-        &iter,
-        1,
-        &ui,
-        -1);
-
-    if (ui == new_ui) {
-      gtk_combo_box_set_active_iter(gui->sourceCombo, &iter);
-      return SU_TRUE;
-    }
-
-    ok = gtk_tree_model_iter_next(GTK_TREE_MODEL(gui->sourceListStore), &iter);
-  }
-
-  return SU_FALSE;
-}
-
-void
-suscan_on_source_changed(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_t *gui = (suscan_gui_t *) data;
-  struct suscan_gui_src_ui *config;
-  GList *list;
-  GtkWidget *cfgui = NULL;
-
-  config = suscan_gui_get_selected_src_ui(gui);
-
-  list = gtk_container_get_children(GTK_CONTAINER(gui->sourceAlignment));
-
-  if (list != NULL) {
-    cfgui = list->data;
-
-    g_list_free(list);
-  }
-
-  if (cfgui != NULL)
-    gtk_container_remove(
-        GTK_CONTAINER(gui->sourceAlignment),
-        GTK_WIDGET(cfgui));
-
-  cfgui = suscan_gui_cfgui_get_root(config->cfgui);
-
-  gtk_container_add(GTK_CONTAINER(gui->sourceAlignment), cfgui);
-
-  gtk_widget_show(cfgui);
-
-  gtk_window_resize(GTK_WINDOW(gui->settingsDialog), 1, 1);
 }
 
 void
@@ -307,4 +240,11 @@ suscan_gui_on_size_allocate(
   }
 }
 
-
+void
+suscan_gui_pass_row_selection(
+    GtkListBox *box,
+    GtkListBoxRow *row,
+    gpointer data)
+{
+  g_signal_emit_by_name(row, "activate", 0, NULL);
+}

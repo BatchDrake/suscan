@@ -45,12 +45,6 @@ struct suscan_gui_cfgui {
   GtkGrid *grid;
 };
 
-struct suscan_gui_src_ui {
-  const struct suscan_source *source;
-  struct suscan_source_config *config;
-  struct suscan_gui_cfgui *cfgui;
-};
-
 enum suscan_gui_state {
   SUSCAN_GUI_STATE_STOPPED,
   SUSCAN_GUI_STATE_RUNNING,
@@ -108,8 +102,6 @@ struct suscan_gui {
   GtkComboBox *sourceCombo;
   GtkHeaderBar *headerBar;
   GtkMenuBar *menuBar;
-  GObject *sourceAlignment;
-  GtkMenu *recentMenu;
   GtkMenuItem *emptyMenuItem;
   GtkBox *freqBox;
   SuGtkLcd *freqLcd;
@@ -141,6 +133,7 @@ struct suscan_gui {
   GtkLabel *n0Label;
 
   /* Setting dialogs widgets */
+  GtkStack       *settingsSelectorStack;
   GtkColorButton *paFgColorButton;
   GtkColorButton *paBgColorButton;
   GtkColorButton *paTextColorButton;
@@ -153,6 +146,10 @@ struct suscan_gui {
 
   GtkColorButton *lcdFgColorButton;
   GtkColorButton *lcdBgColorButton;
+
+  GtkFrame *channelDiscoveryFrame;
+  GtkFrame *colorsFrame;
+  GtkFrame *defaultSourceFrame;
 
   /* Source summary */
   GtkLabel *spectrumSampleRateLabel;
@@ -185,7 +182,7 @@ struct suscan_gui {
   enum suscan_gui_state state;
 
   /* Analyzer integration */
-  struct suscan_source_config *analyzer_source_config;
+  suscan_source_config_t *analyzer_source_config;
   struct suscan_analyzer_params analyzer_params;
   suscan_analyzer_t *analyzer;
   struct suscan_mq mq_out;
@@ -202,9 +199,6 @@ struct suscan_gui {
 
   /* Symbol tool tab list */
   PTR_LIST(suscan_gui_symtool_t, symtool);
-
-  /* Keep a list of the last configurations used */
-  PTR_LIST(struct suscan_gui_recent, recent);
 
   /* Flag to prevent nested callback calling */
   SUBOOL updating_settings;
@@ -252,24 +246,6 @@ void suscan_gui_cfgui_destroy(struct suscan_gui_cfgui *ui);
 GtkWidget *suscan_gui_cfgui_get_root(const struct suscan_gui_cfgui *ui);
 
 struct suscan_gui_cfgui *suscan_gui_cfgui_new(suscan_config_t *config);
-
-/* Source UI API */
-struct suscan_gui_src_ui *suscan_gui_get_selected_src_ui(
-    const suscan_gui_t *gui);
-
-SUBOOL suscan_gui_set_selected_src_ui(
-    suscan_gui_t *gui,
-    const struct suscan_gui_src_ui *ui);
-
-void suscan_gui_src_ui_to_dialog(const struct suscan_gui_src_ui *ui);
-
-SUBOOL suscan_gui_src_ui_from_dialog(struct suscan_gui_src_ui *ui);
-
-SUBOOL suscan_gui_set_title(suscan_gui_t *gui, const char *title);
-
-void suscan_gui_set_src_ui(
-    suscan_gui_t *gui,
-    struct suscan_gui_src_ui *ui);
 
 /* GUI settings */
 void suscan_gui_settings_from_dialog(suscan_gui_t *gui);
