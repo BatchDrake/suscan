@@ -50,7 +50,7 @@ suscan_object_populate_from_xmlNode(suscan_object_t *object, xmlNode *node)
   const char *name;
   enum suscan_object_type type;
 
-  for (this = node; this != NULL; this = this->next) {
+  for (this = node->children; this != NULL; this = this->next) {
     if (this->type == XML_ELEMENT_NODE) {
       if ((type = suscan_object_xmltag_to_type(this->name)) == -1) {
         SU_ERROR("Unrecognized tag name `%s'\n", this->name);
@@ -87,7 +87,7 @@ suscan_object_populate_from_xmlNode(suscan_object_t *object, xmlNode *node)
       /* Populate new object */
       if (type == SUSCAN_OBJECT_TYPE_FIELD) {
         /* Try to find value from member and contents */
-        if ((attrib = xmlGetProp(this, "value")) != NULL)
+        if ((attrib = xmlGetProp(this, "value")) == NULL)
           attrib = xmlNodeGetContent(this);
 
         if (attrib != NULL) {
@@ -101,7 +101,6 @@ suscan_object_populate_from_xmlNode(suscan_object_t *object, xmlNode *node)
       }
 
       /* New object totally parsed. Move to next */
-      suscan_object_destroy(new);
       new = NULL;
     }
   }
@@ -141,7 +140,7 @@ suscan_object_from_xml(const char *url, const void *data, size_t size)
     goto done;
   }
 
-  if (strcmp(root->name, "serialization") == 0) {
+  if (strcmp(root->name, "serialization") != 0) {
     SU_ERROR("Unexpected root tag `%s' in `%s'\n", root->name, url);
     goto done;
   }

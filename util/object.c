@@ -95,7 +95,7 @@ suscan_object_set_class(suscan_object_t *object, const char *class)
 {
   char *classdup = NULL;
 
-  if (classdup != NULL)
+  if (class != NULL)
     SU_TRYCATCH(classdup = strdup(class), return SU_FALSE);
 
   if (object->class != NULL)
@@ -117,13 +117,13 @@ suscan_object_set_name(suscan_object_t *object, const char *name)
 {
   char *namedup = NULL;
 
-  if (namedup != NULL)
+  if (name != NULL)
     SU_TRYCATCH(namedup = strdup(name), return SU_FALSE);
 
   if (object->name != NULL)
     free(object->name);
 
-  object->class = namedup;
+  object->name = namedup;
 
   return SU_TRUE;
 }
@@ -209,7 +209,7 @@ suscan_object_set_value(
 
   SU_TRYCATCH(object->type == SUSCAN_OBJECT_TYPE_FIELD, return SU_FALSE);
 
-  if (valuedup != NULL)
+  if (value != NULL)
     SU_TRYCATCH(valuedup = strdup(value), return SU_FALSE);
 
   if (object->value != NULL)
@@ -238,6 +238,7 @@ suscan_object_set_field_value(
   } else {
     /* Entry does not exist, create new */
     SU_TRYCATCH(new = suscan_object_new(SUSCAN_OBJECT_TYPE_FIELD), goto fail);
+    SU_TRYCATCH(suscan_object_set_value(new, value), goto fail);
     SU_TRYCATCH(suscan_object_set_field(object, name, new), goto fail);
   }
 
@@ -420,7 +421,7 @@ suscan_object_set_get_count(const suscan_object_t *object)
 }
 
 suscan_object_t *
-suscan_object_set_get(suscan_object_t *object, unsigned int index)
+suscan_object_set_get(const suscan_object_t *object, unsigned int index)
 {
   SU_TRYCATCH(object->type == SUSCAN_OBJECT_TYPE_SET, return NULL);
   SU_TRYCATCH(index < object->object_count, return NULL);

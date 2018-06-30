@@ -28,9 +28,9 @@
 
 #define SUSCAN_OBJECT_MAX_INLINE 32
 
-#define sosprintf(sos, fmt, arg...) \
-  SU_TRYCATCH(                      \
-      grow_buf_append_printf(&(sos)->buffer, fmt, ##arg), \
+#define sosprintf(sos, fmt, arg...)                             \
+  SU_TRYCATCH(                                                  \
+      grow_buf_append_printf(&(sos)->buffer, fmt, ##arg) != -1, \
       goto fail)
 
 
@@ -48,7 +48,7 @@ suscan_object_value_is_inlinable(const char *data)
     return SU_FALSE;
 
   while (*data) {
-    if (*data == '"' || isspace(*data) || !isprint(*data))
+    if (*data == '"' || (isspace(*data) && *data != ' ') || !isprint(*data))
       return SU_FALSE;
 
     ++data;
@@ -85,7 +85,7 @@ suscan_object_to_xml_internal(
 
   /* Padding */
   for (i = 0; i < sos->level; ++i)
-    SU_TRYCATCH(grow_buf_append(&sos->buffer, "  ", 2), goto fail);
+    SU_TRYCATCH(grow_buf_append(&sos->buffer, "  ", 2) != -1, goto fail);
 
   SU_TRYCATCH(tag = suscan_object_type_to_xmltag(object->type), goto fail);
 
@@ -104,7 +104,7 @@ suscan_object_to_xml_internal(
         if (suscan_object_value_is_inlinable(object->value)) {
           sosprintf(sos, " value=\"%s\" />\n", object->value);
         } else {
-          sosprintf(sos, "><![CADATA[%s]]></suscan:field>\n", object->value);
+          sosprintf(sos, "><![CDATA[%s]]></suscan:field>\n", object->value);
         }
       } else {
         sosprintf(sos, " />\n");
@@ -119,7 +119,9 @@ suscan_object_to_xml_internal(
             sosprintf(sos, ">\n");
 
           ++sos->level;
-          SU_TRYCATCH(sos, object->object_list[i]);
+          SU_TRYCATCH(
+              suscan_object_to_xml_internal(sos, object->object_list[i]),
+              goto fail);
           --sos->level;
         }
 
@@ -135,7 +137,9 @@ suscan_object_to_xml_internal(
             sosprintf(sos, ">\n");
 
           ++sos->level;
-          SU_TRYCATCH(sos, object->field_list[i]);
+          SU_TRYCATCH(
+              suscan_object_to_xml_internal(sos, object->field_list[i]),
+              goto fail);
           --sos->level;
         }
 
@@ -147,7 +151,7 @@ suscan_object_to_xml_internal(
 
   if (count > 0) {
     for (i = 0; i < sos->level; ++i)
-      SU_TRYCATCH(grow_buf_append(&sos->buffer, "  ", 2), goto fail);
+      SU_TRYCATCH(grow_buf_append(&sos->buffer, "  ", 2) != -1, goto fail);
     sosprintf(sos, "</suscan:%s>\n", tag);
   }
 
@@ -161,6 +165,7 @@ SUBOOL
 suscan_object_to_xml(const suscan_object_t *object, void **data, size_t *size)
 {
   struct suscan_obj_serialization sos = suscan_obj_serialization_INITIALIZER;
+  unsigned int i;
 
   sosprintf(&sos, "<?xml version=\"1.0\" ?>\n\n");
 
@@ -169,11 +174,15 @@ suscan_object_to_xml(const suscan_object_t *object, void **data, size_t *size)
 
   ++sos.level;
 
-  SU_TRYCATCH(suscan_object_to_xml_internal(&sos, object), goto fail);
+  for (i = 0; i < object->object_count; ++i)
+    if (object->object_list[i] != NULL)
+    SU_TRYCATCH(
+        suscan_object_to_xml_internal(&sos, object->object_list[i]),
+        goto fail);
 
   --sos.level;
 
-  sosprintf(&sos, "<suscan:serialization>\n");
+  sosprintf(&sos, "</suscan:serialization>\n");
 
   *data = grow_buf_get_buffer(&sos.buffer);
   *size = grow_buf_get_size(&sos.buffer);

@@ -147,8 +147,8 @@ const char *suscan_object_get_field_value(
 /* For set-type objects only */
 unsigned int suscan_object_set_get_count(const suscan_object_t *object);
 
-suscan_object_t *suscan_object_set_gut(
-    suscan_object_t *object,
+suscan_object_t *suscan_object_set_get(
+    const suscan_object_t *object,
     unsigned int index);
 
 SUBOOL suscan_object_set_put(

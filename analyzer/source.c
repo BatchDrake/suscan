@@ -40,6 +40,9 @@
 #  undef bool
 #endif /* bool */
 
+/* Private config list */
+PTR_LIST(SUPRIVATE suscan_source_config_t, config);
+
 /***************************** Source Config API *****************************/
 SUPRIVATE void
 suscan_source_float_keyval_destroy(struct suscan_source_float_keyval *kv)
@@ -454,6 +457,19 @@ suscan_source_config_helper_type_to_str(enum suscan_source_type type)
   return NULL;
 }
 
+SUPRIVATE enum suscan_source_type
+suscan_source_type_config_helper_str_to_type(const char *type)
+{
+  if (type != NULL) {
+    if (strcasecmp(type, "FILE") == 0)
+      return SUSCAN_SOURCE_TYPE_FILE;
+    else if (strcasecmp(type, "SDR") == 0)
+      return SUSCAN_SOURCE_TYPE_SDR;
+  }
+
+  return SUSCAN_SOURCE_TYPE_SDR;
+}
+
 SUPRIVATE const char *
 suscan_source_config_helper_format_to_str(enum suscan_source_format type)
 {
@@ -469,6 +485,21 @@ suscan_source_config_helper_format_to_str(enum suscan_source_format type)
   }
 
   return NULL;
+}
+
+SUPRIVATE enum suscan_source_format
+suscan_source_type_config_helper_str_to_format(const char *format)
+{
+  if (format != NULL) {
+    if (strcasecmp(format, "AUTO") == 0)
+      return SUSCAN_SOURCE_FORMAT_AUTO;
+    else if (strcasecmp(format, "RAW") == 0)
+      return SUSCAN_SOURCE_FORMAT_RAW;
+    else if (strcasecmp(format, "WAV") == 0)
+      return SUSCAN_SOURCE_FORMAT_WAV;
+  }
+
+  return SUSCAN_SOURCE_FORMAT_AUTO;
 }
 
 suscan_object_t *
@@ -487,6 +518,8 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
 
   SU_TRYCATCH(new = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
 
+  SU_TRYCATCH(suscan_object_set_class(new, "source_config"), goto fail);
+
   SU_TRYCATCH(
       tmp = suscan_source_config_helper_type_to_str(cfg->type),
       goto fail);
@@ -501,7 +534,7 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   }
 
   if (cfg->label != NULL)
-    SU_CFGSAVE(value, path);
+    SU_CFGSAVE(value, label);
 
   if (cfg->path != NULL)
     SU_CFGSAVE(value, path);
@@ -509,7 +542,6 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   if (cfg->antenna != NULL)
     SU_CFGSAVE(value, antenna);
 
-  SU_CFGSAVE(value, label);
   SU_CFGSAVE(float, freq);
   SU_CFGSAVE(float, bandwidth);
   SU_CFGSAVE(bool,  iq_balance);
@@ -530,6 +562,49 @@ fail:
 suscan_source_config_t *
 suscan_source_config_from_object(const suscan_object_t *object)
 {
+  suscan_source_config_t *new = NULL;
+  const char *tmp;
+
+#define SU_CFGLOAD(kind, field, dfl)                            \
+        JOIN(suscan_source_config_set_, field)(                 \
+            new,                                                \
+            JOIN(suscan_object_get_field_, kind)(               \
+            object,                                             \
+            STRINGIFY(field),                                   \
+            dfl))
+
+  SU_TRYCATCH(
+      new = suscan_source_config_new(
+          suscan_source_type_config_helper_str_to_type(
+              suscan_object_get_field_value(object, "type")),
+          suscan_source_type_config_helper_str_to_format(
+              suscan_object_get_field_value(object, "format"))),
+      goto fail);
+
+  if ((tmp = suscan_object_get_field_value(object, "label")) != NULL)
+    SU_TRYCATCH(suscan_source_config_set_label(new, tmp), goto fail);
+
+  if ((tmp = suscan_object_get_field_value(object, "path")) != NULL)
+    SU_TRYCATCH(suscan_source_config_set_path(new, tmp), goto fail);
+
+  if ((tmp = suscan_object_get_field_value(object, "antenna")) != NULL)
+    SU_TRYCATCH(suscan_source_config_set_antenna(new, tmp), goto fail);
+
+  SU_CFGLOAD(float, freq, 0);
+  SU_CFGLOAD(float, bandwidth, 0);
+  SU_CFGLOAD(bool, iq_balance, SU_FALSE);
+  SU_CFGLOAD(bool, dc_remove, SU_FALSE);
+  SU_CFGLOAD(uint, samp_rate, 1.8e6);
+  SU_CFGLOAD(uint, channel, 0);
+
+  SU_TRYCATCH(SU_CFGLOAD(uint, average, 1), goto fail);
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_source_config_destroy(new);
+
   return NULL;
 }
 
@@ -877,10 +952,113 @@ fail:
 }
 
 /*************************** API initialization ******************************/
+SUPRIVATE SUBOOL
+suscan_source_assert_default(void)
+{
+  suscan_source_config_t *new = NULL;
+
+  SU_TRYCATCH(
+      new = suscan_source_config_new(
+          SUSCAN_SOURCE_TYPE_FILE,
+          SUSCAN_SOURCE_FORMAT_AUTO),
+      goto fail);
+
+  SU_TRYCATCH(suscan_source_config_set_label(new, "Default source"), goto fail);
+
+  suscan_source_config_set_dc_remove(new, SU_TRUE);
+
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(config, new) != -1, goto fail);
+
+  return SU_TRUE;
+
+fail:
+  if (new != NULL)
+    suscan_source_config_destroy(new);
+
+  return SU_FALSE;
+}
+
+/* Put everything back on config context */
+SUPRIVATE SUBOOL
+suscan_sources_on_save(suscan_config_context_t *ctx, void *private)
+{
+  unsigned int i;
+  suscan_object_t *cfg = NULL;
+
+  suscan_config_context_flush(ctx);
+
+  for (i = 0; i < config_count; ++i) {
+    if (config_list[i] != NULL) {
+      SU_TRYCATCH(
+          cfg = suscan_source_config_to_object(config_list[i]),
+          goto fail);
+
+      SU_TRYCATCH(suscan_config_context_put(ctx, cfg), goto fail);
+
+      cfg = NULL;
+    }
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (cfg != NULL)
+    suscan_object_destroy(cfg);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_load_sources(void)
+{
+  suscan_config_context_t *ctx = NULL;
+  suscan_source_config_t *cfg = NULL;
+  const suscan_object_t *list = NULL;
+  const suscan_object_t *cfgobj = NULL;
+  unsigned int i, count;
+  const char *tmp;
+
+  SU_TRYCATCH(
+      ctx = suscan_config_context_assert("sources"),
+      goto fail);
+
+  suscan_config_context_set_on_save(ctx, suscan_sources_on_save, NULL);
+
+  list = suscan_config_context_get_list(ctx);
+
+  count = suscan_object_set_get_count(list);
+
+  for (i = 0; i < count; ++i) {
+    if ((cfgobj = suscan_object_set_get(list, i)) != NULL) {
+      if ((tmp = suscan_object_get_class(cfgobj)) != NULL
+          && strcmp(tmp, "source_config") == 0) {
+        if ((cfg = suscan_source_config_from_object(cfgobj)) == NULL) {
+          SU_WARNING("Could not parse configuration #%d from config\n", i);
+        } else {
+          SU_TRYCATCH(PTR_LIST_APPEND_CHECK(config, cfg) != -1, goto fail);
+          cfg = NULL;
+        }
+      }
+    }
+  }
+
+  if (config_count == 0)
+    SU_TRYCATCH(suscan_source_assert_default(), goto fail);
+
+  return SU_TRUE;
+
+fail:
+  if (cfg != NULL)
+    suscan_source_config_destroy(cfg);
+
+  return SU_FALSE;
+}
+
 SUBOOL
 suscan_init_sources(void)
 {
   SU_TRYCATCH(suscan_confdb_use("sources"), return SU_FALSE);
+  SU_TRYCATCH(suscan_load_sources(), return SU_FALSE);
 
   return SU_TRUE;
 }

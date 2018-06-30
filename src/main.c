@@ -78,6 +78,9 @@ main(int argc, char *argv[], char *envp[])
     }
   }
 
+  if (mode == SUSCAN_MODE_GTK_UI)
+    gettimeofday(&tv, NULL);
+
   if (!suscan_sigutils_init(mode)) {
     fprintf(stderr, "%s: failed to initialize sigutils library\n", argv[0]);
     goto done;
@@ -113,7 +116,6 @@ main(int argc, char *argv[], char *envp[])
 
   switch (mode) {
     case SUSCAN_MODE_GTK_UI:
-      gettimeofday(&tv, NULL);
       if (suscan_gui_start(argc, argv, config_list, config_count)) {
         exit_code = EXIT_SUCCESS;
       } else {
@@ -141,6 +143,8 @@ done:
 
   for (i = 0; i < config_count; ++i)
     suscan_source_config_destroy(config_list[i]);
+
+  (void) suscan_confdb_save_all();
 
 #ifdef DEBUG_WITH_MTRACE
   muntrace();

@@ -37,6 +37,9 @@ struct suscan_config_context {
   PTR_LIST(char, path);
 
   suscan_object_t *list;
+
+  void *private;
+  SUBOOL (*on_save) (struct suscan_config_context *ctx, void *private);
 };
 
 typedef struct suscan_config_context suscan_config_context_t;
@@ -47,11 +50,29 @@ SUBOOL suscan_config_context_add_path(
     suscan_config_context_t *ctx,
     const char *path);
 
+void suscan_config_context_flush(suscan_config_context_t *context);
+
 SUBOOL suscan_config_context_put(
     suscan_config_context_t *context,
     suscan_object_t *obj);
 
 SUBOOL suscan_config_context_scan(suscan_config_context_t *context);
+
+SUINLINE const suscan_object_t *
+suscan_config_context_get_list(suscan_config_context_t *context)
+{
+  return context->list;
+}
+
+SUINLINE void
+suscan_config_context_set_on_save(
+    suscan_config_context_t *ctx,
+    SUBOOL (*on_save) (struct suscan_config_context *ctx, void *private),
+    void *private)
+{
+  ctx->on_save = on_save;
+  ctx->private = private;
+}
 
 SUBOOL suscan_confdb_scan_all(void);
 
