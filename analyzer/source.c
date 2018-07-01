@@ -44,6 +44,21 @@
 PTR_LIST(SUPRIVATE suscan_source_config_t, config);
 
 /***************************** Source Config API *****************************/
+SUBOOL
+suscan_source_config_walk(
+    SUBOOL (*function) (suscan_source_config_t *cfg, void *private),
+    void *private)
+{
+  unsigned int i;
+
+  for (i = 0; i < config_count; ++i)
+    if (config_list[i] != NULL)
+      if (!(function)(config_list[i], private))
+        return SU_FALSE;
+
+  return SU_TRUE;
+}
+
 SUPRIVATE void
 suscan_source_float_keyval_destroy(struct suscan_source_float_keyval *kv)
 {

@@ -86,7 +86,7 @@ suscan_on_activate_channel_discovery_settings(GtkListBoxRow *row, gpointer data)
   suscan_gui_t *gui = (suscan_gui_t *) data;
 
   gtk_stack_set_visible_child(
-      gui->settingsSelectorStack,
+      gui->settingsViewStack,
       GTK_WIDGET(gui->channelDiscoveryFrame));
 }
 
@@ -96,7 +96,7 @@ suscan_on_activate_color_settings(GtkListBoxRow *row, gpointer data)
   suscan_gui_t *gui = (suscan_gui_t *) data;
 
   gtk_stack_set_visible_child(
-        gui->settingsSelectorStack,
+        gui->settingsViewStack,
         GTK_WIDGET(gui->colorsFrame));
 }
 
@@ -105,10 +105,7 @@ suscan_on_activate_source_settings(GtkListBoxRow *row, gpointer data)
 {
   suscan_gui_t *gui = (suscan_gui_t *) data;
 
-  /* TODO: Add more sources */
-  gtk_stack_set_visible_child(
-      gui->settingsSelectorStack,
-      GTK_WIDGET(gui->defaultSourceFrame));
+  /* TODO: */
 }
 
 void

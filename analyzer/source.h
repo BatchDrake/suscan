@@ -72,6 +72,10 @@ struct suscan_source_config {
 
 typedef struct suscan_source_config suscan_source_config_t;
 
+SUBOOL suscan_source_config_walk(
+    SUBOOL (*function) (suscan_source_config_t *cfg, void *private),
+    void *private);
+
 /* Serialization methods */
 suscan_object_t *suscan_source_config_to_object(
     const suscan_source_config_t *source);

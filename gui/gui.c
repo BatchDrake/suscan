@@ -80,6 +80,13 @@ suscan_gui_destroy(suscan_gui_t *gui)
   if (gui->inspector_list != NULL)
     free(gui->inspector_list);
 
+  for (i = 0; i < gui->profile_count; ++i)
+    if (gui->profile_list[i] != NULL)
+      suscan_gui_profile_destroy(gui->profile_list[i]);
+
+  if (gui->profile_list != NULL)
+    free(gui->profile_list);
+
   if (gui->builder != NULL)
     g_object_unref(gui->builder);
 
@@ -954,10 +961,10 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->settingsSelectorStack =
+      gui->settingsViewStack =
           GTK_STACK(gtk_builder_get_object(
               gui->builder,
-              "sSettingsSelector")),
+              "sSettingsView")),
           return SU_FALSE);
 
   SU_TRYCATCH(
@@ -974,11 +981,19 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "fColors")),
           return SU_FALSE);
 
+
   SU_TRYCATCH(
-      gui->defaultSourceFrame =
-          GTK_FRAME(gtk_builder_get_object(
+      gui->settingsViewStack =
+          GTK_STACK(gtk_builder_get_object(
               gui->builder,
-              "fDefaultSource")),
+              "sSettingsView")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->settingsSelectorListBox =
+          GTK_LIST_BOX(gtk_builder_get_object(
+              gui->builder,
+              "lbSettingsSelector")),
           return SU_FALSE);
 
   suscan_setup_column_formats(gui);
@@ -1172,6 +1187,94 @@ suscan_gui_get_symtool(const suscan_gui_t *gui, uint32_t symtool_id)
   return gui->symtool_list[symtool_id];
 }
 
+/**************************** Append profile GUIs  ***************************/
+
+/* We can do this as this function is only called from the GUI thread */
+SUPRIVATE const gchar *
+suscan_gui_get_profile_name(suscan_gui_profile_t *profile)
+{
+  static char namebuf[32];
+
+  snprintf(namebuf, sizeof(namebuf), "prof-0x%016lx", (unsigned long) profile);
+
+  return namebuf;
+}
+
+SUPRIVATE void
+suscan_gui_select_profile(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_profile_t *profile = (suscan_gui_profile_t *) data;
+  suscan_gui_t *gui = suscan_gui_profile_get_gui(profile);
+
+  gtk_stack_set_visible_child(
+      gui->settingsViewStack,
+      suscan_gui_profile_get_root(profile));
+}
+
+SUPRIVATE void
+suscan_gui_add_profile_widgets(
+    suscan_gui_t *gui,
+    suscan_gui_profile_t *profile)
+{
+  GtkWidget *widget;
+
+  widget = gtk_list_box_row_new();
+
+  gtk_container_add(
+      GTK_CONTAINER(widget),
+      suscan_gui_profile_get_selector(profile));
+  gtk_list_box_insert(gui->settingsSelectorListBox, widget, -1);
+  gtk_widget_show(widget);
+
+  gtk_widget_set_size_request(widget, 100, 50);
+
+  g_signal_connect(
+      widget,
+      "activate",
+      G_CALLBACK(suscan_gui_select_profile),
+      profile);
+
+  widget = suscan_gui_profile_get_root(profile);
+  gtk_stack_add_named(
+      gui->settingsViewStack,
+      widget,
+      suscan_gui_get_profile_name(profile));
+  gtk_widget_show(widget);
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_append_profile(suscan_source_config_t *cfg, void *private)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) private;
+  suscan_gui_profile_t *profile = NULL;
+
+  SU_TRYCATCH(profile = suscan_gui_profile_new(cfg), goto fail);
+
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(gui->profile, profile) != -1, goto fail);
+
+  suscan_gui_profile_set_gui(profile, gui);
+
+  suscan_gui_add_profile_widgets(gui, profile);
+
+  return SU_TRUE;
+
+fail:
+  if (profile != NULL)
+    suscan_gui_profile_destroy(profile);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_load_profiles(suscan_gui_t *gui)
+{
+  SU_TRYCATCH(
+      suscan_source_config_walk(suscan_gui_append_profile, gui),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
 /**************************** Generic GUI methods ****************************/
 SUPRIVATE void
 suscan_quit_cb(GtkWidget *obj, gpointer data)
@@ -1262,6 +1365,8 @@ suscan_gui_new(int argc, char **argv)
   SU_TRYCATCH(suscan_gui_load_all_widgets(gui), goto fail);
 
   suscan_gui_apply_settings(gui);
+
+  SU_TRYCATCH(suscan_gui_load_profiles(gui), goto fail);
 
   g_signal_connect(
       GTK_WIDGET(gui->main),

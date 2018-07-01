@@ -27,6 +27,7 @@
 #include <gtk/gtk.h>
 
 #include "spectrum.h"
+#include "profile.h"
 #include "inspector.h"
 #include "symtool.h"
 #include "lcd.h"
@@ -133,7 +134,7 @@ struct suscan_gui {
   GtkLabel *n0Label;
 
   /* Setting dialogs widgets */
-  GtkStack       *settingsSelectorStack;
+  GtkStack       *settingsViewStack;
   GtkColorButton *paFgColorButton;
   GtkColorButton *paBgColorButton;
   GtkColorButton *paTextColorButton;
@@ -149,7 +150,6 @@ struct suscan_gui {
 
   GtkFrame *channelDiscoveryFrame;
   GtkFrame *colorsFrame;
-  GtkFrame *defaultSourceFrame;
 
   /* Source summary */
   GtkLabel *spectrumSampleRateLabel;
@@ -178,6 +178,9 @@ struct suscan_gui {
   GtkRadioButton *blackmannHarrisWindowButton;
   GtkRadioButton *flatTopWindowButton;
 
+  guint stack_first_ndx;
+  GtkListBox *settingsSelectorListBox;
+
   /* GUI state */
   enum suscan_gui_state state;
 
@@ -199,6 +202,9 @@ struct suscan_gui {
 
   /* Symbol tool tab list */
   PTR_LIST(suscan_gui_symtool_t, symtool);
+
+  /* Source configuration profiles */
+  PTR_LIST(suscan_gui_profile_t, profile);
 
   /* Flag to prevent nested callback calling */
   SUBOOL updating_settings;
