@@ -127,3 +127,18 @@ suscan_gui_text_entry_get_scount(GtkEntry *entry, SUSCOUNT *result)
   return TRUE;
 }
 
+
+SUBOOL
+suscan_gui_text_entry_get_integer(GtkEntry *entry, int64_t *result)
+{
+  const gchar *text = NULL;
+
+  SU_TRYCATCH(
+      text = gtk_entry_get_text(entry),
+      return FALSE);
+
+  if (sscanf(text, "%lli", result) < 1)
+    return FALSE;
+
+  return TRUE;
+}

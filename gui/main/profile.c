@@ -40,7 +40,7 @@ suscan_gui_get_profile_name(suscan_gui_profile_t *profile)
 }
 
 SUPRIVATE void
-suscan_gui_select_profile(GtkWidget *widget, gpointer data)
+suscan_gui_on_select_profile(GtkWidget *widget, gpointer data)
 {
   suscan_gui_profile_t *profile = (suscan_gui_profile_t *) data;
   suscan_gui_t *gui = suscan_gui_profile_get_gui(profile);
@@ -70,7 +70,7 @@ suscan_gui_add_profile_widgets(
   g_signal_connect(
       widget,
       "activate",
-      G_CALLBACK(suscan_gui_select_profile),
+      G_CALLBACK(suscan_gui_on_select_profile),
       profile);
 
   widget = suscan_gui_profile_get_root(profile);
@@ -102,6 +102,58 @@ fail:
     suscan_gui_profile_destroy(profile);
 
   return SU_FALSE;
+}
+
+void
+suscan_gui_select_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile)
+{
+  GtkWidget *parent;
+
+  parent = gtk_widget_get_parent(suscan_gui_profile_get_selector(profile));
+
+  if (parent != NULL)
+    g_signal_emit_by_name(parent, "activate", 0, NULL);
+}
+
+void
+suscan_gui_reset_all_profiles(suscan_gui_t *gui)
+{
+  unsigned int i;
+
+  for (i = 0; i < gui->profile_count; ++i)
+    if (gui->profile_list[i] != NULL) {
+      if (suscan_gui_profile_has_changed(gui->profile_list[i])) {
+        (void) suscan_gui_profile_refresh_gui(gui->profile_list[i]);
+        suscan_gui_profile_reset_changed(gui->profile_list[i]);
+      }
+    }
+}
+
+SUBOOL
+suscan_gui_parse_all_changed_profiles(suscan_gui_t *gui)
+{
+  unsigned int i;
+
+  for (i = 0; i < gui->profile_count; ++i)
+    if (gui->profile_list[i] != NULL)
+      if (suscan_gui_profile_has_changed(gui->profile_list[i])) {
+        if (!suscan_gui_profile_refresh_config(gui->profile_list[i])) {
+          suscan_error(
+              gui,
+              "Failed to save profile",
+              "Profile configuration has errors. Please review it and "
+              "save it again, or discard changes.");
+
+          suscan_gui_select_profile(gui, gui->profile_list[i]);
+
+          return SU_FALSE;
+        } else {
+          /* Reset changed */
+          suscan_gui_profile_reset_changed(gui->profile_list[i]);
+        }
+      }
+
+  return SU_TRUE;
 }
 
 SUBOOL

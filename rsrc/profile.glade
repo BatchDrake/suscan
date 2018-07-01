@@ -64,6 +64,7 @@
                     <items>
                       <item id="0" translatable="yes">HackRF One</item>
                     </items>
+                    <signal name="changed" handler="suscan_gui_profile_on_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -172,6 +173,7 @@
                     <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
+                    <signal name="changed" handler="suscan_gui_profile_on_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -209,6 +211,7 @@
                     <items>
                       <item id="0" translatable="yes">TX/RX</item>
                     </items>
+                    <signal name="changed" handler="suscan_gui_profile_on_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">4</property>
@@ -225,6 +228,7 @@
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="hexpand">True</property>
+                    <signal name="changed" handler="suscan_gui_profile_on_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">4</property>
@@ -275,6 +279,7 @@
                 <property name="margin_right">3</property>
                 <property name="active">True</property>
                 <property name="draw_indicator">True</property>
+                <signal name="toggled" handler="suscan_gui_profile_on_changed" swapped="no"/>
               </object>
             </child>
           </object>
@@ -346,6 +351,7 @@
                         <property name="margin_bottom">3</property>
                         <property name="hexpand">True</property>
                         <property name="title" translatable="yes"/>
+                        <signal name="file-set" handler="suscan_gui_profile_on_changed" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -367,6 +373,7 @@
                           <item translatable="yes">Raw float I/Q capture</item>
                           <item translatable="yes">WAV file</item>
                         </items>
+                        <signal name="changed" handler="suscan_gui_profile_on_changed" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -382,6 +389,7 @@
                         <property name="margin_left">3</property>
                         <property name="margin_right">3</property>
                         <property name="draw_indicator">True</property>
+                        <signal name="toggled" handler="suscan_gui_profile_on_changed" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">2</property>
@@ -402,6 +410,7 @@
                 <property name="margin_right">3</property>
                 <property name="draw_indicator">True</property>
                 <property name="group">rbSDR</property>
+                <signal name="toggled" handler="suscan_gui_profile_on_changed" swapped="no"/>
               </object>
             </child>
           </object>
@@ -452,6 +461,7 @@
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="hexpand">True</property>
+            <signal name="changed" handler="suscan_gui_profile_on_changed" swapped="no"/>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -483,6 +493,7 @@
             <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
+            <signal name="changed" handler="suscan_gui_profile_on_changed" swapped="no"/>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -529,6 +540,7 @@
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="text" translatable="yes">1</property>
+            <signal name="changed" handler="suscan_gui_profile_on_changed" swapped="no"/>
           </object>
           <packing>
             <property name="left_attach">4</property>
@@ -563,6 +575,7 @@
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="draw_indicator">True</property>
+            <signal name="toggled" handler="suscan_gui_profile_on_changed" swapped="no"/>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -581,6 +594,7 @@
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="draw_indicator">True</property>
+            <signal name="toggled" handler="suscan_gui_profile_on_changed" swapped="no"/>
           </object>
           <packing>
             <property name="left_attach">1</property>

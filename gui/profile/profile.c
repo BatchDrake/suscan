@@ -34,7 +34,15 @@ suscan_gui_profile_destroy(suscan_gui_profile_t *profile)
 SUBOOL
 suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile)
 {
-  /* Move GUI fields to config */
+  int64_t freq;
+
+  if (!suscan_gui_text_entry_get_integer(profile->frequencyEntry, &freq)) {
+    SU_ERROR("Invalid frequency");
+    return SU_FALSE;
+  }
+
+  suscan_source_config_set_freq(profile->config, freq);
+
   return SU_TRUE;
 }
 

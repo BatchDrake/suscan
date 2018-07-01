@@ -54,6 +54,9 @@ struct suscan_gui_profile {
 
   suscan_source_config_t *config; /* Got from source_config_walk, borrowed */
   suscan_source_t *source;
+
+  SUBOOL changed;
+  SUBOOL in_callback;
 };
 
 typedef struct suscan_gui_profile suscan_gui_profile_t;
@@ -84,8 +87,24 @@ suscan_gui_profile_get_selector(const suscan_gui_profile_t *profile)
   return profile->selector;
 }
 
+SUINLINE SUBOOL
+suscan_gui_profile_has_changed(const suscan_gui_profile_t *profile)
+{
+  return profile->changed;
+}
+
+SUINLINE void
+suscan_gui_profile_reset_changed(suscan_gui_profile_t *profile)
+{
+  profile->changed = SU_FALSE;
+}
+
 /*************************** Internal API ************************************/
 SUBOOL suscan_gui_profile_load_all_widgets(suscan_gui_profile_t *profile);
+
+SUBOOL suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile);
+
+SUBOOL suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile);
 
 void suscan_gui_profile_destroy(suscan_gui_profile_t *profile);
 

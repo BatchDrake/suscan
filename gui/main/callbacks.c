@@ -54,6 +54,10 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
     response = suscan_settings_dialog_run(gui);
 
     if (response == 0) {
+      /* We try first with these */
+      if (!suscan_gui_parse_all_changed_profiles(gui))
+        continue;
+
       /* We load these always */
       suscan_gui_settings_from_dialog(gui);
 
@@ -74,6 +78,8 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
               gui,
               "Analyzer params",
               "Failed to send parameters to analyzer thread");
+    } else if (response == 1) {
+      suscan_gui_reset_all_profiles(gui);
     }
 
     break;

@@ -244,6 +244,8 @@ SUBOOL suscan_gui_text_entry_get_float(GtkEntry *entry, SUFLOAT *result);
 
 SUBOOL suscan_gui_text_entry_get_scount(GtkEntry *entry, SUSCOUNT *result);
 
+SUBOOL suscan_gui_text_entry_get_integer(GtkEntry *entry, int64_t *result);
+
 void suscan_gui_msgbox(
     suscan_gui_t *gui,
     GtkMessageType type,
@@ -327,6 +329,12 @@ suscan_gui_symtool_t *suscan_gui_get_symtool(
 
 /* Source API */
 SUBOOL suscan_gui_load_profiles(suscan_gui_t *gui);
+
+void suscan_gui_select_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile);
+
+SUBOOL suscan_gui_parse_all_changed_profiles(suscan_gui_t *gui);
+
+void suscan_gui_reset_all_profiles(suscan_gui_t *gui);
 
 struct suscan_gui_src_ui *suscan_gui_lookup_source_config(
     const suscan_gui_t *gui,
