@@ -25,11 +25,10 @@
 #include <suscan.h>
 
 #include <gtk/gtk.h>
-
+#include <profile/profile.h>
 #include <spectrum.h>
 #include <lcd.h>
 
-#include "../profile.h"
 #include <inspector/inspector.h>
 #include <symsrc/symtool.h>
 

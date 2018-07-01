@@ -41,26 +41,20 @@ suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile)
 SUBOOL
 suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile)
 {
-  /* Move config to GUI fields */
-  return SU_TRUE;
-}
+  const char *label;
 
-SUPRIVATE SUBOOL
-suscan_gui_profile_load_all_widgets(suscan_gui_profile_t *profile)
-{
-  SU_TRYCATCH(
-      profile->root =
-          GTK_WIDGET(gtk_builder_get_object(
-              profile->builder,
-              "fRoot")),
-      return SU_FALSE);
+  if ((label = suscan_source_config_get_label(profile->config)) == NULL)
+    label = "<Unlabeled profile>";
 
-  SU_TRYCATCH(
-      profile->selector =
-          GTK_WIDGET(gtk_builder_get_object(
-              profile->builder,
-              "grSelector")),
-      return SU_FALSE);
+  gtk_label_set_text(profile->profileNameLabel, label);
+
+  suscan_gui_text_entry_set_integer(
+      profile->frequencyEntry,
+      suscan_source_config_get_freq(profile->config));
+
+  suscan_gui_text_entry_set_integer(
+      profile->sampleRateEntry,
+      suscan_source_config_get_samp_rate(profile->config));
 
   return SU_TRUE;
 }
@@ -81,6 +75,8 @@ suscan_gui_profile_new(suscan_source_config_t *cfg)
   gtk_builder_connect_signals(new->builder, new);
 
   SU_TRYCATCH(suscan_gui_profile_load_all_widgets(new), goto fail);
+
+  SU_TRYCATCH(suscan_gui_profile_refresh_gui(new), goto fail);
 
   return new;
 

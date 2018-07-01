@@ -5,6 +5,8 @@
   <object class="GtkFrame" id="fRoot">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
+    <property name="margin_left">3</property>
+    <property name="margin_right">3</property>
     <property name="margin_top">3</property>
     <property name="margin_bottom">3</property>
     <property name="label_xalign">0</property>
@@ -20,6 +22,8 @@
           <object class="GtkFrame">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="label_xalign">0.0099999997764825821</property>
@@ -35,6 +39,8 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="label" translatable="yes">Device</property>
@@ -45,9 +51,11 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkComboBoxText">
+                  <object class="GtkComboBoxText" id="cbtDevice">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="hexpand">True</property>
@@ -67,12 +75,14 @@
                   <object class="GtkFrame">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="label_xalign">0</property>
                     <property name="shadow_type">in</property>
                     <child>
-                      <object class="GtkGrid">
+                      <object class="GtkGrid" id="grGains">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="margin_top">3</property>
@@ -81,6 +91,8 @@
                           <object class="GtkLabel">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
+                            <property name="margin_left">3</property>
+                            <property name="margin_right">3</property>
                             <property name="margin_top">3</property>
                             <property name="margin_bottom">3</property>
                             <property name="label" translatable="yes">VGA1</property>
@@ -94,6 +106,8 @@
                           <object class="GtkLabel">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
+                            <property name="margin_left">3</property>
+                            <property name="margin_right">3</property>
                             <property name="margin_top">3</property>
                             <property name="margin_bottom">3</property>
                             <property name="label" translatable="yes">dBs</property>
@@ -107,6 +121,8 @@
                           <object class="GtkScale">
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
+                            <property name="margin_left">3</property>
+                            <property name="margin_right">3</property>
                             <property name="hexpand">True</property>
                             <property name="round_digits">1</property>
                             <property name="value_pos">right</property>
@@ -137,6 +153,8 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="label" translatable="yes">Channel #</property>
@@ -147,9 +165,11 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkSpinButton">
+                  <object class="GtkSpinButton" id="sbChannel">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                   </object>
@@ -164,6 +184,8 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="label" translatable="yes">Antenna</property>
@@ -174,9 +196,11 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkComboBoxText">
+                  <object class="GtkComboBoxText" id="cbtAntenna">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="hexpand">True</property>
@@ -193,9 +217,11 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkEntry">
+                  <object class="GtkEntry" id="eBandwidth">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="hexpand">True</property>
@@ -210,6 +236,8 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="label" translatable="yes">Bandwidth</property>
@@ -224,6 +252,8 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
+                    <property name="margin_left">3</property>
+                    <property name="margin_right">3</property>
                     <property name="margin_top">3</property>
                     <property name="margin_bottom">3</property>
                     <property name="label" translatable="yes">Hz</property>
@@ -236,11 +266,13 @@
               </object>
             </child>
             <child type="label">
-              <object class="GtkRadioButton" id="radiobutton1">
+              <object class="GtkRadioButton" id="rbSDR">
                 <property name="label" translatable="yes">SDR device</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">False</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
                 <property name="active">True</property>
                 <property name="draw_indicator">True</property>
               </object>
@@ -256,6 +288,8 @@
           <object class="GtkFrame">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="label_xalign">0</property>
             <property name="shadow_type">in</property>
             <child>
@@ -277,6 +311,8 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="halign">start</property>
+                        <property name="margin_left">3</property>
+                        <property name="margin_right">3</property>
                         <property name="label" translatable="yes">File</property>
                       </object>
                       <packing>
@@ -289,6 +325,8 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="halign">start</property>
+                        <property name="margin_left">3</property>
+                        <property name="margin_right">3</property>
                         <property name="margin_top">3</property>
                         <property name="margin_bottom">3</property>
                         <property name="label" translatable="yes">Format</property>
@@ -299,9 +337,11 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkFileChooserButton">
+                      <object class="GtkFileChooserButton" id="fcbPath">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="margin_left">3</property>
+                        <property name="margin_right">3</property>
                         <property name="margin_top">3</property>
                         <property name="margin_bottom">3</property>
                         <property name="hexpand">True</property>
@@ -314,9 +354,11 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkComboBoxText">
+                      <object class="GtkComboBoxText" id="cbtFormat">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="margin_left">3</property>
+                        <property name="margin_right">3</property>
                         <property name="margin_top">3</property>
                         <property name="margin_bottom">3</property>
                         <property name="hexpand">True</property>
@@ -332,11 +374,13 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkCheckButton">
+                      <object class="GtkCheckButton" id="cbLoop">
                         <property name="label" translatable="yes">Loop</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">False</property>
+                        <property name="margin_left">3</property>
+                        <property name="margin_right">3</property>
                         <property name="draw_indicator">True</property>
                       </object>
                       <packing>
@@ -349,13 +393,15 @@
               </object>
             </child>
             <child type="label">
-              <object class="GtkRadioButton">
+              <object class="GtkRadioButton" id="rbFile">
                 <property name="label" translatable="yes">File source</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">False</property>
+                <property name="margin_left">3</property>
+                <property name="margin_right">3</property>
                 <property name="draw_indicator">True</property>
-                <property name="group">radiobutton1</property>
+                <property name="group">rbSDR</property>
               </object>
             </child>
           </object>
@@ -370,6 +416,8 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="label" translatable="yes">Frequency</property>
@@ -384,6 +432,8 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="label" translatable="yes">Sample rate</property>
@@ -394,9 +444,11 @@
           </packing>
         </child>
         <child>
-          <object class="GtkEntry">
+          <object class="GtkEntry" id="eFrequency">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="hexpand">True</property>
@@ -412,6 +464,8 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="label" translatable="yes">Hz</property>
@@ -422,9 +476,11 @@
           </packing>
         </child>
         <child>
-          <object class="GtkEntry">
+          <object class="GtkEntry" id="eSampleRate">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
           </object>
@@ -438,6 +494,8 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="label" translatable="yes">sps</property>
@@ -451,6 +509,8 @@
           <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="label" translatable="yes">samples</property>
@@ -461,9 +521,11 @@
           </packing>
         </child>
         <child>
-          <object class="GtkSpinButton">
+          <object class="GtkSpinButton" id="sbAverage">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="text" translatable="yes">1</property>
@@ -478,6 +540,8 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="label" translatable="yes">Average</property>
@@ -488,12 +552,14 @@
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton">
+          <object class="GtkCheckButton" id="cbIQBalance">
             <property name="label" translatable="yes">I/Q Balance</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>
             <property name="halign">start</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="draw_indicator">True</property>
@@ -504,12 +570,14 @@
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton">
+          <object class="GtkCheckButton" id="cbRemoveDC">
             <property name="label" translatable="yes">Remove DC</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>
             <property name="halign">start</property>
+            <property name="margin_left">3</property>
+            <property name="margin_right">3</property>
             <property name="margin_top">3</property>
             <property name="margin_bottom">3</property>
             <property name="draw_indicator">True</property>
@@ -533,7 +601,7 @@
     <property name="margin_left">10</property>
     <property name="hexpand">True</property>
     <child>
-      <object class="GtkLabel">
+      <object class="GtkLabel" id="lProfileName">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="hexpand">True</property>

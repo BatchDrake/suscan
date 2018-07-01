@@ -56,8 +56,9 @@ libgui_la_SOURCES = \
   modemctls/equalizer.c \
   modemctls/fsk.c \
   modemctls/mf.c \
-  profile.c \
-  profile.h \
+  profile/build.c \
+  profile/profile.c \
+  profile/profile.h \
   symsrc/codec.c \
   symsrc/codec.h \
   symsrc/symsrc.c \

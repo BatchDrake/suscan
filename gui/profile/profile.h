@@ -35,6 +35,23 @@ struct suscan_gui_profile {
   GtkWidget *root;
   GtkWidget *selector;
 
+  /* GUI Widgets */
+  GtkEntry *frequencyEntry;
+  GtkEntry *sampleRateEntry;
+  GtkSpinButton *averageSpinButton;
+  GtkCheckButton *iqBalanceCheckButton;
+  GtkCheckButton *removeDcCheckButton;
+  GtkComboBoxText *deviceComboBoxText;
+  GtkComboBoxText *antennaComboBoxText;
+  GtkSpinButton *channelSpinButton;
+  GtkEntry *bandwidthEntry;
+  GtkRadioButton *sdrRadioButton;
+  GtkRadioButton *fileRadioButton;
+  GtkFileChooserButton *pathFileChooserButton;
+  GtkComboBoxText *formatComboBoxText;
+  GtkCheckButton *loopCheckButton;
+  GtkLabel *profileNameLabel;
+
   suscan_source_config_t *config; /* Got from source_config_walk, borrowed */
   suscan_source_t *source;
 };
@@ -66,6 +83,9 @@ suscan_gui_profile_get_selector(const suscan_gui_profile_t *profile)
 {
   return profile->selector;
 }
+
+/*************************** Internal API ************************************/
+SUBOOL suscan_gui_profile_load_all_widgets(suscan_gui_profile_t *profile);
 
 void suscan_gui_profile_destroy(suscan_gui_profile_t *profile);
 
