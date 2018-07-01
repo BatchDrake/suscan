@@ -26,11 +26,12 @@
 
 #include <gtk/gtk.h>
 
-#include "spectrum.h"
-#include "profile.h"
-#include "inspector.h"
-#include "symtool.h"
-#include "lcd.h"
+#include <spectrum.h>
+#include <lcd.h>
+
+#include "../profile.h"
+#include "../inspector.h"
+#include "../symtool.h"
 
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
@@ -226,12 +227,10 @@ SUBOOL suscan_gui_start(
     struct suscan_source_config **config_list,
     unsigned int config_count);
 
-void suscan_gui_msgbox(
-    suscan_gui_t *gui,
-    GtkMessageType type,
-    const char *title,
-    const char *fmt,
-    ...);
+/* Internal API */
+SUBOOL suscan_gui_load_all_widgets(suscan_gui_t *gui);
+
+SUBOOL suscan_gui_start_async_thread(suscan_gui_t *gui);
 
 void suscan_gui_setup_logging(suscan_gui_t *gui);
 
@@ -241,6 +240,17 @@ void suscan_gui_text_entry_set_float(GtkEntry *entry, SUFLOAT value);
 void suscan_gui_text_entry_set_scount(GtkEntry *entry, SUSCOUNT value);
 
 void suscan_gui_text_entry_set_integer(GtkEntry *entry, int64_t value);
+
+SUBOOL suscan_gui_text_entry_get_float(GtkEntry *entry, SUFLOAT *result);
+
+SUBOOL suscan_gui_text_entry_get_scount(GtkEntry *entry, SUSCOUNT *result);
+
+void suscan_gui_msgbox(
+    suscan_gui_t *gui,
+    GtkMessageType type,
+    const char *title,
+    const char *fmt,
+    ...);
 
 /* Generic configuration UI */
 SUBOOL suscan_gui_cfgui_parse(struct suscan_gui_cfgui *ui);
@@ -274,6 +284,8 @@ void suscan_gui_update_state(
 
 void suscan_gui_detach_all_inspectors(suscan_gui_t *gui);
 
+SUBOOL suscan_gui_set_title(suscan_gui_t *gui, const char *title);
+
 SUBOOL suscan_gui_connect(suscan_gui_t *gui);
 void suscan_gui_reconnect(suscan_gui_t *gui);
 void suscan_gui_disconnect(suscan_gui_t *gui);
@@ -287,6 +299,8 @@ void suscan_gui_quit(suscan_gui_t *gui);
     suscan_gui_msgbox(gui, GTK_MESSAGE_WARNING, title, fmt, ##arg)
 
 /* Main GUI inspector list handling methods */
+SUBOOL suscan_gui_add_all_inspector_actions(suscan_gui_t *gui);
+
 SUBOOL suscan_gui_remove_inspector(
     suscan_gui_t *gui,
     suscan_gui_inspector_t *insp);
@@ -313,6 +327,8 @@ suscan_gui_symtool_t *suscan_gui_get_symtool(
     uint32_t symtool_id);
 
 /* Source API */
+SUBOOL suscan_gui_load_profiles(suscan_gui_t *gui);
+
 struct suscan_gui_src_ui *suscan_gui_lookup_source_config(
     const suscan_gui_t *gui,
     const struct suscan_source *src);
