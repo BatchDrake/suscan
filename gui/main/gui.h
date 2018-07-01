@@ -30,8 +30,8 @@
 #include <lcd.h>
 
 #include "../profile.h"
-#include "../inspector.h"
-#include "../symtool.h"
+#include <inspector/inspector.h>
+#include <symsrc/symtool.h>
 
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"

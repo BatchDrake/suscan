@@ -4,7 +4,7 @@ AUTOMAKE_OPTIONS = subdir-objects
 noinst_LTLIBRARIES = libgui.la
 
 libgui_la_CFLAGS = -I. -I..  -I../src -ggdb -DPKGDATADIR=\"$(pkgdatadir)\" \
-	-Imain -Icustom \
+	-Imain -Icustom -Iinspector -Isymsrc \
 	-rdynamic 				\
 	@sigutils_CFLAGS@ \
 	@gtk3_CFLAGS@ 		\
@@ -14,12 +14,10 @@ libgui_la_CFLAGS = -I. -I..  -I../src -ggdb -DPKGDATADIR=\"$(pkgdatadir)\" \
 libgui_la_LDFLAGS = @GLOBAL_LDFLAGS@
 
 libgui_la_SOURCES = \
-  callbacks.c \
   cfgui.c \
-  codec.c \
-  codec.h \
   custom/constellation.c \
   custom/constellation.h \
+  custom/gradient.h \
   custom/histogram.c \
   custom/histogram.h \
   custom/lcd.c \
@@ -33,25 +31,25 @@ libgui_la_SOURCES = \
   custom/transmtx.h \
   custom/waveform.c \
   custom/waveform.h \
-  estimatorui.c \
-  estimatorui.h \
-  gradient.h \
   gui.c \
-  inspector.c \
-  inspector.h \
-  log.c \
+  inspector/estimatorui.c \
+  inspector/estimatorui.h \
+  inspector/inspector.c \
+  inspector/inspector.h \
+  inspector/modemctl.c \
+  inspector/modemctl.h \
   main/async.c \
   main/build.c \
+  main/callbacks.c \
   main/common.c \
   main/gui.h \
   main/inspector.c \
+  main/log.c \
   main/main.c \
   main/params.c \
   main/profile.c \
   main/settings.c \
   main/symtool.c \
-  modemctl.c \
-  modemctl.h \
   modemctls/afc.c \
   modemctls/agc.c \
   modemctls/clock.c \
@@ -60,8 +58,9 @@ libgui_la_SOURCES = \
   modemctls/mf.c \
   profile.c \
   profile.h \
-  symsrc.c \
-  symsrc.h \
-  symtool.c \
-  symtool.h
-  
+  symsrc/codec.c \
+  symsrc/codec.h \
+  symsrc/symsrc.c \
+  symsrc/symsrc.h \
+  symsrc/symtool.c \
+  symsrc/symtool.h
