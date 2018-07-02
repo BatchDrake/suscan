@@ -151,5 +151,19 @@ suscan_gui_profile_load_all_widgets(suscan_gui_profile_t *profile)
               "fcbPath")),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+      profile->sdrControlsFrame =
+          GTK_GRID(gtk_builder_get_object(
+              profile->builder,
+              "grSDRControls")),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      profile->fileControlsFrame =
+          GTK_GRID(gtk_builder_get_object(
+              profile->builder,
+              "grFileControls")),
+      return SU_FALSE);
+
   return SU_TRUE;
 }

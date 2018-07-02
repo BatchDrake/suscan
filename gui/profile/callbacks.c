@@ -28,4 +28,6 @@ suscan_gui_profile_on_changed(GtkWidget *widget, gpointer data)
   suscan_gui_profile_t *profile = (suscan_gui_profile_t *) data;
 
   profile->changed = SU_TRUE;
+
+  suscan_gui_profile_update_sensitivity(profile);
 }

@@ -19,7 +19,7 @@
         <property name="margin_top">10</property>
         <property name="margin_bottom">10</property>
         <child>
-          <object class="GtkFrame">
+          <object class="GtkFrame" id="fSDRControls">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">3</property>
@@ -29,7 +29,7 @@
             <property name="label_xalign">0.0099999997764825821</property>
             <property name="shadow_type">in</property>
             <child>
-              <object class="GtkGrid">
+              <object class="GtkGrid" id="grSDRControls">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="margin_top">3</property>
@@ -290,7 +290,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkFrame">
+          <object class="GtkFrame" id="fFileControls">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">3</property>
@@ -305,7 +305,7 @@
                 <property name="margin_bottom">3</property>
                 <property name="left_padding">12</property>
                 <child>
-                  <object class="GtkGrid">
+                  <object class="GtkGrid" id="grFileControls">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="margin_top">3</property>

@@ -52,6 +52,9 @@ struct suscan_gui_profile {
   GtkCheckButton *loopCheckButton;
   GtkLabel *profileNameLabel;
 
+  GtkGrid *sdrControlsFrame;
+  GtkGrid *fileControlsFrame;
+
   suscan_source_config_t *config; /* Got from source_config_walk, borrowed */
   suscan_source_t *source;
 
@@ -100,6 +103,8 @@ suscan_gui_profile_reset_changed(suscan_gui_profile_t *profile)
 }
 
 /*************************** Internal API ************************************/
+void suscan_gui_profile_update_sensitivity(suscan_gui_profile_t *profile);
+
 SUBOOL suscan_gui_profile_load_all_widgets(suscan_gui_profile_t *profile);
 
 SUBOOL suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile);

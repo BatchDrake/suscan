@@ -240,7 +240,11 @@ void suscan_gui_text_entry_set_scount(GtkEntry *entry, SUSCOUNT value);
 
 void suscan_gui_text_entry_set_integer(GtkEntry *entry, int64_t value);
 
+void suscan_gui_text_entry_set_freq(GtkEntry *entry, SUFREQ result);
+
 SUBOOL suscan_gui_text_entry_get_float(GtkEntry *entry, SUFLOAT *result);
+
+SUBOOL suscan_gui_text_entry_get_freq(GtkEntry *entry, SUFREQ *result);
 
 SUBOOL suscan_gui_text_entry_get_scount(GtkEntry *entry, SUSCOUNT *result);
 

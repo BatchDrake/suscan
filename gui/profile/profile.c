@@ -31,17 +31,56 @@ suscan_gui_profile_destroy(suscan_gui_profile_t *profile)
   free(profile);
 }
 
+void
+suscan_gui_profile_update_sensitivity(suscan_gui_profile_t *profile)
+{
+  SUBOOL is_sdr;
+
+  is_sdr = gtk_toggle_button_get_active(
+      GTK_TOGGLE_BUTTON(profile->sdrRadioButton));
+
+  gtk_widget_set_sensitive(GTK_WIDGET(profile->sdrControlsFrame), is_sdr);
+  gtk_widget_set_sensitive(GTK_WIDGET(profile->fileControlsFrame), !is_sdr);
+}
+
 SUBOOL
 suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile)
 {
-  int64_t freq;
+  int64_t ival;
+  SUFREQ bw;
 
-  if (!suscan_gui_text_entry_get_integer(profile->frequencyEntry, &freq)) {
+  /* Get frequency */
+  if (!suscan_gui_text_entry_get_integer(profile->frequencyEntry, &ival)) {
     SU_ERROR("Invalid frequency");
     return SU_FALSE;
   }
 
-  suscan_source_config_set_freq(profile->config, freq);
+  suscan_source_config_set_freq(profile->config, ival);
+
+  /* Get sample rate */
+  if (!suscan_gui_text_entry_get_integer(profile->sampleRateEntry, &ival)) {
+    SU_ERROR("Invalid sample rate");
+    return SU_FALSE;
+  }
+
+  suscan_source_config_set_samp_rate(profile->config, ival);
+
+  /* Get bandwidth */
+  if (!suscan_gui_text_entry_get_freq(profile->bandwidthEntry, &bw)) {
+    SU_ERROR("Invalid bandwidth");
+    return SU_FALSE;
+  }
+
+  suscan_source_config_set_bandwidth(profile->config, bw);
+
+  /* Get spin button values */
+  suscan_source_config_set_average(
+      profile->config,
+      gtk_spin_button_get_value(profile->averageSpinButton));
+
+  suscan_source_config_set_channel(
+      profile->config,
+      gtk_spin_button_get_value(profile->channelSpinButton));
 
   return SU_TRUE;
 }
@@ -64,6 +103,19 @@ suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile)
       profile->sampleRateEntry,
       suscan_source_config_get_samp_rate(profile->config));
 
+  suscan_gui_text_entry_set_freq(
+      profile->bandwidthEntry,
+      suscan_source_config_get_bandwidth(profile->config));
+
+  /* Set spin button values */
+  gtk_spin_button_set_value(
+      profile->averageSpinButton,
+      suscan_source_config_get_average(profile->config));
+
+  gtk_spin_button_set_value(
+      profile->channelSpinButton,
+      suscan_source_config_get_channel(profile->config));
+
   return SU_TRUE;
 }
 
@@ -85,6 +137,8 @@ suscan_gui_profile_new(suscan_source_config_t *cfg)
   SU_TRYCATCH(suscan_gui_profile_load_all_widgets(new), goto fail);
 
   SU_TRYCATCH(suscan_gui_profile_refresh_gui(new), goto fail);
+
+  suscan_gui_profile_update_sensitivity(new);
 
   return new;
 

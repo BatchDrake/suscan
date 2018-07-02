@@ -68,6 +68,18 @@ suscan_gui_text_entry_set_float(GtkEntry *entry, SUFLOAT value)
 
   buffer[29] = '\0';
 
+  snprintf(buffer, 29, "%g", value);
+
+  gtk_entry_set_text(entry, buffer);
+}
+
+void
+suscan_gui_text_entry_set_freq(GtkEntry *entry, SUFREQ value)
+{
+  char buffer[30];
+
+  buffer[29] = '\0';
+
   snprintf(buffer, 29, "%lg", value);
 
   gtk_entry_set_text(entry, buffer);
@@ -99,6 +111,21 @@ suscan_gui_text_entry_set_integer(GtkEntry *entry, int64_t value)
 
 SUBOOL
 suscan_gui_text_entry_get_float(GtkEntry *entry, SUFLOAT *result)
+{
+  const gchar *text = NULL;
+
+  SU_TRYCATCH(
+      text = gtk_entry_get_text(entry),
+      return FALSE);
+
+  if (sscanf(text, SUFLOAT_SCANF_FMT, result) < 1)
+    return FALSE;
+
+  return TRUE;
+}
+
+SUBOOL
+suscan_gui_text_entry_get_freq(GtkEntry *entry, SUFREQ *result)
 {
   const gchar *text = NULL;
 
