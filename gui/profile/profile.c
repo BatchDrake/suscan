@@ -114,6 +114,22 @@ suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile)
       profile->config,
       gtk_spin_button_get_value(profile->channelSpinButton));
 
+  /* Get check buttons */
+  suscan_source_config_set_dc_remove(
+      profile->config,
+      gtk_toggle_button_get_active(
+          GTK_TOGGLE_BUTTON(profile->removeDcCheckButton)));
+
+  suscan_source_config_set_iq_balance(
+      profile->config,
+      gtk_toggle_button_get_active(
+          GTK_TOGGLE_BUTTON(profile->iqBalanceCheckButton)));
+
+  suscan_source_config_set_loop(
+      profile->config,
+      gtk_toggle_button_get_active(
+          GTK_TOGGLE_BUTTON(profile->loopCheckButton)));
+
   return SU_TRUE;
 }
 
@@ -178,6 +194,19 @@ suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile)
       gtk_combo_box_set_active(GTK_COMBO_BOX(profile->formatComboBoxText), 0);
       break;
   }
+
+  /* Set check buttons */
+  gtk_toggle_button_set_active(
+        GTK_TOGGLE_BUTTON(profile->removeDcCheckButton),
+        suscan_source_config_get_dc_remove(profile->config));
+
+  gtk_toggle_button_set_active(
+        GTK_TOGGLE_BUTTON(profile->iqBalanceCheckButton),
+        suscan_source_config_get_iq_balance(profile->config));
+
+  gtk_toggle_button_set_active(
+        GTK_TOGGLE_BUTTON(profile->loopCheckButton),
+        suscan_source_config_get_loop(profile->config));
 
   suscan_gui_profile_update_sensitivity(profile);
 

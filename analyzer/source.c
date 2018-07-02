@@ -583,6 +583,7 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   SU_CFGSAVE(float, bandwidth);
   SU_CFGSAVE(bool,  iq_balance);
   SU_CFGSAVE(bool,  dc_remove);
+  SU_CFGSAVE(bool,  loop);
   SU_CFGSAVE(uint,  samp_rate);
   SU_CFGSAVE(uint,  average);
   SU_CFGSAVE(uint,  channel);
@@ -631,6 +632,7 @@ suscan_source_config_from_object(const suscan_object_t *object)
   SU_CFGLOAD(float, bandwidth, 0);
   SU_CFGLOAD(bool, iq_balance, SU_FALSE);
   SU_CFGLOAD(bool, dc_remove, SU_FALSE);
+  SU_CFGLOAD(bool, loop, SU_FALSE);
   SU_CFGLOAD(uint, samp_rate, 1.8e6);
   SU_CFGLOAD(uint, channel, 0);
 
