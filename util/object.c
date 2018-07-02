@@ -383,9 +383,14 @@ suscan_object_set_field_float(
     float value)
 {
   char *as_text = NULL;
+  char *comma = NULL;
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(as_text = strbuild("%f", value), goto done);
+
+  /* Thanks, GTK */
+  if ((comma = strchr(as_text, ',')) != NULL)
+    *comma = '.';
 
   SU_TRYCATCH(suscan_object_set_field_value(object, name, as_text), goto done);
 

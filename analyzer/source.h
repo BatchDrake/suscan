@@ -88,6 +88,17 @@ SUBOOL suscan_source_config_set_label(
     suscan_source_config_t *config,
     const char *label);
 
+enum suscan_source_type suscan_source_config_get_type(
+    const suscan_source_config_t *config);
+
+enum suscan_source_format suscan_source_config_get_format(
+    const suscan_source_config_t *config);
+
+void suscan_source_config_set_type_format(
+    suscan_source_config_t *config,
+    enum suscan_source_type type,
+    enum suscan_source_format format);
+
 SUFLOAT suscan_source_config_get_freq(const suscan_source_config_t *config);
 void suscan_source_config_set_freq(
     suscan_source_config_t *config,

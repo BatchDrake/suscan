@@ -133,7 +133,7 @@ suscan_gui_text_entry_get_freq(GtkEntry *entry, SUFREQ *result)
       text = gtk_entry_get_text(entry),
       return FALSE);
 
-  if (sscanf(text, SUFLOAT_SCANF_FMT, result) < 1)
+  if (sscanf(text, "%lg", result) < 1)
     return FALSE;
 
   return TRUE;

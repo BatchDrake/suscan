@@ -134,6 +134,28 @@ suscan_source_config_set_label(suscan_source_config_t *config, const char *label
   return SU_TRUE;
 }
 
+enum suscan_source_type
+suscan_source_config_get_type(const suscan_source_config_t *config)
+{
+  return config->type;
+}
+
+enum suscan_source_format
+suscan_source_config_get_format(const suscan_source_config_t *config)
+{
+  return config->format;
+}
+
+void
+suscan_source_config_set_type_format(
+    suscan_source_config_t *config,
+    enum suscan_source_type type,
+    enum suscan_source_format format)
+{
+  config->type = type;
+  config->format = format;
+}
+
 const char *
 suscan_source_config_get_label(const suscan_source_config_t *config)
 {
