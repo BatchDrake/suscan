@@ -43,6 +43,183 @@
 /* Private config list */
 PTR_LIST(SUPRIVATE suscan_source_config_t, config);
 
+/* Private device list */
+PTR_LIST(SUPRIVATE suscan_source_device_t, device);
+
+/******************************* Source devices ******************************/
+SUPRIVATE void
+suscan_source_device_destroy(suscan_source_device_t *dev)
+{
+  if (dev->desc != NULL)
+    free(dev->desc);
+
+  if (dev->args != NULL) {
+    SoapySDRKwargs_clear(dev->args);
+    free(dev->args);
+  }
+
+  free(dev);
+}
+
+SUPRIVATE char *
+suscan_source_device_build_desc(const char *driver, const char *label)
+{
+  if (label == NULL)
+    label = "Unlabeled device";
+
+  if (strcmp(driver, "audio") == 0)
+    return strbuild("Audio input (%s)", label);
+
+  return strbuild("%s (%s)", driver, label);
+}
+
+SUPRIVATE suscan_source_device_t *
+suscan_source_device_new(const SoapySDRKwargs *args)
+{
+  suscan_source_device_t *new = NULL;
+  const char *driver;
+  unsigned int i;
+
+  /* Not necessarily an error */
+  if ((driver = SoapySDRKwargs_get((SoapySDRKwargs *) args, "driver")) == NULL)
+    return NULL;
+
+  SU_TRYCATCH(new = calloc(1, sizeof (suscan_source_device_t)), goto fail);
+  SU_TRYCATCH(
+      new->desc = suscan_source_device_build_desc(
+          driver,
+          SoapySDRKwargs_get((SoapySDRKwargs *) args, "label")),
+      goto fail);
+
+  SU_TRYCATCH(new->args = calloc(1, sizeof (SoapySDRKwargs)), goto fail);
+  for (i = 0; i < args->size; ++i) {
+    /* DANGER DANGER DANGER */
+    SoapySDRKwargs_set(new->args, args->keys[i], args->vals[i]);
+    /* DANGER DANGER DANGER */
+  }
+
+  new->driver = driver;
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_source_device_destroy(new);
+
+  return NULL;
+}
+
+SUPRIVATE SUBOOL
+suscan_source_detect_devices(void)
+{
+  suscan_source_device_t *dev = NULL;
+  SoapySDRKwargs *soapy_dev_list;
+  size_t soapy_dev_len;
+  unsigned int i;
+
+  SU_TRYCATCH(
+      soapy_dev_list = SoapySDRDevice_enumerate(
+          NULL,
+          &soapy_dev_len),
+      goto fail);
+
+  for (i = 0; i < soapy_dev_len; ++i) {
+    if ((dev = suscan_source_device_new(soapy_dev_list + i)) != NULL) {
+      SU_TRYCATCH(
+          PTR_LIST_APPEND_CHECK(device, dev) != -1,
+          goto fail);
+      dev = NULL;
+    }
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (dev != NULL)
+    suscan_source_device_destroy(dev);
+
+  return SU_FALSE;
+}
+
+SUBOOL
+suscan_source_device_walk(
+    SUBOOL (*function) (
+        suscan_source_device_t *dev,
+        unsigned int index,
+        void *private),
+    void *private)
+{
+  unsigned int i;
+
+  for (i = 0; i < device_count; ++i)
+    if (device_list[i] != NULL)
+      if (!(function)(device_list[i], i, private))
+        return SU_FALSE;
+
+  return SU_TRUE;
+}
+
+suscan_source_device_t *
+suscan_source_device_get_by_index(unsigned int index)
+{
+  if (index >= device_count)
+    return NULL;
+
+  return device_list[index];
+}
+
+unsigned int
+suscan_source_device_get_count(void)
+{
+  return device_count;
+}
+
+SUPRIVATE SUBOOL
+suscan_source_device_soapy_args_are_equal(
+    const SoapySDRKwargs *a,
+    const SoapySDRKwargs *b)
+{
+  const char *val;
+  unsigned int i;
+
+  if (a->size == b->size) {
+    for (i = 0; i < a->size; ++i) {
+      val = SoapySDRKwargs_get((SoapySDRKwargs *) b, a->keys[i]);
+      if (strcmp(a->vals[i], val) != 0)
+        return SU_FALSE;
+    }
+
+    /* All of them are equal, consider a the same as b */
+    return SU_TRUE;
+  }
+
+  return SU_FALSE;
+}
+
+int
+suscan_source_device_assert_by_soapy_args(const SoapySDRKwargs *args)
+{
+  int i;
+  suscan_source_device_t *dev = NULL;
+
+  for (i = 0; i < device_count; ++i)
+    if (suscan_source_device_soapy_args_are_equal(device_list[i]->args, args))
+      goto done;
+
+  if ((dev = suscan_source_device_new(args)) != NULL) {
+    SU_TRYCATCH(
+        (i = PTR_LIST_APPEND_CHECK(device, dev)) != -1,
+        goto done);
+    dev = NULL;
+  }
+
+done:
+  if (dev != NULL)
+    suscan_source_device_destroy(dev);
+
+  return i;
+}
+
 /***************************** Source Config API *****************************/
 SUBOOL
 suscan_source_config_walk(
@@ -392,26 +569,23 @@ suscan_source_config_set_gain(
   return SU_TRUE;
 }
 
-char *
-suscan_source_config_get_sdr_args(const suscan_source_config_t *config)
-{
-  return SoapySDRKwargs_toString(config->soapy_args);
-}
-
 SUBOOL
-suscan_source_config_set_sdr_args(
-    const suscan_source_config_t *config,
-    const char *args)
+suscan_source_config_set_device(
+    suscan_source_config_t *config,
+    const suscan_source_device_t *dev)
 {
-  SoapySDRKwargs kwargs;
+  unsigned int i;
 
-  /* Anything is possible? There should be a check somewhere here */
-  kwargs = SoapySDRKwargs_fromString(args);
+  for (i = 0; i < dev->args->size; ++i) {
+    /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
+    SoapySDRKwargs_set(
+        config->soapy_args,
+        dev->args->keys[i],
+        dev->args->vals[i]);
+    /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
+  }
 
-  SoapySDRKwargs_clear(config->soapy_args);
-
-  *config->soapy_args = kwargs;
-
+  /* Fuck off */
   return SU_TRUE;
 }
 
@@ -462,6 +636,18 @@ suscan_source_config_clone(const suscan_source_config_t *config)
             config->gain_list[i]->key,
             config->gain_list[i]->val),
         goto fail);
+
+
+  if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_SDR) {
+    for (i = 0; i < config->soapy_args->size; ++i) {
+      /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
+      SoapySDRKwargs_set(
+          new->soapy_args,
+          config->soapy_args->keys[i],
+          config->soapy_args->vals[i]);
+      /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
+    }
+  }
 
   new->freq = config->freq;
   new->bandwidth = config->bandwidth;
@@ -543,6 +729,9 @@ suscan_object_t *
 suscan_source_config_to_object(const suscan_source_config_t *cfg)
 {
   suscan_object_t *new = NULL;
+  suscan_object_t *args = NULL;
+  unsigned int i;
+
   const char *tmp;
 
 #define SU_CFGSAVE(kind, field)                                 \
@@ -588,9 +777,28 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   SU_CFGSAVE(uint,  average);
   SU_CFGSAVE(uint,  channel);
 
+  /* Save SoapySDR kwargs */
+  SU_TRYCATCH(args = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
+
+  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR) {
+    for (i = 0; i < cfg->soapy_args->size; ++i)
+      SU_TRYCATCH(
+          suscan_object_set_field_value(
+              args,
+              cfg->soapy_args->keys[i],
+              cfg->soapy_args->vals[i]),
+          goto fail);
+  }
+
+  SU_TRYCATCH(suscan_object_set_field(new, "sdr_args", args), goto fail);
+  args = NULL;
+
   return new;
 
 fail:
+  if (args != NULL)
+    suscan_object_destroy(args);
+
   if (new != NULL)
     suscan_object_destroy(new);
 
@@ -601,6 +809,10 @@ suscan_source_config_t *
 suscan_source_config_from_object(const suscan_object_t *object)
 {
   suscan_source_config_t *new = NULL;
+  suscan_object_t *sdr_args, *entry = NULL;
+
+  unsigned int i, count;
+
   const char *tmp;
 
 #define SU_CFGLOAD(kind, field, dfl)                            \
@@ -637,6 +849,25 @@ suscan_source_config_from_object(const suscan_object_t *object)
   SU_CFGLOAD(uint, channel, 0);
 
   SU_TRYCATCH(SU_CFGLOAD(uint, average, 1), goto fail);
+
+  /* Set SDR args, ONLY if this is a SDR source */
+  if (suscan_source_config_get_type(new) == SUSCAN_SOURCE_TYPE_SDR) {
+    if ((sdr_args = suscan_object_get_field(object, "sdr_args")) != NULL)
+      if (suscan_object_get_type(sdr_args) == SUSCAN_OBJECT_TYPE_OBJECT) {
+        count = suscan_object_field_count(sdr_args);
+        for (i = 0; i < count; ++i) {
+          if ((entry = suscan_object_get_field_by_index(sdr_args, i)) != NULL
+              && suscan_object_get_type(entry) == SUSCAN_OBJECT_TYPE_FIELD) {
+            /* ------------------- DANGER DANGER DANGER ------------------- */
+            SoapySDRKwargs_set(
+                new->soapy_args,
+                suscan_object_get_name(entry),
+                suscan_object_get_value(entry));
+            /* ----------- HOW DO I EVEN KNOW IF THIS WORKED? ------------- */
+          }
+        }
+      }
+  }
 
   return new;
 
@@ -1054,6 +1285,7 @@ suscan_load_sources(void)
   suscan_source_config_t *cfg = NULL;
   const suscan_object_t *list = NULL;
   const suscan_object_t *cfgobj = NULL;
+  const SoapySDRKwargs *args = NULL;
   unsigned int i, count;
   const char *tmp;
 
@@ -1075,7 +1307,13 @@ suscan_load_sources(void)
           SU_WARNING("Could not parse configuration #%d from config\n", i);
         } else {
           SU_TRYCATCH(PTR_LIST_APPEND_CHECK(config, cfg) != -1, goto fail);
+          args = cfg->soapy_args;
           cfg = NULL;
+
+          /* New device added. Assert it. */
+          SU_TRYCATCH(
+              suscan_source_device_assert_by_soapy_args(args) != -1,
+              goto fail);
         }
       }
     }
@@ -1097,6 +1335,7 @@ SUBOOL
 suscan_init_sources(void)
 {
   SU_TRYCATCH(suscan_confdb_use("sources"), return SU_FALSE);
+  SU_TRYCATCH(suscan_source_detect_devices(), return SU_FALSE);
   SU_TRYCATCH(suscan_load_sources(), return SU_FALSE);
 
   return SU_TRUE;

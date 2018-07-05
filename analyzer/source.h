@@ -41,6 +41,32 @@ enum suscan_source_format {
   SUSCAN_SOURCE_FORMAT_WAV
 };
 
+struct suscan_source_device {
+  const char *driver;
+  char *desc;
+  SoapySDRKwargs *args;
+};
+
+typedef struct suscan_source_device suscan_source_device_t;
+
+SUINLINE const char *
+suscan_source_device_get_desc(const suscan_source_device_t *dev)
+{
+  return dev->desc;
+}
+
+SUBOOL suscan_source_device_walk(
+    SUBOOL (*function) (
+        suscan_source_device_t *dev,
+        unsigned int index,
+        void *private),
+    void *private);
+
+suscan_source_device_t *suscan_source_device_get_by_index(unsigned int index);
+unsigned int suscan_source_device_get_count(void);
+
+int suscan_source_device_assert_by_soapy_args(const SoapySDRKwargs *args);
+
 struct suscan_source_float_keyval {
   char *key;
   SUFLOAT val;
@@ -166,6 +192,9 @@ SUBOOL suscan_source_config_set_gain(
     const suscan_source_config_t *config,
     const char *name,
     SUFLOAT value);
+SUBOOL suscan_source_config_set_device(
+    suscan_source_config_t *config,
+    const suscan_source_device_t *dev);
 
 char *suscan_source_config_get_sdr_args(const suscan_source_config_t *config);
 SUBOOL suscan_source_config_set_sdr_args(

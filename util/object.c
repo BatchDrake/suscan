@@ -416,6 +416,26 @@ suscan_object_set_field_bool(
       value ? "true" : "false");
 }
 
+/* Convenience methods, to iterate through all fields */
+unsigned int
+suscan_object_field_count(const suscan_object_t *object)
+{
+  SU_TRYCATCH(object->type == SUSCAN_OBJECT_TYPE_OBJECT, return 0);
+
+  return object->object_count;
+}
+
+suscan_object_t *
+suscan_object_get_field_by_index(
+    const suscan_object_t *object,
+    unsigned int index)
+{
+  SU_TRYCATCH(object->type == SUSCAN_OBJECT_TYPE_OBJECT, return NULL);
+  SU_TRYCATCH(index < object->object_count, return NULL);
+
+  return object->object_list[index];
+}
+
 /* For set-type objects only */
 unsigned int
 suscan_object_set_get_count(const suscan_object_t *object)

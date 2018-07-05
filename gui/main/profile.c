@@ -159,6 +159,17 @@ suscan_gui_parse_all_changed_profiles(suscan_gui_t *gui)
 SUBOOL
 suscan_gui_load_profiles(suscan_gui_t *gui)
 {
+  if (suscan_source_device_get_count() == 0) {
+    suscan_warning(
+        gui,
+        "No SDR devices available",
+        "No SDR devices have been found! However, you will still be able to "
+        "work with file-like signal sources.\n\n"
+        "If you think this is an error, please "
+        "verify that all required SoapySDR modules have been properly "
+        "installed.");
+  }
+
   SU_TRYCATCH(
       suscan_source_config_walk(suscan_gui_append_profile, gui),
       return SU_FALSE);

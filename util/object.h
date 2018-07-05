@@ -81,6 +81,12 @@ SUBOOL suscan_object_set_field(
     const char *name,
     suscan_object_t *value);
 
+unsigned int suscan_object_field_count(const suscan_object_t *object);
+
+suscan_object_t *suscan_object_get_field_by_index(
+    const suscan_object_t *object,
+    unsigned int index);
+
 /* Convenience functions */
 int suscan_object_get_field_int(
     const suscan_object_t *object,

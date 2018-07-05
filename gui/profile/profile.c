@@ -41,13 +41,20 @@ suscan_gui_profile_update_sensitivity(suscan_gui_profile_t *profile)
 
   gtk_widget_set_sensitive(GTK_WIDGET(profile->sdrControlsFrame), is_sdr);
   gtk_widget_set_sensitive(GTK_WIDGET(profile->fileControlsFrame), !is_sdr);
+
+  gtk_widget_set_sensitive(
+      GTK_WIDGET(profile->sdrRadioButton),
+      suscan_source_device_get_count() > 0);
 }
 
 SUBOOL
 suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile)
 {
   int64_t ival;
+  unsigned int index;
+  const suscan_source_device_t *dev;
   gchar *path;
+  const gchar *id;
   SUFREQ bw;
   SUBOOL is_sdr;
   enum suscan_source_format format;
@@ -129,6 +136,17 @@ suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile)
       profile->config,
       gtk_toggle_button_get_active(
           GTK_TOGGLE_BUTTON(profile->loopCheckButton)));
+
+  /* Get device */
+  SU_TRYCATCH(
+      id = gtk_combo_box_get_active_id(
+          GTK_COMBO_BOX(profile->deviceComboBoxText)),
+      return SU_FALSE);
+  SU_TRYCATCH(sscanf(id, "%u", &index) == 1, return SU_FALSE);
+  SU_TRYCATCH(dev = suscan_source_device_get_by_index(index), return SU_FALSE);
+  SU_TRYCATCH(
+      suscan_source_config_set_device(profile->config, dev),
+      return SU_FALSE);
 
   return SU_TRUE;
 }
@@ -213,6 +231,33 @@ suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile)
   return SU_TRUE;
 }
 
+SUPRIVATE SUBOOL
+suscan_gui_profile_on_device(
+    suscan_source_device_t *dev,
+    unsigned int index,
+    void *private)
+{
+  suscan_gui_profile_t *profile = (suscan_gui_profile_t *) private;
+  char id[16];
+
+  snprintf(id, sizeof(id), "%u", index);
+
+  gtk_combo_box_text_append(
+      profile->deviceComboBoxText,
+      id,
+      suscan_source_device_get_desc(dev));
+
+  return SU_TRUE;
+}
+
+SUPRIVATE void
+suscan_gui_profile_populate_device_combo(suscan_gui_profile_t *profile)
+{
+  (void) suscan_source_device_walk(suscan_gui_profile_on_device, profile);
+
+  gtk_combo_box_set_active(GTK_COMBO_BOX(profile->deviceComboBoxText), 0);
+}
+
 suscan_gui_profile_t *
 suscan_gui_profile_new(suscan_source_config_t *cfg)
 {
@@ -226,11 +271,13 @@ suscan_gui_profile_new(suscan_source_config_t *cfg)
       new->builder = gtk_builder_new_from_file(PKGDATADIR "/gui/profile.glade"),
       goto fail);
 
-  gtk_builder_connect_signals(new->builder, new);
-
   SU_TRYCATCH(suscan_gui_profile_load_all_widgets(new), goto fail);
 
+  suscan_gui_profile_populate_device_combo(new);
+
   SU_TRYCATCH(suscan_gui_profile_refresh_gui(new), goto fail);
+
+  gtk_builder_connect_signals(new->builder, new);
 
   return new;
 
