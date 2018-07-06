@@ -27,7 +27,20 @@ suscan_gui_profile_on_changed(GtkWidget *widget, gpointer data)
 {
   suscan_gui_profile_t *profile = (suscan_gui_profile_t *) data;
 
-  profile->changed = SU_TRUE;
+  if (!profile->in_callback) {
+    profile->in_callback = SU_TRUE;
+    profile->changed = SU_TRUE;
 
-  suscan_gui_profile_update_sensitivity(profile);
+    suscan_gui_profile_update_sensitivity(profile);
+
+    /* Channel or device changed. Update antennas */
+    if (widget == GTK_WIDGET(profile->channelSpinButton) ||
+        widget == GTK_WIDGET(profile->deviceComboBoxText)) {
+      suscan_gui_profile_update_device(profile);
+      suscan_gui_profile_update_antennas(profile);
+    }
+
+    profile->in_callback = SU_FALSE;
+  }
+
 }

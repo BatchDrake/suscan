@@ -30,16 +30,17 @@
 #define SUSCAN_SOURCE_DEFAULT_BUFSIZ 4096
 
 /************************** Source config API ********************************/
-enum suscan_source_type {
-  SUSCAN_SOURCE_TYPE_FILE,
-  SUSCAN_SOURCE_TYPE_SDR
+struct suscan_source_device_info {
+  PTR_LIST(char, antenna);
 };
 
-enum suscan_source_format {
-  SUSCAN_SOURCE_FORMAT_AUTO,
-  SUSCAN_SOURCE_FORMAT_RAW,
-  SUSCAN_SOURCE_FORMAT_WAV
-};
+#define suscan_source_device_info_INITIALIZER   \
+{                                               \
+  NULL, /* antenna_list */                      \
+  0, /* antenna_count */                        \
+}
+
+void suscan_source_device_info_finalize(struct suscan_source_device_info *info);
 
 struct suscan_source_device {
   const char *driver;
@@ -63,9 +64,26 @@ SUBOOL suscan_source_device_walk(
     void *private);
 
 suscan_source_device_t *suscan_source_device_get_by_index(unsigned int index);
+
 unsigned int suscan_source_device_get_count(void);
 
+SUBOOL suscan_source_device_get_info(
+    const suscan_source_device_t *dev,
+    unsigned int channel,
+    struct suscan_source_device_info *info);
+
 int suscan_source_device_assert_by_soapy_args(const SoapySDRKwargs *args);
+
+enum suscan_source_type {
+  SUSCAN_SOURCE_TYPE_FILE,
+  SUSCAN_SOURCE_TYPE_SDR
+};
+
+enum suscan_source_format {
+  SUSCAN_SOURCE_FORMAT_AUTO,
+  SUSCAN_SOURCE_FORMAT_RAW,
+  SUSCAN_SOURCE_FORMAT_WAV
+};
 
 struct suscan_source_float_keyval {
   char *key;

@@ -61,6 +61,72 @@ suscan_source_device_destroy(suscan_source_device_t *dev)
   free(dev);
 }
 
+void
+suscan_source_device_info_finalize(struct suscan_source_device_info *info)
+{
+  unsigned int i;
+
+  for (i = 0; i < info->antenna_count; ++i)
+    if (info->antenna_list[i] != NULL)
+      free(info->antenna_list[i]);
+
+  if (info->antenna_list != NULL)
+    free(info->antenna_list);
+}
+
+SUBOOL
+suscan_source_device_get_info(
+    const suscan_source_device_t *dev,
+    unsigned int channel,
+    struct suscan_source_device_info *info)
+{
+  SoapySDRDevice *sdev = NULL;
+  char **antenna_list = NULL;
+  char *dup = NULL;
+  size_t antenna_count = 0;
+  unsigned int i;
+
+  SUBOOL ok = SU_FALSE;
+
+  memset(info, 0, sizeof(struct suscan_source_device_info));
+
+  printf("Make %s\n", SoapySDRKwargs_get(dev->args, "driver"));
+
+  SU_TRYCATCH(sdev = SoapySDRDevice_make(dev->args), goto done);
+
+  SU_TRYCATCH(
+      antenna_list = SoapySDRDevice_listAntennas(
+          sdev,
+          SOAPY_SDR_RX,
+          channel,
+          &antenna_count),
+      goto done);
+
+  /* Duplicate antenna list */
+  for (i = 0; i < antenna_count; ++i) {
+    printf("Antenna: %s\n", antenna_list[i]);
+    SU_TRYCATCH(dup = strdup(antenna_list[i]), goto done);
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->antenna, dup) != -1, goto done);
+    dup = NULL;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (dup != NULL)
+    free(dup);
+
+  SoapySDRStrings_clear(&antenna_list, antenna_count);
+
+  if (sdev != NULL)
+    SoapySDRDevice_unmake(sdev);
+
+  if (!ok)
+    suscan_source_device_info_finalize(info);
+
+  return ok;
+}
+
 SUPRIVATE char *
 suscan_source_device_build_desc(const char *driver, const char *label)
 {
@@ -69,7 +135,8 @@ suscan_source_device_build_desc(const char *driver, const char *label)
 
   if (strcmp(driver, "audio") == 0)
     return strbuild("Audio input (%s)", label);
-
+  else if (strcmp(driver, "hackrf") == 0)
+    return strbuild("HackRF One (%s)", label);
   return strbuild("%s (%s)", driver, label);
 }
 

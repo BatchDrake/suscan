@@ -47,14 +47,80 @@ suscan_gui_profile_update_sensitivity(suscan_gui_profile_t *profile)
       suscan_source_device_get_count() > 0);
 }
 
+SUPRIVATE void
+suscan_gui_profile_refresh_antenna(suscan_gui_profile_t *profile)
+{
+  if (suscan_source_config_get_antenna(profile->config) == NULL
+      || !gtk_combo_box_set_active_id(
+            GTK_COMBO_BOX(profile->antennaComboBoxText),
+            suscan_source_config_get_antenna(profile->config)))
+            gtk_combo_box_set_active(
+              GTK_COMBO_BOX(profile->antennaComboBoxText),
+              0);
+}
+
+void
+suscan_gui_profile_update_antennas(suscan_gui_profile_t *profile)
+{
+  struct suscan_source_device_info info = suscan_source_device_info_INITIALIZER;
+  unsigned int i;
+
+  /* Clear Antenna combo box */
+  gtk_list_store_clear(
+      GTK_LIST_STORE(
+          gtk_combo_box_get_model(
+              GTK_COMBO_BOX(profile->antennaComboBoxText))));
+
+  if (profile->device != NULL) {
+    if (suscan_source_device_get_info(
+        profile->device,
+        suscan_source_config_get_channel(profile->config),
+        &info)) {
+      for (i = 0; i < info.antenna_count; ++i)
+        gtk_combo_box_text_append(
+            profile->antennaComboBoxText,
+            info.antenna_list[i],
+            info.antenna_list[i]);
+
+      /* Refresh antenna according to current selection */
+      if (info.antenna_count != 0)
+        suscan_gui_profile_refresh_antenna(profile);
+
+      suscan_source_device_info_finalize(&info);
+    }
+  }
+}
+
+SUBOOL
+suscan_gui_profile_update_device(suscan_gui_profile_t *profile)
+{
+  const gchar *id;
+  const suscan_source_device_t *dev;
+  unsigned int index;
+
+  /* Get device */
+  profile->device = NULL;
+
+  id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(profile->deviceComboBoxText));
+
+  if (id != NULL) {
+    /* Device is non-null. A device is selected. */
+    SU_TRYCATCH(sscanf(id, "%u", &index) == 1, return SU_FALSE);
+    SU_TRYCATCH(
+        dev = suscan_source_device_get_by_index(index),
+        return SU_FALSE);
+    profile->device = dev;
+  }
+
+  return SU_TRUE;
+}
+
 SUBOOL
 suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile)
 {
   int64_t ival;
-  unsigned int index;
-  const suscan_source_device_t *dev;
   gchar *path;
-  const gchar *id;
+
   SUFREQ bw;
   SUBOOL is_sdr;
   enum suscan_source_format format;
@@ -137,16 +203,20 @@ suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile)
       gtk_toggle_button_get_active(
           GTK_TOGGLE_BUTTON(profile->loopCheckButton)));
 
-  /* Get device */
+  /* Save antenna configuration */
+  suscan_source_config_set_antenna(
+      profile->config,
+      gtk_combo_box_get_active_id(GTK_COMBO_BOX(profile->antennaComboBoxText)));
+
+  /* Save device configuration */
   SU_TRYCATCH(
-      id = gtk_combo_box_get_active_id(
-          GTK_COMBO_BOX(profile->deviceComboBoxText)),
+      suscan_gui_profile_update_device(profile),
       return SU_FALSE);
-  SU_TRYCATCH(sscanf(id, "%u", &index) == 1, return SU_FALSE);
-  SU_TRYCATCH(dev = suscan_source_device_get_by_index(index), return SU_FALSE);
-  SU_TRYCATCH(
-      suscan_source_config_set_device(profile->config, dev),
-      return SU_FALSE);
+
+  if (profile->device != NULL)
+    SU_TRYCATCH(
+        suscan_source_config_set_device(profile->config, profile->device),
+        return SU_FALSE);
 
   return SU_TRUE;
 }
@@ -228,6 +298,11 @@ suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile)
 
   suscan_gui_profile_update_sensitivity(profile);
 
+  /* Set antenna */
+  suscan_gui_profile_refresh_antenna(profile);
+
+  /* Select device */
+  /* TODO: Please implement!!!!!! */
   return SU_TRUE;
 }
 
@@ -276,6 +351,10 @@ suscan_gui_profile_new(suscan_source_config_t *cfg)
   suscan_gui_profile_populate_device_combo(new);
 
   SU_TRYCATCH(suscan_gui_profile_refresh_gui(new), goto fail);
+
+  SU_TRYCATCH(suscan_gui_profile_update_device(new), goto fail);
+
+  suscan_gui_profile_update_antennas(new);
 
   gtk_builder_connect_signals(new->builder, new);
 
