@@ -90,8 +90,6 @@ suscan_source_device_get_info(
 
   memset(info, 0, sizeof(struct suscan_source_device_info));
 
-  printf("Make %s\n", SoapySDRKwargs_get(dev->args, "driver"));
-
   SU_TRYCATCH(sdev = SoapySDRDevice_make(dev->args), goto done);
 
   SU_TRYCATCH(
@@ -104,7 +102,6 @@ suscan_source_device_get_info(
 
   /* Duplicate antenna list */
   for (i = 0; i < antenna_count; ++i) {
-    printf("Antenna: %s\n", antenna_list[i]);
     SU_TRYCATCH(dup = strdup(antenna_list[i]), goto done);
     SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->antenna, dup) != -1, goto done);
     dup = NULL;
@@ -140,6 +137,7 @@ suscan_source_device_build_desc(const char *driver, const char *label)
   return strbuild("%s (%s)", driver, label);
 }
 
+
 SUPRIVATE suscan_source_device_t *
 suscan_source_device_new(const SoapySDRKwargs *args)
 {
@@ -166,6 +164,7 @@ suscan_source_device_new(const SoapySDRKwargs *args)
   }
 
   new->driver = driver;
+  new->index = -1;
 
   return new;
 
@@ -176,42 +175,10 @@ fail:
   return NULL;
 }
 
-SUPRIVATE SUBOOL
-suscan_source_detect_devices(void)
-{
-  suscan_source_device_t *dev = NULL;
-  SoapySDRKwargs *soapy_dev_list;
-  size_t soapy_dev_len;
-  unsigned int i;
-
-  SU_TRYCATCH(
-      soapy_dev_list = SoapySDRDevice_enumerate(
-          NULL,
-          &soapy_dev_len),
-      goto fail);
-
-  for (i = 0; i < soapy_dev_len; ++i) {
-    if ((dev = suscan_source_device_new(soapy_dev_list + i)) != NULL) {
-      SU_TRYCATCH(
-          PTR_LIST_APPEND_CHECK(device, dev) != -1,
-          goto fail);
-      dev = NULL;
-    }
-  }
-
-  return SU_TRUE;
-
-fail:
-  if (dev != NULL)
-    suscan_source_device_destroy(dev);
-
-  return SU_FALSE;
-}
-
 SUBOOL
 suscan_source_device_walk(
     SUBOOL (*function) (
-        suscan_source_device_t *dev,
+        const suscan_source_device_t *dev,
         unsigned int index,
         void *private),
     void *private)
@@ -226,7 +193,7 @@ suscan_source_device_walk(
   return SU_TRUE;
 }
 
-suscan_source_device_t *
+const suscan_source_device_t *
 suscan_source_device_get_by_index(unsigned int index)
 {
   if (index >= device_count)
@@ -241,6 +208,19 @@ suscan_source_device_get_count(void)
   return device_count;
 }
 
+#ifdef SUSCAN_DEBUG_KWARGS
+SUPRIVATE void
+debug_kwargs(const SoapySDRKwargs *a)
+{
+  unsigned int i;
+
+  for (i = 0; i < a->size; ++i)
+    printf("%s=%s,", a->keys[i], a->vals[i]);
+
+  putchar(10);
+}
+#endif /* SUSCAN_DEBUG_KWARGS */
+
 SUPRIVATE SUBOOL
 suscan_source_device_soapy_args_are_equal(
     const SoapySDRKwargs *a,
@@ -249,11 +229,27 @@ suscan_source_device_soapy_args_are_equal(
   const char *val;
   unsigned int i;
 
+#ifdef SUSCAN_DEBUG_KWARGS
+  printf("Compare: ");
+  debug_kwargs(a);
+  debug_kwargs(b);
+#endif /* SUSCAN_DEBUG_KWARGS */
+
   if (a->size == b->size) {
     for (i = 0; i < a->size; ++i) {
       val = SoapySDRKwargs_get((SoapySDRKwargs *) b, a->keys[i]);
-      if (strcmp(a->vals[i], val) != 0)
+      if (val == NULL) {
+#ifdef SUSCAN_DEBUG_KWARGS
+        printf("Value %s not present!\n", a->keys[i]);
+#endif /* SUSCAN_DEBUG_KWARGS */
         return SU_FALSE;
+      }
+      if (strcmp(a->vals[i], val) != 0) {
+#ifdef SUSCAN_DEBUG_KWARGS
+        printf("Value %s is different (%s and %s)!\n", a->keys[i], a->vals[i], val);
+#endif /* SUSCAN_DEBUG_KWARGS */
+        return SU_FALSE;
+      }
     }
 
     /* All of them are equal, consider a the same as b */
@@ -263,8 +259,8 @@ suscan_source_device_soapy_args_are_equal(
   return SU_FALSE;
 }
 
-int
-suscan_source_device_assert_by_soapy_args(const SoapySDRKwargs *args)
+SUPRIVATE int
+suscan_source_device_assert_index(const SoapySDRKwargs *args)
 {
   int i;
   suscan_source_device_t *dev = NULL;
@@ -275,7 +271,7 @@ suscan_source_device_assert_by_soapy_args(const SoapySDRKwargs *args)
 
   if ((dev = suscan_source_device_new(args)) != NULL) {
     SU_TRYCATCH(
-        (i = PTR_LIST_APPEND_CHECK(device, dev)) != -1,
+        (dev->index = PTR_LIST_APPEND_CHECK(device, dev)) != -1,
         goto done);
     dev = NULL;
   }
@@ -285,6 +281,43 @@ done:
     suscan_source_device_destroy(dev);
 
   return i;
+}
+
+SUPRIVATE suscan_source_device_t *
+suscan_source_device_assert(const SoapySDRKwargs *args)
+{
+  int index;
+
+  if ((index = suscan_source_device_assert_index(args)) == -1)
+    return NULL;
+
+  return device_list[index];
+}
+
+SUPRIVATE SUBOOL
+suscan_source_detect_devices(void)
+{
+  SoapySDRKwargs *soapy_dev_list = NULL;
+  size_t soapy_dev_len;
+  unsigned int i;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      soapy_dev_list = SoapySDRDevice_enumerate(NULL, &soapy_dev_len),
+      goto done);
+
+  for (i = 0; i < soapy_dev_len; ++i)
+    SU_TRYCATCH(
+        suscan_source_device_assert_index(soapy_dev_list + i) != -1,
+        goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (soapy_dev_list != NULL)
+    SoapySDRKwargsList_clear(soapy_dev_list, soapy_dev_len);
+
+  return ok;
 }
 
 /***************************** Source Config API *****************************/
@@ -643,6 +676,12 @@ suscan_source_config_set_device(
 {
   unsigned int i;
 
+  /*
+   * TODO: Once this API is fixed, allocate new soapy_args and replace
+   * the old ones.
+   */
+  SoapySDRKwargs_clear(config->soapy_args);
+
   for (i = 0; i < dev->args->size; ++i) {
     /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
     SoapySDRKwargs_set(
@@ -651,6 +690,8 @@ suscan_source_config_set_device(
         dev->args->vals[i]);
     /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
   }
+
+  config->device = dev;
 
   /* Fuck off */
   return SU_TRUE;
@@ -877,7 +918,6 @@ suscan_source_config_from_object(const suscan_object_t *object)
 {
   suscan_source_config_t *new = NULL;
   suscan_object_t *sdr_args, *entry = NULL;
-
   unsigned int i, count;
 
   const char *tmp;
@@ -933,6 +973,11 @@ suscan_source_config_from_object(const suscan_object_t *object)
             /* ----------- HOW DO I EVEN KNOW IF THIS WORKED? ------------- */
           }
         }
+
+        /* New device added. Assert it. */
+        SU_TRYCATCH(
+            new->device = suscan_source_device_assert(new->soapy_args),
+            goto fail);
       }
   }
 
@@ -1376,11 +1421,6 @@ suscan_load_sources(void)
           SU_TRYCATCH(PTR_LIST_APPEND_CHECK(config, cfg) != -1, goto fail);
           args = cfg->soapy_args;
           cfg = NULL;
-
-          /* New device added. Assert it. */
-          SU_TRYCATCH(
-              suscan_source_device_assert_by_soapy_args(args) != -1,
-              goto fail);
         }
       }
     }

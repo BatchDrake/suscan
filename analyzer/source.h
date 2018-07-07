@@ -46,6 +46,7 @@ struct suscan_source_device {
   const char *driver;
   char *desc;
   SoapySDRKwargs *args;
+  int index;
 };
 
 typedef struct suscan_source_device suscan_source_device_t;
@@ -56,14 +57,21 @@ suscan_source_device_get_desc(const suscan_source_device_t *dev)
   return dev->desc;
 }
 
+SUINLINE int
+suscan_source_device_get_index(const suscan_source_device_t *dev)
+{
+  return dev->index;
+}
+
 SUBOOL suscan_source_device_walk(
     SUBOOL (*function) (
-        suscan_source_device_t *dev,
+        const suscan_source_device_t *dev,
         unsigned int index,
         void *private),
     void *private);
 
-suscan_source_device_t *suscan_source_device_get_by_index(unsigned int index);
+const suscan_source_device_t *suscan_source_device_get_by_index(
+    unsigned int index);
 
 unsigned int suscan_source_device_get_count(void);
 
@@ -71,8 +79,6 @@ SUBOOL suscan_source_device_get_info(
     const suscan_source_device_t *dev,
     unsigned int channel,
     struct suscan_source_device_info *info);
-
-int suscan_source_device_assert_by_soapy_args(const SoapySDRKwargs *args);
 
 enum suscan_source_type {
   SUSCAN_SOURCE_TYPE_FILE,
@@ -108,6 +114,7 @@ struct suscan_source_config {
   SUBOOL loop;
 
   /* For SDR sources */
+  const suscan_source_device_t *device; /* Borrowed, optional */
   SoapySDRKwargs *soapy_args;
   char *antenna;
   unsigned int channel;
@@ -206,15 +213,24 @@ struct suscan_source_float_keyval *suscan_source_config_assert_gain(
 SUFLOAT suscan_source_config_get_gain(
     const suscan_source_config_t *config,
     const char *name);
+
 SUBOOL suscan_source_config_set_gain(
     const suscan_source_config_t *config,
     const char *name,
     SUFLOAT value);
+
 SUBOOL suscan_source_config_set_device(
     suscan_source_config_t *config,
     const suscan_source_device_t *dev);
 
+SUINLINE const suscan_source_device_t *
+suscan_source_config_get_device(suscan_source_config_t *config)
+{
+  return config->device;
+}
+
 char *suscan_source_config_get_sdr_args(const suscan_source_config_t *config);
+
 SUBOOL suscan_source_config_set_sdr_args(
     const suscan_source_config_t *config,
     const char *args);

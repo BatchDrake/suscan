@@ -59,11 +59,36 @@ suscan_gui_profile_refresh_antenna(suscan_gui_profile_t *profile)
               0);
 }
 
+SUPRIVATE void
+suscan_gui_profile_refresh_device(suscan_gui_profile_t *profile)
+{
+  char id[16];
+  const suscan_source_device_t *device;
+
+  if ((device = suscan_source_config_get_device(profile->config)) != NULL) {
+    snprintf(
+        id,
+        sizeof(id),
+        "%u",
+        suscan_source_device_get_index(device));
+
+    printf("Refresh device: %s\n", id);
+
+    if (!gtk_combo_box_set_active_id(
+        GTK_COMBO_BOX(profile->deviceComboBoxText),
+        id))
+        gtk_combo_box_set_active(
+            GTK_COMBO_BOX(profile->deviceComboBoxText),
+            0);
+  }
+}
+
 void
 suscan_gui_profile_update_antennas(suscan_gui_profile_t *profile)
 {
   struct suscan_source_device_info info = suscan_source_device_info_INITIALIZER;
   unsigned int i;
+  const char *current_antenna = NULL;
 
   /* Clear Antenna combo box */
   gtk_list_store_clear(
@@ -81,6 +106,21 @@ suscan_gui_profile_update_antennas(suscan_gui_profile_t *profile)
             profile->antennaComboBoxText,
             info.antenna_list[i],
             info.antenna_list[i]);
+
+      if (info.antenna_count == 0) {
+        /*
+         * No antenna has been provided. Maybe this device is not connected
+         * yet. However, we still have antenna information: the one in the
+         * source configuration. We add it to the combobox, so that this
+         * information is not lost.
+         */
+        current_antenna = suscan_source_config_get_antenna(profile->config);
+        if (current_antenna != NULL)
+          gtk_combo_box_text_append(
+              profile->antennaComboBoxText,
+              current_antenna,
+              current_antenna);
+      }
 
       /* Refresh antenna according to current selection */
       if (info.antenna_count != 0)
@@ -225,6 +265,7 @@ SUBOOL
 suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile)
 {
   const char *string;
+  const suscan_source_device_t *device = NULL;
 
   if ((string = suscan_source_config_get_label(profile->config)) == NULL)
     string = "<Unlabeled profile>";
@@ -298,17 +339,18 @@ suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile)
 
   suscan_gui_profile_update_sensitivity(profile);
 
+  /* Select device */
+  suscan_gui_profile_refresh_device(profile);
+
   /* Set antenna */
   suscan_gui_profile_refresh_antenna(profile);
 
-  /* Select device */
-  /* TODO: Please implement!!!!!! */
   return SU_TRUE;
 }
 
 SUPRIVATE SUBOOL
 suscan_gui_profile_on_device(
-    suscan_source_device_t *dev,
+    const suscan_source_device_t *dev,
     unsigned int index,
     void *private)
 {
