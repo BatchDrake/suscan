@@ -36,7 +36,8 @@ suscan_gui_profile_on_changed(GtkWidget *widget, gpointer data)
     /* Channel or device changed. Update antennas */
     if (widget == GTK_WIDGET(profile->channelSpinButton) ||
         widget == GTK_WIDGET(profile->deviceComboBoxText)) {
-      suscan_gui_profile_update_device(profile);
+      (void) suscan_gui_profile_update_device(profile);
+      (void) suscan_gui_profile_update_gains(profile);
       suscan_gui_profile_update_antennas(profile);
     }
 

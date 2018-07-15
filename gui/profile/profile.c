@@ -25,8 +25,16 @@
 void
 suscan_gui_profile_destroy(suscan_gui_profile_t *profile)
 {
+  unsigned int i;
+
   if (profile->builder != NULL)
     g_object_unref(profile->builder);
+
+  for (i = 0; i < profile->gain_ui_cache_count; ++i)
+    suscan_gui_gain_ui_destroy(profile->gain_ui_cache_list[i]);
+
+  if (profile->gain_ui_cache_list != NULL)
+    free(profile->gain_ui_cache_list);
 
   free(profile);
 }
@@ -72,14 +80,39 @@ suscan_gui_profile_refresh_device(suscan_gui_profile_t *profile)
         "%u",
         suscan_source_device_get_index(device));
 
-    printf("Refresh device: %s\n", id);
-
     if (!gtk_combo_box_set_active_id(
         GTK_COMBO_BOX(profile->deviceComboBoxText),
         id))
         gtk_combo_box_set_active(
             GTK_COMBO_BOX(profile->deviceComboBoxText),
             0);
+  }
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_profile_refresh_gain_func(void *priv, const char *name, SUFLOAT val)
+{
+  suscan_gui_profile_t *profile = (suscan_gui_profile_t *) priv;
+
+  if (!suscan_gui_gain_ui_set_gain(profile->gain_ui, name, val))
+    SU_ERROR("Failed to set gain `%s' on gain UI\n", name);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE void
+suscan_gui_profile_refresh_gains(suscan_gui_profile_t *profile)
+{
+  unsigned int i;
+  const suscan_source_device_t *device;
+  SUFLOAT value;
+  struct suscan_source_device_info info = suscan_source_device_info_INITIALIZER;
+
+  if (profile->gain_ui != NULL) {
+    (void) suscan_source_config_walk_gains(
+        profile->config,
+        suscan_gui_profile_refresh_gain_func,
+        profile);
   }
 }
 
@@ -132,6 +165,26 @@ suscan_gui_profile_update_antennas(suscan_gui_profile_t *profile)
 }
 
 SUBOOL
+suscan_gui_profile_update_gains(suscan_gui_profile_t *profile)
+{
+  if (profile->device == NULL) {
+    profile->gain_ui = NULL;
+  } else {
+    if (!suscan_gui_profile_update_gain_ui(profile, profile->device))
+      SU_WARNING("Gains for `%s' are unknown\n", profile->device->desc);
+  }
+
+  gtk_widget_set_visible(
+      GTK_WIDGET(profile->gainsFrame),
+      profile->gain_ui != NULL && profile->gain_ui->gain_slider_count != 0);
+
+  if (profile->gain_ui != NULL)
+    suscan_gui_profile_refresh_gains(profile);
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_gui_profile_update_device(suscan_gui_profile_t *profile)
 {
   const gchar *id;
@@ -151,6 +204,17 @@ suscan_gui_profile_update_device(suscan_gui_profile_t *profile)
         return SU_FALSE);
     profile->device = dev;
   }
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_profile_save_gain_func(void *private, const char *name, SUFLOAT val)
+{
+  suscan_source_config_t *cfg = (suscan_source_config_t *) private;
+
+  if (!suscan_source_config_set_gain(cfg, name, val))
+    SU_WARNING("Failed to set gain `%s' on config\n", name);
 
   return SU_TRUE;
 }
@@ -258,6 +322,15 @@ suscan_gui_profile_refresh_config(suscan_gui_profile_t *profile)
         suscan_source_config_set_device(profile->config, profile->device),
         return SU_FALSE);
 
+  /* Save all gains */
+  if (profile->gain_ui != NULL)
+    SU_TRYCATCH(
+        suscan_gui_gain_ui_walk_gains(
+            profile->gain_ui,
+            suscan_gui_profile_save_gain_func,
+            profile->config),
+        return SU_FALSE);
+
   return SU_TRUE;
 }
 
@@ -265,7 +338,7 @@ SUBOOL
 suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile)
 {
   const char *string;
-  const suscan_source_device_t *device = NULL;
+  unsigned int i;
 
   if ((string = suscan_source_config_get_label(profile->config)) == NULL)
     string = "<Unlabeled profile>";
@@ -345,6 +418,9 @@ suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile)
   /* Set antenna */
   suscan_gui_profile_refresh_antenna(profile);
 
+  /* Set all gains */
+  suscan_gui_profile_refresh_gains(profile);
+
   return SU_TRUE;
 }
 
@@ -375,6 +451,63 @@ suscan_gui_profile_populate_device_combo(suscan_gui_profile_t *profile)
   gtk_combo_box_set_active(GTK_COMBO_BOX(profile->deviceComboBoxText), 0);
 }
 
+SUPRIVATE struct suscan_gui_gain_ui *
+suscan_gui_profile_assert_gain_ui(
+    suscan_gui_profile_t *profile,
+    const suscan_source_device_t *device)
+{
+  unsigned int i;
+  struct suscan_gui_gain_ui *new = NULL;
+
+  for (i = 0; i < profile->gain_ui_cache_count; ++i)
+    if (profile->gain_ui_cache_list[i]->device == device)
+      return profile->gain_ui_cache_list[i];
+
+  /* Not found, create new and register in cache */
+  SU_TRYCATCH(new = suscan_gui_gain_ui_new(device), goto fail);
+
+  SU_TRYCATCH(
+      PTR_LIST_APPEND_CHECK(profile->gain_ui_cache, new) != -1,
+      goto fail);
+
+  suscan_gui_gain_ui_set_profile(new, profile);
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_gui_gain_ui_destroy(new);
+
+  return NULL;
+}
+
+SUBOOL
+suscan_gui_profile_update_gain_ui(
+    suscan_gui_profile_t *profile,
+    const suscan_source_device_t *device)
+{
+  struct suscan_gui_gain_ui *ui;
+
+  SU_TRYCATCH(
+      ui = suscan_gui_profile_assert_gain_ui(profile, device),
+      return SU_FALSE);
+
+  /* Remove existing gain UI from frame (if any) */
+  if (profile->gain_ui != NULL)
+    gtk_container_remove(
+        GTK_CONTAINER(profile->gainsFrame),
+        GTK_WIDGET(profile->gain_ui->uiGrid));
+
+  profile->gain_ui = ui;
+
+  /* Add new one */
+  gtk_container_add(
+      GTK_CONTAINER(profile->gainsFrame),
+      GTK_WIDGET(profile->gain_ui->uiGrid));
+
+  return SU_TRUE;
+}
+
 suscan_gui_profile_t *
 suscan_gui_profile_new(suscan_source_config_t *cfg)
 {
@@ -384,19 +517,26 @@ suscan_gui_profile_new(suscan_source_config_t *cfg)
 
   new->config = cfg;
 
+  /* This is just a convenience pointer */
+  SU_TRYCATCH(new->device = suscan_source_config_get_device(cfg), goto fail);
+
   SU_TRYCATCH(
       new->builder = gtk_builder_new_from_file(PKGDATADIR "/gui/profile.glade"),
       goto fail);
 
   SU_TRYCATCH(suscan_gui_profile_load_all_widgets(new), goto fail);
 
+  /* Put all devices in combo */
   suscan_gui_profile_populate_device_combo(new);
 
-  SU_TRYCATCH(suscan_gui_profile_refresh_gui(new), goto fail);
+  /* Select appropriate gain UI from the current device selection */
+  SU_TRYCATCH(suscan_gui_profile_update_gains(new), goto fail);
 
-  SU_TRYCATCH(suscan_gui_profile_update_device(new), goto fail);
-
+  /* Populate antenna combo for this device */
   suscan_gui_profile_update_antennas(new);
+
+  /* Populate all remaining controls */
+  SU_TRYCATCH(suscan_gui_profile_refresh_gui(new), goto fail);
 
   gtk_builder_connect_signals(new->builder, new);
 

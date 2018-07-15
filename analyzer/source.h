@@ -30,8 +30,17 @@
 #define SUSCAN_SOURCE_DEFAULT_BUFSIZ 4096
 
 /************************** Source config API ********************************/
+struct suscan_source_gain_desc {
+  char *name;
+  SUFLOAT min;
+  SUFLOAT max;
+  SUFLOAT step;
+  SUFLOAT def;
+};
+
 struct suscan_source_device_info {
-  PTR_LIST(char, antenna);
+  PTR_LIST_CONST(struct suscan_source_gain_desc, gain_desc);
+  PTR_LIST_CONST(char, antenna);
 };
 
 #define suscan_source_device_info_INITIALIZER   \
@@ -47,6 +56,9 @@ struct suscan_source_device {
   char *desc;
   SoapySDRKwargs *args;
   int index;
+
+  PTR_LIST(struct suscan_source_gain_desc, gain_desc);
+  PTR_LIST(char, antenna);
 };
 
 typedef struct suscan_source_device suscan_source_device_t;
@@ -61,6 +73,12 @@ SUINLINE int
 suscan_source_device_get_index(const suscan_source_device_t *dev)
 {
   return dev->index;
+}
+
+SUINLINE SUBOOL
+suscan_source_device_is_populated(const suscan_source_device_t *dev)
+{
+  return dev->antenna_count != 0;
 }
 
 SUBOOL suscan_source_device_walk(
@@ -91,8 +109,8 @@ enum suscan_source_format {
   SUSCAN_SOURCE_FORMAT_WAV
 };
 
-struct suscan_source_float_keyval {
-  char *key;
+struct suscan_source_gain_value {
+  const struct suscan_source_gain_desc *desc;
   SUFLOAT val;
 };
 
@@ -118,7 +136,7 @@ struct suscan_source_config {
   SoapySDRKwargs *soapy_args;
   char *antenna;
   unsigned int channel;
-  PTR_LIST(struct suscan_source_float_keyval, gain);
+  PTR_LIST(struct suscan_source_gain_value, gain);
 };
 
 typedef struct suscan_source_config suscan_source_config_t;
@@ -204,10 +222,16 @@ void suscan_source_config_set_channel(
     suscan_source_config_t *config,
     unsigned int channel);
 
-struct suscan_source_float_keyval *suscan_source_config_lookup_gain(
+struct suscan_source_gain_value *suscan_source_config_lookup_gain(
     const suscan_source_config_t *config,
     const char *name);
-struct suscan_source_float_keyval *suscan_source_config_assert_gain(
+
+SUBOOL suscan_source_config_walk_gains(
+    const suscan_source_config_t *config,
+    SUBOOL (*gain_cb) (void *private, const char *name, SUFLOAT value),
+    void *private);
+
+struct suscan_source_gain_value *suscan_source_config_assert_gain(
     suscan_source_config_t *config,
     const char *name);
 SUFLOAT suscan_source_config_get_gain(
@@ -215,7 +239,7 @@ SUFLOAT suscan_source_config_get_gain(
     const char *name);
 
 SUBOOL suscan_source_config_set_gain(
-    const suscan_source_config_t *config,
+    suscan_source_config_t *config,
     const char *name,
     SUFLOAT value);
 

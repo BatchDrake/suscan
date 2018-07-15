@@ -58,6 +58,7 @@ libgui_la_SOURCES = \
   modemctls/mf.c \
   profile/build.c \
   profile/callbacks.c \
+  profile/gain.c \
   profile/profile.c \
   profile/profile.h \
   symsrc/codec.c \

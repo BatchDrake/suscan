@@ -165,5 +165,12 @@ suscan_gui_profile_load_all_widgets(suscan_gui_profile_t *profile)
               "grFileControls")),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+      profile->gainsFrame =
+          GTK_FRAME(gtk_builder_get_object(
+              profile->builder,
+              "frGains")),
+      return SU_FALSE);
+
   return SU_TRUE;
 }
