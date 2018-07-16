@@ -46,6 +46,9 @@ PTR_LIST(SUPRIVATE suscan_source_config_t, config);
 /* Private device list */
 PTR_LIST(SUPRIVATE suscan_source_device_t, device);
 
+/* Hidden gain list */
+PTR_LIST(SUPRIVATE struct suscan_source_gain_desc, hidden_gain);
+
 /******************************* Source devices ******************************/
 SUPRIVATE void
 suscan_source_gain_desc_destroy(struct suscan_source_gain_desc *desc)
@@ -71,6 +74,25 @@ suscan_source_gain_desc_new(const char *name, SUFLOAT min, SUFLOAT max)
 
   new->min = min;
   new->max = max;
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_source_gain_desc_destroy(new);
+
+  return NULL;
+}
+
+/* Create ad-hoc hidden gains. */
+SUPRIVATE const struct suscan_source_gain_desc *
+suscan_source_gain_desc_new_hidden(const char *name, SUFLOAT value)
+{
+  struct suscan_source_gain_desc *new = NULL;
+
+  SU_TRYCATCH(new = suscan_source_gain_desc_new(name, value, value), goto fail);
+
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(hidden_gain, new) != -1, goto fail);
 
   return new;
 
@@ -518,6 +540,13 @@ suscan_source_config_destroy(suscan_source_config_t *config)
   if (config->gain_list != NULL)
     free(config->gain_list);
 
+  for (i = 0; i < config->hidden_gain_count; ++i)
+    if (config->hidden_gain_list[i] != NULL)
+      suscan_source_gain_value_destroy(config->hidden_gain_list[i]);
+
+  if (config->hidden_gain_list != NULL)
+    free(config->hidden_gain_list);
+
   free(config);
 }
 
@@ -741,6 +770,10 @@ suscan_source_config_lookup_gain(
     if (strcmp(config->gain_list[i]->desc->name, name) == 0)
       return config->gain_list[i];
 
+  for (i = 0; i < config->hidden_gain_count; ++i)
+    if (strcmp(config->hidden_gain_list[i]->desc->name, name) == 0)
+      return config->hidden_gain_list[i];
+
   return NULL;
 }
 
@@ -765,23 +798,44 @@ suscan_source_config_walk_gains(
 struct suscan_source_gain_value *
 suscan_source_config_assert_gain(
     suscan_source_config_t *config,
-    const char *name)
+    const char *name,
+    SUFLOAT value)
 {
   struct suscan_source_gain_value *gain;
   const struct suscan_source_gain_desc *desc;
+  SUBOOL hidden = SU_FALSE;
 
   if ((gain = suscan_source_config_lookup_gain(config, name)) != NULL)
     return gain;
 
   SU_TRYCATCH(config->device != NULL, goto fail);
 
-  SU_TRYCATCH(
-      desc = suscan_source_device_lookup_gain_desc(config->device, name),
-      goto fail);
+  if ((desc = suscan_source_device_lookup_gain_desc(
+      config->device,
+      name)) == NULL) {
+    /*
+     * Gain is not present in this device. However, it has been explicitly
+     * asserted. We register it as a hidden gain, just to keep it when
+     * configuration is serialized.
+     */
+    SU_TRYCATCH(
+        desc = suscan_source_gain_desc_new_hidden(name, value),
+        goto fail);
 
-  SU_TRYCATCH(gain = suscan_source_gain_value_new(desc, 0), goto fail);
+    hidden = SU_TRUE;
+  }
 
-  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(config->gain, gain) != -1, goto fail);
+  SU_TRYCATCH(gain = suscan_source_gain_value_new(desc, value), goto fail);
+
+  if (hidden) {
+    SU_TRYCATCH(
+        PTR_LIST_APPEND_CHECK(config->hidden_gain, gain) != -1,
+        goto fail);
+  } else {
+    SU_TRYCATCH(
+        PTR_LIST_APPEND_CHECK(config->gain, gain) != -1,
+        goto fail);
+  }
 
   return gain;
 
@@ -813,7 +867,7 @@ suscan_source_config_set_gain(
 {
   struct suscan_source_gain_value *gain;
 
-  if ((gain = suscan_source_config_assert_gain(config, name)) == NULL)
+  if ((gain = suscan_source_config_assert_gain(config, name, value)) == NULL)
     return SU_FALSE;
 
   gain->val = value;
@@ -1057,12 +1111,22 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   SU_TRYCATCH(obj = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
 
   if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR) {
+    /* Save visible gains */
     for (i = 0; i < cfg->gain_count; ++i)
       SU_TRYCATCH(
           suscan_object_set_field_float(
               obj,
               cfg->gain_list[i]->desc->name,
               cfg->gain_list[i]->val),
+          goto fail);
+
+    /* Save hidden gains */
+    for (i = 0; i < cfg->hidden_gain_count; ++i)
+      SU_TRYCATCH(
+          suscan_object_set_field_float(
+              obj,
+              cfg->hidden_gain_list[i]->desc->name,
+              cfg->hidden_gain_list[i]->val),
           goto fail);
   }
 

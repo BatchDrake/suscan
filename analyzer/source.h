@@ -137,6 +137,7 @@ struct suscan_source_config {
   char *antenna;
   unsigned int channel;
   PTR_LIST(struct suscan_source_gain_value, gain);
+  PTR_LIST(struct suscan_source_gain_value, hidden_gain);
 };
 
 typedef struct suscan_source_config suscan_source_config_t;
@@ -233,7 +234,9 @@ SUBOOL suscan_source_config_walk_gains(
 
 struct suscan_source_gain_value *suscan_source_config_assert_gain(
     suscan_source_config_t *config,
-    const char *name);
+    const char *name,
+    SUFLOAT value);
+
 SUFLOAT suscan_source_config_get_gain(
     const suscan_source_config_t *config,
     const char *name);
