@@ -218,7 +218,7 @@ void suscan_gui_apply_settings_on_inspector(
     suscan_gui_t *gui,
     suscan_gui_inspector_t *insp);
 
-suscan_gui_t *suscan_gui_new(int argc, char **argv);
+suscan_gui_t *suscan_gui_new(void);
 
 SUBOOL suscan_gui_start(
     int argc,

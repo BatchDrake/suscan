@@ -186,13 +186,11 @@ suscan_gui_quit(suscan_gui_t *gui)
 }
 
 suscan_gui_t *
-suscan_gui_new(int argc, char **argv)
+suscan_gui_new(void)
 {
   suscan_gui_t *gui = NULL;
   GtkCssProvider *provider;
   GError *err = NULL;
-
-  gtk_init(&argc, &argv);
 
   provider = gtk_css_provider_new();
 
