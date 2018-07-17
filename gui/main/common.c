@@ -61,6 +61,33 @@ suscan_gui_msgbox(
   va_end(ap);
 }
 
+const char *
+suscan_gui_ask_for_profile_name(
+    suscan_gui_t *gui,
+    const char *title,
+    const char *text)
+{
+  int result;
+
+  if (text != NULL)
+    gtk_entry_set_text(gui->profileNameEntry, text);
+
+  gtk_window_set_title(GTK_WINDOW(gui->profileNameDialog), title);
+
+  gtk_dialog_set_default_response(gui->profileNameDialog, 1);
+
+  gtk_widget_show(GTK_WIDGET(gui->profileNameDialog));
+
+  result = gtk_dialog_run(gui->profileNameDialog);
+
+  gtk_widget_hide(GTK_WIDGET(gui->profileNameDialog));
+
+  if (result == 1)
+    return gtk_entry_get_text(gui->profileNameEntry);
+
+  return NULL;
+}
+
 void
 suscan_gui_text_entry_set_float(GtkEntry *entry, SUFLOAT value)
 {

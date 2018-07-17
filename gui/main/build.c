@@ -544,6 +544,20 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "lbSettingsSelector")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->profileNameDialog =
+          GTK_DIALOG(gtk_builder_get_object(
+              gui->builder,
+              "dlProfileName")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->profileNameEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              gui->builder,
+              "eProfileName")),
+          return SU_FALSE);
+
   suscan_setup_column_formats(gui);
 
   gtk_combo_box_set_active(gui->sourceCombo, 0);

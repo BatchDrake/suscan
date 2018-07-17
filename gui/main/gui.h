@@ -181,6 +181,10 @@ struct suscan_gui {
   guint stack_first_ndx;
   GtkListBox *settingsSelectorListBox;
 
+  /* Profile name dialog */
+  GtkDialog *profileNameDialog;
+  GtkEntry *profileNameEntry;
+
   /* GUI state */
   enum suscan_gui_state state;
 
@@ -256,6 +260,11 @@ void suscan_gui_msgbox(
     const char *title,
     const char *fmt,
     ...);
+
+const char *suscan_gui_ask_for_profile_name(
+    suscan_gui_t *gui,
+    const char *title,
+    const char *text);
 
 /* Generic configuration UI */
 SUBOOL suscan_gui_cfgui_parse(struct suscan_gui_cfgui *ui);
@@ -335,6 +344,8 @@ suscan_gui_symtool_t *suscan_gui_get_symtool(
 SUBOOL suscan_gui_load_profiles(suscan_gui_t *gui);
 
 void suscan_gui_select_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile);
+
+SUBOOL suscan_gui_create_profile(suscan_gui_t *gui, const char *name);
 
 SUBOOL suscan_gui_parse_all_changed_profiles(suscan_gui_t *gui);
 

@@ -251,3 +251,32 @@ suscan_gui_pass_row_selection(
 {
   g_signal_emit_by_name(row, "activate", 0, NULL);
 }
+
+void
+suscan_gui_on_add_profile(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  const char *name = NULL;
+
+  do {
+    name = suscan_gui_ask_for_profile_name(gui, "Add profile", "");
+
+    if (name != NULL) {
+      if (suscan_source_config_lookup(name) != NULL) {
+        suscan_error(
+            gui,
+            "Cannot add profile",
+            "Profile name `%s' is in use",
+            name);
+      } else {
+        SU_TRYCATCH(
+            suscan_gui_create_profile(gui, name),
+            suscan_error(
+                gui,
+                "Cannot create profile",
+                "Failed to create profile. See log window for defailts."));
+        break;
+      }
+    }
+  } while (name != NULL);
+}

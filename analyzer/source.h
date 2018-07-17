@@ -91,6 +91,8 @@ SUBOOL suscan_source_device_walk(
 const suscan_source_device_t *suscan_source_device_get_by_index(
     unsigned int index);
 
+const suscan_source_device_t *suscan_source_get_null_device(void);
+
 unsigned int suscan_source_device_get_count(void);
 
 SUBOOL suscan_source_device_get_info(
@@ -269,6 +271,10 @@ suscan_source_config_t *suscan_source_config_new(
 suscan_source_config_t *suscan_source_config_clone(
     const suscan_source_config_t *config);
 
+suscan_source_config_t *suscan_source_config_lookup(const char *label);
+
+SUBOOL suscan_source_config_remove(suscan_source_config_t *config);
+
 void suscan_source_config_destroy(suscan_source_config_t *);
 
 /****************************** Source API ***********************************/
@@ -312,6 +318,8 @@ suscan_source_get_config(const suscan_source_t *src)
 }
 
 void suscan_source_destroy(suscan_source_t *config);
+
+SUBOOL suscan_source_config_register(suscan_source_config_t *config);
 
 SUBOOL suscan_init_sources(void);
 

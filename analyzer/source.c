@@ -49,6 +49,9 @@ PTR_LIST(SUPRIVATE suscan_source_device_t, device);
 /* Hidden gain list */
 PTR_LIST(SUPRIVATE struct suscan_source_gain_desc, hidden_gain);
 
+/* Null device */
+SUPRIVATE suscan_source_device_t *null_device;
+
 /******************************* Source devices ******************************/
 SUPRIVATE void
 suscan_source_gain_desc_destroy(struct suscan_source_gain_desc *desc)
@@ -164,9 +167,10 @@ suscan_source_device_build_desc(const char *driver, const char *label)
     return strbuild("Audio input (%s)", label);
   else if (strcmp(driver, "hackrf") == 0)
     return strbuild("HackRF One (%s)", label);
+  else if(strcmp(driver, "null") == 0)
+    return strdup("Dummy device");
   return strbuild("%s (%s)", driver, label);
 }
-
 
 SUPRIVATE SUBOOL
 suscan_source_device_populate_info(suscan_source_device_t *dev)
@@ -398,13 +402,18 @@ suscan_source_device_assert_index(const SoapySDRKwargs *args)
   int i;
   suscan_source_device_t *dev = NULL;
 
+  if (args->size == 0)
+    return null_device->index;
+
   for (i = 0; i < device_count; ++i)
     if (suscan_source_device_soapy_args_are_equal(device_list[i]->args, args))
       goto done;
 
+  i = -1;
+
   if ((dev = suscan_source_device_new(args)) != NULL) {
     SU_TRYCATCH(
-        (dev->index = PTR_LIST_APPEND_CHECK(device, dev)) != -1,
+        (i = dev->index = PTR_LIST_APPEND_CHECK(device, dev)) != -1,
         goto done);
     dev = NULL;
   }
@@ -428,6 +437,26 @@ suscan_source_device_assert(const SoapySDRKwargs *args)
 }
 
 SUPRIVATE SUBOOL
+suscan_source_register_null_device(void)
+{
+  SoapySDRKwargs args;
+  suscan_source_device_t *dev;
+
+  char *keys[] = {"driver"};
+  char *vals[] = {"null"};
+
+  args.size = 1;
+  args.keys = keys;
+  args.vals = vals;
+
+  SU_TRYCATCH(dev = suscan_source_device_assert(&args), return SU_FALSE);
+
+  null_device = dev;
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
 suscan_source_detect_devices(void)
 {
   SoapySDRKwargs *soapy_dev_list = NULL;
@@ -435,6 +464,8 @@ suscan_source_detect_devices(void)
   size_t soapy_dev_len;
   unsigned int i;
   SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(suscan_source_register_null_device(), goto done);
 
   SU_TRYCATCH(
       soapy_dev_list = SoapySDRDevice_enumerate(NULL, &soapy_dev_len),
@@ -463,6 +494,12 @@ done:
   return ok;
 }
 
+const suscan_source_device_t *
+suscan_source_get_null_device(void)
+{
+  return null_device;
+}
+
 /***************************** Source Config API *****************************/
 SUBOOL
 suscan_source_config_walk(
@@ -477,6 +514,36 @@ suscan_source_config_walk(
         return SU_FALSE;
 
   return SU_TRUE;
+}
+
+suscan_source_config_t *
+suscan_source_config_lookup(const char *label)
+{
+  unsigned int i;
+
+  for (i = 0; i < config_count; ++i)
+    if (config_list[i] != NULL && config_list[i]->label != NULL)
+      if (strcmp(config_list[i]->label, label) == 0)
+        return config_list[i];
+
+  return NULL;
+}
+
+/* Warning! Ensure no other references exist to this config before calling it */
+SUBOOL
+suscan_source_config_remove(suscan_source_config_t *config)
+{
+  unsigned int i;
+
+  for (i = 0; i < config_count; ++i)
+    if (config_list[i] == config) {
+      suscan_source_config_remove(config);
+      config_list[i] = NULL;
+
+      return SU_TRUE;
+    }
+
+  return SU_FALSE;
 }
 
 SUPRIVATE void
@@ -917,6 +984,10 @@ suscan_source_config_new(
   new->average = 1;
 
   SU_TRYCATCH(new->soapy_args = calloc(1, sizeof(SoapySDRKwargs)), goto fail);
+
+  SU_TRYCATCH(
+      suscan_source_config_set_device(new, suscan_source_get_null_device()),
+      goto fail);
 
   return new;
 
@@ -1661,6 +1732,14 @@ fail:
   return SU_FALSE;
 }
 
+SUBOOL
+suscan_source_config_register(suscan_source_config_t *config)
+{
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(config, config) != -1, return SU_FALSE);
+
+  return SU_TRUE;
+}
+
 SUPRIVATE SUBOOL
 suscan_load_sources(void)
 {
@@ -1689,7 +1768,7 @@ suscan_load_sources(void)
         if ((cfg = suscan_source_config_from_object(cfgobj)) == NULL) {
           SU_WARNING("Could not parse configuration #%d from config\n", i);
         } else {
-          SU_TRYCATCH(PTR_LIST_APPEND_CHECK(config, cfg) != -1, goto fail);
+          SU_TRYCATCH(suscan_source_config_register(cfg), goto fail);
           args = cfg->soapy_args;
           cfg = NULL;
         }

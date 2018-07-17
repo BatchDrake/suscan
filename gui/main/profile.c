@@ -82,9 +82,8 @@ suscan_gui_add_profile_widgets(
 }
 
 SUPRIVATE SUBOOL
-suscan_gui_append_profile(suscan_source_config_t *cfg, void *private)
+suscan_gui_append_profile(suscan_gui_t *gui, suscan_source_config_t *cfg)
 {
-  suscan_gui_t *gui = (suscan_gui_t *) private;
   suscan_gui_profile_t *profile = NULL;
 
   SU_TRYCATCH(profile = suscan_gui_profile_new(cfg), goto fail);
@@ -100,6 +99,38 @@ suscan_gui_append_profile(suscan_source_config_t *cfg, void *private)
 fail:
   if (profile != NULL)
     suscan_gui_profile_destroy(profile);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_append_on_profile(suscan_source_config_t *cfg, void *private)
+{
+  return suscan_gui_append_profile((suscan_gui_t *) private, cfg);
+}
+
+SUBOOL
+suscan_gui_create_profile(suscan_gui_t *gui, const char *name)
+{
+  suscan_source_config_t *config = NULL;
+
+  SU_TRYCATCH(
+      config = suscan_source_config_new(
+          SUSCAN_SOURCE_TYPE_SDR,
+          SUSCAN_SOURCE_FORMAT_AUTO),
+      goto fail);
+
+  SU_TRYCATCH(suscan_source_config_set_label(config, name), goto fail);
+
+  SU_TRYCATCH(suscan_source_config_register(config), goto fail);
+
+  (void) suscan_gui_append_profile(gui, config);
+
+  return SU_TRUE;
+
+fail:
+  if (config != NULL)
+    suscan_source_config_destroy(config);
 
   return SU_FALSE;
 }
@@ -171,7 +202,7 @@ suscan_gui_load_profiles(suscan_gui_t *gui)
   }
 
   SU_TRYCATCH(
-      suscan_source_config_walk(suscan_gui_append_profile, gui),
+      suscan_source_config_walk(suscan_gui_append_on_profile, gui),
       return SU_FALSE);
 
   return SU_TRUE;

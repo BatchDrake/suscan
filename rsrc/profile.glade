@@ -550,6 +550,37 @@
       </object>
     </child>
   </object>
+  <object class="GtkMenu" id="mSelector">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <child>
+      <object class="GtkMenuItem">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Rename</property>
+        <property name="use_underline">True</property>
+        <signal name="activate" handler="suscan_gui_profile_on_rename" swapped="no"/>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Duplicate</property>
+        <property name="use_underline">True</property>
+        <signal name="activate" handler="suscan_gui_profile_on_duplicate" swapped="no"/>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Remove</property>
+        <property name="use_underline">True</property>
+        <signal name="activate" handler="suscan_gui_profile_on_remove" swapped="no"/>
+      </object>
+    </child>
+  </object>
   <object class="GtkGrid" id="grSelector">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -574,6 +605,8 @@
         <property name="can_focus">True</property>
         <property name="receives_default">True</property>
         <property name="relief">none</property>
+        <property name="popup">mSelector</property>
+        <property name="use_popover">False</property>
         <child>
           <object class="GtkImage">
             <property name="visible">True</property>
