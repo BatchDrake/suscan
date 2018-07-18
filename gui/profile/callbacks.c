@@ -45,3 +45,37 @@ suscan_gui_profile_on_changed(GtkWidget *widget, gpointer data)
   }
 
 }
+
+void
+suscan_gui_profile_on_rename(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_profile_t *profile = (suscan_gui_profile_t *) data;
+
+  if (profile->listeners.on_rename)
+    (void) (profile->listeners.on_rename) (
+        profile,
+        profile->listeners.private);
+}
+
+
+void
+suscan_gui_profile_on_duplicate(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_profile_t *profile = (suscan_gui_profile_t *) data;
+
+    if (profile->listeners.on_duplicate)
+      (void) (profile->listeners.on_duplicate) (
+          profile,
+          profile->listeners.private);
+}
+
+void
+suscan_gui_profile_on_remove(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_profile_t *profile = (suscan_gui_profile_t *) data;
+
+  if (profile->listeners.on_remove)
+    (void) (profile->listeners.on_remove) (
+        profile,
+        profile->listeners.private);
+}

@@ -18,6 +18,9 @@
 
 */
 
+#include <string.h>
+#include <ctype.h>
+
 #define SU_LOG_DOMAIN "gui-profile"
 
 #include "gui.h"
@@ -506,6 +509,68 @@ suscan_gui_profile_update_gain_ui(
       GTK_WIDGET(profile->gain_ui->uiGrid));
 
   return SU_TRUE;
+}
+
+SUBOOL
+suscan_gui_profile_rename(suscan_gui_profile_t *profile, const char *name)
+{
+  SU_TRYCATCH(
+      suscan_source_config_set_label(profile->config, name),
+      return SU_FALSE);
+
+  gtk_label_set_text(profile->profileNameLabel, name);
+
+  return SU_TRUE;
+}
+
+char *
+suscan_gui_profile_helper_suggest_label(const char *label)
+{
+  char *new_label = NULL;
+  char *label_dup = NULL;
+
+  unsigned int i = 2;
+  unsigned int count = 0;
+
+  char *p;
+
+  SU_TRYCATCH(new_label = strdup(label), goto fail);
+  SU_TRYCATCH(label_dup = strdup(label), goto fail);
+
+  /* Identify enumerator */
+  p = label_dup + strlen(label_dup) - 1;
+  if (p > label_dup && *p == ')') {
+    while (--p > label_dup) {
+      if (isdigit(*p)) {
+        ++count;
+      } else {
+        if (count > 0 && *p == '(' && --p > label_dup && *p == ' ')
+          *p = '\0';
+
+        break;
+      }
+    }
+  }
+
+  while (suscan_source_config_lookup(new_label) != NULL) {
+    free(new_label);
+
+    SU_TRYCATCH(new_label = strbuild("%s (%d)", label_dup, i++), return NULL);
+  }
+
+  if (label_dup != NULL)
+    free(label_dup);
+
+  return new_label;
+
+fail:
+  if (new_label != NULL)
+    free(new_label);
+
+  if (label_dup != NULL)
+    free(label_dup);
+
+  return NULL;
 }
 
 suscan_gui_profile_t *

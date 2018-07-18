@@ -529,17 +529,15 @@ suscan_source_config_lookup(const char *label)
   return NULL;
 }
 
-/* Warning! Ensure no other references exist to this config before calling it */
+/* This is just an unregister function. Nothing is destroyed. */
 SUBOOL
-suscan_source_config_remove(suscan_source_config_t *config)
+suscan_source_config_unregister(suscan_source_config_t *config)
 {
   unsigned int i;
 
   for (i = 0; i < config_count; ++i)
     if (config_list[i] == config) {
-      suscan_source_config_remove(config);
       config_list[i] = NULL;
-
       return SU_TRUE;
     }
 
@@ -1014,6 +1012,8 @@ suscan_source_config_clone(const suscan_source_config_t *config)
         suscan_source_config_set_antenna(new, config->antenna),
         goto fail);
 
+  new->device = config->device;
+
   for (i = 0; i < config->gain_count; ++i)
     SU_TRYCATCH(
         suscan_source_config_set_gain(
@@ -1022,6 +1022,14 @@ suscan_source_config_clone(const suscan_source_config_t *config)
             config->gain_list[i]->val),
         goto fail);
 
+  /* Copy hidden gains too */
+  for (i = 0; i < config->hidden_gain_count; ++i)
+    SU_TRYCATCH(
+        suscan_source_config_set_gain(
+            new,
+            config->hidden_gain_list[i]->desc->name,
+            config->hidden_gain_list[i]->val),
+        goto fail);
 
   if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_SDR) {
     for (i = 0; i < config->soapy_args->size; ++i) {

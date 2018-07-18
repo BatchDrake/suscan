@@ -591,6 +591,7 @@
       <object class="GtkLabel" id="lProfileName">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
+        <property name="halign">start</property>
         <property name="hexpand">True</property>
         <property name="label" translatable="yes">Default source</property>
       </object>

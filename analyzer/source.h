@@ -273,7 +273,7 @@ suscan_source_config_t *suscan_source_config_clone(
 
 suscan_source_config_t *suscan_source_config_lookup(const char *label);
 
-SUBOOL suscan_source_config_remove(suscan_source_config_t *config);
+SUBOOL suscan_source_config_unregister(suscan_source_config_t *config);
 
 void suscan_source_config_destroy(suscan_source_config_t *);
 

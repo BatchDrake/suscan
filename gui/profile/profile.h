@@ -47,6 +47,22 @@ struct suscan_gui_gain_ui {
   PTR_LIST(struct suscan_gui_gain_slider, gain_slider);
 };
 
+struct suscan_gui_profile_listeners {
+  void *private;
+
+  SUBOOL (*on_rename) (struct suscan_gui_profile *profile, void *data);
+  SUBOOL (*on_duplicate) (struct suscan_gui_profile *profile, void *data);
+  SUBOOL (*on_remove) (struct suscan_gui_profile *profile, void *data);
+};
+
+#define suscan_gui_profile_listeners_INITIALIZER    \
+{                                                   \
+  NULL, /* private */                               \
+  NULL, /* on_rename */                             \
+  NULL, /* on_duplicate */                          \
+  NULL, /* on_remove */                             \
+}
+
 struct suscan_gui_profile {
   struct suscan_gui *gui;
   GtkBuilder *builder;
@@ -83,6 +99,8 @@ struct suscan_gui_profile {
 
   SUBOOL changed;
   SUBOOL in_callback;
+
+  struct suscan_gui_profile_listeners listeners;
 };
 
 typedef struct suscan_gui_profile suscan_gui_profile_t;
@@ -123,6 +141,20 @@ SUINLINE void
 suscan_gui_profile_reset_changed(suscan_gui_profile_t *profile)
 {
   profile->changed = SU_FALSE;
+}
+
+SUINLINE void
+suscan_gui_profile_set_listeners(
+    suscan_gui_profile_t *profile,
+    const struct suscan_gui_profile_listeners *listeners)
+{
+  profile->listeners = *listeners;
+}
+
+SUINLINE suscan_source_config_t *
+suscan_gui_profile_get_source_config(const suscan_gui_profile_t *profile)
+{
+  return profile->config;
 }
 
 /************************** Callbacks ****************************************/
@@ -166,6 +198,12 @@ SUBOOL suscan_gui_profile_refresh_gui(suscan_gui_profile_t *profile);
 SUBOOL suscan_gui_profile_update_gain_ui(
     suscan_gui_profile_t *profile,
     const suscan_source_device_t *device);
+
+SUBOOL suscan_gui_profile_rename(
+    suscan_gui_profile_t *profile,
+    const char *name);
+
+char *suscan_gui_profile_helper_suggest_label(const char *label);
 
 void suscan_gui_profile_destroy(suscan_gui_profile_t *profile);
 
