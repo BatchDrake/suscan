@@ -193,6 +193,15 @@ suscan_config_context_put(
   return SU_TRUE;
 }
 
+void
+suscan_config_context_flush(suscan_config_context_t *context)
+{
+  unsigned int i;
+
+  for (i = 0; i < context->list->object_count; ++i)
+    SU_TRYCATCH(suscan_object_set_delete(context->list, i), return);
+}
+
 SUBOOL
 suscan_config_context_scan(suscan_config_context_t *context)
 {
@@ -230,12 +239,12 @@ suscan_config_context_scan(suscan_config_context_t *context)
       set = suscan_object_from_xml(path, mmap_base, sbuf.st_size);
 
       if (set != NULL) {
-        for (j = 0; j < set->object_count; ++i)
-          if (set->object_list[i] != NULL) {
+        for (j = 0; j < set->object_count; ++j)
+          if (set->object_list[j] != NULL) {
             SU_TRYCATCH(
-                suscan_object_set_append(context->list, set->object_list[i]),
+                suscan_object_set_append(context->list, set->object_list[j]),
                 goto done);
-            set->object_list[i] = NULL;
+            set->object_list[j] = NULL;
           }
 
         /* All set. Just destroy this object. */
@@ -287,6 +296,9 @@ suscan_config_context_save(suscan_config_context_t *context)
 
   SUBOOL ok = SU_FALSE;
 
+  if (context->on_save != NULL)
+    SU_TRYCATCH((context->on_save)(context, context->private), goto done);
+
   SU_TRYCATCH(suscan_object_to_xml(context->list, &data, &size), goto done);
 
   for (i = 0; i < context->path_count; ++i) {
@@ -294,7 +306,7 @@ suscan_config_context_save(suscan_config_context_t *context)
         path = strbuild("%s/%s", context->path_list[i], context->save_file),
         goto done);
 
-    if ((fd = open(path, O_WRONLY)) != -1) {
+    if ((fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600)) != -1) {
       if (write(fd, data, size) != size) {
         SU_ERROR(
             "Unexpected write error while saving config context `%s'\n",
@@ -307,6 +319,7 @@ suscan_config_context_save(suscan_config_context_t *context)
     }
 
     free(path);
+    path = NULL;
   }
 
   SU_ERROR(

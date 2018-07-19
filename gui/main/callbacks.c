@@ -54,6 +54,10 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
     response = suscan_settings_dialog_run(gui);
 
     if (response == 0) {
+      /* We try first with these */
+      if (!suscan_gui_parse_all_changed_profiles(gui))
+        continue;
+
       /* We load these always */
       suscan_gui_settings_from_dialog(gui);
 
@@ -74,6 +78,8 @@ suscan_on_settings(GtkWidget *widget, gpointer data)
               gui,
               "Analyzer params",
               "Failed to send parameters to analyzer thread");
+    } else if (response == 1) {
+      suscan_gui_reset_all_profiles(gui);
     }
 
     break;
@@ -86,7 +92,7 @@ suscan_on_activate_channel_discovery_settings(GtkListBoxRow *row, gpointer data)
   suscan_gui_t *gui = (suscan_gui_t *) data;
 
   gtk_stack_set_visible_child(
-      gui->settingsSelectorStack,
+      gui->settingsViewStack,
       GTK_WIDGET(gui->channelDiscoveryFrame));
 }
 
@@ -96,7 +102,7 @@ suscan_on_activate_color_settings(GtkListBoxRow *row, gpointer data)
   suscan_gui_t *gui = (suscan_gui_t *) data;
 
   gtk_stack_set_visible_child(
-        gui->settingsSelectorStack,
+        gui->settingsViewStack,
         GTK_WIDGET(gui->colorsFrame));
 }
 
@@ -105,10 +111,7 @@ suscan_on_activate_source_settings(GtkListBoxRow *row, gpointer data)
 {
   suscan_gui_t *gui = (suscan_gui_t *) data;
 
-  /* TODO: Add more sources */
-  gtk_stack_set_visible_child(
-      gui->settingsSelectorStack,
-      GTK_WIDGET(gui->defaultSourceFrame));
+  /* TODO: */
 }
 
 void
@@ -247,4 +250,33 @@ suscan_gui_pass_row_selection(
     gpointer data)
 {
   g_signal_emit_by_name(row, "activate", 0, NULL);
+}
+
+void
+suscan_gui_on_add_profile(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  const char *name = NULL;
+
+  do {
+    name = suscan_gui_ask_for_profile_name(gui, "Add profile", "");
+
+    if (name != NULL) {
+      if (suscan_source_config_lookup(name) != NULL) {
+        suscan_error(
+            gui,
+            "Cannot add profile",
+            "Profile name `%s' is in use",
+            name);
+      } else {
+        SU_TRYCATCH(
+            suscan_gui_create_profile(gui, name),
+            suscan_error(
+                gui,
+                "Cannot create profile",
+                "Failed to create profile. See log window for defailts."));
+        break;
+      }
+    }
+  } while (name != NULL);
 }

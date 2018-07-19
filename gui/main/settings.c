@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2017 Gonzalo José Carracedo Carballal
+  Copyright (C) 2018 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -20,9 +20,145 @@
 
 #include <string.h>
 
-#define SU_LOG_DOMAIN "settings"
+#define SU_LOG_DOMAIN "gui-settings"
 
+#include <confdb.h>
+#include "modemctl.h"
 #include "gui.h"
+
+
+void
+suscan_gui_apply_settings_on_inspector(
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp)
+{
+  sugtk_spectrum_set_fg_color(insp->spectrum, gui->settings.insp_fg);
+  sugtk_spectrum_set_bg_color(insp->spectrum, gui->settings.insp_bg);
+  sugtk_spectrum_set_text_color(insp->spectrum, gui->settings.insp_text);
+  sugtk_spectrum_set_axes_color(insp->spectrum, gui->settings.insp_axes);
+
+  sugtk_constellation_set_fg_color(insp->constellation, gui->settings.insp_fg);
+  sugtk_constellation_set_bg_color(insp->constellation, gui->settings.insp_bg);
+  sugtk_constellation_set_axes_color(insp->constellation, gui->settings.insp_axes);
+
+  sugtk_waveform_set_fg_color(insp->phasePlot, gui->settings.insp_fg);
+  sugtk_waveform_set_bg_color(insp->phasePlot, gui->settings.insp_bg);
+  sugtk_waveform_set_axes_color(insp->phasePlot, gui->settings.insp_axes);
+
+  sugtk_histogram_set_fg_color(insp->histogram, gui->settings.insp_fg);
+  sugtk_histogram_set_bg_color(insp->histogram, gui->settings.insp_bg);
+  sugtk_histogram_set_axes_color(insp->histogram, gui->settings.insp_axes);
+}
+
+void
+suscan_gui_apply_settings(suscan_gui_t *gui)
+{
+  unsigned int i;
+
+  sugtk_spectrum_set_fg_color(gui->spectrum, gui->settings.pa_fg);
+  sugtk_spectrum_set_bg_color(gui->spectrum, gui->settings.pa_bg);
+  sugtk_spectrum_set_text_color(gui->spectrum, gui->settings.pa_text);
+  sugtk_spectrum_set_axes_color(gui->spectrum, gui->settings.pa_axes);
+
+  sugtk_lcd_set_fg_color(gui->freqLcd, gui->settings.lcd_fg);
+  sugtk_lcd_set_bg_color(gui->freqLcd, gui->settings.lcd_bg);
+
+  for (i = 0; i < gui->inspector_count; ++i)
+    if (gui->inspector_list[i] != NULL)
+      suscan_gui_apply_settings_on_inspector(gui, gui->inspector_list[i]);
+}
+
+void
+suscan_gui_settings_to_dialog(suscan_gui_t *gui)
+{
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paFgColorButton),
+      &gui->settings.pa_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paBgColorButton),
+      &gui->settings.pa_bg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paTextColorButton),
+      &gui->settings.pa_text);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspFgColorButton),
+      &gui->settings.insp_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspBgColorButton),
+      &gui->settings.insp_bg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspTextColorButton),
+      &gui->settings.insp_text);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdFgColorButton),
+      &gui->settings.lcd_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdBgColorButton),
+      &gui->settings.lcd_bg);
+}
+
+void
+suscan_gui_settings_from_dialog(suscan_gui_t *gui)
+{
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paFgColorButton),
+      &gui->settings.pa_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paBgColorButton),
+      &gui->settings.pa_bg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paTextColorButton),
+      &gui->settings.pa_text);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspFgColorButton),
+      &gui->settings.insp_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspBgColorButton),
+      &gui->settings.insp_bg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspAxesColorButton),
+      &gui->settings.insp_axes);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspTextColorButton),
+      &gui->settings.insp_text);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdFgColorButton),
+      &gui->settings.lcd_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdBgColorButton),
+      &gui->settings.lcd_bg);
+
+  suscan_gui_apply_settings(gui);
+}
+
+/************************* Settings storage **********************************/
 
 SUPRIVATE enum sigutils_channel_detector_window
 suscan_gui_str_to_window(const char *window)
@@ -268,3 +404,4 @@ suscan_gui_store_settings(suscan_gui_t *gui)
 
   g_settings_sync();
 }
+

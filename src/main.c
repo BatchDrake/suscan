@@ -78,11 +78,19 @@ main(int argc, char *argv[], char *envp[])
     }
   }
 
+  if (mode == SUSCAN_MODE_GTK_UI)
+    gettimeofday(&tv, NULL);
+
   if (!suscan_sigutils_init(mode)) {
     fprintf(stderr, "%s: failed to initialize sigutils library\n", argv[0]);
     goto done;
   }
 
+  /*
+   * This block has been moved to gui.c, but it will probably be used
+   * in fingerprint mode.
+   */
+#if 0
   if (!suscan_codec_class_register_builtin()) {
     fprintf(
         stderr,
@@ -110,10 +118,10 @@ main(int argc, char *argv[], char *envp[])
     fprintf(stderr, "%s: failed to initialize inspectors\n", argv[0]);
     goto done;
   }
+#endif
 
   switch (mode) {
     case SUSCAN_MODE_GTK_UI:
-      gettimeofday(&tv, NULL);
       if (suscan_gui_start(argc, argv, config_list, config_count)) {
         exit_code = EXIT_SUCCESS;
       } else {
@@ -141,6 +149,8 @@ done:
 
   for (i = 0; i < config_count; ++i)
     suscan_source_config_destroy(config_list[i]);
+
+  (void) suscan_confdb_save_all();
 
 #ifdef DEBUG_WITH_MTRACE
   muntrace();

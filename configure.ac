@@ -62,7 +62,7 @@ PKG_CHECK_MODULES(sndfile, sndfile >= 1.0.2, , [AC_MSG_ERROR([Couldn't find libs
 AC_SUBST(sndfile_CFLAGS)
 AC_SUBST(sndfile_LIBS)
 
-PKG_CHECK_MODULES(soapysdr, [ SoapySDR >= 0.7.0 ], , [AC_MSG_ERROR([Couldn't find SoapySDR libraries])])
+PKG_CHECK_MODULES(soapysdr, [ SoapySDR >= 0.5.0 ], , [AC_MSG_ERROR([Couldn't find SoapySDR libraries])])
 AC_SUBST(soapysdr_CFLAGS)
 AC_SUBST(soapysdr_LIBS)
 

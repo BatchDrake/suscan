@@ -608,101 +608,10 @@ done:
   return NULL;
 }
 
-/************************** GUI Thread functions *****************************/
 SUBOOL
-suscan_gui_connect(suscan_gui_t *gui)
+suscan_gui_start_async_thread(suscan_gui_t *gui)
 {
-  unsigned int i;
+  gui->async_thread = g_thread_new("async-task", suscan_gui_async_thread, gui);
 
-  assert(gui->state == SUSCAN_GUI_STATE_STOPPED
-      || gui->state == SUSCAN_GUI_STATE_RESTARTING);
-  assert(gui->analyzer == NULL);
-  assert(gui->analyzer_source_config != NULL);
-
-  for (i = 0; i < gui->inspector_count; ++i)
-    if (gui->inspector_list[i] != NULL)
-      break;
-
-  if (i < gui->inspector_count)
-    suscan_warning(
-        gui,
-        "Existing inspectors",
-        "The opened inspector tabs will remain in idle state");
-
-  sugtk_spectrum_reset(gui->spectrum);
-
-  if ((gui->analyzer = suscan_analyzer_new(
-      &gui->analyzer_params,
-      gui->analyzer_source_config,
-      &gui->mq_out)) == NULL)
-    return SU_FALSE;
-
-  /* Analyzer created, create async thread */
-  SU_TRYCATCH(
-      gui->async_thread = g_thread_new(
-          "async-task",
-          suscan_gui_async_thread,
-          gui),
-      goto fail);
-
-  /* Change state and succeed */
-  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RUNNING);
-
-  return SU_TRUE;
-
-fail:
-  if (gui->analyzer != NULL) {
-    suscan_analyzer_destroy(gui->analyzer);
-    gui->analyzer = NULL;
-
-    suscan_analyzer_consume_mq(&gui->mq_out);
-  }
-
-  return SU_FALSE;
+  return gui->async_thread != NULL;
 }
-
-void
-suscan_gui_reconnect(suscan_gui_t *gui)
-{
-  assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
-  assert(gui->analyzer != NULL);
-
-  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RESTARTING);
-  suscan_analyzer_req_halt(gui->analyzer);
-}
-
-void
-suscan_gui_disconnect(suscan_gui_t *gui)
-{
-  assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
-  assert(gui->analyzer != NULL);
-
-  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPING);
-  suscan_analyzer_req_halt(gui->analyzer);
-}
-
-void
-suscan_gui_quit(suscan_gui_t *gui)
-{
-  switch (gui->state) {
-    case SUSCAN_GUI_STATE_RUNNING:
-      suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
-      suscan_analyzer_req_halt(gui->analyzer);
-      break;
-
-    case SUSCAN_GUI_STATE_RESTARTING:
-      suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
-      break;
-
-    case SUSCAN_GUI_STATE_STOPPED:
-      /* GUI already stopped, proceed to stop safely */
-      suscan_gui_store_settings(gui);
-      suscan_gui_destroy(gui);
-      gtk_main_quit();
-      break;
-  }
-
-  /* Ignore other states */
-}
-
-
