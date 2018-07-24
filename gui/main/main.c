@@ -32,6 +32,8 @@ suscan_gui_destroy(suscan_gui_t *gui)
 {
   unsigned int i;
 
+  suscan_gui_clear_profile_menu(gui);
+
   for (i = 0; i < gui->action_count; ++i)
     if (gui->action_list[i] != NULL)
       free(gui->action_list[i]);

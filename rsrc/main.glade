@@ -2321,29 +2321,6 @@
     <property name="can_focus">False</property>
     <property name="menu_type_hint">menu</property>
     <child>
-      <object class="GtkMenuItem">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Recent configurations</property>
-        <property name="use_underline">True</property>
-        <child type="submenu">
-          <object class="GtkMenu" id="mRecents">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <child>
-              <object class="GtkMenuItem" id="miEmpty">
-                <property name="visible">True</property>
-                <property name="sensitive">False</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">(empty)</property>
-                <property name="use_underline">True</property>
-              </object>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
       <object class="GtkSeparatorMenuItem">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
@@ -2359,27 +2336,29 @@
       </object>
     </child>
   </object>
+  <object class="GtkMenu" id="mProfiles">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+  </object>
   <object class="GtkHeaderBar" id="HeaderBar">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="show_close_button">True</property>
     <property name="decoration_layout">:minimize,maximize,close</property>
     <child>
-      <object class="GtkButton">
+      <object class="GtkMenuButton">
         <property name="visible">True</property>
         <property name="can_focus">True</property>
         <property name="receives_default">True</property>
+        <property name="popup">mProfiles</property>
         <child>
           <object class="GtkImage">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="icon_name">audio-card-symbolic.symbolic</property>
+            <property name="icon_name">network-wireless-symbolic</property>
           </object>
         </child>
       </object>
-      <packing>
-        <property name="position">1</property>
-      </packing>
     </child>
     <child>
       <object class="GtkButton" id="bToggleConnect">

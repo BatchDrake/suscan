@@ -26,6 +26,102 @@
 #include "modemctl.h"
 #include "gui.h"
 
+/**************************** Profile selection ******************************/
+SUBOOL
+suscan_gui_select_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile)
+{
+  const suscan_source_config_t *config = NULL;
+
+  /* profile can be NULL */
+  gui->active_profile = profile;
+
+  if (profile == NULL) {
+    SU_INFO("No profile selected\n");
+  } else {
+    config = suscan_gui_profile_get_source_config(profile);
+    SU_INFO("Profile selected: %s\n", suscan_source_config_get_label(config));
+  }
+
+  return SU_FALSE;
+}
+
+/************************** Profile selection menu ***************************/
+void
+suscan_gui_clear_profile_menu(suscan_gui_t *gui)
+{
+  unsigned int i;
+
+  for (i = 0; i < gui->profileRadioButton_count; ++i)
+    if (gui->profileRadioButton_list[i] != NULL)
+      gtk_widget_destroy(GTK_WIDGET(gui->profileRadioButton_list[i]));
+
+  if (gui->profileRadioButton_list != NULL)
+    free(gui->profileRadioButton_list);
+
+  gui->profileRadioButton_list = NULL;
+  gui->profileRadioButton_count = 0;
+}
+
+SUPRIVATE void
+suscan_gui_on_set_active_profile(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_profile_t *profile = (suscan_gui_profile_t *) data;
+  suscan_gui_t *gui = suscan_gui_profile_get_gui(profile);
+
+  if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(widget)))
+    (void) suscan_gui_select_profile(gui, profile);
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_update_profile_menu(suscan_gui_t *gui)
+{
+  unsigned int i;
+  GtkRadioMenuItem *item = NULL;
+  const suscan_source_config_t *config;
+  GSList *group = NULL;
+  suscan_gui_clear_profile_menu(gui);
+
+  for (i = 0; i < gui->profile_count; ++i) {
+    if (gui->profile_list[i] != NULL) {
+      config = suscan_gui_profile_get_source_config(gui->profile_list[i]);
+      item = GTK_RADIO_MENU_ITEM(gtk_radio_menu_item_new_with_label(
+          group,
+          suscan_source_config_get_label(config)));
+      group = gtk_radio_menu_item_get_group(item);
+
+      SU_TRYCATCH(
+          PTR_LIST_APPEND_CHECK(gui->profileRadioButton, item) != -1,
+          goto fail);
+
+      gtk_menu_shell_append(
+          GTK_MENU_SHELL(gui->profilesMenu),
+          GTK_WIDGET(item));
+
+      gtk_check_menu_item_set_active(
+          GTK_CHECK_MENU_ITEM(item),
+          gui->active_profile == gui->profile_list[i]);
+
+      gtk_widget_show(GTK_WIDGET(item));
+
+      g_signal_connect(
+          item,
+          "toggled",
+          G_CALLBACK(suscan_gui_on_set_active_profile),
+          gui->profile_list[i]);
+
+      item = NULL;
+    }
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (item != NULL)
+    gtk_widget_destroy(GTK_WIDGET(item));
+
+  return SU_FALSE;
+}
+
 /**************************** Append profile GUIs  ***************************/
 SUPRIVATE SUBOOL suscan_gui_append_profile(
     suscan_gui_t *gui,
@@ -70,6 +166,8 @@ suscan_gui_on_rename_profile(suscan_gui_profile_t *profile, void *private)
     }
 
     SU_TRYCATCH(suscan_gui_profile_rename(profile, new_name), return SU_FALSE);
+    SU_TRYCATCH(suscan_gui_update_profile_menu(gui), return SU_FALSE);
+
     break;
   }
 
@@ -196,13 +294,16 @@ suscan_gui_remove_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile)
 {
   unsigned int i;
 
+  /* Current profile was destroyed, set active profile to NULL */
+  if (gui->active_profile == profile)
+    suscan_gui_select_profile(gui, NULL);
+
   for (i = 0; i < gui->profile_count; ++i)
     if (gui->profile_list[i] == profile) {
       gui->profile_list[i] = NULL;
+      SU_TRYCATCH(suscan_gui_update_profile_menu(gui), return SU_FALSE);
       return SU_TRUE;
     }
-
-  /* TODO: remove from source selector, when implemented */
 
   return SU_FALSE;
 }
@@ -229,7 +330,9 @@ suscan_gui_append_profile(suscan_gui_t *gui, suscan_source_config_t *cfg)
 
   suscan_gui_profile_set_listeners(profile, &listeners);
 
-  /* TODO: Add to source selector, when implemented */
+  profile = NULL;
+
+  SU_TRYCATCH(suscan_gui_update_profile_menu(gui), goto fail);
 
   return SU_TRUE;
 
@@ -273,7 +376,7 @@ fail:
 }
 
 void
-suscan_gui_select_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile)
+suscan_gui_show_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile)
 {
   GtkWidget *parent;
 
@@ -312,7 +415,7 @@ suscan_gui_parse_all_changed_profiles(suscan_gui_t *gui)
               "Profile configuration has errors. Please review it and "
               "save it again, or discard changes.");
 
-          suscan_gui_select_profile(gui, gui->profile_list[i]);
+          suscan_gui_show_profile(gui, gui->profile_list[i]);
 
           return SU_FALSE;
         } else {

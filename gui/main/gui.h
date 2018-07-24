@@ -103,7 +103,6 @@ struct suscan_gui {
   GtkComboBox *sourceCombo;
   GtkHeaderBar *headerBar;
   GtkMenuBar *menuBar;
-  GtkMenuItem *emptyMenuItem;
   GtkBox *freqBox;
   SuGtkLcd *freqLcd;
   GtkSpinButton *throttleSampRateSpinButton;
@@ -185,6 +184,10 @@ struct suscan_gui {
   GtkDialog *profileNameDialog;
   GtkEntry *profileNameEntry;
 
+  /* Profile menu */
+  GtkMenu *profilesMenu;
+  PTR_LIST(GtkRadioMenuItem, profileRadioButton);
+
   /* GUI state */
   enum suscan_gui_state state;
 
@@ -209,12 +212,15 @@ struct suscan_gui {
 
   /* Source configuration profiles */
   PTR_LIST(suscan_gui_profile_t, profile);
+  suscan_gui_profile_t *active_profile;
 
   /* Flag to prevent nested callback calling */
   SUBOOL updating_settings;
 };
 
 typedef struct suscan_gui suscan_gui_t;
+
+void suscan_gui_clear_profile_menu(suscan_gui_t *gui);
 
 void suscan_gui_destroy(suscan_gui_t *gui);
 
@@ -223,6 +229,8 @@ void suscan_gui_apply_settings_on_inspector(
     suscan_gui_inspector_t *insp);
 
 suscan_gui_t *suscan_gui_new(void);
+
+SUBOOL suscan_graphical_init(int argc, char **argv);
 
 SUBOOL suscan_gui_start(
     int argc,
@@ -343,7 +351,13 @@ suscan_gui_symtool_t *suscan_gui_get_symtool(
 /* Source API */
 SUBOOL suscan_gui_load_profiles(suscan_gui_t *gui);
 
-void suscan_gui_select_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile);
+void suscan_gui_show_profile(
+    suscan_gui_t *gui,
+    suscan_gui_profile_t *profile);
+
+SUBOOL suscan_gui_select_profile(
+    suscan_gui_t *gui,
+    suscan_gui_profile_t *profile);
 
 SUBOOL suscan_gui_create_profile(suscan_gui_t *gui, const char *name);
 

@@ -270,13 +270,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->emptyMenuItem =
-          GTK_MENU_ITEM(gtk_builder_get_object(
-              gui->builder,
-              "miEmpty")),
-          return SU_FALSE);
-
-  SU_TRYCATCH(
       gui->overlayChannelToggleButton =
           GTK_TOGGLE_BUTTON(gtk_builder_get_object(
               gui->builder,
@@ -556,6 +549,13 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           GTK_ENTRY(gtk_builder_get_object(
               gui->builder,
               "eProfileName")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->profilesMenu =
+          GTK_MENU(gtk_builder_get_object(
+              gui->builder,
+              "mProfiles")),
           return SU_FALSE);
 
   suscan_setup_column_formats(gui);
