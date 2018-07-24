@@ -32,6 +32,7 @@ libgui_la_SOURCES = \
   custom/waveform.c \
   custom/waveform.h \
   gui.c \
+  init.c \
   inspector/estimatorui.c \
   inspector/estimatorui.h \
   inspector/inspector.c \
