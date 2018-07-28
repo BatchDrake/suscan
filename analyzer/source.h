@@ -297,6 +297,9 @@ struct suscan_source {
   SoapySDRDevice *sdr;
   SoapySDRStream *rx_stream;
   size_t chan_array[1];
+
+  /* To prevent source from looping forever */
+  SUBOOL force_eos;
 };
 
 typedef struct suscan_source suscan_source_t;
@@ -310,6 +313,12 @@ SUSDIFF suscan_source_read(
     suscan_source_t *source,
     SUCOMPLEX *buffer,
     SUSCOUNT max);
+
+SUINLINE void
+suscan_source_force_eos(suscan_source_t *src)
+{
+  src->force_eos = SU_TRUE;
+}
 
 SUINLINE const suscan_source_config_t *
 suscan_source_get_config(const suscan_source_t *src)

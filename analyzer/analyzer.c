@@ -754,6 +754,10 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 
   void *private;
 
+  /* Prevent source from entering in timeout loops */
+  if (analyzer->source != NULL)
+    suscan_source_force_eos(analyzer->source);
+
   if (analyzer->running) {
     if (!analyzer->halt_requested) {
       suscan_analyzer_req_halt(analyzer);

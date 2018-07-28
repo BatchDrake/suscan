@@ -1533,6 +1533,9 @@ suscan_source_read_file(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
   int got;
   unsigned int real_count, i;
 
+  if (source->force_eos)
+    return 0;
+
   if (max > SUSCAN_SOURCE_DEFAULT_BUFSIZ)
     max = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
 
@@ -1568,15 +1571,35 @@ SUPRIVATE SUSDIFF
 suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
 {
   int result;
+  int flags;
+  long long timeNs;
+  SUBOOL retry;
 
-  result = SoapySDRDevice_readStream(
-      source->sdr,
-      source->rx_stream,
-      (void * const*) &buf,
-      max,
-      NULL,
-      NULL,
-      0); /* TODO: set timeOut */
+  do {
+    retry = SU_FALSE;
+    if (source->force_eos)
+      result = 0;
+    else
+      result = SoapySDRDevice_readStream(
+          source->sdr,
+          source->rx_stream,
+          (void * const*) &buf,
+          max,
+          &flags,
+          &timeNs,
+          0); /* TODO: set timeOut */
+
+    if (result == SOAPY_SDR_TIMEOUT) {
+      SU_ERROR("Read timeout!");
+      retry = SU_TRUE;
+    } else if (result == SOAPY_SDR_OVERFLOW) {
+      SU_ERROR("Overflow!");
+      retry = SU_TRUE;
+    } else if (result == SOAPY_SDR_OVERFLOW) {
+      SU_ERROR("Underflow!");
+      retry = SU_TRUE;
+    }
+  } while (retry);
 
   if (result < 0) {
     SU_ERROR(

@@ -95,13 +95,15 @@ suscan_object_set_class(suscan_object_t *object, const char *class)
 {
   char *classdup = NULL;
 
-  if (class != NULL)
-    SU_TRYCATCH(classdup = strdup(class), return SU_FALSE);
+  if (object->class != class) {
+    if (class != NULL)
+      SU_TRYCATCH(classdup = strdup(class), return SU_FALSE);
 
-  if (object->class != NULL)
-    free(object->class);
+    if (object->class != NULL)
+      free(object->class);
 
-  object->class = classdup;
+    object->class = classdup;
+  }
 
   return SU_TRUE;
 }
@@ -117,13 +119,15 @@ suscan_object_set_name(suscan_object_t *object, const char *name)
 {
   char *namedup = NULL;
 
-  if (name != NULL)
-    SU_TRYCATCH(namedup = strdup(name), return SU_FALSE);
+  if (object->name != name) {
+    if (name != NULL)
+      SU_TRYCATCH(namedup = strdup(name), return SU_FALSE);
 
-  if (object->name != NULL)
-    free(object->name);
+    if (object->name != NULL)
+      free(object->name);
 
-  object->name = namedup;
+    object->name = namedup;
+  }
 
   return SU_TRUE;
 }
@@ -166,8 +170,10 @@ suscan_object_set_field(
   entry = suscan_object_lookup(object, name);
 
   if (entry != NULL) {
-    suscan_object_destroy(*entry);
-    *entry = new;
+    if (*entry != new) {
+      suscan_object_destroy(*entry);
+      *entry = new;
+    }
   } else if (new != NULL) {
     SU_TRYCATCH(
         PTR_LIST_APPEND_CHECK(object->field, new) != -1,
@@ -209,13 +215,15 @@ suscan_object_set_value(
 
   SU_TRYCATCH(object->type == SUSCAN_OBJECT_TYPE_FIELD, return SU_FALSE);
 
-  if (value != NULL)
-    SU_TRYCATCH(valuedup = strdup(value), return SU_FALSE);
+  if (value != object->value) {
+    if (value != NULL)
+      SU_TRYCATCH(valuedup = strdup(value), return SU_FALSE);
 
-  if (object->value != NULL)
-    free(object->value);
+    if (object->value != NULL)
+      free(object->value);
 
-  object->value = valuedup;
+    object->value = valuedup;
+  }
 
   return SU_TRUE;
 }
@@ -463,7 +471,7 @@ suscan_object_set_put(
   SU_TRYCATCH(object->type == SUSCAN_OBJECT_TYPE_SET, return SU_FALSE);
   SU_TRYCATCH(index < object->object_count, return SU_FALSE);
 
-  if (object->object_list[index] != NULL)
+  if (object->object_list[index] != NULL && new != object->object_list[index])
     suscan_object_destroy(object->object_list[index]);
 
   object->object_list[index] = new;
