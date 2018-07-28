@@ -192,7 +192,6 @@ struct suscan_gui {
   enum suscan_gui_state state;
 
   /* Analyzer integration */
-  suscan_source_config_t *analyzer_source_config;
   struct suscan_analyzer_params analyzer_params;
   suscan_analyzer_t *analyzer;
   struct suscan_mq mq_out;

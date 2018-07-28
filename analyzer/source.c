@@ -1049,6 +1049,7 @@ suscan_source_config_clone(const suscan_source_config_t *config)
   new->samp_rate = config->samp_rate;
   new->average = config->average;
   new->channel = config->channel;
+  new->loop = config->loop;
 
   return new;
 
@@ -1525,7 +1526,7 @@ suscan_source_open_sdr(suscan_source_t *source)
   return SU_TRUE;
 }
 
-SUPRIVATE SUSCOUNT
+SUPRIVATE SUSDIFF
 suscan_source_read_file(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
 {
   SUFLOAT *as_real;
@@ -1563,7 +1564,7 @@ suscan_source_read_file(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
   return got;
 }
 
-SUPRIVATE SUSCOUNT
+SUPRIVATE SUSDIFF
 suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
 {
   int result;
@@ -1579,9 +1580,10 @@ suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
 
   if (result < 0) {
     SU_ERROR(
-        "Failed to read samples from stream: %s\n",
-        SoapySDRDevice_lastError());
-    return SU_FALSE;
+        "Failed to read samples from stream: %s (result %d)\n",
+        SoapySDR_errToStr(result),
+        result);
+    return SU_BLOCK_PORT_READ_ERROR_ACQUIRE;
   }
 
   return result;
@@ -1649,13 +1651,29 @@ suscan_source_stop_capture(suscan_source_t *source)
   return SU_TRUE;
 }
 
+SUPRIVATE SUBOOL
+suscan_source_config_check(const suscan_source_config_t *config)
+{
+  if (config->average < 1) {
+    SU_ERROR("Invalid averaging value. Should be at least 1 for no averaging\n");
+    return SU_FALSE;
+  }
+
+  if (config->samp_rate < 1) {
+    SU_ERROR("Sample rate cannot be zero!\n");
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
 suscan_source_t *
 suscan_source_new(suscan_source_config_t *config)
 {
   suscan_source_t *new = NULL;
 
+  SU_TRYCATCH(suscan_source_config_check(config), goto fail);
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_source_t)), goto fail);
-
   SU_TRYCATCH(new->config = suscan_source_config_clone(config), goto fail);
 
   switch (new->config->type) {

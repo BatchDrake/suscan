@@ -79,11 +79,14 @@ suscan_gui_change_button_icon(GtkButton *button, const char *icon)
 void
 suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
 {
+  const suscan_source_config_t *config = NULL;
   const char *source_name = "No source selected";
-  char *subtitle = NULL;
+  const char *subtitle = NULL;
 
-  if (gui->analyzer_source_config != NULL)
-    source_name = suscan_source_config_get_label(gui->analyzer_source_config);
+  if (gui->active_profile != NULL) {
+    config = suscan_gui_profile_get_source_config(gui->active_profile);
+    source_name = suscan_source_config_get_label(config);
+  }
 
   switch (state) {
     case SUSCAN_GUI_STATE_STOPPED:
@@ -159,6 +162,7 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
   gui->state = state;
 
   gtk_label_set_text(gui->subTitleLabel, subtitle);
+  gtk_label_set_text(gui->titleLabel, source_name);
 }
 
 /************************** Async callbacks **********************************/
@@ -208,6 +212,19 @@ suscan_async_stopped_cb(gpointer user_data)
   }
 
   return G_SOURCE_REMOVE;
+}
+
+SUPRIVATE gboolean
+suscan_async_read_error_cb(gpointer user_data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) user_data;
+
+  suscan_error(
+      gui,
+      "Read error",
+      "Capture stopped due to source read error (see log)");
+
+  return suscan_async_stopped_cb(user_data);
 }
 
 SUPRIVATE gboolean
@@ -521,6 +538,10 @@ done:
   return G_SOURCE_REMOVE;
 }
 
+/*
+ * Async thread: read messages from analyzer object and inject them to the
+ * GUI's main loop
+ */
 SUPRIVATE gpointer
 suscan_gui_async_thread(gpointer data)
 {
@@ -588,6 +609,10 @@ suscan_gui_async_thread(gpointer data)
 
           g_idle_add(suscan_async_parse_sample_batch_msg, envelope);
           break;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR: /* Read error */
+          g_idle_add(suscan_async_read_error_cb, gui);
+          goto done;
 
         case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS: /* End of stream */
           g_idle_add(suscan_async_stopped_cb, gui);

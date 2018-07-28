@@ -249,7 +249,7 @@ suscan_source_wk_cb(
       case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
         suscan_analyzer_send_status(
             analyzer,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR,
             got,
             "Acquire failed (source I/O error)");
         break;

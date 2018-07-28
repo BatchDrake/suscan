@@ -283,7 +283,7 @@ struct suscan_source {
   SUBOOL capturing;
   SUBOOL soft_dc_correction;
   SUBOOL soft_iq_balance;
-  SUSCOUNT (*read) (
+  SUSDIFF (*read) (
         struct suscan_source *source,
         SUCOMPLEX *buffer,
         SUSCOUNT max);

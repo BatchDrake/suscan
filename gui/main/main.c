@@ -100,11 +100,11 @@ SUBOOL
 suscan_gui_connect(suscan_gui_t *gui)
 {
   unsigned int i;
-
+  suscan_source_config_t *config = NULL;
   assert(gui->state == SUSCAN_GUI_STATE_STOPPED
       || gui->state == SUSCAN_GUI_STATE_RESTARTING);
   assert(gui->analyzer == NULL);
-  assert(gui->analyzer_source_config != NULL);
+  assert(gui->active_profile != NULL);
 
   for (i = 0; i < gui->inspector_count; ++i)
     if (gui->inspector_list[i] != NULL)
@@ -118,17 +118,19 @@ suscan_gui_connect(suscan_gui_t *gui)
 
   sugtk_spectrum_reset(gui->spectrum);
 
+  config = suscan_gui_profile_get_source_config(gui->active_profile);
+
   if ((gui->analyzer = suscan_analyzer_new(
       &gui->analyzer_params,
-      gui->analyzer_source_config,
+      config,
       &gui->mq_out)) == NULL)
     return SU_FALSE;
 
+  /* Change state. This counts as running because analyzer exists */
+  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RUNNING);
+
   /* Analyzer created, create async thread */
   SU_TRYCATCH(suscan_gui_start_async_thread(gui), goto fail);
-
-  /* Change state and succeed */
-  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RUNNING);
 
   return SU_TRUE;
 
@@ -139,6 +141,9 @@ fail:
 
     suscan_analyzer_consume_mq(&gui->mq_out);
   }
+
+  /* Something went wrong. Put GUI in stopped state. */
+  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
 
   return SU_FALSE;
 }

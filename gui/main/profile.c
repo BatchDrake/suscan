@@ -42,6 +42,8 @@ suscan_gui_select_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile)
     SU_INFO("Profile selected: %s\n", suscan_source_config_get_label(config));
   }
 
+  suscan_gui_update_state(gui, gui->state);
+
   return SU_FALSE;
 }
 
