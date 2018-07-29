@@ -663,14 +663,14 @@ suscan_source_config_get_label(const suscan_source_config_t *config)
     return "Unlabeled source";
 }
 
-SUFLOAT
+SUFREQ
 suscan_source_config_get_freq(const suscan_source_config_t *config)
 {
   return config->freq;
 }
 
 void
-suscan_source_config_set_freq(suscan_source_config_t *config, SUFLOAT freq)
+suscan_source_config_set_freq(suscan_source_config_t *config, SUFREQ freq)
 {
   config->freq = freq;
 }
@@ -1589,14 +1589,10 @@ suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
           &timeNs,
           0); /* TODO: set timeOut */
 
-    if (result == SOAPY_SDR_TIMEOUT) {
-      SU_ERROR("Read timeout!");
-      retry = SU_TRUE;
-    } else if (result == SOAPY_SDR_OVERFLOW) {
-      SU_ERROR("Overflow!");
-      retry = SU_TRUE;
-    } else if (result == SOAPY_SDR_OVERFLOW) {
-      SU_ERROR("Underflow!");
+    if (result == SOAPY_SDR_TIMEOUT
+        || result == SOAPY_SDR_OVERFLOW
+        || result == SOAPY_SDR_UNDERFLOW) {
+      /* We should use this statuses as quality indicators */
       retry = SU_TRUE;
     }
   } while (retry);
@@ -1670,6 +1666,34 @@ suscan_source_stop_capture(suscan_source_t *source)
   }
 
   source->capturing = SU_FALSE;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_set_freq(suscan_source_t *source, SUFREQ freq)
+{
+  if (!source->capturing)
+    return SU_FALSE;
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
+    return SU_FALSE;
+
+  /* Update config */
+  suscan_source_config_set_freq(source->config, freq);
+
+  /* Set device frequency */
+  if (SoapySDRDevice_setFrequency(
+      source->sdr,
+      SOAPY_SDR_RX,
+      source->config->channel,
+      source->config->freq,
+      NULL) != 0) {
+    SU_ERROR(
+        "Failed to set SDR frequency: %s\n",
+        SoapySDRDevice_lastError());
+    return SU_FALSE;
+  }
 
   return SU_TRUE;
 }

@@ -120,11 +120,14 @@ suscan_gui_connect(suscan_gui_t *gui)
 
   config = suscan_gui_profile_get_source_config(gui->active_profile);
 
+  sugtk_lcd_set_value(gui->freqLcd, suscan_source_config_get_freq(config));
+
   if ((gui->analyzer = suscan_analyzer_new(
       &gui->analyzer_params,
       config,
       &gui->mq_out)) == NULL)
     return SU_FALSE;
+
 
   /* Change state. This counts as running because analyzer exists */
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RUNNING);
@@ -192,6 +195,17 @@ suscan_gui_quit(suscan_gui_t *gui)
   /* Ignore other states */
 }
 
+SUPRIVATE gboolean
+suscan_gui_on_set_frequency(SuGtkLcd *lcd, gulong value, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  if (gui->state == SUSCAN_GUI_STATE_RUNNING)
+    return suscan_analyzer_set_freq(gui->analyzer, value);
+
+  return SU_FALSE;
+}
+
 suscan_gui_t *
 suscan_gui_new(void)
 {
@@ -228,6 +242,8 @@ suscan_gui_new(void)
   suscan_gui_load_settings(gui);
 
   SU_TRYCATCH(suscan_gui_load_all_widgets(gui), goto fail);
+
+  sugtk_lcd_set_value_cb(gui->freqLcd, suscan_gui_on_set_frequency, gui);
 
   suscan_gui_apply_settings(gui);
 

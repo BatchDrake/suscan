@@ -171,10 +171,10 @@ void suscan_source_config_set_type_format(
     enum suscan_source_type type,
     enum suscan_source_format format);
 
-SUFLOAT suscan_source_config_get_freq(const suscan_source_config_t *config);
+SUFREQ suscan_source_config_get_freq(const suscan_source_config_t *config);
 void suscan_source_config_set_freq(
     suscan_source_config_t *config,
-    SUFLOAT freq);
+    SUFREQ freq);
 
 SUFLOAT suscan_source_config_get_bandwidth(
     const suscan_source_config_t *config);
@@ -306,6 +306,8 @@ typedef struct suscan_source suscan_source_t;
 
 SUBOOL suscan_source_stop_capture(suscan_source_t *source);
 SUBOOL suscan_source_start_capture(suscan_source_t *source);
+
+SUBOOL suscan_source_set_freq(suscan_source_t *source, SUFREQ freq);
 
 suscan_source_t *suscan_source_new(suscan_source_config_t *config);
 

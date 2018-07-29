@@ -164,6 +164,14 @@ suscan_source_wk_cb(
   /* Ready to read */
   suscan_analyzer_read_start(analyzer);
 
+  if (analyzer->freq_req) {
+    if (suscan_source_set_freq(analyzer->source, analyzer->freq_req_value)) {
+      /* XXX: Use a proper frequency adjust method */
+      analyzer->detector->params.fc = analyzer->freq_req_value;
+    }
+    analyzer->freq_req = SU_FALSE;
+  }
+
 #ifdef SUSCAN_DEBUG_THROTTLE
   if (!dbg_rate_set) {
     dbg_rate_set = SU_TRUE;
@@ -844,6 +852,15 @@ suscan_analyzer_source_init(
 
 fail:
   return SU_FALSE;
+}
+
+SUBOOL
+suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq)
+{
+  analyzer->freq_req_value = freq;
+  analyzer->freq_req = SU_TRUE;
+
+  return SU_TRUE;
 }
 
 suscan_analyzer_t *

@@ -66,6 +66,10 @@ struct suscan_analyzer {
   SUFLOAT  interval_psd;
   SUSCOUNT per_cnt_psd;
 
+  /* Frequency request */
+  SUBOOL freq_req;
+  SUFREQ freq_req_value;
+
   /* Usage statistics (CPU, etc) */
   SUFLOAT cpu_usage;
   struct timespec read_start;
@@ -104,6 +108,8 @@ suscan_analyzer_get_samp_rate(const suscan_analyzer_t *analyzer)
 {
   return analyzer->source->config->samp_rate;
 }
+
+SUBOOL suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq);
 
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
 struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg(
@@ -156,6 +162,11 @@ SUBOOL suscan_analyzer_set_params_async(
 SUBOOL suscan_analyzer_set_throttle_async(
     suscan_analyzer_t *analyzer,
     SUSCOUNT samp_rate,
+    uint32_t req_id);
+
+SUBOOL suscan_analyzer_set_freq_async(
+    suscan_analyzer_t *analyzer,
+    SUFREQ freq,
     uint32_t req_id);
 
 SUBOOL suscan_analyzer_open_async(

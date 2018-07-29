@@ -103,6 +103,11 @@ void sugtk_lcd_set_bg_color(SuGtkLcd *lcd, GdkRGBA color);
 
 void sugtk_lcd_set_value(SuGtkLcd *lcd, gulong value);
 
+void sugtk_lcd_set_value_cb(
+  SuGtkLcd *lcd,
+  gboolean (*on_set_value) (SuGtkLcd *lcd, gulong value, gpointer data),
+  gpointer data);
+
 G_END_DECLS
 
 #endif /* _GUI_LCD_H */
