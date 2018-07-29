@@ -79,6 +79,13 @@ struct _SuGtkLcd
   gint timer;
   gint digit;
   gboolean state;
+
+  /* On change */
+  gboolean (*on_set_value) (
+      struct _SuGtkLcd *lcd,
+      gulong value,
+      gpointer data);
+  gpointer data;
 };
 
 struct _SuGtkLcdClass

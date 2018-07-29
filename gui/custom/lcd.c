@@ -430,6 +430,7 @@ sugtk_lcd_scroll_current(SuGtkLcd *lcd, gboolean backwards)
 {
   guint digit;
   glong delta;
+  gulong value;
 
   digit = lcd->digit;
 
@@ -439,8 +440,12 @@ sugtk_lcd_scroll_current(SuGtkLcd *lcd, gboolean backwards)
       delta *= -1;
 
     if ((delta < 0 && lcd->value >= -delta)
-        || (delta > 0 && (lcd->value + delta) > lcd->value))
-    sugtk_lcd_set_value(lcd, lcd->value + delta);
+        || (delta > 0 && (lcd->value + delta) > lcd->value)) {
+      value = lcd->value + delta;
+
+      if (lcd->on_set_value && lcd->on_set_value(lcd, value, lcd->data))
+        sugtk_lcd_set_value(lcd, lcd->value + delta);
+    }
   }
 }
 
@@ -456,7 +461,7 @@ static gboolean
 sugtk_lcd_on_key_press(SuGtkLcd *lcd, GdkEventKey *event, gpointer data)
 {
   gulong u_part, l_part, power;
-
+  gulong value;
   switch (event->keyval) {
     case '0':
     case '1':
@@ -473,14 +478,15 @@ sugtk_lcd_on_key_press(SuGtkLcd *lcd, GdkEventKey *event, gpointer data)
         u_part = lcd->value / (power * 10);
         l_part = power >= 10 ? lcd->value % (power / 10) : 0;
 
-        sugtk_lcd_set_value(
-            lcd,
-            u_part * power * 10
+        value = u_part * power * 10
             + (event->keyval - '0') * power
-            + l_part);
+            + l_part;
 
-        if (lcd->digit > 0)
-          sugtk_lcd_set_digit(lcd, lcd->digit - 1);
+        if (lcd->on_set_value && lcd->on_set_value(lcd, value, lcd->data)) {
+            sugtk_lcd_set_value(lcd, value);
+          if (lcd->digit > 0)
+            sugtk_lcd_set_digit(lcd, lcd->digit - 1);
+        }
       }
       break;
 
@@ -516,6 +522,16 @@ static void
 sugtk_lcd_on_blur(SuGtkLcd *lcd, gpointer data)
 {
   /* Change something? */
+}
+
+void
+sugtk_lcd_set_value_cb(
+  SuGtkLcd *lcd,
+  gboolean (*on_set_value) (SuGtkLcd *lcd, gulong value, gpointer data),
+  gpointer data)
+{
+  lcd->data = data;
+  lcd->on_set_value = on_set_value;
 }
 
 static void
@@ -583,6 +599,8 @@ sugtk_lcd_init(SuGtkLcd *self)
   self->bg_color.alpha = 1;
 
   self->timer = -1;
+
+  self->on_set_value = NULL;
 
   sugtk_lcd_reset_blink_timer(self);
 
