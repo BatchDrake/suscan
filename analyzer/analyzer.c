@@ -136,6 +136,27 @@ suscan_analyzer_feed_inspectors(
 }
 
 SUPRIVATE SUBOOL
+suscan_analyzer_set_freq_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
+  SUFREQ freq;
+
+  if (analyzer->freq_req) {
+    freq = analyzer->freq_req_value;
+    if (suscan_source_set_freq(analyzer->source, freq)) {
+      /* XXX: Use a proper frequency adjust method */
+      analyzer->detector->params.fc = freq;
+    }
+    analyzer->freq_req = analyzer->freq_req_value == freq;
+  }
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
 suscan_source_wk_cb(
     struct suscan_mq *mq_out,
     void *wk_private,
@@ -163,14 +184,6 @@ suscan_source_wk_cb(
 
   /* Ready to read */
   suscan_analyzer_read_start(analyzer);
-
-  if (analyzer->freq_req) {
-    if (suscan_source_set_freq(analyzer->source, analyzer->freq_req_value)) {
-      /* XXX: Use a proper frequency adjust method */
-      analyzer->detector->params.fc = analyzer->freq_req_value;
-    }
-    analyzer->freq_req = SU_FALSE;
-  }
 
 #ifdef SUSCAN_DEBUG_THROTTLE
   if (!dbg_rate_set) {
@@ -792,6 +805,12 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
       return;
     }
 
+  if (analyzer->slow_wk != NULL)
+    if (!suscan_analyzer_halt_worker(analyzer->slow_wk)) {
+      SU_ERROR("Slow worker destruction failed, memory leak ahead\n");
+      return;
+    }
+
   /* Halt all inspector scheduler workers */
   if (analyzer->sched != NULL) {
     if (!suscan_inspsched_destroy(analyzer->sched)) {
@@ -860,7 +879,11 @@ suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq)
   analyzer->freq_req_value = freq;
   analyzer->freq_req = SU_TRUE;
 
-  return SU_TRUE;
+  /* This operation is rather slow. Do it somewhere else. */
+  return suscan_worker_push(
+      analyzer->slow_wk,
+      suscan_analyzer_set_freq_cb,
+      NULL);
 }
 
 suscan_analyzer_t *
@@ -920,6 +943,13 @@ suscan_analyzer_new(
   if ((new->source_wk = suscan_worker_new(&new->mq_in, new))
       == NULL) {
     SU_ERROR("Cannot create source worker thread\n");
+    goto fail;
+  }
+
+  /* Create slow worker */
+  if ((new->slow_wk = suscan_worker_new(&new->mq_in, new))
+      == NULL) {
+    SU_ERROR("Cannot create slow worker thread\n");
     goto fail;
   }
 

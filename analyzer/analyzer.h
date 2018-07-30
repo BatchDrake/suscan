@@ -79,6 +79,7 @@ struct suscan_analyzer {
   /* Source worker objects */
   su_channel_detector_t *detector; /* Channel detector */
   suscan_worker_t *source_wk; /* Used by one source only */
+  suscan_worker_t *slow_wk; /* Worker for slow operations */
   SUCOMPLEX *read_buf;
   SUSCOUNT   read_size;
 
