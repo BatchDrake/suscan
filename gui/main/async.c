@@ -162,7 +162,8 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
   gui->state = state;
 
   gtk_label_set_text(gui->subTitleLabel, subtitle);
-  gtk_label_set_text(gui->titleLabel, source_name);
+
+  suscan_gui_set_title(gui, source_name);
 }
 
 /************************** Async callbacks **********************************/

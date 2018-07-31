@@ -249,6 +249,8 @@ suscan_gui_new(void)
 
   SU_TRYCATCH(suscan_gui_load_profiles(gui), goto fail);
 
+  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
+
   g_signal_connect(
       GTK_WIDGET(gui->main),
       "destroy",

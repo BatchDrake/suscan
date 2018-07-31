@@ -27,12 +27,29 @@
 #include "gui.h"
 
 /**************************** Profile selection ******************************/
+SUPRIVATE suscan_gui_profile_t *
+suscan_gui_get_first_profile(const suscan_gui_t *gui)
+{
+  unsigned int i;
+
+  for (i = 0; i < gui->profile_count; ++i)
+    if (gui->profile_list[i] != NULL)
+      return gui->profile_list[i];
+
+  return NULL;
+}
+
 SUBOOL
 suscan_gui_select_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile)
 {
   const suscan_source_config_t *config = NULL;
 
-  /* profile can be NULL */
+  /* profile can be NULL. */
+#ifndef SUSCAN_ALLOW_NULL_PROFILE
+  if (profile == NULL)
+    profile = suscan_gui_get_first_profile(gui);
+#endif /* SUSCAN_ALLOW_NULL_PROFILE */
+
   gui->active_profile = profile;
 
   if (profile == NULL) {
@@ -44,7 +61,7 @@ suscan_gui_select_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile)
 
   suscan_gui_update_state(gui, gui->state);
 
-  return SU_FALSE;
+  return SU_TRUE;
 }
 
 /************************** Profile selection menu ***************************/
@@ -446,6 +463,12 @@ suscan_gui_load_profiles(suscan_gui_t *gui)
   SU_TRYCATCH(
       suscan_source_config_walk(suscan_gui_append_on_profile, gui),
       return SU_FALSE);
+
+  /* Select default profile */
+  SU_TRYCATCH(suscan_gui_select_profile(gui, NULL), return SU_FALSE);
+
+  /* Update profile menu */
+  SU_TRYCATCH(suscan_gui_update_profile_menu(gui), return SU_FALSE);
 
   return SU_TRUE;
 }

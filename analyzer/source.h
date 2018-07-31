@@ -27,7 +27,7 @@
 #include <SoapySDR/Formats.h>
 #include "../util/object.h"
 
-#define SUSCAN_SOURCE_DEFAULT_BUFSIZ 4096
+#define SUSCAN_SOURCE_DEFAULT_BUFSIZ 1024
 
 /************************** Source config API ********************************/
 struct suscan_source_gain_desc {

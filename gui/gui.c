@@ -58,8 +58,6 @@ suscan_gui_start(
 
   gtk_widget_show(GTK_WIDGET(gui->main));
 
-  suscan_gui_set_title(gui, "No source selected");
-
   suscan_gui_setup_logging(gui);
 
   SU_INFO("SUScan GTK interface initialized\n");
