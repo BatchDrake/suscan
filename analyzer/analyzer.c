@@ -35,10 +35,6 @@
 #include "mq.h"
 #include "msg.h"
 
-SUPRIVATE void suscan_analyzer_params_to_detector_params(
-    struct sigutils_channel_detector_params *params,
-    const struct suscan_analyzer_params *analyzer_params);
-
 /*********************** Performance measurement *****************************/
 SUPRIVATE void
 suscan_analyzer_read_start(suscan_analyzer_t *analyzer)
@@ -140,14 +136,33 @@ suscan_analyzer_feed_inspectors(
 }
 
 SUPRIVATE SUBOOL
+suscan_analyzer_set_freq_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
+  SUFREQ freq;
+
+  if (analyzer->freq_req) {
+    freq = analyzer->freq_req_value;
+    if (suscan_source_set_freq(analyzer->source, freq)) {
+      /* XXX: Use a proper frequency adjust method */
+      analyzer->detector->params.fc = freq;
+    }
+    analyzer->freq_req = analyzer->freq_req_value == freq;
+  }
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
 suscan_source_wk_cb(
     struct suscan_mq *mq_out,
     void *wk_private,
     void *cb_private)
 {
   suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
-  struct suscan_analyzer_source *source =
-      (struct suscan_analyzer_source *) cb_private;
   SUSDIFF got;
   SUSCOUNT read_size;
   SUBOOL mutex_acquired = SU_FALSE;
@@ -156,7 +171,7 @@ suscan_source_wk_cb(
   struct timespec sub;
 #endif
 
-  SU_TRYCATCH(pthread_mutex_lock(&source->det_mutex) != -1, goto done);
+  SU_TRYCATCH(pthread_mutex_lock(&analyzer->det_mutex) != -1, goto done);
   mutex_acquired = SU_TRUE;
 
   /* With non-real time sources, use throttle to control CPU usage */
@@ -164,7 +179,7 @@ suscan_source_wk_cb(
     read_size = analyzer->read_size;
   else
     read_size = suscan_throttle_get_portion(
-        &source->throttle,
+        &analyzer->throttle,
         analyzer->read_size);
 
   /* Ready to read */
@@ -177,8 +192,8 @@ suscan_source_wk_cb(
   }
 #endif
 
-  if ((got = su_block_port_read(
-      &source->port,
+  if ((got = suscan_source_read(
+      analyzer->source,
       analyzer->read_buf,
       read_size)) > 0) {
     suscan_analyzer_process_start(analyzer);
@@ -187,39 +202,41 @@ suscan_source_wk_cb(
 #endif
 
     if (!suscan_analyzer_is_real_time(analyzer))
-      suscan_throttle_advance(&source->throttle, got);
+      suscan_throttle_advance(&analyzer->throttle, got);
 
     /* Feed channel detector! */
     SU_TRYCATCH(
         su_channel_detector_feed_bulk(
-            source->detector,
+            analyzer->detector,
             analyzer->read_buf,
             got) == got,
         goto done);
 
-    source->per_cnt_channels += got;
-    source->per_cnt_psd += got;
+    analyzer->per_cnt_channels += got;
+    analyzer->per_cnt_psd += got;
 
     /* Check channel update */
-    if (source->interval_channels > 0) {
-      if (source->per_cnt_channels
-          >= source->interval_channels * source->effective_samp_rate) {
-        source->per_cnt_channels = 0;
+    if (analyzer->interval_channels > 0) {
+      if (analyzer->per_cnt_channels
+          >= analyzer->interval_channels * analyzer->effective_samp_rate) {
+        analyzer->per_cnt_channels = 0;
 
         SU_TRYCATCH(
-            suscan_analyzer_send_detector_channels(analyzer, source->detector),
+            suscan_analyzer_send_detector_channels(
+                analyzer,
+                analyzer->detector),
             goto done);
       }
     }
 
     /* Check spectrum update */
-    if (source->interval_psd > 0) {
-      if (source->per_cnt_psd
-          >= source->interval_psd * source->effective_samp_rate) {
-        source->per_cnt_psd = 0;
+    if (analyzer->interval_psd > 0) {
+      if (analyzer->per_cnt_psd
+          >= analyzer->interval_psd * analyzer->effective_samp_rate) {
+        analyzer->per_cnt_psd = 0;
 
         SU_TRYCATCH(
-            suscan_analyzer_send_psd(analyzer, source->detector),
+            suscan_analyzer_send_psd(analyzer, analyzer->detector),
             goto done);
       }
     }
@@ -253,7 +270,7 @@ suscan_source_wk_cb(
       case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
         suscan_analyzer_send_status(
             analyzer,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR,
             got,
             "Acquire failed (source I/O error)");
         break;
@@ -294,7 +311,7 @@ suscan_source_wk_cb(
 
 done:
   if (mutex_acquired)
-    (void) pthread_mutex_unlock(&source->det_mutex);
+    (void) pthread_mutex_unlock(&analyzer->det_mutex);
 
   return restart;
 }
@@ -347,19 +364,19 @@ suscan_analyzer_override_throttle(suscan_analyzer_t *analyzer, SUSCOUNT val)
   SU_TRYCATCH(!suscan_analyzer_is_real_time(analyzer), goto done);
 
   SU_TRYCATCH(
-      pthread_mutex_lock(&analyzer->source.det_mutex) != -1,
+      pthread_mutex_lock(&analyzer->det_mutex) != -1,
       goto done);
   mutex_acquired = SU_TRUE;
 
-  suscan_throttle_init(&analyzer->source.throttle, val);
+  suscan_throttle_init(&analyzer->throttle, val);
 
-  analyzer->source.effective_samp_rate = val;
+  analyzer->effective_samp_rate = val;
 
   ok = SU_TRUE;
 
 done:
   if (mutex_acquired)
-    pthread_mutex_unlock(&analyzer->source.det_mutex);
+    pthread_mutex_unlock(&analyzer->det_mutex);
 
   return ok;
 }
@@ -369,7 +386,7 @@ suscan_analyzer_reset_throttle(suscan_analyzer_t *analyzer)
 {
   return suscan_analyzer_override_throttle(
       analyzer,
-      analyzer->source.detector->params.samp_rate);
+      suscan_analyzer_get_samp_rate(analyzer));
 }
 
 SUPRIVATE void *
@@ -385,10 +402,12 @@ suscan_analyzer_thread(void *data)
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL halt_acked = SU_FALSE;
 
+  SU_TRYCATCH(suscan_source_start_capture(analyzer->source), goto done);
+
   if (!suscan_worker_push(
       analyzer->source_wk,
       suscan_source_wk_cb,
-      &analyzer->source)) {
+      analyzer->source)) {
     suscan_analyzer_send_status(
         analyzer,
         SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
@@ -464,7 +483,7 @@ suscan_analyzer_thread(void *data)
            */
 
           SU_TRYCATCH(
-              pthread_mutex_lock(&analyzer->source.det_mutex) != -1,
+              pthread_mutex_lock(&analyzer->det_mutex) != -1,
               goto done);
           mutex_acquired = SU_TRUE;
 
@@ -472,32 +491,34 @@ suscan_analyzer_thread(void *data)
           new_params = (const struct suscan_analyzer_params *) private;
 
           /* Attempt to update detector parameters */
-          new_det_params = analyzer->source.detector->params;
-          suscan_analyzer_params_to_detector_params(
-              &new_det_params,
-              new_params);
+          new_det_params = analyzer->detector->params; /* Not all parameters are allowed */
+
+          new_det_params.window_size = new_params->detector_params.window_size;
+          new_det_params.window = new_params->detector_params.window;
+          new_det_params.fc = new_params->detector_params.fc;
+          su_channel_params_adjust(&new_det_params);
 
           if (!su_channel_detector_set_params(
-              analyzer->source.detector,
+              analyzer->detector,
               &new_det_params)) {
             /* If not possibe, re-create detector object */
             SU_TRYCATCH(
                 new_detector = su_channel_detector_new(&new_det_params),
                 goto done);
 
-            su_channel_detector_destroy(analyzer->source.detector);
-            analyzer->source.detector = new_detector;
+            su_channel_detector_destroy(analyzer->detector);
+            analyzer->detector = new_detector;
           }
 
-          analyzer->source.per_cnt_channels  = 0;
-          analyzer->source.per_cnt_psd       = 0;
+          analyzer->per_cnt_channels  = 0;
+          analyzer->per_cnt_psd       = 0;
 
-          analyzer->source.interval_channels = new_params->channel_update_int;
-          analyzer->source.interval_psd      = new_params->psd_update_int;
+          analyzer->interval_channels = new_params->channel_update_int;
+          analyzer->interval_psd      = new_params->psd_update_int;
           /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
 
           SU_TRYCATCH(
-              pthread_mutex_unlock(&analyzer->source.det_mutex) != -1,
+              pthread_mutex_unlock(&analyzer->det_mutex) != -1,
               goto done);
           mutex_acquired = SU_FALSE;
 
@@ -515,10 +536,13 @@ suscan_analyzer_thread(void *data)
 
 done:
   if (mutex_acquired)
-    (void) pthread_mutex_unlock(&analyzer->source.det_mutex);
+    (void) pthread_mutex_unlock(&analyzer->det_mutex);
 
   if (private != NULL)
     suscan_analyzer_dispose_message(type, private);
+
+  if (suscan_source_is_capturing(analyzer->source))
+    suscan_source_stop_capture(analyzer->source);
 
   if (!halt_acked)
     suscan_wait_for_halt(analyzer);
@@ -589,62 +613,18 @@ suscan_analyzer_halt_worker(suscan_worker_t *worker)
   return suscan_worker_destroy(worker);
 }
 
-/******************* Suscan analyzer source methods **************************/
+
 SUPRIVATE void
-suscan_analyzer_source_finalize(struct suscan_analyzer_source *source)
-{
-  su_block_port_unplug(&source->port);
-
-  if (source->detector != NULL)
-    su_channel_detector_destroy(source->detector);
-
-  if (source->block != NULL)
-    su_block_destroy(source->block);
-
-  pthread_mutex_destroy(&source->det_mutex);
-}
-
-SUPRIVATE SUBOOL
-suscan_analyzer_source_init_from_block_properties(
-    struct suscan_analyzer_source *source,
+suscan_analyzer_init_detector_params(
+    suscan_analyzer_t *analyzer,
     struct sigutils_channel_detector_params *params)
 {
-  const uint64_t *samp_rate;
-  const uint64_t *fc;
+  /* Recover template */
+  *params = analyzer->params.detector_params;
 
-  /* Retrieve sample rate. All source blocks must expose this property */
-  if ((samp_rate = su_block_get_property_ref(
-      source->block,
-      SU_PROPERTY_TYPE_INTEGER,
-      "samp_rate")) != NULL) {
-    params->samp_rate = *samp_rate;
-  } else {
-    SU_ERROR("Failed to get sample rate");
-    return SU_FALSE;
-  }
-
-  /* Retrieve center frequency, if any */
-  if ((fc = su_block_get_property_ref(
-      source->block,
-      SU_PROPERTY_TYPE_INTEGER,
-      "fc")) != NULL)
-    source->fc = *fc;
-
-  return SU_TRUE;
-}
-
-SUPRIVATE void
-suscan_analyzer_params_to_detector_params(
-    struct sigutils_channel_detector_params *params,
-    const struct suscan_analyzer_params *analyzer_params)
-{
-  SUSCOUNT old_samp_rate = params->samp_rate;
-
-  *params = analyzer_params->detector_params;
-
+  /* Populate members with source information */
   params->mode = SU_CHANNEL_DETECTOR_MODE_DISCOVERY;
-  params->samp_rate = old_samp_rate;
-
+  params->samp_rate = suscan_analyzer_get_samp_rate(analyzer);
 
   /* Adjust parameters that depend on sample rate */
   su_channel_params_adjust(params);
@@ -654,99 +634,6 @@ suscan_analyzer_params_to_detector_params(
   if (params->alpha <= .05)
     params->alpha *= 20;
 #endif
-
-  params->alpha = analyzer_params->detector_params.alpha;
-}
-
-SUPRIVATE SUBOOL
-suscan_analyzer_source_init(
-    const struct suscan_analyzer_params *analyzer_params,
-    struct suscan_analyzer_source *source,
-    struct suscan_source_config *config)
-{
-  struct sigutils_channel_detector_params params =
-      analyzer_params->detector_params;
-  SUBOOL ok = SU_FALSE;
-
-  source->config = config;
-
-  source->per_cnt_channels  = 0;
-  source->per_cnt_psd       = 0;
-
-  source->interval_channels = analyzer_params->channel_update_int;
-  source->interval_psd      = analyzer_params->psd_update_int;
-
-  (void) pthread_mutex_init(&source->det_mutex, NULL); /* Always succeeds */
-
-  SU_TRYCATCH(source->block = (config->source->ctor)(config), goto done);
-
-  /*
-   * Analyze block properties, and initialize source and detector
-   * parameters accordingly.
-   */
-  SU_TRYCATCH(
-      suscan_analyzer_source_init_from_block_properties(source, &params),
-      goto done);
-
-
-  suscan_analyzer_params_to_detector_params(&params, analyzer_params);
-
-  SU_TRYCATCH(
-      source->detector = su_channel_detector_new(&params),
-      goto done);
-
-  SU_TRYCATCH(
-      su_block_port_plug(&source->port, source->block, 0),
-      goto done);
-
-  if (config->source->real_time) {
-    /*
-     * With real time sources, we must use the master/slave flow controller.
-     * This way, we ensure that at least the channel detector works
-     * correctly.
-     */
-    SU_TRYCATCH(
-        su_block_set_flow_controller(
-            source->block,
-            0,
-            SU_FLOW_CONTROL_KIND_MASTER_SLAVE),
-      goto done);
-
-    /*
-     * This is the master port. Other readers must wait for this reader
-     * to complete before asking block for additional samples.
-     */
-    SU_TRYCATCH(
-        su_block_set_master_port(source->block, 0, &source->port),
-        goto done);
-  } else {
-    /*
-     * If source is not realtime (e.g. iqfile or wavfile) we can afford
-     * having a BARRIER flow controller here: samples will be available on
-     * demand, and it's safe to pause until all workers are ready to consume
-     * more samples
-     */
-    SU_TRYCATCH(
-        su_block_set_flow_controller(
-            source->block,
-            0,
-            SU_FLOW_CONTROL_KIND_BARRIER),
-        goto done);
-
-    /*
-     * To avoid CPU hogging by unlimited input rate, we setup a throttle
-     * object to deliver samples at a constat rate specified by the
-     * sample rate;
-     */
-    suscan_throttle_init(&source->throttle, params.samp_rate);
-  }
-
-  source->effective_samp_rate = params.samp_rate;
-
-  ok = SU_TRUE;
-
-done:
-  return ok;
 }
 
 /********************** Suscan analyzer public API ***************************/
@@ -786,7 +673,7 @@ suscan_analyzer_open_channel(
   params.f0 =
       SU_NORM2ANG_FREQ(
           SU_ABS2NORM_FREQ(
-              analyzer->source.detector->params.samp_rate,
+              suscan_analyzer_get_samp_rate(analyzer),
               chan_info->fc - chan_info->ft));
 
   if (params.f0 < 0)
@@ -795,7 +682,7 @@ suscan_analyzer_open_channel(
   params.bw =
       SU_NORM2ANG_FREQ(
           SU_ABS2NORM_FREQ(
-              analyzer->source.detector->params.samp_rate,
+              suscan_analyzer_get_samp_rate(analyzer),
               chan_info->f_hi - chan_info->f_lo));
   params.guard = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
   params.on_data = on_data;
@@ -888,6 +775,10 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 
   void *private;
 
+  /* Prevent source from entering in timeout loops */
+  if (analyzer->source != NULL)
+    suscan_source_force_eos(analyzer->source);
+
   if (analyzer->running) {
     if (!analyzer->halt_requested) {
       suscan_analyzer_req_halt(analyzer);
@@ -906,13 +797,17 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
     }
   }
 
-  /* We attempt to wakeup all threads by marking the source as EOS */
-  if (analyzer->source.block != NULL)
-    su_block_force_eos(analyzer->source.block, 0);
+  /* TODO: Concurrently-force EOS in source object */
 
   if (analyzer->source_wk != NULL)
     if (!suscan_analyzer_halt_worker(analyzer->source_wk)) {
       SU_ERROR("Source worker destruction failed, memory leak ahead\n");
+      return;
+    }
+
+  if (analyzer->slow_wk != NULL)
+    if (!suscan_analyzer_halt_worker(analyzer->slow_wk)) {
+      SU_ERROR("Slow worker destruction failed, memory leak ahead\n");
       return;
     }
 
@@ -932,6 +827,10 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   /* Consume any pending messages */
   suscan_analyzer_consume_mq(&analyzer->mq_in);
 
+  /* Free channel detector */
+  if (analyzer->detector != NULL)
+    su_channel_detector_destroy(analyzer->detector);
+
   /* Free spectral tuner */
   if (analyzer->stuner != NULL)
     su_specttuner_destroy(analyzer->stuner);
@@ -949,22 +848,58 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
     free(analyzer->inspector_list);
 
   /* Delete source information */
-  suscan_analyzer_source_finalize(&analyzer->source);
+  if (analyzer->source != NULL)
+    suscan_source_destroy(analyzer->source);
 
   suscan_mq_finalize(&analyzer->mq_in);
 
   free(analyzer);
 }
 
+SUBOOL
+suscan_analyzer_source_init(
+    suscan_analyzer_t *analyzer,
+    suscan_source_config_t *config)
+{
+  SU_TRYCATCH(analyzer->source = suscan_source_new(config), goto fail);
+
+  /* For non-realtime sources (i.e. file sources), enable throttling */
+  if (!suscan_analyzer_is_real_time(analyzer))
+    suscan_throttle_init(
+        &analyzer->throttle,
+        suscan_analyzer_get_samp_rate(analyzer));
+
+  analyzer->effective_samp_rate = suscan_analyzer_get_samp_rate(analyzer);
+
+  return SU_TRUE;
+
+fail:
+  return SU_FALSE;
+}
+
+SUBOOL
+suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq)
+{
+  analyzer->freq_req_value = freq;
+  analyzer->freq_req = SU_TRUE;
+
+  /* This operation is rather slow. Do it somewhere else. */
+  return suscan_worker_push(
+      analyzer->slow_wk,
+      suscan_analyzer_set_freq_cb,
+      NULL);
+}
+
 suscan_analyzer_t *
 suscan_analyzer_new(
     const struct suscan_analyzer_params *params,
-    struct suscan_source_config *config,
+    suscan_source_config_t *config,
     struct suscan_mq *mq)
 {
   suscan_analyzer_t *new = NULL;
   struct sigutils_specttuner_params st_params =
       sigutils_specttuner_params_INITIALIZER;
+  struct sigutils_channel_detector_params det_params;
   unsigned int worker_count;
   unsigned int i;
 
@@ -973,14 +908,16 @@ suscan_analyzer_new(
     goto fail;
   }
 
+  new->params = *params;
+
   /* Allocate read buffer */
-  if ((new->read_buf = malloc(config->bufsiz * sizeof(SUCOMPLEX)))
-      == NULL) {
+  if ((new->read_buf = malloc(
+      SUSCAN_SOURCE_DEFAULT_BUFSIZ * sizeof(SUCOMPLEX))) == NULL) {
     SU_ERROR("Failed to allocate read buffer\n");
     goto fail;
   }
 
-  new->read_size = config->bufsiz;
+  new->read_size = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
 
   /* Create input message queue */
   if (!suscan_mq_init(&new->mq_in)) {
@@ -989,10 +926,22 @@ suscan_analyzer_new(
   }
 
   /* Initialize source */
-  if (!suscan_analyzer_source_init(params, &new->source, config)) {
+  if (!suscan_analyzer_source_init(new, config)) {
     SU_ERROR("Failed to initialize source\n");
     goto fail;
   }
+
+  /* Periodic updates */
+  new->interval_channels = params->channel_update_int;
+  new->interval_psd      = params->psd_update_int;
+
+  /* Create channel detector */
+  (void) pthread_mutex_init(&new->det_mutex, NULL); /* Always succeeds */
+  det_params = params->detector_params;
+  suscan_analyzer_init_detector_params(new, &det_params);
+  SU_TRYCATCH(
+      new->detector = su_channel_detector_new(&det_params),
+      goto fail);
 
   /* Create source worker */
   if ((new->source_wk = suscan_worker_new(&new->mq_in, new))
@@ -1001,8 +950,15 @@ suscan_analyzer_new(
     goto fail;
   }
 
+  /* Create slow worker */
+  if ((new->slow_wk = suscan_worker_new(&new->mq_in, new))
+      == NULL) {
+    SU_ERROR("Cannot create slow worker thread\n");
+    goto fail;
+  }
+
   /* Create spectral tuner, with matching read size */
-  st_params.window_size = config->bufsiz * 4;
+  st_params.window_size = new->read_size * 4;
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
 
   /* Create inspector scheduler and barrier */

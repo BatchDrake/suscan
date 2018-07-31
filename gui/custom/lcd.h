@@ -46,10 +46,13 @@ G_BEGIN_DECLS
 
 #define SUGTK_LCD_SEG_ALL_V        120
 
+#define SUGTK_LCD_MAX_VALUE        9999999999ull
+
 struct _SuGtkLcd
 {
   GtkDrawingArea parent_instance;
   cairo_surface_t *sf_glyphs[10];
+  cairo_surface_t *sf_glyphs_rev[10];
   cairo_surface_t *sf_display;
 
   gfloat width;
@@ -71,6 +74,18 @@ struct _SuGtkLcd
 
   GdkRGBA fg_color;
   GdkRGBA bg_color;
+
+  /* Blinking state */
+  gint timer;
+  gint digit;
+  gboolean state;
+
+  /* On change */
+  gboolean (*on_set_value) (
+      struct _SuGtkLcd *lcd,
+      gulong value,
+      gpointer data);
+  gpointer data;
 };
 
 struct _SuGtkLcdClass
@@ -87,6 +102,11 @@ void sugtk_lcd_set_fg_color(SuGtkLcd *lcd, GdkRGBA color);
 void sugtk_lcd_set_bg_color(SuGtkLcd *lcd, GdkRGBA color);
 
 void sugtk_lcd_set_value(SuGtkLcd *lcd, gulong value);
+
+void sugtk_lcd_set_value_cb(
+  SuGtkLcd *lcd,
+  gboolean (*on_set_value) (SuGtkLcd *lcd, gulong value, gpointer data),
+  gpointer data);
 
 G_END_DECLS
 

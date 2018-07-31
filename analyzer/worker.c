@@ -88,9 +88,10 @@ suscan_worker_thread(void *data)
   struct suscan_worker_callback *cb;
   SUBOOL halt_acked = SU_FALSE;
 
-  for (;;) {
+  while (!worker->halt_req) {
     /* First read: blocking read of a message */
     msg = suscan_mq_read_msg(&worker->mq_in);
+
     do {
       switch (msg->type) {
         case SUSCAN_WORKER_MSG_TYPE_CALLBACK:
@@ -106,10 +107,7 @@ suscan_worker_thread(void *data)
           break;
 
         case SUSCAN_WORKER_MSG_TYPE_HALT:
-          worker->state = SUSCAN_WORKER_STATE_HALTED;
-          halt_acked = SU_TRUE;
-          suscan_msg_destroy(msg);
-          suscan_worker_ack_halt(worker);
+          /* Implies halt_req = SU_TRUE */
           goto done;
 
         default:
@@ -118,11 +116,19 @@ suscan_worker_thread(void *data)
       }
 
       /* Next reads: until queue is empty */
-    } while ((msg = suscan_mq_poll_msg(&worker->mq_in)) != NULL);
+    } while (
+        !worker->halt_req
+        && (msg = suscan_mq_poll_msg(&worker->mq_in)) != NULL);
   }
 
 done:
   worker->state = SUSCAN_WORKER_STATE_HALTED;
+
+  if (worker->halt_req) {
+    halt_acked = SU_TRUE;
+    suscan_msg_destroy(msg);
+    suscan_worker_ack_halt(worker);
+  }
 
   if (!halt_acked)
     suscan_worker_wait_for_halt(worker);
@@ -157,6 +163,8 @@ suscan_worker_push(
 void
 suscan_worker_req_halt(suscan_worker_t *worker)
 {
+  worker->halt_req = SU_TRUE;
+
   suscan_mq_write_urgent(
       &worker->mq_in,
       SUSCAN_WORKER_MSG_TYPE_HALT,

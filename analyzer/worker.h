@@ -39,7 +39,7 @@ struct suscan_worker {
   struct suscan_mq mq_in; /* Receive callbacks from here */
   struct suscan_mq *mq_out; /* Send callbacks to here */
   void *private; /* Worker private data */
-
+  SUBOOL halt_req;
   enum suscan_worker_state state;
   pthread_t thread;
 };

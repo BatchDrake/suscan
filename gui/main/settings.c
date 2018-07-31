@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2017 Gonzalo José Carracedo Carballal
+  Copyright (C) 2018 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -20,9 +20,174 @@
 
 #include <string.h>
 
-#define SU_LOG_DOMAIN "settings"
+#define SU_LOG_DOMAIN "gui-settings"
 
+#include <confdb.h>
+#include "modemctl.h"
 #include "gui.h"
+
+SUPRIVATE SUBOOL
+suscan_gui_assert_settings_obj(suscan_gui_t *gui)
+{
+  const suscan_object_t *list;
+  suscan_object_t *ui_settings = NULL;
+
+  SU_TRYCATCH(
+      list = suscan_config_context_get_list(gui->settings_ctx),
+      goto fail);
+
+  if ((gui->settings_obj = suscan_object_set_get(list, 0)) == NULL) {
+    SU_TRYCATCH(
+        ui_settings = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT),
+        goto fail);
+    SU_TRYCATCH(
+        suscan_config_context_put(gui->settings_ctx, ui_settings),
+        goto fail);
+    gui->settings_obj = ui_settings;
+    ui_settings = NULL;
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (ui_settings != NULL)
+    suscan_object_destroy(ui_settings);
+
+  return SU_FALSE;
+}
+
+void
+suscan_gui_apply_settings_on_inspector(
+    suscan_gui_t *gui,
+    suscan_gui_inspector_t *insp)
+{
+  sugtk_spectrum_set_fg_color(insp->spectrum, gui->settings.insp_fg);
+  sugtk_spectrum_set_bg_color(insp->spectrum, gui->settings.insp_bg);
+  sugtk_spectrum_set_text_color(insp->spectrum, gui->settings.insp_text);
+  sugtk_spectrum_set_axes_color(insp->spectrum, gui->settings.insp_axes);
+
+  sugtk_constellation_set_fg_color(insp->constellation, gui->settings.insp_fg);
+  sugtk_constellation_set_bg_color(insp->constellation, gui->settings.insp_bg);
+  sugtk_constellation_set_axes_color(insp->constellation, gui->settings.insp_axes);
+
+  sugtk_waveform_set_fg_color(insp->phasePlot, gui->settings.insp_fg);
+  sugtk_waveform_set_bg_color(insp->phasePlot, gui->settings.insp_bg);
+  sugtk_waveform_set_axes_color(insp->phasePlot, gui->settings.insp_axes);
+
+  sugtk_histogram_set_fg_color(insp->histogram, gui->settings.insp_fg);
+  sugtk_histogram_set_bg_color(insp->histogram, gui->settings.insp_bg);
+  sugtk_histogram_set_axes_color(insp->histogram, gui->settings.insp_axes);
+}
+
+void
+suscan_gui_apply_settings(suscan_gui_t *gui)
+{
+  unsigned int i;
+
+  sugtk_spectrum_set_fg_color(gui->spectrum, gui->settings.pa_fg);
+  sugtk_spectrum_set_bg_color(gui->spectrum, gui->settings.pa_bg);
+  sugtk_spectrum_set_text_color(gui->spectrum, gui->settings.pa_text);
+  sugtk_spectrum_set_axes_color(gui->spectrum, gui->settings.pa_axes);
+
+  sugtk_lcd_set_fg_color(gui->freqLcd, gui->settings.lcd_fg);
+  sugtk_lcd_set_bg_color(gui->freqLcd, gui->settings.lcd_bg);
+
+  for (i = 0; i < gui->inspector_count; ++i)
+    if (gui->inspector_list[i] != NULL)
+      suscan_gui_apply_settings_on_inspector(gui, gui->inspector_list[i]);
+}
+
+void
+suscan_gui_settings_to_dialog(suscan_gui_t *gui)
+{
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paFgColorButton),
+      &gui->settings.pa_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paBgColorButton),
+      &gui->settings.pa_bg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->paTextColorButton),
+      &gui->settings.pa_text);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspFgColorButton),
+      &gui->settings.insp_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspBgColorButton),
+      &gui->settings.insp_bg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->inspTextColorButton),
+      &gui->settings.insp_text);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdFgColorButton),
+      &gui->settings.lcd_fg);
+
+  gtk_color_chooser_set_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdBgColorButton),
+      &gui->settings.lcd_bg);
+}
+
+void
+suscan_gui_settings_from_dialog(suscan_gui_t *gui)
+{
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paFgColorButton),
+      &gui->settings.pa_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paBgColorButton),
+      &gui->settings.pa_bg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paAxesColorButton),
+      &gui->settings.pa_axes);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->paTextColorButton),
+      &gui->settings.pa_text);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspFgColorButton),
+      &gui->settings.insp_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspBgColorButton),
+      &gui->settings.insp_bg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspAxesColorButton),
+      &gui->settings.insp_axes);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->inspTextColorButton),
+      &gui->settings.insp_text);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdFgColorButton),
+      &gui->settings.lcd_fg);
+
+  gtk_color_chooser_get_rgba(
+      GTK_COLOR_CHOOSER(gui->lcdBgColorButton),
+      &gui->settings.lcd_bg);
+
+  suscan_gui_apply_settings(gui);
+}
+
+/************************* Settings storage **********************************/
 
 SUPRIVATE enum sigutils_channel_detector_window
 suscan_gui_str_to_window(const char *window)
@@ -110,8 +275,8 @@ suscan_gui_settings_set_color(
   g_settings_set_string(gui->g_settings, field, color);
 }
 
-void
-suscan_gui_load_settings(suscan_gui_t *gui)
+SUPRIVATE void
+suscan_gui_load_g_settings(suscan_gui_t *gui)
 {
   gchar *win = NULL;
   SUPRIVATE struct suscan_analyzer_params analyzer_params =
@@ -202,8 +367,29 @@ done:
     g_free(win);
 }
 
-void
-suscan_gui_store_settings(suscan_gui_t *gui)
+SUBOOL
+suscan_gui_load_settings(suscan_gui_t *gui)
+{
+  const char *value;
+  suscan_gui_profile_t *profile = NULL;
+
+  suscan_gui_load_g_settings(gui); /* Delete */
+
+  SU_TRYCATCH(suscan_gui_assert_settings_obj(gui), return SU_FALSE);
+
+  if ((value = suscan_object_get_field_value(
+      gui->settings_obj,
+      "active_profile")) != NULL) {
+
+    if ((profile = suscan_gui_lookup_profile(gui, value)) != NULL)
+      SU_TRYCATCH(suscan_gui_select_profile(gui, profile), return SU_FALSE);
+  }
+
+  return SU_TRUE;
+}
+
+SUPRIVATE void
+suscan_gui_store_g_settings(suscan_gui_t *gui)
 {
   /* Store general GUI parameters */
   suscan_gui_settings_set_color(&gui->settings.pa_bg, gui, "pa-bg-color");
@@ -268,3 +454,18 @@ suscan_gui_store_settings(suscan_gui_t *gui)
 
   g_settings_sync();
 }
+
+
+void
+suscan_gui_store_settings(suscan_gui_t *gui)
+{
+  suscan_gui_store_g_settings(gui);
+
+  if (gui->active_profile != NULL)
+    suscan_object_set_field_value(
+        gui->settings_obj,
+        "active_profile",
+        suscan_source_config_get_label(
+            suscan_gui_profile_get_source_config(gui->active_profile)));
+}
+

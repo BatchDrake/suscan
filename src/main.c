@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/select.h>
 
+#include <confdb.h>
 #include <suscan.h>
 #include <codec.h>
 
@@ -77,11 +78,19 @@ main(int argc, char *argv[], char *envp[])
     }
   }
 
+  if (mode == SUSCAN_MODE_GTK_UI)
+    gettimeofday(&tv, NULL);
+
   if (!suscan_sigutils_init(mode)) {
     fprintf(stderr, "%s: failed to initialize sigutils library\n", argv[0]);
     goto done;
   }
 
+  /*
+   * This block has been moved to gui.c, but it will probably be used
+   * in fingerprint mode.
+   */
+#if 0
   if (!suscan_codec_class_register_builtin()) {
     fprintf(
         stderr,
@@ -109,26 +118,10 @@ main(int argc, char *argv[], char *envp[])
     fprintf(stderr, "%s: failed to initialize inspectors\n", argv[0]);
     goto done;
   }
-
-  for (i = optind; i < argc; ++i) {
-    if ((config = suscan_source_string_to_config(argv[i])) == NULL) {
-      fprintf(
-          stderr,
-          "%s: cannot parse source string:\n\n  %s\n\n",
-          argv[0],
-          argv[i]);
-      goto done;
-    }
-
-    if (PTR_LIST_APPEND_CHECK(config, config) == -1) {
-      fprintf(stderr, "%s: failed to build source list\n", argv[0]);
-      goto done;
-    }
-  }
+#endif
 
   switch (mode) {
     case SUSCAN_MODE_GTK_UI:
-      gettimeofday(&tv, NULL);
       if (suscan_gui_start(argc, argv, config_list, config_count)) {
         exit_code = EXIT_SUCCESS;
       } else {
@@ -140,27 +133,7 @@ main(int argc, char *argv[], char *envp[])
       break;
 
     case SUSCAN_MODE_FINGERPRINT:
-      if (config_count == 0) {
-        fprintf(stderr, "%s: no sources given for fingerprint\n", argv[0]);
-        goto done;
-      } else {
-        for (i = 0; i < config_count; ++i) {
-          fprintf(
-              stderr,
-              "%s: fingerprinting `%s'...\n",
-              argv[0],
-              argv[optind + i]);
-          if (!suscan_perform_fingerprint(config_list[i]))
-            fprintf(
-                stderr,
-                "%s: cannot fingerprint `%s'\n",
-                argv[0],
-                argv[optind + i]);
-        }
-
-        exit_code = EXIT_SUCCESS;
-      }
-
+      fprintf(stderr, "%s: fingerprint mode not implemented\n", argv[0]);
       break;
   }
 
@@ -176,6 +149,8 @@ done:
 
   for (i = 0; i < config_count; ++i)
     suscan_source_config_destroy(config_list[i]);
+
+  (void) suscan_confdb_save_all();
 
 #ifdef DEBUG_WITH_MTRACE
   muntrace();

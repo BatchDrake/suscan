@@ -45,34 +45,30 @@ struct suscan_analyzer_params {
   .04                                           /* psd_update_int */        \
 }
 
-struct suscan_analyzer_source {
-  struct suscan_source_config *config;
-  su_block_t *block;
-  su_block_port_t port; /* Master reading port */
-  suscan_throttle_t throttle; /* Throttle object */
-  struct xsig_source *instance;
-
-  pthread_mutex_t det_mutex;
-  su_channel_detector_t *detector; /* Channel detector */
-  SUFLOAT interval_channels;
-  SUFLOAT interval_psd;
-
-  SUSCOUNT per_cnt_channels;
-  SUSCOUNT per_cnt_psd;
-
-  SUSCOUNT effective_samp_rate; /* Used for GUI */
-
-  uint64_t fc; /* Center frequency of source */
-};
-
-struct suscan_analyzer;
-
 struct suscan_analyzer {
+  struct suscan_analyzer_params params;
   struct suscan_mq mq_in;   /* To-thread messages */
   struct suscan_mq *mq_out; /* From-thread messages */
   SUBOOL running;
   SUBOOL halt_requested;
   SUBOOL eos;
+
+  /* Source members */
+  suscan_source_t *source;
+  suscan_throttle_t throttle; /* For non-realtime sources */
+  pthread_mutex_t det_mutex;
+  SUSCOUNT effective_samp_rate; /* Used for GUI */
+
+  /* Periodic updates */
+  SUFLOAT  interval_channels;
+  SUSCOUNT per_cnt_channels;
+
+  SUFLOAT  interval_psd;
+  SUSCOUNT per_cnt_psd;
+
+  /* Frequency request */
+  SUBOOL freq_req;
+  SUFREQ freq_req_value;
 
   /* Usage statistics (CPU, etc) */
   SUFLOAT cpu_usage;
@@ -81,8 +77,9 @@ struct suscan_analyzer {
   struct timespec process_end;
 
   /* Source worker objects */
-  struct suscan_analyzer_source source;
+  su_channel_detector_t *detector; /* Channel detector */
   suscan_worker_t *source_wk; /* Used by one source only */
+  suscan_worker_t *slow_wk; /* Worker for slow operations */
   SUCOMPLEX *read_buf;
   SUSCOUNT   read_size;
 
@@ -104,8 +101,16 @@ typedef struct suscan_analyzer suscan_analyzer_t;
 SUINLINE SUBOOL
 suscan_analyzer_is_real_time(const suscan_analyzer_t *analyzer)
 {
-  return analyzer->source.config->source->real_time;
+  return analyzer->source->config->type == SUSCAN_SOURCE_TYPE_SDR;
 }
+
+SUINLINE unsigned int
+suscan_analyzer_get_samp_rate(const suscan_analyzer_t *analyzer)
+{
+  return analyzer->source->config->samp_rate;
+}
+
+SUBOOL suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq);
 
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
 struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg(
@@ -121,7 +126,7 @@ void suscan_analyzer_req_halt(suscan_analyzer_t *analyzer);
 SUBOOL suscan_analyzer_halt_worker(suscan_worker_t *worker);
 suscan_analyzer_t *suscan_analyzer_new(
     const struct suscan_analyzer_params *params,
-    struct suscan_source_config *config,
+    suscan_source_config_t *config,
     struct suscan_mq *mq);
 
 void suscan_analyzer_source_barrier(suscan_analyzer_t *analyzer);
@@ -158,6 +163,11 @@ SUBOOL suscan_analyzer_set_params_async(
 SUBOOL suscan_analyzer_set_throttle_async(
     suscan_analyzer_t *analyzer,
     SUSCOUNT samp_rate,
+    uint32_t req_id);
+
+SUBOOL suscan_analyzer_set_freq_async(
+    suscan_analyzer_t *analyzer,
+    SUFREQ freq,
     uint32_t req_id);
 
 SUBOOL suscan_analyzer_open_async(

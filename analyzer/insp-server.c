@@ -333,7 +333,7 @@ suscan_analyzer_open_inspector(
   SU_TRYCATCH(
       new = suscan_inspector_new(
           class,
-          su_channel_detector_get_fs(analyzer->source.detector),
+          analyzer->effective_samp_rate,
           schan),
       goto fail);
 

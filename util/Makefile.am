@@ -2,8 +2,9 @@ AM_CPPFLAGS = -I. -I
 
 noinst_LTLIBRARIES = libutil.la
 
-libutil_la_CFLAGS = -I. -ggdb @sigutils_CFLAGS@ 
+libutil_la_CFLAGS = -I. -ggdb @sigutils_CFLAGS@ @xml2_CFLAGS@ 
 
-libutil_la_SOURCES = cfg.c cfg.h util.c util.h
+libutil_la_SOURCES = object.c object.h serialize.c deserialize.c util.c util.h \
+	confdb.c confdb.h cfg.c cfg.h
 
 

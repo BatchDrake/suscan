@@ -219,6 +219,9 @@ suscan_inspsched_destroy(suscan_inspsched_t *sched)
       return SU_FALSE;
     }
 
+  if (sched->worker_list != NULL)
+    free(sched->worker_list);
+
   /*
    * All workers halted, source worker must be finished by now
    * it is safe to go on with the object destruction

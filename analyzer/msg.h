@@ -30,13 +30,14 @@
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT   0x1
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL       0x2
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_EOS           0x3
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL      0x4
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES_LOST  0x5
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR     0x6 /* Channel inspector */
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_PSD           0x7 /* Main spectrum */
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES       0x8 /* Sample batch */
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE      0x9 /* Set throttle */
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xa /* Analyzer params */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR    0x4
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL      0x5
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES_LOST  0x6
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR     0x7 /* Channel inspector */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_PSD           0x8 /* Main spectrum */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES       0x9 /* Sample batch */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE      0xa /* Set throttle */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xb /* Analyzer params */
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
@@ -50,7 +51,7 @@ struct suscan_analyzer_status_msg {
 
 /* Channel notification message */
 struct suscan_analyzer_channel_msg {
-  const struct suscan_source *source;
+  const suscan_source_t *source;
   PTR_LIST(struct sigutils_channel, channel);
   const suscan_analyzer_t *sender;
 };

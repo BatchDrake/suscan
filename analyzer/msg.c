@@ -104,6 +104,7 @@ suscan_analyzer_channel_msg_new(
   unsigned int i;
   struct suscan_analyzer_channel_msg *new = NULL;
   unsigned int n = 0;
+  SUFREQ fc;
 
   if ((new = calloc(1, sizeof(struct suscan_analyzer_channel_msg))) == NULL)
     goto fail;
@@ -114,8 +115,10 @@ suscan_analyzer_channel_msg_new(
       goto fail;
 
   new->channel_count = len;
-  new->source = analyzer->source.config->source;
+  new->source = analyzer->source;
   new->sender = analyzer;
+
+  fc = (suscan_source_get_config(analyzer->source))->freq;
 
   for (i = 0; i < len; ++i)
     if (list[i] != NULL)
@@ -123,10 +126,10 @@ suscan_analyzer_channel_msg_new(
         if ((new->channel_list[n] = su_channel_dup(list[i])) == NULL)
           goto fail;
 
-        new->channel_list[n]->fc   += analyzer->source.fc;
-        new->channel_list[n]->f_hi += analyzer->source.fc;
-        new->channel_list[n]->f_lo += analyzer->source.fc;
-        new->channel_list[n]->ft    = analyzer->source.fc;
+        new->channel_list[n]->fc   += fc;
+        new->channel_list[n]->f_hi += fc;
+        new->channel_list[n]->f_lo += fc;
+        new->channel_list[n]->ft    = fc;
         ++n;
       }
 
@@ -431,7 +434,7 @@ suscan_analyzer_send_psd(
     goto done;
   }
 
-  msg->fc = analyzer->source.fc;
+  msg->fc = (suscan_source_get_config(analyzer->source))->freq;
   msg->N0 = detector->N0;
 
   if (!suscan_mq_write(

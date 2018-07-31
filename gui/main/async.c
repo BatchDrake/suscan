@@ -79,11 +79,14 @@ suscan_gui_change_button_icon(GtkButton *button, const char *icon)
 void
 suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
 {
+  const suscan_source_config_t *config = NULL;
   const char *source_name = "No source selected";
-  char *subtitle = NULL;
+  const char *subtitle = NULL;
 
-  if (gui->analyzer_source_config != NULL)
-    source_name = gui->analyzer_source_config->source->desc;
+  if (gui->active_profile != NULL) {
+    config = suscan_gui_profile_get_source_config(gui->active_profile);
+    source_name = suscan_source_config_get_label(config);
+  }
 
   switch (state) {
     case SUSCAN_GUI_STATE_STOPPED:
@@ -93,8 +96,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
           "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), TRUE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
           FALSE);
@@ -112,8 +113,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
           "media-playback-stop-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->sourceGrid), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), TRUE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
           !suscan_analyzer_is_real_time(gui->analyzer));
@@ -131,7 +130,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       subtitle = "Restarting...";
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
           FALSE);
@@ -150,7 +148,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
           "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
-      gtk_widget_set_sensitive(GTK_WIDGET(gui->recentMenu), FALSE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
           FALSE);
@@ -165,6 +162,8 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
   gui->state = state;
 
   gtk_label_set_text(gui->subTitleLabel, subtitle);
+
+  suscan_gui_set_title(gui, source_name);
 }
 
 /************************** Async callbacks **********************************/
@@ -195,7 +194,6 @@ suscan_async_stopped_cb(gpointer user_data)
        * Stopped was caused by a transition to QUITTING. Destroy GUI
        * and exit main loop
        */
-      suscan_gui_store_recent(gui);
       suscan_gui_store_settings(gui);
       suscan_gui_destroy(gui);
       gtk_main_quit();
@@ -215,6 +213,19 @@ suscan_async_stopped_cb(gpointer user_data)
   }
 
   return G_SOURCE_REMOVE;
+}
+
+SUPRIVATE gboolean
+suscan_async_read_error_cb(gpointer user_data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) user_data;
+
+  suscan_error(
+      gui,
+      "Read error",
+      "Capture stopped due to source read error (see log)");
+
+  return suscan_async_stopped_cb(user_data);
 }
 
 SUPRIVATE gboolean
@@ -528,6 +539,10 @@ done:
   return G_SOURCE_REMOVE;
 }
 
+/*
+ * Async thread: read messages from analyzer object and inject them to the
+ * GUI's main loop
+ */
 SUPRIVATE gpointer
 suscan_gui_async_thread(gpointer data)
 {
@@ -596,6 +611,10 @@ suscan_gui_async_thread(gpointer data)
           g_idle_add(suscan_async_parse_sample_batch_msg, envelope);
           break;
 
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR: /* Read error */
+          g_idle_add(suscan_async_read_error_cb, gui);
+          goto done;
+
         case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS: /* End of stream */
           g_idle_add(suscan_async_stopped_cb, gui);
           goto done;
@@ -615,105 +634,10 @@ done:
   return NULL;
 }
 
-/************************** GUI Thread functions *****************************/
 SUBOOL
-suscan_gui_connect(suscan_gui_t *gui)
+suscan_gui_start_async_thread(suscan_gui_t *gui)
 {
-  unsigned int i;
+  gui->async_thread = g_thread_new("async-task", suscan_gui_async_thread, gui);
 
-  assert(gui->state == SUSCAN_GUI_STATE_STOPPED
-      || gui->state == SUSCAN_GUI_STATE_RESTARTING);
-  assert(gui->analyzer == NULL);
-  assert(gui->analyzer_source_config != NULL);
-
-  for (i = 0; i < gui->inspector_count; ++i)
-    if (gui->inspector_list[i] != NULL)
-      break;
-
-  if (i < gui->inspector_count)
-    suscan_warning(
-        gui,
-        "Existing inspectors",
-        "The opened inspector tabs will remain in idle state");
-
-  sugtk_spectrum_reset(gui->spectrum);
-
-  if ((gui->analyzer = suscan_analyzer_new(
-      &gui->analyzer_params,
-      gui->analyzer_source_config,
-      &gui->mq_out)) == NULL)
-    return SU_FALSE;
-
-  /* Analyzer created, create async thread */
-  SU_TRYCATCH(
-      gui->async_thread = g_thread_new(
-          "async-task",
-          suscan_gui_async_thread,
-          gui),
-      goto fail);
-
-  /* Append recent. Not critical */
-  (void) suscan_gui_append_recent(gui, gui->analyzer_source_config);
-
-  /* Change state and succeed */
-  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RUNNING);
-
-  return SU_TRUE;
-
-fail:
-  if (gui->analyzer != NULL) {
-    suscan_analyzer_destroy(gui->analyzer);
-    gui->analyzer = NULL;
-
-    suscan_analyzer_consume_mq(&gui->mq_out);
-  }
-
-  return SU_FALSE;
+  return gui->async_thread != NULL;
 }
-
-void
-suscan_gui_reconnect(suscan_gui_t *gui)
-{
-  assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
-  assert(gui->analyzer != NULL);
-
-  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_RESTARTING);
-  suscan_analyzer_req_halt(gui->analyzer);
-}
-
-void
-suscan_gui_disconnect(suscan_gui_t *gui)
-{
-  assert(gui->state == SUSCAN_GUI_STATE_RUNNING);
-  assert(gui->analyzer != NULL);
-
-  suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPING);
-  suscan_analyzer_req_halt(gui->analyzer);
-}
-
-void
-suscan_gui_quit(suscan_gui_t *gui)
-{
-  switch (gui->state) {
-    case SUSCAN_GUI_STATE_RUNNING:
-      suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
-      suscan_analyzer_req_halt(gui->analyzer);
-      break;
-
-    case SUSCAN_GUI_STATE_RESTARTING:
-      suscan_gui_update_state(gui, SUSCAN_GUI_STATE_QUITTING);
-      break;
-
-    case SUSCAN_GUI_STATE_STOPPED:
-      /* GUI already stopped, proceed to stop safely */
-      suscan_gui_store_recent(gui);
-      suscan_gui_store_settings(gui);
-      suscan_gui_destroy(gui);
-      gtk_main_quit();
-      break;
-  }
-
-  /* Ignore other states */
-}
-
-

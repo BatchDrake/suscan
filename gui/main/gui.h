@@ -22,14 +22,16 @@
 #define _GUI_GUI_H
 
 #include <sigutils/sigutils.h>
+#include <confdb.h>
 #include <suscan.h>
 
 #include <gtk/gtk.h>
+#include <profile/profile.h>
+#include <spectrum.h>
+#include <lcd.h>
 
-#include "spectrum.h"
-#include "inspector.h"
-#include "symtool.h"
-#include "lcd.h"
+#include <inspector/inspector.h>
+#include <symsrc/symtool.h>
 
 #ifndef PKGDATADIR
 #define PKGDATADIR "/usr"
@@ -43,12 +45,6 @@ struct suscan_gui_cfgui {
   suscan_config_t *config; /* Borrowed pointer */
   PTR_LIST(GtkWidget, widget);
   GtkGrid *grid;
-};
-
-struct suscan_gui_src_ui {
-  const struct suscan_source *source;
-  struct suscan_source_config *config;
-  struct suscan_gui_cfgui *cfgui;
 };
 
 enum suscan_gui_state {
@@ -89,7 +85,9 @@ struct suscan_gui_settings {
 
 struct suscan_gui {
   /* Application settings */
-  GSettings *g_settings;
+  GSettings *g_settings; /* TODO: send to the deepest of hells */
+  suscan_config_context_t *settings_ctx;
+  suscan_object_t *settings_obj;
   struct suscan_gui_settings settings;
 
   /* Widgets */
@@ -108,9 +106,6 @@ struct suscan_gui {
   GtkComboBox *sourceCombo;
   GtkHeaderBar *headerBar;
   GtkMenuBar *menuBar;
-  GObject *sourceAlignment;
-  GtkMenu *recentMenu;
-  GtkMenuItem *emptyMenuItem;
   GtkBox *freqBox;
   SuGtkLcd *freqLcd;
   GtkSpinButton *throttleSampRateSpinButton;
@@ -141,6 +136,7 @@ struct suscan_gui {
   GtkLabel *n0Label;
 
   /* Setting dialogs widgets */
+  GtkStack       *settingsViewStack;
   GtkColorButton *paFgColorButton;
   GtkColorButton *paBgColorButton;
   GtkColorButton *paTextColorButton;
@@ -153,6 +149,9 @@ struct suscan_gui {
 
   GtkColorButton *lcdFgColorButton;
   GtkColorButton *lcdBgColorButton;
+
+  GtkFrame *channelDiscoveryFrame;
+  GtkFrame *colorsFrame;
 
   /* Source summary */
   GtkLabel *spectrumSampleRateLabel;
@@ -181,11 +180,21 @@ struct suscan_gui {
   GtkRadioButton *blackmannHarrisWindowButton;
   GtkRadioButton *flatTopWindowButton;
 
+  guint stack_first_ndx;
+  GtkListBox *settingsSelectorListBox;
+
+  /* Profile name dialog */
+  GtkDialog *profileNameDialog;
+  GtkEntry *profileNameEntry;
+
+  /* Profile menu */
+  GtkMenu *profilesMenu;
+  PTR_LIST(GtkRadioMenuItem, profileRadioButton);
+
   /* GUI state */
   enum suscan_gui_state state;
 
   /* Analyzer integration */
-  struct suscan_source_config *analyzer_source_config;
   struct suscan_analyzer_params analyzer_params;
   suscan_analyzer_t *analyzer;
   struct suscan_mq mq_out;
@@ -203,8 +212,9 @@ struct suscan_gui {
   /* Symbol tool tab list */
   PTR_LIST(suscan_gui_symtool_t, symtool);
 
-  /* Keep a list of the last configurations used */
-  PTR_LIST(struct suscan_gui_recent, recent);
+  /* Source configuration profiles */
+  PTR_LIST(suscan_gui_profile_t, profile);
+  suscan_gui_profile_t *active_profile;
 
   /* Flag to prevent nested callback calling */
   SUBOOL updating_settings;
@@ -212,13 +222,17 @@ struct suscan_gui {
 
 typedef struct suscan_gui suscan_gui_t;
 
+void suscan_gui_clear_profile_menu(suscan_gui_t *gui);
+
 void suscan_gui_destroy(suscan_gui_t *gui);
 
 void suscan_gui_apply_settings_on_inspector(
     suscan_gui_t *gui,
     suscan_gui_inspector_t *insp);
 
-suscan_gui_t *suscan_gui_new(int argc, char **argv);
+suscan_gui_t *suscan_gui_new(void);
+
+SUBOOL suscan_graphical_init(int argc, char **argv);
 
 SUBOOL suscan_gui_start(
     int argc,
@@ -226,12 +240,10 @@ SUBOOL suscan_gui_start(
     struct suscan_source_config **config_list,
     unsigned int config_count);
 
-void suscan_gui_msgbox(
-    suscan_gui_t *gui,
-    GtkMessageType type,
-    const char *title,
-    const char *fmt,
-    ...);
+/* Internal API */
+SUBOOL suscan_gui_load_all_widgets(suscan_gui_t *gui);
+
+SUBOOL suscan_gui_start_async_thread(suscan_gui_t *gui);
 
 void suscan_gui_setup_logging(suscan_gui_t *gui);
 
@@ -241,6 +253,28 @@ void suscan_gui_text_entry_set_float(GtkEntry *entry, SUFLOAT value);
 void suscan_gui_text_entry_set_scount(GtkEntry *entry, SUSCOUNT value);
 
 void suscan_gui_text_entry_set_integer(GtkEntry *entry, int64_t value);
+
+void suscan_gui_text_entry_set_freq(GtkEntry *entry, SUFREQ result);
+
+SUBOOL suscan_gui_text_entry_get_float(GtkEntry *entry, SUFLOAT *result);
+
+SUBOOL suscan_gui_text_entry_get_freq(GtkEntry *entry, SUFREQ *result);
+
+SUBOOL suscan_gui_text_entry_get_scount(GtkEntry *entry, SUSCOUNT *result);
+
+SUBOOL suscan_gui_text_entry_get_integer(GtkEntry *entry, int64_t *result);
+
+void suscan_gui_msgbox(
+    suscan_gui_t *gui,
+    GtkMessageType type,
+    const char *title,
+    const char *fmt,
+    ...);
+
+const char *suscan_gui_ask_for_profile_name(
+    suscan_gui_t *gui,
+    const char *title,
+    const char *text);
 
 /* Generic configuration UI */
 SUBOOL suscan_gui_cfgui_parse(struct suscan_gui_cfgui *ui);
@@ -252,24 +286,6 @@ void suscan_gui_cfgui_destroy(struct suscan_gui_cfgui *ui);
 GtkWidget *suscan_gui_cfgui_get_root(const struct suscan_gui_cfgui *ui);
 
 struct suscan_gui_cfgui *suscan_gui_cfgui_new(suscan_config_t *config);
-
-/* Source UI API */
-struct suscan_gui_src_ui *suscan_gui_get_selected_src_ui(
-    const suscan_gui_t *gui);
-
-SUBOOL suscan_gui_set_selected_src_ui(
-    suscan_gui_t *gui,
-    const struct suscan_gui_src_ui *ui);
-
-void suscan_gui_src_ui_to_dialog(const struct suscan_gui_src_ui *ui);
-
-SUBOOL suscan_gui_src_ui_from_dialog(struct suscan_gui_src_ui *ui);
-
-SUBOOL suscan_gui_set_title(suscan_gui_t *gui, const char *title);
-
-void suscan_gui_set_src_ui(
-    suscan_gui_t *gui,
-    struct suscan_gui_src_ui *ui);
 
 /* GUI settings */
 void suscan_gui_settings_from_dialog(suscan_gui_t *gui);
@@ -292,6 +308,8 @@ void suscan_gui_update_state(
 
 void suscan_gui_detach_all_inspectors(suscan_gui_t *gui);
 
+SUBOOL suscan_gui_set_title(suscan_gui_t *gui, const char *title);
+
 SUBOOL suscan_gui_connect(suscan_gui_t *gui);
 void suscan_gui_reconnect(suscan_gui_t *gui);
 void suscan_gui_disconnect(suscan_gui_t *gui);
@@ -305,6 +323,8 @@ void suscan_gui_quit(suscan_gui_t *gui);
     suscan_gui_msgbox(gui, GTK_MESSAGE_WARNING, title, fmt, ##arg)
 
 /* Main GUI inspector list handling methods */
+SUBOOL suscan_gui_add_all_inspector_actions(suscan_gui_t *gui);
+
 SUBOOL suscan_gui_remove_inspector(
     suscan_gui_t *gui,
     suscan_gui_inspector_t *insp);
@@ -331,6 +351,26 @@ suscan_gui_symtool_t *suscan_gui_get_symtool(
     uint32_t symtool_id);
 
 /* Source API */
+SUBOOL suscan_gui_load_profiles(suscan_gui_t *gui);
+
+void suscan_gui_show_profile(
+    suscan_gui_t *gui,
+    suscan_gui_profile_t *profile);
+
+SUBOOL suscan_gui_select_profile(
+    suscan_gui_t *gui,
+    suscan_gui_profile_t *profile);
+
+suscan_gui_profile_t *suscan_gui_lookup_profile(
+    const suscan_gui_t *gui,
+    const char *label);
+
+SUBOOL suscan_gui_create_profile(suscan_gui_t *gui, const char *name);
+
+SUBOOL suscan_gui_parse_all_changed_profiles(suscan_gui_t *gui);
+
+void suscan_gui_reset_all_profiles(suscan_gui_t *gui);
+
 struct suscan_gui_src_ui *suscan_gui_lookup_source_config(
     const suscan_gui_t *gui,
     const struct suscan_source *src);
@@ -350,7 +390,7 @@ void suscan_gui_retrieve_recent(suscan_gui_t *gui);
 
 void suscan_gui_store_recent(suscan_gui_t *gui);
 
-void suscan_gui_load_settings(suscan_gui_t *gui);
+SUBOOL suscan_gui_load_settings(suscan_gui_t *gui);
 
 void suscan_gui_store_settings(suscan_gui_t *gui);
 
