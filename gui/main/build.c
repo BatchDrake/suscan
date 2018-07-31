@@ -552,6 +552,13 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
+      gui->profileTextLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              gui->builder,
+              "lProfileText")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
       gui->profilesMenu =
           GTK_MENU(gtk_builder_get_object(
               gui->builder,

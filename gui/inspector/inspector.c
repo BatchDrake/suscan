@@ -42,6 +42,9 @@ suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
         inspector->inshnd,
         rand());
 
+  if (inspector->class != NULL)
+    free(inspector->class);
+
   suscan_gui_modemctl_set_finalize(&inspector->modemctl_set);
 
   for (i = 0; i < inspector->estimator_count; ++i)
@@ -967,6 +970,8 @@ suscan_gui_inspector_new(
 
   /* Superclass constructor */
   SU_TRYCATCH(suscan_gui_symsrc_init(&new->_parent, NULL), goto fail);
+
+  SU_TRYCATCH(new->class = strdup(class), goto fail);
 
   new->channel = *channel;
   new->index = -1;

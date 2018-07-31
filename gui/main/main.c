@@ -234,10 +234,6 @@ suscan_gui_new(void)
       goto fail);
 
   SU_TRYCATCH(
-      gui->settings_ctx = suscan_config_context_assert("gtkui"),
-      goto fail);
-
-  SU_TRYCATCH(
       gui->builder = gtk_builder_new_from_file(PKGDATADIR "/gui/main.glade"),
       goto fail);
 

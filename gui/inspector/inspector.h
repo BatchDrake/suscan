@@ -21,6 +21,7 @@
 #ifndef _GUI_INSPECTOR_H
 #define _GUI_INSPECTOR_H
 
+#include <object.h>
 #include "symsrc.h"
 
 #include "spectrum.h"
@@ -50,6 +51,7 @@ struct suscan_gui_inspector {
   SUBOOL recording; /* Symbol recorder enabled */
 
   /* Current inspector configuration and cached values */
+  char *class; /* Inspector class */
   suscan_config_t *config;
   unsigned int baudrate;
   su_decider_t decider;
@@ -170,6 +172,9 @@ SUBOOL suscan_gui_inspector_open_codec_tab(
     unsigned int direction,
     const SuGtkSymView *view,
     suscan_symbuf_t *source);
+
+suscan_object_t *suscan_gui_inspector_serialize(
+    const suscan_gui_inspector_t *inspector);
 
 void suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector);
 

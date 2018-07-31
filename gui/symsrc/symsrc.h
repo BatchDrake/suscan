@@ -50,6 +50,12 @@ struct suscan_gui_symsrc {
 
 typedef struct suscan_gui_symsrc suscan_gui_symsrc_t;
 
+struct suscan_gui *
+suscan_gui_symsrc_get_gui(const suscan_gui_symsrc_t *symsrc)
+{
+  return symsrc->gui;
+}
+
 SUBOOL suscan_gui_symsrc_push_task(
     suscan_gui_symsrc_t *symsrc,
     SUBOOL (*task) (
@@ -64,8 +70,7 @@ SUBITS *suscan_gui_symsrc_assert(
 
 SUBOOL suscan_gui_symsrc_commit(suscan_gui_symsrc_t *symsrc);
 
-SUBOOL
-suscan_gui_symsrc_populate_codec_menu(
+SUBOOL suscan_gui_symsrc_populate_codec_menu(
     suscan_gui_symsrc_t *symsrc,
     SuGtkSymView *view,
     void *(*create_priv) (void *, struct suscan_gui_codec_cfg_ui *),

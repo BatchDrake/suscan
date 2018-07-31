@@ -26,36 +26,6 @@
 #include "modemctl.h"
 #include "gui.h"
 
-SUPRIVATE SUBOOL
-suscan_gui_assert_settings_obj(suscan_gui_t *gui)
-{
-  const suscan_object_t *list;
-  suscan_object_t *ui_settings = NULL;
-
-  SU_TRYCATCH(
-      list = suscan_config_context_get_list(gui->settings_ctx),
-      goto fail);
-
-  if ((gui->settings_obj = suscan_object_set_get(list, 0)) == NULL) {
-    SU_TRYCATCH(
-        ui_settings = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT),
-        goto fail);
-    SU_TRYCATCH(
-        suscan_config_context_put(gui->settings_ctx, ui_settings),
-        goto fail);
-    gui->settings_obj = ui_settings;
-    ui_settings = NULL;
-  }
-
-  return SU_TRUE;
-
-fail:
-  if (ui_settings != NULL)
-    suscan_object_destroy(ui_settings);
-
-  return SU_FALSE;
-}
-
 void
 suscan_gui_apply_settings_on_inspector(
     suscan_gui_t *gui,
@@ -367,24 +337,70 @@ done:
     g_free(win);
 }
 
-SUBOOL
-suscan_gui_load_settings(suscan_gui_t *gui)
+SUPRIVATE SUBOOL
+suscan_gui_assert_settings_objs(suscan_gui_t *gui)
+{
+  const suscan_object_t *list;
+  suscan_object_t *ui_settings = NULL;
+
+  SU_TRYCATCH(
+      gui->gtkui_ctx = suscan_config_context_assert("gtkui"),
+      goto fail);
+
+  SU_TRYCATCH(
+      gui->inspectors_ctx = suscan_config_context_assert("inspectors"),
+      goto fail);
+
+  SU_TRYCATCH(
+      list = suscan_config_context_get_list(gui->gtkui_ctx),
+      goto fail);
+
+  if ((gui->gtkui_obj = suscan_object_set_get(list, 0)) == NULL) {
+    SU_TRYCATCH(
+        ui_settings = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT),
+        goto fail);
+    SU_TRYCATCH(
+        suscan_config_context_put(gui->gtkui_ctx, ui_settings),
+        goto fail);
+    gui->gtkui_obj = ui_settings;
+    ui_settings = NULL;
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (ui_settings != NULL)
+    suscan_object_destroy(ui_settings);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_load_gtkui_settings(suscan_gui_t *gui)
 {
   const char *value;
   suscan_gui_profile_t *profile = NULL;
 
-  suscan_gui_load_g_settings(gui); /* Delete */
-
-  SU_TRYCATCH(suscan_gui_assert_settings_obj(gui), return SU_FALSE);
-
   if ((value = suscan_object_get_field_value(
-      gui->settings_obj,
+      gui->gtkui_obj,
       "active_profile")) != NULL) {
 
     if ((profile = suscan_gui_lookup_profile(gui, value)) != NULL)
       SU_TRYCATCH(suscan_gui_select_profile(gui, profile), return SU_FALSE);
   }
 
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_gui_load_settings(suscan_gui_t *gui)
+{
+  suscan_gui_load_g_settings(gui); /* Delete */
+
+  SU_TRYCATCH(suscan_gui_assert_settings_objs(gui), return SU_FALSE);
+
+  SU_TRYCATCH(suscan_gui_load_gtkui_settings(gui), return SU_FALSE);
+  
   return SU_TRUE;
 }
 
@@ -455,17 +471,26 @@ suscan_gui_store_g_settings(suscan_gui_t *gui)
   g_settings_sync();
 }
 
+SUPRIVATE SUBOOL
+suscan_gui_store_gtkui_settings(suscan_gui_t *gui)
+{
+  if (gui->active_profile != NULL)
+    SU_TRYCATCH(
+        suscan_object_set_field_value(
+            gui->gtkui_obj,
+            "active_profile",
+            suscan_source_config_get_label(
+                suscan_gui_profile_get_source_config(gui->active_profile))),
+        return SU_FALSE);
+
+  return SU_TRUE;
+}
 
 void
 suscan_gui_store_settings(suscan_gui_t *gui)
 {
   suscan_gui_store_g_settings(gui);
 
-  if (gui->active_profile != NULL)
-    suscan_object_set_field_value(
-        gui->settings_obj,
-        "active_profile",
-        suscan_source_config_get_label(
-            suscan_gui_profile_get_source_config(gui->active_profile)));
+  (void) suscan_gui_store_gtkui_settings(gui);
 }
 

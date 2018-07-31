@@ -33,12 +33,14 @@ libgui_la_SOURCES = \
   custom/waveform.h \
   gui.c \
   init.c \
+  inspector/callbacks.c \
   inspector/estimatorui.c \
   inspector/estimatorui.h \
   inspector/inspector.c \
   inspector/inspector.h \
   inspector/modemctl.c \
   inspector/modemctl.h \
+  inspector/serialize.c \
   main/async.c \
   main/build.c \
   main/callbacks.c \

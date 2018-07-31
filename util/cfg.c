@@ -609,3 +609,66 @@ fail:
   return NULL;
 }
 
+suscan_object_t *
+suscan_config_to_object(const suscan_config_t *config)
+{
+  suscan_object_t *new = NULL;
+  unsigned int i;
+
+  SU_TRYCATCH(new = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
+
+  for (i = 0; i < config->desc->field_count; ++i) {
+    switch (config->desc->field_list[i]->type) {
+      case SUSCAN_FIELD_TYPE_FILE:
+      case SUSCAN_FIELD_TYPE_STRING:
+        SU_TRYCATCH(
+            suscan_object_set_field_value(
+                new,
+                config->desc->field_list[i]->name,
+                config->values[i]->as_string),
+            goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_INTEGER:
+        SU_TRYCATCH(
+            suscan_object_set_field_int(
+                new,
+                config->desc->field_list[i]->name,
+                config->values[i]->as_int),
+            goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FLOAT:
+        SU_TRYCATCH(
+            suscan_object_set_field_float(
+                new,
+                config->desc->field_list[i]->name,
+                config->values[i]->as_float),
+            goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_BOOLEAN:
+        SU_TRYCATCH(
+            suscan_object_set_field_bool(
+                new,
+                config->desc->field_list[i]->name,
+                config->values[i]->as_bool),
+            goto fail);
+        break;
+
+      default:
+        SU_ERROR(
+            "Cannot serialize field type %d\n",
+            config->desc->field_list[i]->type);
+    }
+  }
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_object_destroy(new);
+
+  return NULL;
+}
+

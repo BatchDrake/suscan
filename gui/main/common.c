@@ -62,15 +62,17 @@ suscan_gui_msgbox(
 }
 
 const char *
-suscan_gui_ask_for_profile_name(
+suscan_gui_prompt(
     suscan_gui_t *gui,
     const char *title,
-    const char *text)
+    const char *text,
+    const char *defl)
 {
   int result;
 
-  if (text != NULL)
-    gtk_entry_set_text(gui->profileNameEntry, text);
+  gtk_label_set_text(gui->profileTextLabel, text);
+  if (defl != NULL)
+    gtk_entry_set_text(gui->profileNameEntry, defl);
 
   gtk_window_set_title(GTK_WINDOW(gui->profileNameDialog), title);
 
@@ -86,6 +88,15 @@ suscan_gui_ask_for_profile_name(
     return gtk_entry_get_text(gui->profileNameEntry);
 
   return NULL;
+}
+
+const char *
+suscan_gui_ask_for_profile_name(
+    suscan_gui_t *gui,
+    const char *title,
+    const char *defl)
+{
+  return suscan_gui_prompt(gui, title, "Profile name", defl);
 }
 
 void

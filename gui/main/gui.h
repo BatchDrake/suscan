@@ -86,8 +86,11 @@ struct suscan_gui_settings {
 struct suscan_gui {
   /* Application settings */
   GSettings *g_settings; /* TODO: send to the deepest of hells */
-  suscan_config_context_t *settings_ctx;
-  suscan_object_t *settings_obj;
+  suscan_config_context_t *gtkui_ctx;
+  suscan_config_context_t *inspectors_ctx;
+  suscan_object_t *gtkui_obj;
+  suscan_object_t *inspectors_obj;
+
   struct suscan_gui_settings settings;
 
   /* Widgets */
@@ -186,6 +189,7 @@ struct suscan_gui {
   /* Profile name dialog */
   GtkDialog *profileNameDialog;
   GtkEntry *profileNameEntry;
+  GtkLabel *profileTextLabel;
 
   /* Profile menu */
   GtkMenu *profilesMenu;
@@ -270,6 +274,12 @@ void suscan_gui_msgbox(
     const char *title,
     const char *fmt,
     ...);
+
+const char *suscan_gui_prompt(
+    suscan_gui_t *gui,
+    const char *title,
+    const char *text,
+    const char *defl);
 
 const char *suscan_gui_ask_for_profile_name(
     suscan_gui_t *gui,
