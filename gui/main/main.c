@@ -234,20 +234,25 @@ suscan_gui_new(void)
       goto fail);
 
   SU_TRYCATCH(
+      gui->settings_ctx = suscan_config_context_assert("gtkui"),
+      goto fail);
+
+  SU_TRYCATCH(
       gui->builder = gtk_builder_new_from_file(PKGDATADIR "/gui/main.glade"),
       goto fail);
 
   gtk_builder_connect_signals(gui->builder, gui);
 
-  suscan_gui_load_settings(gui);
-
   SU_TRYCATCH(suscan_gui_load_all_widgets(gui), goto fail);
 
   sugtk_lcd_set_value_cb(gui->freqLcd, suscan_gui_on_set_frequency, gui);
 
-  suscan_gui_apply_settings(gui);
-
   SU_TRYCATCH(suscan_gui_load_profiles(gui), goto fail);
+
+  /* All done. Load settings and apply them */
+  SU_TRYCATCH(suscan_gui_load_settings(gui), goto fail);
+
+  suscan_gui_apply_settings(gui);
 
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
 

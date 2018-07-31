@@ -27,8 +27,24 @@
 #include "gui.h"
 
 /**************************** Profile selection ******************************/
+suscan_gui_profile_t *
+suscan_gui_lookup_profile(const suscan_gui_t *gui, const char *label)
+{
+  const suscan_source_config_t *config;
+  unsigned int i;
+
+  for (i = 0; i < gui->profile_count; ++i)
+    if (gui->profile_list[i] != NULL) {
+      config = suscan_gui_profile_get_source_config(gui->profile_list[i]);
+      if (strcmp(suscan_source_config_get_label(config), label) == 0)
+        return gui->profile_list[i];
+    }
+
+  return NULL;
+}
+
 SUPRIVATE suscan_gui_profile_t *
-suscan_gui_get_first_profile(const suscan_gui_t *gui)
+suscan_gui_get_default_profile(const suscan_gui_t *gui)
 {
   unsigned int i;
 
@@ -47,7 +63,7 @@ suscan_gui_select_profile(suscan_gui_t *gui, suscan_gui_profile_t *profile)
   /* profile can be NULL. */
 #ifndef SUSCAN_ALLOW_NULL_PROFILE
   if (profile == NULL)
-    profile = suscan_gui_get_first_profile(gui);
+    profile = suscan_gui_get_default_profile(gui);
 #endif /* SUSCAN_ALLOW_NULL_PROFILE */
 
   gui->active_profile = profile;

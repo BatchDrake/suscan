@@ -22,6 +22,7 @@
 #define _GUI_GUI_H
 
 #include <sigutils/sigutils.h>
+#include <confdb.h>
 #include <suscan.h>
 
 #include <gtk/gtk.h>
@@ -84,7 +85,9 @@ struct suscan_gui_settings {
 
 struct suscan_gui {
   /* Application settings */
-  GSettings *g_settings;
+  GSettings *g_settings; /* TODO: send to the deepest of hells */
+  suscan_config_context_t *settings_ctx;
+  suscan_object_t *settings_obj;
   struct suscan_gui_settings settings;
 
   /* Widgets */
@@ -358,6 +361,10 @@ SUBOOL suscan_gui_select_profile(
     suscan_gui_t *gui,
     suscan_gui_profile_t *profile);
 
+suscan_gui_profile_t *suscan_gui_lookup_profile(
+    const suscan_gui_t *gui,
+    const char *label);
+
 SUBOOL suscan_gui_create_profile(suscan_gui_t *gui, const char *name);
 
 SUBOOL suscan_gui_parse_all_changed_profiles(suscan_gui_t *gui);
@@ -383,7 +390,7 @@ void suscan_gui_retrieve_recent(suscan_gui_t *gui);
 
 void suscan_gui_store_recent(suscan_gui_t *gui);
 
-void suscan_gui_load_settings(suscan_gui_t *gui);
+SUBOOL suscan_gui_load_settings(suscan_gui_t *gui);
 
 void suscan_gui_store_settings(suscan_gui_t *gui);
 

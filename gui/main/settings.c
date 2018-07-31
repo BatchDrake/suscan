@@ -26,6 +26,35 @@
 #include "modemctl.h"
 #include "gui.h"
 
+SUPRIVATE SUBOOL
+suscan_gui_assert_settings_obj(suscan_gui_t *gui)
+{
+  const suscan_object_t *list;
+  suscan_object_t *ui_settings = NULL;
+
+  SU_TRYCATCH(
+      list = suscan_config_context_get_list(gui->settings_ctx),
+      goto fail);
+
+  if ((gui->settings_obj = suscan_object_set_get(list, 0)) == NULL) {
+    SU_TRYCATCH(
+        ui_settings = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT),
+        goto fail);
+    SU_TRYCATCH(
+        suscan_config_context_put(gui->settings_ctx, ui_settings),
+        goto fail);
+    gui->settings_obj = ui_settings;
+    ui_settings = NULL;
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (ui_settings != NULL)
+    suscan_object_destroy(ui_settings);
+
+  return SU_FALSE;
+}
 
 void
 suscan_gui_apply_settings_on_inspector(
@@ -246,8 +275,8 @@ suscan_gui_settings_set_color(
   g_settings_set_string(gui->g_settings, field, color);
 }
 
-void
-suscan_gui_load_settings(suscan_gui_t *gui)
+SUPRIVATE void
+suscan_gui_load_g_settings(suscan_gui_t *gui)
 {
   gchar *win = NULL;
   SUPRIVATE struct suscan_analyzer_params analyzer_params =
@@ -338,8 +367,29 @@ done:
     g_free(win);
 }
 
-void
-suscan_gui_store_settings(suscan_gui_t *gui)
+SUBOOL
+suscan_gui_load_settings(suscan_gui_t *gui)
+{
+  const char *value;
+  suscan_gui_profile_t *profile = NULL;
+
+  suscan_gui_load_g_settings(gui); /* Delete */
+
+  SU_TRYCATCH(suscan_gui_assert_settings_obj(gui), return SU_FALSE);
+
+  if ((value = suscan_object_get_field_value(
+      gui->settings_obj,
+      "active_profile")) != NULL) {
+
+    if ((profile = suscan_gui_lookup_profile(gui, value)) != NULL)
+      SU_TRYCATCH(suscan_gui_select_profile(gui, profile), return SU_FALSE);
+  }
+
+  return SU_TRUE;
+}
+
+SUPRIVATE void
+suscan_gui_store_g_settings(suscan_gui_t *gui)
 {
   /* Store general GUI parameters */
   suscan_gui_settings_set_color(&gui->settings.pa_bg, gui, "pa-bg-color");
@@ -403,5 +453,19 @@ suscan_gui_store_settings(suscan_gui_t *gui)
       gui->analyzer_params.psd_update_int);
 
   g_settings_sync();
+}
+
+
+void
+suscan_gui_store_settings(suscan_gui_t *gui)
+{
+  suscan_gui_store_g_settings(gui);
+
+  if (gui->active_profile != NULL)
+    suscan_object_set_field_value(
+        gui->settings_obj,
+        "active_profile",
+        suscan_source_config_get_label(
+            suscan_gui_profile_get_source_config(gui->active_profile)));
 }
 
