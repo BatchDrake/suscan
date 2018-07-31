@@ -827,6 +827,10 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   /* Consume any pending messages */
   suscan_analyzer_consume_mq(&analyzer->mq_in);
 
+  /* Free channel detector */
+  if (analyzer->detector != NULL)
+    su_channel_detector_destroy(analyzer->detector);
+
   /* Free spectral tuner */
   if (analyzer->stuner != NULL)
     su_specttuner_destroy(analyzer->stuner);
