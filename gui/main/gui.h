@@ -85,9 +85,8 @@ struct suscan_gui_settings {
 
 struct suscan_gui {
   /* Application settings */
-  GSettings *g_settings; /* TODO: send to the deepest of hells */
-  suscan_config_context_t *settings_ctx;
-  suscan_object_t *settings_obj;
+  suscan_config_context_t *gtkui_ctx;
+  suscan_object_t *gtkui_obj;
   struct suscan_gui_settings settings;
 
   /* Widgets */
