@@ -189,9 +189,11 @@ struct suscan_gui {
   /* Profile name dialog */
   GtkDialog *profileNameDialog;
   GtkEntry *profileNameEntry;
+  GtkLabel *profileTextLabel;
 
   /* Profile menu */
   GtkMenu *profilesMenu;
+
   PTR_LIST(GtkRadioMenuItem, profileRadioButton);
 
   /* GUI state */

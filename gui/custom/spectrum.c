@@ -919,11 +919,13 @@ static void
 sugtk_spectrum_refresh(SuGtkSpectrum *spect)
 {
   struct timeval tv, sub;
-
+  unsigned long long int ms;
   gettimeofday(&tv, NULL);
   timersub(&tv, &spect->last_redraw_time, &sub);
 
-  if (sub.tv_usec > SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS * 1000) {
+  ms = sub.tv_usec / 1000 + sub.tv_sec * 1000;
+
+  if (ms > SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS) {
     sugtk_spectrum_refresh_hard(spect);
     spect->last_redraw_time = tv;
   }

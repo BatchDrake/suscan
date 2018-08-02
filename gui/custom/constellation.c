@@ -134,14 +134,16 @@ void
 sugtk_constellation_commit(SuGtkConstellation *constellation)
 {
   struct timeval tv, sub;
+  unsigned long long int ms;
 
   if (constellation->count - constellation->last_drawn
       >= SUGTK_CONSTELLATION_DRAW_THRESHOLD) {
     gettimeofday(&tv, NULL);
 
     timersub(&tv, &constellation->last_redraw_time, &sub);
+    ms = sub.tv_usec / 1000 + sub.tv_sec * 1000;
 
-    if (sub.tv_usec > SUGTK_CONSTELLATION_MIN_REDRAW_INTERVAL_MS * 1000) {
+    if (ms > SUGTK_CONSTELLATION_MIN_REDRAW_INTERVAL_MS) {
       constellation->last_drawn = constellation->count;
       sugtk_constellation_redraw(constellation);
       gtk_widget_queue_draw(GTK_WIDGET(constellation));
