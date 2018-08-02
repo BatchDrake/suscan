@@ -26,6 +26,40 @@
 #include "modemctl.h"
 #include "gui.h"
 
+#include "defaults.h"
+
+#include <locale.h>
+
+SUPRIVATE SUBOOL
+suscan_gui_assert_settings_obj(suscan_gui_t *gui)
+{
+  const suscan_object_t *list;
+  suscan_object_t *ui_settings = NULL;
+
+  SU_TRYCATCH(
+      list = suscan_config_context_get_list(gui->gtkui_ctx),
+      goto fail);
+
+  if ((gui->gtkui_obj = suscan_object_set_get(list, 0)) == NULL) {
+    SU_TRYCATCH(
+        ui_settings = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT),
+        goto fail);
+    SU_TRYCATCH(
+        suscan_config_context_put(gui->gtkui_ctx, ui_settings),
+        goto fail);
+    gui->gtkui_obj = ui_settings;
+    ui_settings = NULL;
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (ui_settings != NULL)
+    suscan_object_destroy(ui_settings);
+
+  return SU_FALSE;
+}
+
 void
 suscan_gui_apply_settings_on_inspector(
     suscan_gui_t *gui,
@@ -204,29 +238,66 @@ suscan_gui_window_to_str(enum sigutils_channel_detector_window window)
   return "none"; /* Formally equivalent to rectangular */
 }
 
+/* Settings getters */
+SUPRIVATE SUBOOL
+suscan_gui_settings_get_window(
+    enum sigutils_channel_detector_window *dest,
+    const suscan_gui_t *gui,
+    const char *field,
+    const char *dflt)
+{
+  const char *str = NULL;
+
+  if ((str = suscan_object_get_field_value(gui->gtkui_obj, field)) == NULL)
+    str = dflt;
+
+  *dest = suscan_gui_str_to_window(str);
+
+  return SU_TRUE;
+}
+
 SUPRIVATE SUBOOL
 suscan_gui_settings_get_color(
     GdkRGBA *dest,
     const suscan_gui_t *gui,
-    const char *field)
+    const char *field,
+    const char *dflt)
 {
-  gchar *str = NULL;
-  SUBOOL ok = SU_FALSE;
+  const char *str = NULL;
 
-  SU_TRYCATCH(str = g_settings_get_string(gui->g_settings, field), goto done);
+  if ((str = suscan_object_get_field_value(gui->gtkui_obj, field)) == NULL)
+    str = dflt;
 
-  SU_TRYCATCH(gdk_rgba_parse(dest, str), goto done);
+  SU_TRYCATCH(gdk_rgba_parse(dest, str), return SU_FALSE);
 
-  ok = SU_TRUE;
-
-done:
-  if (str != NULL)
-    g_free(str);
-
-  return ok;
+  return SU_TRUE;
 }
 
-SUPRIVATE void
+SUPRIVATE SUBOOL
+suscan_gui_settings_get_float(
+    SUFLOAT *dest,
+    const suscan_gui_t *gui,
+    const char *field,
+    SUFLOAT dflt)
+{
+  *dest = suscan_object_get_field_float(gui->gtkui_obj, field, dflt);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
+suscan_gui_settings_get_uint(
+    SUSCOUNT *dest,
+    const suscan_gui_t *gui,
+    const char *field,
+    unsigned int dflt)
+{
+  *dest = suscan_object_get_field_uint(gui->gtkui_obj, field, dflt);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
 suscan_gui_settings_set_color(
     const GdkRGBA *dest,
     suscan_gui_t *gui,
@@ -242,144 +313,217 @@ suscan_gui_settings_set_color(
 
   snprintf(color, sizeof(color), "#%02x%02x%02x", r, g, b);
 
-  g_settings_set_string(gui->g_settings, field, color);
-}
-
-SUPRIVATE void
-suscan_gui_load_g_settings(suscan_gui_t *gui)
-{
-  gchar *win = NULL;
-  SUPRIVATE struct suscan_analyzer_params analyzer_params =
-      suscan_analyzer_params_INITIALIZER;
-
-  /* Load general GUI parameters */
-  SU_TRYCATCH(
-      suscan_gui_settings_get_color(&gui->settings.pa_bg, gui, "pa-bg-color"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscan_gui_settings_get_color(&gui->settings.pa_fg, gui, "pa-fg-color"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscan_gui_settings_get_color(&gui->settings.pa_axes, gui, "pa-axes-color"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscan_gui_settings_get_color(&gui->settings.pa_text, gui, "pa-text-color"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscan_gui_settings_get_color(&gui->settings.insp_bg, gui, "insp-bg-color"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscan_gui_settings_get_color(&gui->settings.insp_fg, gui, "insp-fg-color"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscan_gui_settings_get_color(&gui->settings.insp_axes, gui, "insp-axes-color"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscan_gui_settings_get_color(&gui->settings.insp_text, gui, "insp-text-color"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscan_gui_settings_get_color(&gui->settings.lcd_bg, gui, "lcd-bg-color"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscan_gui_settings_get_color(&gui->settings.lcd_fg, gui, "lcd-fg-color"),
-      goto done);
-
-  /* Load detector parameters */
-  analyzer_params.detector_params.alpha = g_settings_get_double(
-      gui->g_settings,
-      "spectrum-avg-factor");
-
-  analyzer_params.detector_params.beta = g_settings_get_double(
-      gui->g_settings,
-      "signal-avg-factor");
-
-  analyzer_params.detector_params.gamma = g_settings_get_double(
-      gui->g_settings,
-      "noise-avg-factor");
-
-  analyzer_params.detector_params.snr = g_settings_get_double(
-      gui->g_settings,
-      "snr-threshold");
-
-  SU_TRYCATCH(
-      win = g_settings_get_string(gui->g_settings, "window-func"),
-      goto done);
-  analyzer_params.detector_params.window = suscan_gui_str_to_window(win);
-
-  /* FFT Window Size */
-  analyzer_params.detector_params.window_size = g_settings_get_uint(
-      gui->g_settings,
-      "buffer-size");
-
-  /* Update intervals */
-  analyzer_params.channel_update_int = g_settings_get_double(
-      gui->g_settings,
-      "channel-interval");
-
-  analyzer_params.psd_update_int = g_settings_get_double(
-      gui->g_settings,
-      "psd-interval");
-
-  /* TODO: send update message to analyzer */
-  gui->analyzer_params = analyzer_params;
-
-done:
-  if (win != NULL)
-    g_free(win);
+  return suscan_object_set_field_value(gui->gtkui_obj, field, color);
 }
 
 SUPRIVATE SUBOOL
-suscan_gui_assert_settings_objs(suscan_gui_t *gui)
+suscan_gui_settings_set_float(
+    const SUFLOAT *val,
+    const suscan_gui_t *gui,
+    const char *field)
 {
-  const suscan_object_t *list;
-  suscan_object_t *ui_settings = NULL;
+  return suscan_object_set_field_float(gui->gtkui_obj, field, *val);
+}
 
-  SU_TRYCATCH(
-      gui->gtkui_ctx = suscan_config_context_assert("gtkui"),
-      goto fail);
+SUPRIVATE SUBOOL
+suscan_gui_settings_set_uint(
+    const SUSCOUNT *val,
+    const suscan_gui_t *gui,
+    const char *field)
+{
+  return suscan_object_set_field_uint(gui->gtkui_obj, field, *val);
+}
 
-  SU_TRYCATCH(
-      gui->inspectors_ctx = suscan_config_context_assert("inspectors"),
-      goto fail);
-
-  SU_TRYCATCH(
-      list = suscan_config_context_get_list(gui->gtkui_ctx),
-      goto fail);
-
-  if ((gui->gtkui_obj = suscan_object_set_get(list, 0)) == NULL) {
-    SU_TRYCATCH(
-        ui_settings = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT),
-        goto fail);
-    SU_TRYCATCH(
-        suscan_config_context_put(gui->gtkui_ctx, ui_settings),
-        goto fail);
-    gui->gtkui_obj = ui_settings;
-    ui_settings = NULL;
-  }
+SUPRIVATE SUBOOL
+suscan_gui_settings_set_window(
+    enum sigutils_channel_detector_window *window,
+    const suscan_gui_t *gui,
+    const char *field)
+{
+  return suscan_object_set_field_value(
+      gui->gtkui_obj,
+      field,
+      suscan_gui_window_to_str(*window));
 
   return SU_TRUE;
-
-fail:
-  if (ui_settings != NULL)
-    suscan_object_destroy(ui_settings);
-
-  return SU_FALSE;
 }
 
 SUPRIVATE SUBOOL
 suscan_gui_load_gtkui_settings(suscan_gui_t *gui)
 {
+  struct suscan_analyzer_params analyzer_params =
+      suscan_analyzer_params_INITIALIZER;
+  SUBOOL ok = SU_FALSE;
+
+  /* Load general GUI parameters */
+  SU_TRYCATCH(
+      suscan_gui_settings_get_color(
+          &gui->settings.pa_bg,
+          gui,
+          "pa-bg-color",
+          SUSCAN_DEFAULT_PA_BG_COLOR),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_color(
+          &gui->settings.pa_fg,
+          gui,
+          "pa-fg-color",
+          SUSCAN_DEFAULT_PA_FG_COLOR),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_color(
+          &gui->settings.pa_axes,
+          gui,
+          "pa-axes-color",
+          SUSCAN_DEFAULT_PA_AXES_COLOR),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_color(
+          &gui->settings.pa_text,
+          gui,
+          "pa-text-color",
+          SUSCAN_DEFAULT_PA_TEXT_COLOR),
+      goto done);
+
+  /* Inspector look and feel */
+  SU_TRYCATCH(
+      suscan_gui_settings_get_color(
+          &gui->settings.insp_bg,
+          gui,
+          "insp-bg-color",
+          SUSCAN_DEFAULT_INSP_BG_COLOR),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_color(
+          &gui->settings.insp_fg,
+          gui,
+          "insp-fg-color",
+          SUSCAN_DEFAULT_INSP_FG_COLOR),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_color(
+          &gui->settings.insp_axes,
+          gui,
+          "insp-axes-color",
+          SUSCAN_DEFAULT_INSP_AXES_COLOR),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_color(
+          &gui->settings.insp_text,
+          gui,
+          "insp-text-color",
+          SUSCAN_DEFAULT_INSP_TEXT_COLOR),
+      goto done);
+
+  /* LCD settings */
+  SU_TRYCATCH(
+      suscan_gui_settings_get_color(
+          &gui->settings.lcd_bg,
+          gui,
+          "lcd-bg-color",
+          SUSCAN_DEFAULT_LCD_BG_COLOR),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_color(
+          &gui->settings.lcd_fg,
+          gui,
+          "lcd-fg-color",
+          SUSCAN_DEFAULT_LCD_FG_COLOR),
+      goto done);
+
+  /* Load analyzer parameters */
+  SU_TRYCATCH(
+      suscan_gui_settings_get_float(
+          &analyzer_params.detector_params.alpha,
+          gui,
+          "spectrum-avg-factor",
+          SUSCAN_DEFAULT_SPECTRUM_AVG_FACTOR),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_float(
+          &analyzer_params.detector_params.beta,
+          gui,
+          "signal-avg-factor",
+          SUSCAN_DEFAULT_SIGNAL_AVG_FACTOR),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_float(
+          &analyzer_params.detector_params.gamma,
+          gui,
+          "noise-avg-factor",
+          SUSCAN_DEFAULT_NOISE_AVG_FACTOR),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_float(
+          &analyzer_params.detector_params.snr,
+          gui,
+          "snr-threshold",
+          SUSCAN_DEFAULT_SNR_THRESHOLD),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_window(
+          &analyzer_params.detector_params.window,
+          gui,
+          "window-func",
+          SUSCAN_DEFAULT_WINDOW_FUNC),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_uint(
+          &analyzer_params.detector_params.window_size,
+          gui,
+          "window-size",
+          SUSCAN_DEFAULT_BUFFER_SIZE),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_float(
+          &analyzer_params.channel_update_int,
+          gui,
+          "channel-interval",
+          SUSCAN_DEFAULT_CHANNEL_INTERVAL),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_get_float(
+          &analyzer_params.psd_update_int,
+          gui,
+          "psd-interval",
+          SUSCAN_DEFAULT_PSD_INTERVAL),
+      goto done);
+
+  /* TODO: send update message to analyzer */
+  gui->analyzer_params = analyzer_params;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscan_gui_load_settings(suscan_gui_t *gui)
+{
   const char *value;
   suscan_gui_profile_t *profile = NULL;
+
+  /* This is SO broken. Seriously, wtf */
+  setlocale(LC_NUMERIC, "C");
+
+  SU_TRYCATCH(suscan_gui_assert_settings_obj(gui), return SU_FALSE);
+
+  SU_TRYCATCH(suscan_gui_load_gtkui_settings(gui), return SU_FALSE);
 
   if ((value = suscan_object_get_field_value(
       gui->gtkui_obj,
@@ -389,108 +533,168 @@ suscan_gui_load_gtkui_settings(suscan_gui_t *gui)
       SU_TRYCATCH(suscan_gui_select_profile(gui, profile), return SU_FALSE);
   }
 
+  /* All set, move settings to dialog */
+  suscan_gui_analyzer_params_to_dialog(gui);
+  suscan_gui_settings_to_dialog(gui);
+
+  /* Apply these settings */
+  suscan_gui_apply_settings(gui);
+
   return SU_TRUE;
-}
-
-SUBOOL
-suscan_gui_load_settings(suscan_gui_t *gui)
-{
-  suscan_gui_load_g_settings(gui); /* Delete */
-
-  SU_TRYCATCH(suscan_gui_assert_settings_objs(gui), return SU_FALSE);
-
-  SU_TRYCATCH(suscan_gui_load_gtkui_settings(gui), return SU_FALSE);
-  
-  return SU_TRUE;
-}
-
-SUPRIVATE void
-suscan_gui_store_g_settings(suscan_gui_t *gui)
-{
-  /* Store general GUI parameters */
-  suscan_gui_settings_set_color(&gui->settings.pa_bg, gui, "pa-bg-color");
-
-  suscan_gui_settings_set_color(&gui->settings.pa_fg, gui, "pa-fg-color");
-
-  suscan_gui_settings_set_color(&gui->settings.pa_axes, gui, "pa-axes-color");
-
-  suscan_gui_settings_set_color(&gui->settings.pa_text, gui, "pa-text-color");
-
-  suscan_gui_settings_set_color(&gui->settings.pa_bg, gui, "insp-bg-color");
-
-  suscan_gui_settings_set_color(&gui->settings.pa_fg, gui, "insp-fg-color");
-
-  suscan_gui_settings_set_color(&gui->settings.pa_axes, gui, "insp-axes-color");
-
-  suscan_gui_settings_set_color(&gui->settings.pa_text, gui, "insp-text-color");
-
-  suscan_gui_settings_set_color(&gui->settings.lcd_bg, gui, "lcd-bg-color");
-
-  suscan_gui_settings_set_color(&gui->settings.lcd_fg, gui, "lcd-fg-color");
-
-  g_settings_set_double(
-      gui->g_settings,
-      "spectrum-avg-factor",
-      gui->analyzer_params.detector_params.alpha);
-
-  g_settings_set_double(
-      gui->g_settings,
-      "signal-avg-factor",
-      gui->analyzer_params.detector_params.beta);
-
-  g_settings_set_double(
-      gui->g_settings,
-      "noise-avg-factor",
-      gui->analyzer_params.detector_params.gamma);
-
-  g_settings_set_double(
-      gui->g_settings,
-      "snr-threshold",
-      gui->analyzer_params.detector_params.snr);
-
-  g_settings_set_string(
-      gui->g_settings,
-      "window-func",
-      suscan_gui_window_to_str(gui->analyzer_params.detector_params.window));
-
-  g_settings_set_uint(
-      gui->g_settings,
-      "buffer-size",
-      gui->analyzer_params.detector_params.window_size);
-
-  g_settings_set_double(
-      gui->g_settings,
-      "channel-interval",
-      gui->analyzer_params.channel_update_int);
-
-  g_settings_set_double(
-      gui->g_settings,
-      "psd-interval",
-      gui->analyzer_params.psd_update_int);
-
-  g_settings_sync();
 }
 
 SUPRIVATE SUBOOL
 suscan_gui_store_gtkui_settings(suscan_gui_t *gui)
 {
-  if (gui->active_profile != NULL)
-    SU_TRYCATCH(
-        suscan_object_set_field_value(
-            gui->gtkui_obj,
-            "active_profile",
-            suscan_source_config_get_label(
-                suscan_gui_profile_get_source_config(gui->active_profile))),
-        return SU_FALSE);
+  /* Store general GUI parameters */
+  SUBOOL ok = SU_FALSE;
 
-  return SU_TRUE;
+  SU_TRYCATCH(
+      suscan_gui_settings_set_color(
+          &gui->settings.pa_bg,
+          gui,
+          "pa-bg-color"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_color(
+          &gui->settings.pa_fg,
+          gui,
+          "pa-fg-color"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_color(
+          &gui->settings.pa_axes,
+          gui,
+          "pa-axes-color"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_color(
+          &gui->settings.pa_text,
+          gui,
+          "pa-text-color"),
+      goto done);
+
+  /* Inspector look and feel */
+  SU_TRYCATCH(
+      suscan_gui_settings_set_color(
+          &gui->settings.insp_bg,
+          gui,
+          "insp-bg-color"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_color(
+          &gui->settings.insp_fg,
+          gui,
+          "insp-fg-color"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_color(
+          &gui->settings.insp_axes,
+          gui,
+          "insp-axes-color"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_color(
+          &gui->settings.insp_text,
+          gui,
+          "insp-text-color"),
+      goto done);
+
+  /* LCD settings */
+  SU_TRYCATCH(
+      suscan_gui_settings_set_color(
+          &gui->settings.lcd_bg,
+          gui,
+          "lcd-bg-color"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_color(
+          &gui->settings.lcd_fg,
+          gui,
+          "lcd-fg-color"),
+      goto done);
+
+  /* Load analyzer parameters */
+  SU_TRYCATCH(
+      suscan_gui_settings_set_float(
+          &gui->analyzer_params.detector_params.alpha,
+          gui,
+          "spectrum-avg-factor"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_float(
+          &gui->analyzer_params.detector_params.beta,
+          gui,
+          "signal-avg-factor"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_float(
+          &gui->analyzer_params.detector_params.gamma,
+          gui,
+          "noise-avg-factor"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_float(
+          &gui->analyzer_params.detector_params.snr,
+          gui,
+          "snr-threshold"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_window(
+          &gui->analyzer_params.detector_params.window,
+          gui,
+          "window-func"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_uint(
+          &gui->analyzer_params.detector_params.window_size,
+          gui,
+          "window-size"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_float(
+          &gui->analyzer_params.channel_update_int,
+          gui,
+          "channel-interval"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_gui_settings_set_float(
+          &gui->analyzer_params.psd_update_int,
+          gui,
+          "psd-interval"),
+      goto done);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
+
 
 void
 suscan_gui_store_settings(suscan_gui_t *gui)
 {
-  suscan_gui_store_g_settings(gui);
-
   (void) suscan_gui_store_gtkui_settings(gui);
+
+  if (gui->active_profile != NULL)
+    suscan_object_set_field_value(
+        gui->gtkui_obj,
+        "active_profile",
+        suscan_source_config_get_label(
+            suscan_gui_profile_get_source_config(gui->active_profile)));
 }
 

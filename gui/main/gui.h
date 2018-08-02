@@ -189,7 +189,6 @@ struct suscan_gui {
   /* Profile name dialog */
   GtkDialog *profileNameDialog;
   GtkEntry *profileNameEntry;
-  GtkLabel *profileTextLabel;
 
   /* Profile menu */
   GtkMenu *profilesMenu;
@@ -274,12 +273,6 @@ void suscan_gui_msgbox(
     const char *title,
     const char *fmt,
     ...);
-
-const char *suscan_gui_prompt(
-    suscan_gui_t *gui,
-    const char *title,
-    const char *text,
-    const char *defl);
 
 const char *suscan_gui_ask_for_profile_name(
     suscan_gui_t *gui,

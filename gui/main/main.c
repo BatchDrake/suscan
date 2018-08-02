@@ -230,7 +230,7 @@ suscan_gui_new(void)
   SU_TRYCATCH(gui = calloc(1, sizeof(suscan_gui_t)), goto fail);
 
   SU_TRYCATCH(
-      gui->g_settings = g_settings_new(SUSCAN_GUI_SETTINGS_ID),
+      gui->gtkui_ctx = suscan_config_context_assert("gtkui"),
       goto fail);
 
   SU_TRYCATCH(
@@ -247,8 +247,6 @@ suscan_gui_new(void)
 
   /* All done. Load settings and apply them */
   SU_TRYCATCH(suscan_gui_load_settings(gui), goto fail);
-
-  suscan_gui_apply_settings(gui);
 
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
 

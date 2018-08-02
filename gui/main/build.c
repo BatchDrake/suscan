@@ -569,10 +569,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
 
   gtk_combo_box_set_active(gui->sourceCombo, 0);
 
-  /* Update preferences */
-  suscan_gui_analyzer_params_to_dialog(gui);
-  suscan_gui_settings_to_dialog(gui);
-
   /* Add spectrum view */
   gui->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
   sugtk_spectrum_set_smooth_N0(gui->spectrum, TRUE);
