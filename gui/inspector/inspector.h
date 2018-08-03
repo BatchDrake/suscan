@@ -117,6 +117,7 @@ suscan_gui_inspector_get_bits(const suscan_gui_inspector_t *insp)
 /* Inspector GUI functions */
 SUBOOL suscan_gui_inspector_feed_w_batch(
     suscan_gui_inspector_t *inspector,
+    const struct timeval *arrival,
     const struct suscan_analyzer_sample_batch_msg *msg);
 
 suscan_gui_inspector_t *suscan_gui_inspector_new(
