@@ -317,7 +317,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               gui->builder,
               "eAnalyzerBeta")),
           return SU_FALSE);
-
   SU_TRYCATCH(
       gui->gammaEntry =
           GTK_ENTRY(gtk_builder_get_object(

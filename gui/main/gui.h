@@ -57,16 +57,13 @@ enum suscan_gui_state {
 
 struct suscan_gui;
 
-struct suscan_gui_recent {
-  struct suscan_gui *gui;
-  char *conf_string;
-  struct suscan_source_config *config;
-};
-
 struct suscan_gui_spectrum_action {
+  int index;
   struct suscan_gui *gui;
   const struct suscan_inspector_interface *insp_iface;
+  suscan_object_t *demod;
 };
+
 
 struct suscan_gui_settings {
   GdkRGBA pa_fg;
@@ -199,6 +196,7 @@ struct suscan_gui {
   GtkDialog *chooseDemodulatorDialog;
   GtkTreeView *selectDemodTreeView;
   suscan_object_t *selected_demod;
+  GtkMenuItem *demodMenuItem;
 
   /* Profile menu */
   GtkMenu *profilesMenu;
@@ -363,6 +361,11 @@ suscan_gui_inspector_t *suscan_gui_get_inspector(
     const suscan_gui_t *gui,
     uint32_t inspector_id);
 
+struct suscan_gui_spectrum_action *suscan_gui_assert_spectrum_action(
+    suscan_gui_t *gui,
+    const struct suscan_inspector_interface *insp_iface,
+    suscan_object_t *demod);
+
 /* Main GUI symtool list handling methods */
 SUBOOL suscan_gui_remove_symtool(
     suscan_gui_t *gui,
@@ -415,7 +418,7 @@ SUBOOL suscan_gui_demod_remove(suscan_gui_t *gui, suscan_object_t *obj);
 
 const suscan_object_t *suscan_gui_ask_for_demod(suscan_gui_t *gui);
 
-void suscan_gui_demod_refresh_list_store(suscan_gui_t *gui);
+void suscan_gui_demod_refresh_ui(suscan_gui_t *gui);
 
 SUBOOL suscan_gui_load_settings(suscan_gui_t *gui);
 

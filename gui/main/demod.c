@@ -64,7 +64,7 @@ suscan_gui_demod_append(
       suscan_config_context_put(gui->demod_ctx, object),
       return SU_FALSE);
 
-  suscan_gui_demod_refresh_list_store(gui);
+  suscan_gui_demod_refresh_ui(gui);
 
   return SU_TRUE;
 }
@@ -73,7 +73,7 @@ SUBOOL
 suscan_gui_demod_remove(suscan_gui_t *gui, suscan_object_t *obj)
 {
   if (suscan_config_context_remove(gui->demod_ctx, obj)) {
-    suscan_gui_demod_refresh_list_store(gui);
+    suscan_gui_demod_refresh_ui(gui);
     return SU_TRUE;
   }
 
@@ -108,7 +108,7 @@ suscan_gui_ask_for_demod(suscan_gui_t *gui)
   return NULL;
 }
 
-void
+SUPRIVATE void
 suscan_gui_demod_refresh_list_store(suscan_gui_t *gui)
 {
   unsigned int i, count;
@@ -157,5 +157,77 @@ suscan_gui_demod_refresh_list_store(suscan_gui_t *gui)
           -1);
     }
   }
+}
+
+SUPRIVATE void
+suscan_gui_on_inspect_as(
+    SuGtkSpectrum *spect,
+    gsufloat freq,
+    const struct sigutils_channel *channel,
+    gpointer data)
+{
+  struct suscan_gui_spectrum_action *action =
+      (struct suscan_gui_spectrum_action *) data;
+
+  /* Send open message. We will open new tab on response */
+
+  SU_TRYCATCH(
+      suscan_analyzer_open_async(
+          action->gui->analyzer,
+          action->insp_iface->name,
+          channel,
+          action->index),
+      return);
+}
+
+SUPRIVATE void
+suscan_gui_demod_refresh_menus(suscan_gui_t *gui)
+{
+  unsigned int i, count;
+  GtkMenu *menu = NULL;
+  suscan_object_t *object;
+  const char *label = NULL;
+  const char *class = NULL;
+  const struct suscan_inspector_interface *iface;
+  struct suscan_gui_spectrum_action *action = NULL;
+
+  count = suscan_object_set_get_count(gui->demod_obj);
+
+  /* Clear this menu */
+  gtk_menu_item_set_submenu(gui->demodMenuItem, NULL);
+
+  for (i = 0; i < count; ++i) {
+    object = suscan_object_set_get(gui->demod_obj, i);
+
+    if (object != NULL
+        && (label = suscan_object_get_field_value(object, "label")) != NULL
+        && (class = suscan_object_get_field_value(object, "class")) != NULL
+        && (iface = suscan_inspector_interface_lookup(class)) != NULL) {
+      if (menu == NULL)
+        menu = GTK_MENU(gtk_menu_new());
+
+      SU_TRYCATCH(
+          action = suscan_gui_assert_spectrum_action(gui, iface, object),
+          continue);
+
+      (void) sugtk_spectrum_add_action_to_menu(
+          gui->spectrum,
+          GTK_MENU_SHELL(menu),
+          label,
+          suscan_gui_on_inspect_as,
+          action);
+    }
+  }
+
+  /* This is intentional */
+  gtk_menu_item_set_submenu(gui->demodMenuItem, GTK_WIDGET(menu));
+  gtk_widget_set_sensitive(GTK_WIDGET(gui->demodMenuItem), menu != NULL);
+}
+
+void
+suscan_gui_demod_refresh_ui(suscan_gui_t *gui)
+{
+  suscan_gui_demod_refresh_list_store(gui);
+  suscan_gui_demod_refresh_menus(gui);
 }
 

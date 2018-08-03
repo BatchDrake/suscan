@@ -541,7 +541,7 @@ suscan_gui_load_settings(suscan_gui_t *gui)
   /* All set, move settings to dialog */
   suscan_gui_analyzer_params_to_dialog(gui);
   suscan_gui_settings_to_dialog(gui);
-  suscan_gui_demod_refresh_list_store(gui);
+  suscan_gui_demod_refresh_ui(gui);
 
   /* Apply these settings */
   suscan_gui_apply_settings(gui);

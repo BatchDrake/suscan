@@ -76,6 +76,7 @@ void
 suscan_gui_inspector_open_cb(GtkWidget *widget, gpointer data)
 {
   const suscan_object_t *selected;
+  const char *class;
   suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
   suscan_gui_t *gui = suscan_gui_symsrc_get_gui((suscan_gui_symsrc_t *) data);
 
@@ -85,7 +86,20 @@ suscan_gui_inspector_open_cb(GtkWidget *widget, gpointer data)
         "Cannot open inspector configuration",
         "Cannot apply configuration when inspector is idle");
   } else if ((selected = suscan_gui_ask_for_demod(gui)) != NULL) {
-    if (!suscan_gui_inspector_deserialize(inspector, selected)) {
+    class = suscan_object_get_field_value(selected, "class");
+    if (class == NULL) {
+      suscan_error(
+          gui,
+          "Cannot open inspector configuration",
+          "Inspector configuration has no class");
+    } else if (strcmp(inspector->class, class) != 0) {
+      suscan_error(
+          gui,
+          "Cannot open inspector configuration",
+          "Cannot apply a %s configuration to a %s inspector",
+          class,
+          inspector->class);
+    } else if (!suscan_gui_inspector_deserialize(inspector, selected)) {
       suscan_error(
           gui,
           "Cannot open inspector configuration",

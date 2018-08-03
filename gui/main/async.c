@@ -403,6 +403,7 @@ suscan_async_parse_inspector_msg(gpointer user_data)
   struct suscan_analyzer_inspector_msg *msg;
   suscan_gui_inspector_t *new_insp = NULL;
   suscan_gui_inspector_t *insp = NULL;
+  int req_id;
   unsigned int i;
   char text[64];
 
@@ -459,7 +460,21 @@ suscan_async_parse_inspector_msg(gpointer user_data)
           suscan_gui_remove_inspector(envelope->gui, new_insp);
           goto done);
 
+      insp = new_insp;
       new_insp = NULL;
+
+      /*
+       * XXX: This is dangerous!! What happens if the user
+       * deletes the object before the inspector is opened??
+       */
+      if (msg->req_id != -1) {
+        /* Req ID refers to the action ID in the main GUI object */
+        SU_TRYCATCH(
+            suscan_gui_inspector_deserialize(
+                insp,
+                envelope->gui->action_list[msg->req_id]->demod),
+            goto done);
+      }
 
       break;
 
@@ -478,6 +493,7 @@ suscan_async_parse_inspector_msg(gpointer user_data)
       SU_TRYCATCH(
           suscan_gui_inspector_set_config(insp, msg->config),
           goto done);
+
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
