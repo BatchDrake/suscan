@@ -34,6 +34,7 @@ libgui_la_SOURCES = \
   gui.c \
   init.c \
   inspector/callbacks.c \
+	inspector/deserialize.c \
   inspector/estimatorui.c \
   inspector/estimatorui.h \
   inspector/inspector.c \

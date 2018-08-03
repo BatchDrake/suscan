@@ -81,6 +81,33 @@ suscan_gui_demod_remove(suscan_gui_t *gui, suscan_object_t *obj)
 }
 
 /************************ UI interaction ****************************/
+const suscan_object_t *
+suscan_gui_ask_for_demod(suscan_gui_t *gui)
+{
+  int result;
+  GtkTreePath *path;
+
+  gui->selected_demod = NULL;
+
+  /* Select first */
+  path = gtk_tree_path_new_from_indices(0, -1);
+  gtk_tree_selection_select_path(
+      gtk_tree_view_get_selection(gui->selectDemodTreeView),
+      path);
+  gtk_tree_path_free(path);
+
+  gtk_widget_show(GTK_WIDGET(gui->chooseDemodulatorDialog));
+
+  result = gtk_dialog_run(gui->chooseDemodulatorDialog);
+
+  gtk_widget_hide(GTK_WIDGET(gui->chooseDemodulatorDialog));
+
+  if (result)
+    return gui->selected_demod;
+
+  return NULL;
+}
+
 void
 suscan_gui_demod_refresh_list_store(suscan_gui_t *gui)
 {

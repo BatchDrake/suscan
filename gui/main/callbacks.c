@@ -43,7 +43,6 @@ suscan_on_about(GtkWidget *widget, gpointer data)
   gtk_widget_hide(GTK_WIDGET(gui->aboutDialog));
 }
 
-
 void
 suscan_on_settings(GtkWidget *widget, gpointer data)
 {
@@ -290,3 +289,27 @@ suscan_gui_on_add_profile(GtkWidget *widget, gpointer data)
     }
   } while (name != NULL);
 }
+
+
+void
+suscan_gui_select_demod_on_changed(
+    GtkTreeSelection *sel,
+    gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gpointer ptr;
+  GtkTreeIter iter;
+
+  if (gtk_tree_selection_get_selected(sel, NULL, &iter)) {
+    gtk_tree_model_get(
+        GTK_TREE_MODEL(gui->demodulatorsListStore),
+        &iter,
+        3,
+        &ptr,
+        -1);
+    gui->selected_demod = (suscan_object_t *) ptr;
+  } else {
+    gui->selected_demod = NULL;
+  }
+}
+

@@ -130,4 +130,8 @@ char *suscan_config_to_string(const suscan_config_t *config);
 
 suscan_object_t *suscan_config_to_object(const suscan_config_t *config);
 
+SUBOOL suscan_object_to_config(
+    suscan_config_t *config,
+    const suscan_object_t *object);
+
 #endif /* _CONFIG_H */

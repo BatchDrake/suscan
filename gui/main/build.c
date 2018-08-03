@@ -579,6 +579,20 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "lsDemodulators")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->chooseDemodulatorDialog =
+          GTK_DIALOG(gtk_builder_get_object(
+              gui->builder,
+              "dlChooseDemodulator")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->selectDemodTreeView =
+          GTK_TREE_VIEW(gtk_builder_get_object(
+              gui->builder,
+              "tvSelectDemod")),
+          return SU_FALSE);
+
   suscan_setup_column_formats(gui);
 
   gtk_combo_box_set_active(gui->sourceCombo, 0);
