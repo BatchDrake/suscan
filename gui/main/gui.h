@@ -87,9 +87,9 @@ struct suscan_gui {
   /* Application settings */
   GSettings *g_settings; /* TODO: send to the deepest of hells */
   suscan_config_context_t *gtkui_ctx;
-  suscan_config_context_t *inspectors_ctx;
+  suscan_config_context_t *demod_ctx;
   suscan_object_t *gtkui_obj;
-  suscan_object_t *inspectors_obj;
+  const suscan_object_t *demod_obj;
 
   struct suscan_gui_settings settings;
 
@@ -155,6 +155,10 @@ struct suscan_gui {
 
   GtkFrame *channelDiscoveryFrame;
   GtkFrame *colorsFrame;
+  GtkFrame *demodulatorsFrame;
+
+  /* Demodulator list widgets */
+  GtkListStore *demodulatorsListStore;
 
   /* Source summary */
   GtkLabel *spectrumSampleRateLabel;
@@ -276,6 +280,18 @@ void suscan_gui_msgbox(
     const char *fmt,
     ...);
 
+SUBOOL suscan_gui_yes_or_no(
+    suscan_gui_t *gui,
+    const char *title,
+    const char *fmt,
+    ...);
+
+const char *suscan_gui_prompt(
+    suscan_gui_t *gui,
+    const char *title,
+    const char *text,
+    const char *defl);
+
 const char *suscan_gui_ask_for_profile_name(
     suscan_gui_t *gui,
     const char *title,
@@ -380,20 +396,19 @@ struct suscan_gui_src_ui *suscan_gui_lookup_source_config(
     const suscan_gui_t *gui,
     const struct suscan_source *src);
 
-/* Recent source configuration management */
-SUBOOL suscan_gui_append_recent(
+/* Demodulator API */
+suscan_object_t *suscan_gui_demod_lookup(
+    const suscan_gui_t *gui,
+    const char *name);
+
+SUBOOL suscan_gui_demod_append(
     suscan_gui_t *gui,
-    const struct suscan_source_config *config);
+    const char *name,
+    suscan_object_t *object);
 
-struct suscan_gui_recent *suscan_gui_recent_new(
-    suscan_gui_t *gui,
-    char *conf_string);
+SUBOOL suscan_gui_demod_remove(suscan_gui_t *gui, suscan_object_t *obj);
 
-void suscan_gui_recent_destroy(struct suscan_gui_recent *recent);
-
-void suscan_gui_retrieve_recent(suscan_gui_t *gui);
-
-void suscan_gui_store_recent(suscan_gui_t *gui);
+void suscan_gui_demod_refresh_list_store(suscan_gui_t *gui);
 
 SUBOOL suscan_gui_load_settings(suscan_gui_t *gui);
 

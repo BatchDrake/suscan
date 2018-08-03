@@ -30,11 +30,12 @@
 #include "inspector.h"
 
 void
-suscan_gui_inspector_serialize_cb(GtkWidget *widget, gpointer data)
+suscan_gui_inspector_save_as_cb(GtkWidget *widget, gpointer data)
 {
   suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
   suscan_gui_t *gui = suscan_gui_symsrc_get_gui((suscan_gui_symsrc_t *) data);
   suscan_object_t *object = NULL;
+  suscan_object_t *existing = NULL;
   const char *name;
 
   name = suscan_gui_prompt(
@@ -44,20 +45,25 @@ suscan_gui_inspector_serialize_cb(GtkWidget *widget, gpointer data)
       "");
 
   if (name != NULL) {
+    if ((existing = suscan_gui_demod_lookup(gui, name)) != NULL) {
+      if (!suscan_gui_yes_or_no(
+          gui,
+          "Replace demodulator",
+          "There is already a demodulator named `%s'. Do you want to replace it?",
+          name))
+        goto done;
+    }
+
     SU_TRYCATCH(
         object = suscan_gui_inspector_serialize(inspector),
         goto done);
 
-    SU_TRYCATCH(
-        suscan_object_set_field_value(object, "label", name),
-        goto done);
-
-    /* Save inspector */
-    SU_TRYCATCH(
-        suscan_config_context_put(gui->inspectors_ctx, object),
-        goto done);
-
+    SU_TRYCATCH(suscan_gui_demod_append(gui, name, object), goto done);
     object = NULL;
+
+    /* If there was a demodualtor with this name, remove it */
+    if (existing != NULL)
+      (void) suscan_gui_demod_remove(gui, existing);
   }
 
 done:

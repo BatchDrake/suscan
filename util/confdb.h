@@ -56,6 +56,10 @@ SUBOOL suscan_config_context_put(
     suscan_config_context_t *context,
     suscan_object_t *obj);
 
+SUBOOL suscan_config_context_remove(
+    suscan_config_context_t *context,
+    suscan_object_t *obj);
+
 SUBOOL suscan_config_context_scan(suscan_config_context_t *context);
 
 SUINLINE const suscan_object_t *

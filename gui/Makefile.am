@@ -45,6 +45,7 @@ libgui_la_SOURCES = \
   main/build.c \
   main/callbacks.c \
   main/common.c \
+  main/demod.c \
   main/gui.h \
   main/inspector.c \
   main/log.c \

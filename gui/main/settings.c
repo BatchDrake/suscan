@@ -171,6 +171,10 @@ suscan_gui_assert_settings_obj(suscan_gui_t *gui)
   suscan_object_t *ui_settings = NULL;
 
   SU_TRYCATCH(
+      gui->demod_obj = suscan_config_context_get_list(gui->demod_ctx),
+      goto fail);
+
+  SU_TRYCATCH(
       list = suscan_config_context_get_list(gui->gtkui_ctx),
       goto fail);
 
@@ -537,6 +541,7 @@ suscan_gui_load_settings(suscan_gui_t *gui)
   /* All set, move settings to dialog */
   suscan_gui_analyzer_params_to_dialog(gui);
   suscan_gui_settings_to_dialog(gui);
+  suscan_gui_demod_refresh_list_store(gui);
 
   /* Apply these settings */
   suscan_gui_apply_settings(gui);

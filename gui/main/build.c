@@ -522,6 +522,12 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "fColors")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->demodulatorsFrame =
+          GTK_FRAME(gtk_builder_get_object(
+              gui->builder,
+              "fDemodulators")),
+          return SU_FALSE);
 
   SU_TRYCATCH(
       gui->settingsViewStack =
@@ -563,6 +569,14 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           GTK_MENU(gtk_builder_get_object(
               gui->builder,
               "mProfiles")),
+          return SU_FALSE);
+
+  /* Demodulators */
+  SU_TRYCATCH(
+      gui->demodulatorsListStore =
+          GTK_LIST_STORE(gtk_builder_get_object(
+              gui->builder,
+              "lsDemodulators")),
           return SU_FALSE);
 
   suscan_setup_column_formats(gui);

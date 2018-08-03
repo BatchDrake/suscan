@@ -107,6 +107,16 @@ suscan_on_activate_color_settings(GtkListBoxRow *row, gpointer data)
 }
 
 void
+suscan_on_activate_demodulator_settings(GtkListBoxRow *row, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  gtk_stack_set_visible_child(
+        gui->settingsViewStack,
+        GTK_WIDGET(gui->demodulatorsFrame));
+}
+
+void
 suscan_on_activate_source_settings(GtkListBoxRow *row, gpointer data)
 {
   suscan_gui_t *gui = (suscan_gui_t *) data;

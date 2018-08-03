@@ -1027,6 +1027,7 @@
             <property name="label" translatable="yes">__glade_unnamed_49</property>
             <property name="use_underline">True</property>
             <property name="stock_id">gtk-save-as</property>
+            <signal name="clicked" handler="suscan_gui_inspector_save_as_cb" swapped="no"/>
           </object>
           <packing>
             <property name="expand">False</property>
