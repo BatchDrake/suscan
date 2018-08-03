@@ -30,36 +30,7 @@
 
 #include <locale.h>
 
-SUPRIVATE SUBOOL
-suscan_gui_assert_settings_obj(suscan_gui_t *gui)
-{
-  const suscan_object_t *list;
-  suscan_object_t *ui_settings = NULL;
-
-  SU_TRYCATCH(
-      list = suscan_config_context_get_list(gui->gtkui_ctx),
-      goto fail);
-
-  if ((gui->gtkui_obj = suscan_object_set_get(list, 0)) == NULL) {
-    SU_TRYCATCH(
-        ui_settings = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT),
-        goto fail);
-    SU_TRYCATCH(
-        suscan_config_context_put(gui->gtkui_ctx, ui_settings),
-        goto fail);
-    gui->gtkui_obj = ui_settings;
-    ui_settings = NULL;
-  }
-
-  return SU_TRUE;
-
-fail:
-  if (ui_settings != NULL)
-    suscan_object_destroy(ui_settings);
-
-  return SU_FALSE;
-}
-
+/* Transfer settings to objects */
 void
 suscan_gui_apply_settings_on_inspector(
     suscan_gui_t *gui,
@@ -101,6 +72,7 @@ suscan_gui_apply_settings(suscan_gui_t *gui)
       suscan_gui_apply_settings_on_inspector(gui, gui->inspector_list[i]);
 }
 
+/* Settings transfer to and from configuration dialogs */
 void
 suscan_gui_settings_to_dialog(suscan_gui_t *gui)
 {
@@ -192,6 +164,35 @@ suscan_gui_settings_from_dialog(suscan_gui_t *gui)
 }
 
 /************************* Settings storage **********************************/
+SUPRIVATE SUBOOL
+suscan_gui_assert_settings_obj(suscan_gui_t *gui)
+{
+  const suscan_object_t *list;
+  suscan_object_t *ui_settings = NULL;
+
+  SU_TRYCATCH(
+      list = suscan_config_context_get_list(gui->gtkui_ctx),
+      goto fail);
+
+  if ((gui->gtkui_obj = suscan_object_set_get(list, 0)) == NULL) {
+    SU_TRYCATCH(
+        ui_settings = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT),
+        goto fail);
+    SU_TRYCATCH(
+        suscan_config_context_put(gui->gtkui_ctx, ui_settings),
+        goto fail);
+    gui->gtkui_obj = ui_settings;
+    ui_settings = NULL;
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (ui_settings != NULL)
+    suscan_object_destroy(ui_settings);
+
+  return SU_FALSE;
+}
 
 SUPRIVATE enum sigutils_channel_detector_window
 suscan_gui_str_to_window(const char *window)

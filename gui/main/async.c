@@ -23,9 +23,12 @@
 
 #include "gui.h"
 
+#define SUSCAN_ANALYZER_MAX_MESSAGE_DELAY_MS 40
+
 /* Asynchronous thread: take messages from analyzer and parse them */
 struct suscan_gui_msg_envelope {
   suscan_gui_t *gui;
+  struct timeval arrival;
   uint32_t type;
   void *private;
 };
@@ -52,6 +55,7 @@ suscan_gui_msg_envelope_new(
       new = malloc(sizeof (struct suscan_gui_msg_envelope)),
       return NULL);
 
+  gettimeofday(&new->arrival, NULL);
   new->gui = gui;
   new->private = private;
   new->type = type;
@@ -305,15 +309,29 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_psd_msg *msg;
+  struct timeval tv, sub;
   char text[32];
   static const char *units[] = {"sps", "ksps", "Msps"};
   SUFLOAT fs;
   unsigned int i;
+  unsigned long long int ms;
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_psd_msg *) envelope->private;
 
   if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
+    goto done;
+
+  /*
+   * Check whether this is arriving too late, and discard it to prevent
+   * main GUI's event queue from clogging up
+   */
+  gettimeofday(&tv, NULL);
+  timersub(&tv, &envelope->arrival, &sub);
+
+  ms = sub.tv_sec * 1000 + sub.tv_usec / 1000;
+
+  if (ms > SUSCAN_ANALYZER_MAX_MESSAGE_DELAY_MS)
     goto done;
 
   /*
@@ -368,7 +386,9 @@ suscan_async_parse_sample_batch_msg(gpointer user_data)
     goto done;
 
   /* Append all these samples to the inspector GUI */
-  SU_TRYCATCH(suscan_gui_inspector_feed_w_batch(insp, msg), goto done);
+  SU_TRYCATCH(
+      suscan_gui_inspector_feed_w_batch(insp, &envelope->arrival, msg),
+      goto done);
 
 done:
   suscan_gui_msg_envelope_destroy(envelope);

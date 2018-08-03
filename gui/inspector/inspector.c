@@ -29,6 +29,8 @@
 #include "gui.h"
 #include "inspector.h"
 
+#define SUSCAN_GUI_INSPECTOR_MAX_DELAY_MS 40
+
 void suscan_gui_inspector_on_reshape(GtkWidget *widget, gpointer data);
 
 void
@@ -162,15 +164,26 @@ suscan_gui_inspector_update_spin_buttons(suscan_gui_inspector_t *insp)
 SUBOOL
 suscan_gui_inspector_feed_w_batch(
     suscan_gui_inspector_t *insp,
+    const struct timeval *arrival,
     const struct suscan_analyzer_sample_batch_msg *msg)
 {
   unsigned int sample_count, full_samp_count;
   unsigned int i, n = 0;
+  struct timeval tv, sub;
+  unsigned long long ms;
   GtkTextIter iter;
   SUBITS *decbuf;
   SUSYMBOL sym;
   SUBITS bits;
+  SUBOOL clogged_up = SU_FALSE;
   SUBOOL ok = SU_FALSE;
+
+  gettimeofday(&tv, NULL);
+
+  timersub(&tv, arrival, &sub);
+  ms = sub.tv_sec * 1000 + sub.tv_usec / 1000;
+  clogged_up = ms > SUSCAN_GUI_INSPECTOR_MAX_DELAY_MS;
+
 
   /*
    * Push, at most, the last SUSCAN_GUI_CONSTELLATION_HISTORY. We do this
@@ -186,8 +199,8 @@ suscan_gui_inspector_feed_w_batch(
         goto done);
 
   /* Check if recording is enabled to assert the symbol buffer */
-
-  sugtk_trans_mtx_reset(insp->transMatrix);
+  if (!clogged_up)
+    sugtk_trans_mtx_reset(insp->transMatrix);
 
   for (i = 0; i < full_samp_count; ++i)
     if ((sym = suscan_gui_inspector_decide(insp, msg->samples[i]))
@@ -207,13 +220,15 @@ suscan_gui_inspector_feed_w_batch(
       }
 
       /* Feed transition matrix and phase plot */
-      sugtk_trans_mtx_push(insp->transMatrix, bits);
-      sugtk_waveform_push(insp->phasePlot, SU_C_ARG(msg->samples[i]) / PI);
-      sugtk_histogram_push(insp->histogram, SU_C_ARG(msg->samples[i]));
+      if (!clogged_up) {
+        sugtk_trans_mtx_push(insp->transMatrix, bits);
+        sugtk_waveform_push(insp->phasePlot, SU_C_ARG(msg->samples[i]) / PI);
+        sugtk_histogram_push(insp->histogram, SU_C_ARG(msg->samples[i]));
+      }
     }
 
   /* Transition matrix has been fed. Update */
-  if (full_samp_count > 0) {
+  if (full_samp_count > 0 && !clogged_up) {
     sugtk_trans_mtx_commit(insp->transMatrix);
     sugtk_waveform_commit(insp->phasePlot);
     sugtk_histogram_commit(insp->histogram);
@@ -224,12 +239,14 @@ suscan_gui_inspector_feed_w_batch(
     SU_TRYCATCH(suscan_gui_symsrc_commit(&insp->_parent), goto done);
   }
 
-  for (i = 0; i < sample_count; ++i)
-    sugtk_constellation_push(
-        insp->constellation,
-        msg->samples[msg->sample_count - sample_count + i]);
+  if (!clogged_up) {
+    for (i = 0; i < sample_count; ++i)
+      sugtk_constellation_push(
+          insp->constellation,
+          msg->samples[msg->sample_count - sample_count + i]);
 
-  sugtk_constellation_commit(insp->constellation);
+    sugtk_constellation_commit(insp->constellation);
+  }
 
   ok = SU_TRUE;
 
