@@ -36,6 +36,7 @@ suscan_gui_inspector_save_as_cb(GtkWidget *widget, gpointer data)
   suscan_gui_t *gui = suscan_gui_symsrc_get_gui((suscan_gui_symsrc_t *) data);
   suscan_object_t *object = NULL;
   suscan_object_t *existing = NULL;
+  char *page_label;
   const char *name;
 
   name = suscan_gui_prompt(
@@ -58,6 +59,15 @@ suscan_gui_inspector_save_as_cb(GtkWidget *widget, gpointer data)
         object = suscan_gui_inspector_serialize(inspector),
         goto done);
 
+    SU_TRYCATCH(
+        page_label = strbuild(
+            "%s at %lli Hz",
+            name,
+            (uint64_t) round(inspector->channel.fc)),
+        goto done);
+
+    gtk_label_set_text(inspector->pageLabel, page_label);
+
     SU_TRYCATCH(suscan_gui_demod_append(gui, name, object), goto done);
     object = NULL;
 
@@ -67,6 +77,9 @@ suscan_gui_inspector_save_as_cb(GtkWidget *widget, gpointer data)
   }
 
 done:
+  if (page_label != NULL)
+    free(page_label);
+
   if (object != NULL)
     suscan_object_destroy(object);
 }
@@ -76,7 +89,8 @@ void
 suscan_gui_inspector_open_cb(GtkWidget *widget, gpointer data)
 {
   const suscan_object_t *selected;
-  const char *class;
+  char *page_label = NULL;
+  const char *class, *label;
   suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
   suscan_gui_t *gui = suscan_gui_symsrc_get_gui((suscan_gui_symsrc_t *) data);
 
@@ -92,19 +106,43 @@ suscan_gui_inspector_open_cb(GtkWidget *widget, gpointer data)
           gui,
           "Cannot open inspector configuration",
           "Inspector configuration has no class");
-    } else if (strcmp(inspector->class, class) != 0) {
+      goto done;
+    }
+
+    if (strcmp(inspector->class, class) != 0) {
       suscan_error(
           gui,
           "Cannot open inspector configuration",
           "Cannot apply a %s configuration to a %s inspector",
           class,
           inspector->class);
-    } else if (!suscan_gui_inspector_deserialize(inspector, selected)) {
+      goto done;
+    }
+
+    if (!suscan_gui_inspector_deserialize(inspector, selected)) {
       suscan_error(
           gui,
           "Cannot open inspector configuration",
           "Cannot apply configuration to the current inspector (see log)");
+      goto done;
     }
+
+    if ((label = suscan_object_get_field_value(selected, "label")) == NULL)
+      label = "Unnamed demodulator";
+
+    SU_TRYCATCH(
+        page_label = strbuild(
+            "%s at %lli Hz",
+            label,
+            (uint64_t) round(inspector->channel.fc)),
+        goto done);
+
+    gtk_label_set_text(inspector->pageLabel, page_label);
+  }
+
+done:
+  if (page_label != NULL) {
+    free(page_label);
   }
 }
 

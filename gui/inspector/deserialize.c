@@ -48,7 +48,7 @@ suscan_gui_inspector_deserialize(
       goto fail);
 
   if ((label = suscan_object_get_field_value(object, "label")) == NULL)
-    label = "(unnamed)";
+    label = "Unnamed demodulator";
 
   if (strcmp(class, inspector->class) != 0) {
     SU_ERROR(
@@ -71,5 +71,6 @@ suscan_gui_inspector_deserialize(
   return SU_TRUE;
 
 fail:
+
   return SU_FALSE;
 }
