@@ -80,6 +80,77 @@ suscan_gui_demod_remove(suscan_gui_t *gui, suscan_object_t *obj)
   return SU_FALSE;
 }
 
+/********************** Demodulator properties *************************/
+SUPRIVATE SUBOOL
+suscan_gui_demod_properties_refresh(
+    suscan_gui_t *gui,
+    const suscan_object_t *obj)
+{
+  unsigned int i, count;
+   const suscan_object_t *params, *entry;
+   GtkTreeIter new_element;
+
+   SU_TRYCATCH(
+       params = suscan_object_get_field(obj, "demod_params"),
+       return SU_FALSE);
+
+   gtk_list_store_clear(gui->demodPropertiesListStore);
+
+   count = suscan_object_field_count(params);
+
+   for (i = 0; i < count; ++i) {
+     if ((entry = suscan_object_get_field_by_index(params, i)) != NULL) {
+       gtk_list_store_append(gui->demodPropertiesListStore, &new_element);
+       gtk_list_store_set(
+           gui->demodPropertiesListStore,
+           &new_element,
+           0, suscan_object_get_name(entry),
+           1, suscan_object_get_value(entry),
+           -1);
+     }
+   }
+
+   return SU_TRUE;
+}
+
+const char *
+suscan_gui_show_demod_properties(suscan_gui_t *gui, const suscan_object_t *obj)
+{
+  const char *new_name = NULL;
+  const char *label, *class;
+  int result;
+
+  if (!suscan_gui_demod_properties_refresh(gui, obj)) {
+    suscan_error(
+        gui,
+        "Cannot show properties",
+        "Somehow this demodulator is not properly initialized. Properties "
+        "are not available");
+    goto done;
+  }
+
+  if ((class = suscan_object_get_field_value(obj, "class")) == NULL)
+    class = "<no class>";
+  gtk_label_set_text(gui->demodClassLabel, class);
+
+  if ((label = suscan_object_get_field_value(obj, "label")) == NULL)
+    label = "";
+  gtk_entry_set_text(gui->demodNameEntry, label);
+
+  gtk_widget_show(GTK_WIDGET(gui->demodPropertiesDialog));
+
+  result = gtk_dialog_run(gui->demodPropertiesDialog);
+
+  gtk_widget_hide(GTK_WIDGET(gui->demodPropertiesDialog));
+
+  if (result && strcmp(gtk_entry_get_text(gui->demodNameEntry), label) != 0)
+    new_name = gtk_entry_get_text(gui->demodNameEntry);
+
+done:
+  return new_name;
+}
+
+
 /************************ UI interaction ****************************/
 const suscan_object_t *
 suscan_gui_ask_for_demod(suscan_gui_t *gui)
@@ -224,10 +295,31 @@ suscan_gui_demod_refresh_menus(suscan_gui_t *gui)
   gtk_widget_set_sensitive(GTK_WIDGET(gui->demodMenuItem), menu != NULL);
 }
 
+SUPRIVATE void
+suscan_gui_demod_refresh_settings_page(suscan_gui_t *gui)
+{
+  GtkTreePath *path;
+  SUBOOL sensitive;
+
+  path = gtk_tree_path_new_from_indices(0, -1);
+  gtk_tree_selection_select_path(
+      gtk_tree_view_get_selection(gui->demodListTreeView),
+      path);
+  gtk_tree_path_free(path);
+
+  sensitive = gtk_tree_model_iter_n_children(
+      GTK_TREE_MODEL(gui->demodulatorsListStore),
+      NULL) != 0;
+
+  gtk_widget_set_sensitive(GTK_WIDGET(gui->demodPropertiesButton), sensitive);
+  gtk_widget_set_sensitive(GTK_WIDGET(gui->demodRemoveButton), sensitive);
+}
+
 void
 suscan_gui_demod_refresh_ui(suscan_gui_t *gui)
 {
   suscan_gui_demod_refresh_list_store(gui);
   suscan_gui_demod_refresh_menus(gui);
+  suscan_gui_demod_refresh_settings_page(gui);
 }
 

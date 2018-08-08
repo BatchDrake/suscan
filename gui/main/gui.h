@@ -198,6 +198,15 @@ struct suscan_gui {
   suscan_object_t *selected_demod;
   GtkMenuItem *demodMenuItem;
 
+  /* Demodulator properties dialog */
+  GtkDialog *demodPropertiesDialog;
+  GtkEntry *demodNameEntry;
+  GtkLabel *demodClassLabel;
+  GtkListStore *demodPropertiesListStore;
+  GtkTreeView *demodPropertiesTreeView;
+  GtkTreeView *demodListTreeView;
+  GtkButton *demodPropertiesButton;
+  GtkButton *demodRemoveButton;
   /* Profile menu */
   GtkMenu *profilesMenu;
 
@@ -417,6 +426,10 @@ SUBOOL suscan_gui_demod_append(
 SUBOOL suscan_gui_demod_remove(suscan_gui_t *gui, suscan_object_t *obj);
 
 const suscan_object_t *suscan_gui_ask_for_demod(suscan_gui_t *gui);
+
+const char *suscan_gui_show_demod_properties(
+    suscan_gui_t *gui,
+    const suscan_object_t *obj);
 
 void suscan_gui_demod_refresh_ui(suscan_gui_t *gui);
 

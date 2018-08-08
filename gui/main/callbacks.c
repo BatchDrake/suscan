@@ -290,6 +290,25 @@ suscan_gui_on_add_profile(GtkWidget *widget, gpointer data)
   } while (name != NULL);
 }
 
+void
+suscan_gui_on_demod_properties(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gpointer ptr;
+  GtkTreeIter iter;
+  GtkTreeSelection *sel;
+
+  sel = gtk_tree_view_get_selection(gui->demodListTreeView);
+  if (gtk_tree_selection_get_selected(sel, NULL, &iter)) {
+    gtk_tree_model_get(
+        GTK_TREE_MODEL(gui->demodulatorsListStore),
+        &iter,
+        3,
+        &ptr,
+        -1);
+    (void) suscan_gui_show_demod_properties(gui, (suscan_object_t *) ptr);
+  }
+}
 
 void
 suscan_gui_select_demod_on_changed(
