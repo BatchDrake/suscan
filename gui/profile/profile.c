@@ -498,14 +498,14 @@ suscan_gui_profile_update_gain_ui(
   /* Remove existing gain UI from frame (if any) */
   if (profile->gain_ui != NULL)
     gtk_container_remove(
-        GTK_CONTAINER(profile->gainsFrame),
+        GTK_CONTAINER(profile->gainsViewport),
         GTK_WIDGET(profile->gain_ui->uiGrid));
 
   profile->gain_ui = ui;
 
   /* Add new one */
   gtk_container_add(
-      GTK_CONTAINER(profile->gainsFrame),
+      GTK_CONTAINER(profile->gainsViewport),
       GTK_WIDGET(profile->gain_ui->uiGrid));
 
   return SU_TRUE;

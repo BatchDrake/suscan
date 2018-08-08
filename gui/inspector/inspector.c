@@ -184,7 +184,6 @@ suscan_gui_inspector_feed_w_batch(
   ms = sub.tv_sec * 1000 + sub.tv_usec / 1000;
   clogged_up = ms > SUSCAN_GUI_INSPECTOR_MAX_DELAY_MS;
 
-
   /*
    * Push, at most, the last SUSCAN_GUI_CONSTELLATION_HISTORY. We do this
    * because the previous ones will never be shown
