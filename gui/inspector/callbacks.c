@@ -84,7 +84,6 @@ done:
     suscan_object_destroy(object);
 }
 
-
 void
 suscan_gui_inspector_open_cb(GtkWidget *widget, gpointer data)
 {

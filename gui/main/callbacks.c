@@ -311,6 +311,50 @@ suscan_gui_on_demod_properties(GtkWidget *widget, gpointer data)
 }
 
 void
+suscan_gui_on_demod_remove(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gpointer ptr;
+  GtkTreeIter iter;
+  GtkTreeSelection *sel;
+  const char *name;
+
+  sel = gtk_tree_view_get_selection(gui->demodListTreeView);
+  if (gtk_tree_selection_get_selected(sel, NULL, &iter)) {
+    gtk_tree_model_get(
+        GTK_TREE_MODEL(gui->demodulatorsListStore),
+        &iter,
+        3,
+        &ptr,
+        -1);
+
+    if ((name = suscan_object_get_field_value(
+        (suscan_object_t *) ptr,
+        "label")) == NULL)
+      name = "<no name>";
+
+    if (suscan_gui_yes_or_no(
+        gui,
+        "Remove profile",
+        "Delete profile `%s'? This operation cannot be undone.",
+        name))
+      (void) suscan_gui_demod_remove(gui, (suscan_object_t *) ptr);
+  }
+}
+
+void
+suscan_gui_on_demod_selection_changed(GtkTreeSelection *sel, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gboolean sensitive;
+
+  sensitive = gtk_tree_selection_get_selected(sel, NULL, NULL);
+
+  gtk_widget_set_sensitive(GTK_WIDGET(gui->demodPropertiesButton), sensitive);
+  gtk_widget_set_sensitive(GTK_WIDGET(gui->demodRemoveButton), sensitive);
+}
+
+void
 suscan_gui_select_demod_on_changed(
     GtkTreeSelection *sel,
     gpointer data)
