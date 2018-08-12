@@ -1015,6 +1015,7 @@
             <property name="label" translatable="yes">__glade_unnamed_48</property>
             <property name="use_underline">True</property>
             <property name="stock_id">gtk-save</property>
+            <signal name="clicked" handler="suscan_gui_inspector_save_cb" swapped="no"/>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -1038,6 +1039,7 @@
         <child>
           <object class="GtkToolButton">
             <property name="visible">True</property>
+            <property name="sensitive">False</property>
             <property name="can_focus">False</property>
             <property name="label" translatable="yes">__glade_unnamed_50</property>
             <property name="use_underline">True</property>

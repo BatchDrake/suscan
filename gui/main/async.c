@@ -404,7 +404,6 @@ suscan_async_parse_inspector_msg(gpointer user_data)
   suscan_gui_inspector_t *new_insp = NULL;
   suscan_gui_inspector_t *insp = NULL;
   const char *label;
-  char *page_label = NULL;
   int req_id;
   unsigned int i;
   char text[64];
@@ -483,15 +482,9 @@ suscan_async_parse_inspector_msg(gpointer user_data)
           label = "Unnamed demodulator";
 
         SU_TRYCATCH(
-            page_label = strbuild(
-                "%s at %lli Hz",
-                label,
-                (uint64_t) round(insp->channel.fc)),
+            suscan_gui_inspector_set_label(insp, label),
             goto done);
-
-        gtk_label_set_text(insp->pageLabel, page_label);
       }
-
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
@@ -583,9 +576,6 @@ suscan_async_parse_inspector_msg(gpointer user_data)
   }
 
 done:
-  if (page_label != NULL)
-    free(page_label);
-
   if (new_insp != NULL)
     suscan_gui_inspector_destroy(new_insp);
 

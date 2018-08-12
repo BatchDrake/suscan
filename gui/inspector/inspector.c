@@ -44,6 +44,9 @@ suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
         inspector->inshnd,
         rand());
 
+  if (inspector->label != NULL)
+    free(inspector->label);
+
   if (inspector->class != NULL)
     free(inspector->class);
 
@@ -261,33 +264,16 @@ suscan_gui_inspector_to_filename(
 {
   time_t now;
   struct tm *tm;
-  const char *demod;
 
   time(&now);
   tm = localtime(&now);
 
-  switch (suscan_gui_inspector_get_bits(inspector)) {
-    case 1:
-      demod = "bpsk";
-      break;
-
-    case 2:
-      demod = "qpsk";
-      break;
-
-    case 3:
-      demod = "8psk";
-      break;
-
-    default:
-      demod = "mpsk";
-  }
-
   return strbuild(
-      "%s%+lldHz-%s-%ubaud-%02d%02d%02d-%02d%02d%04d%s",
+      "%s%+lldHz-%d%s-%ubaud-%02d%02d%02d-%02d%02d%04d%s",
       prefix,
       (long long int) round(inspector->channel.fc),
-      demod,
+      suscan_gui_inspector_get_bits(inspector),
+      inspector->class,
       (unsigned int) round(inspector->baudrate),
       tm->tm_hour,
       tm->tm_min,
@@ -296,7 +282,6 @@ suscan_gui_inspector_to_filename(
       tm->tm_mon,
       tm->tm_year + 1900,
       suffix);
-
 }
 
 SUPRIVATE void
@@ -927,6 +912,33 @@ suscan_gui_inspector_refresh_on_config(suscan_gui_inspector_t *insp)
         return SU_FALSE);
 
   SU_TRYCATCH(suscan_gui_inspector_on_config_changed(insp), return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_gui_inspector_set_label(suscan_gui_inspector_t *insp, const char *label)
+{
+  char *tmp;
+
+  SU_TRYCATCH(label != NULL, return SU_FALSE);
+  SU_TRYCATCH(tmp = strdup(label), return SU_FALSE);
+
+  if (insp->label != NULL)
+    free(insp->label);
+
+  insp->label = tmp;
+
+  SU_TRYCATCH(
+      tmp = strbuild(
+          "%s at %lli Hz",
+          insp->label,
+          (uint64_t) round(insp->channel.fc)),
+      return SU_FALSE);
+
+  gtk_label_set_text(insp->pageLabel, tmp);
+
+  free(tmp);
 
   return SU_TRUE;
 }

@@ -36,7 +36,6 @@ suscan_gui_inspector_save_as_cb(GtkWidget *widget, gpointer data)
   suscan_gui_t *gui = suscan_gui_symsrc_get_gui((suscan_gui_symsrc_t *) data);
   suscan_object_t *object = NULL;
   suscan_object_t *existing = NULL;
-  char *page_label;
   const char *name;
 
   name = suscan_gui_prompt(
@@ -60,26 +59,46 @@ suscan_gui_inspector_save_as_cb(GtkWidget *widget, gpointer data)
         goto done);
 
     SU_TRYCATCH(
-        page_label = strbuild(
-            "%s at %lli Hz",
-            name,
-            (uint64_t) round(inspector->channel.fc)),
+        suscan_gui_inspector_set_label(inspector, name),
         goto done);
 
-    gtk_label_set_text(inspector->pageLabel, page_label);
-
     SU_TRYCATCH(suscan_gui_demod_append(gui, name, object), goto done);
-    object = NULL;
 
-    /* If there was a demodualtor with this name, remove it */
-    if (existing != NULL)
-      (void) suscan_gui_demod_remove(gui, existing);
+    object = NULL;
   }
 
 done:
-  if (page_label != NULL)
-    free(page_label);
+  if (object != NULL)
+    suscan_object_destroy(object);
+}
 
+void
+suscan_gui_inspector_save_cb(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
+  suscan_gui_t *gui = suscan_gui_symsrc_get_gui((suscan_gui_symsrc_t *) data);
+  suscan_object_t *object = NULL;
+  suscan_object_t *existing = NULL;
+
+  /* No inspector label? This should behave as "save as" */
+  if (inspector->label == NULL) {
+    suscan_gui_inspector_save_as_cb(widget, data);
+  } else {
+    SU_TRYCATCH(
+        object = suscan_gui_inspector_serialize(inspector),
+        goto done);
+
+    if ((existing = suscan_gui_demod_lookup(gui, inspector->label)) != NULL)
+      (void) suscan_gui_demod_remove(gui, existing);
+
+    SU_TRYCATCH(
+        suscan_gui_demod_append(gui, inspector->label, object),
+        goto done);
+
+    object = NULL;
+  }
+
+done:
   if (object != NULL)
     suscan_object_destroy(object);
 }
