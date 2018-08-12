@@ -293,11 +293,14 @@ void
 sugtk_sym_view_refresh(SuGtkSymView *view)
 {
   struct timeval tv, sub;
+  unsigned long long int ms;
 
   gettimeofday(&tv, NULL);
   timersub(&tv, &view->last_redraw_time, &sub);
 
-  if (sub.tv_usec > SUGTK_SYM_VIEW_MIN_REDRAW_INTERVAL_MS * 1000) {
+  ms = sub.tv_usec / 1000 + sub.tv_sec * 1000;
+
+  if (ms > SUGTK_SYM_VIEW_MIN_REDRAW_INTERVAL_MS) {
     sugtk_sym_view_refresh_hard(view);
     view->last_redraw_time = tv;
   }

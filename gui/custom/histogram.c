@@ -236,14 +236,16 @@ void
 sugtk_histogram_commit(SuGtkHistogram *histogram)
 {
   struct timeval tv, sub;
+  unsigned long long int ms;
 
   if (histogram->count - histogram->last_drawn
       >= SUGTK_HISTOGRAM_DRAW_THRESHOLD) {
     gettimeofday(&tv, NULL);
 
     timersub(&tv, &histogram->last_redraw_time, &sub);
+    ms = sub.tv_usec / 1000 + sub.tv_sec * 1000;
 
-    if (sub.tv_usec > SUGTK_HISTOGRAM_MIN_REDRAW_INTERVAL_MS * 1000) {
+    if (ms > SUGTK_HISTOGRAM_MIN_REDRAW_INTERVAL_MS) {
       histogram->last_drawn = histogram->count;
       sugtk_histogram_redraw(histogram);
       gtk_widget_queue_draw(GTK_WIDGET(histogram));

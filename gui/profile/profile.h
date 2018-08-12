@@ -86,6 +86,7 @@ struct suscan_gui_profile {
   GtkCheckButton *loopCheckButton;
   GtkLabel *profileNameLabel;
   GtkFrame *gainsFrame;
+  GtkViewport *gainsViewport;
 
   GtkGrid *sdrControlsFrame;
   GtkGrid *fileControlsFrame;

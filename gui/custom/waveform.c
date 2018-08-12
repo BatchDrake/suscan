@@ -141,14 +141,16 @@ void
 sugtk_waveform_commit(SuGtkWaveForm *waveform)
 {
   struct timeval tv, sub;
+  unsigned long long int ms;
 
   if (waveform->count - waveform->last_drawn
       >= SUGTK_WAVEFORM_DRAW_THRESHOLD) {
     gettimeofday(&tv, NULL);
 
     timersub(&tv, &waveform->last_redraw_time, &sub);
+    ms = sub.tv_usec / 1000 + sub.tv_sec * 1000;
 
-    if (sub.tv_usec > SUGTK_WAVEFORM_MIN_REDRAW_INTERVAL_MS * 1000) {
+    if (ms > SUGTK_WAVEFORM_MIN_REDRAW_INTERVAL_MS) {
       waveform->last_drawn = waveform->count;
       sugtk_waveform_redraw(waveform);
       gtk_widget_queue_draw(GTK_WIDGET(waveform));

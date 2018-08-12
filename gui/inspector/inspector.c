@@ -44,6 +44,12 @@ suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector)
         inspector->inshnd,
         rand());
 
+  if (inspector->label != NULL)
+    free(inspector->label);
+
+  if (inspector->class != NULL)
+    free(inspector->class);
+
   suscan_gui_modemctl_set_finalize(&inspector->modemctl_set);
 
   for (i = 0; i < inspector->estimator_count; ++i)
@@ -114,7 +120,7 @@ suscan_gui_inspector_decide(
     return SU_NOSYMBOL;
 }
 
-SUPRIVATE void
+void
 suscan_gui_inspector_update_spin_buttons(suscan_gui_inspector_t *insp)
 {
   unsigned int total_rows;
@@ -180,7 +186,6 @@ suscan_gui_inspector_feed_w_batch(
   timersub(&tv, arrival, &sub);
   ms = sub.tv_sec * 1000 + sub.tv_usec / 1000;
   clogged_up = ms > SUSCAN_GUI_INSPECTOR_MAX_DELAY_MS;
-
 
   /*
    * Push, at most, the last SUSCAN_GUI_CONSTELLATION_HISTORY. We do this
@@ -259,33 +264,16 @@ suscan_gui_inspector_to_filename(
 {
   time_t now;
   struct tm *tm;
-  const char *demod;
 
   time(&now);
   tm = localtime(&now);
 
-  switch (suscan_gui_inspector_get_bits(inspector)) {
-    case 1:
-      demod = "bpsk";
-      break;
-
-    case 2:
-      demod = "qpsk";
-      break;
-
-    case 3:
-      demod = "8psk";
-      break;
-
-    default:
-      demod = "mpsk";
-  }
-
   return strbuild(
-      "%s%+lldHz-%s-%ubaud-%02d%02d%02d-%02d%02d%04d%s",
+      "%s%+lldHz-%d%s-%ubaud-%02d%02d%02d-%02d%02d%04d%s",
       prefix,
       (long long int) round(inspector->channel.fc),
-      demod,
+      suscan_gui_inspector_get_bits(inspector),
+      inspector->class,
       (unsigned int) round(inspector->baudrate),
       tm->tm_hour,
       tm->tm_min,
@@ -294,7 +282,6 @@ suscan_gui_inspector_to_filename(
       tm->tm_mon,
       tm->tm_year + 1900,
       suffix);
-
 }
 
 SUPRIVATE void
@@ -929,6 +916,33 @@ suscan_gui_inspector_refresh_on_config(suscan_gui_inspector_t *insp)
   return SU_TRUE;
 }
 
+SUBOOL
+suscan_gui_inspector_set_label(suscan_gui_inspector_t *insp, const char *label)
+{
+  char *tmp;
+
+  SU_TRYCATCH(label != NULL, return SU_FALSE);
+  SU_TRYCATCH(tmp = strdup(label), return SU_FALSE);
+
+  if (insp->label != NULL)
+    free(insp->label);
+
+  insp->label = tmp;
+
+  SU_TRYCATCH(
+      tmp = strbuild(
+          "%s at %lli Hz",
+          insp->label,
+          (uint64_t) round(insp->channel.fc)),
+      return SU_FALSE);
+
+  gtk_label_set_text(insp->pageLabel, tmp);
+
+  free(tmp);
+
+  return SU_TRUE;
+}
+
 /* Used for incoming configuration */
 SUBOOL
 suscan_gui_inspector_set_config(
@@ -984,6 +998,8 @@ suscan_gui_inspector_new(
 
   /* Superclass constructor */
   SU_TRYCATCH(suscan_gui_symsrc_init(&new->_parent, NULL), goto fail);
+
+  SU_TRYCATCH(new->class = strdup(class), goto fail);
 
   new->channel = *channel;
   new->index = -1;
@@ -1061,175 +1077,6 @@ fail:
   return NULL;
 }
 
-/************************** Inspector tab callbacks **************************/
-void
-suscan_on_close_inspector_tab(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  if (!insp->dead) {
-    /*
-     * Inspector is not dead: send a close signal and wait for analyzer
-     * response to close it
-     */
-    suscan_gui_inspector_close(insp);
-  } else {
-    /*
-     * Inspector is dead (because its analyzer has disappeared). Just
-     * remove the page and free allocated memory
-     */
-    suscan_gui_remove_inspector(insp->_parent.gui, insp);
-
-    suscan_gui_inspector_destroy(insp);
-  }
-}
-
-void
-suscan_inspector_on_save(
-    GtkWidget *widget,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-  char *new_fname = NULL;
-
-  SU_TRYCATCH(
-      new_fname = suscan_gui_inspector_to_filename(insp, "symbols", ".log"),
-      goto done);
-
-  SU_TRYCATCH(
-      sugtk_sym_view_save_helper(
-          insp->symbolView,
-          "Save symbol view",
-          new_fname,
-          suscan_gui_inspector_get_bits(insp)),
-      goto done);
-
-done:
-  if (new_fname != NULL)
-    free(new_fname);
-}
-
-void
-suscan_inspector_on_toggle_record(
-    GtkWidget *widget,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  insp->recording = gtk_toggle_tool_button_get_active(
-      GTK_TOGGLE_TOOL_BUTTON(widget));
-}
-
-void
-suscan_inspector_on_clear(
-    GtkWidget *widget,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  sugtk_sym_view_clear(insp->symbolView);
-}
-
-void
-suscan_inspector_on_zoom_in(
-    GtkWidget *widget,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-  guint curr_width = sugtk_sym_view_get_width(insp->symbolView);
-  guint curr_zoom = sugtk_sym_view_get_zoom(insp->symbolView);
-
-  curr_zoom <<= 1;
-
-  if (curr_width < curr_zoom)
-    curr_zoom = curr_width;
-
-  sugtk_sym_view_set_zoom(insp->symbolView, curr_zoom);
-}
-
-
-void
-suscan_inspector_on_zoom_out(
-    GtkWidget *widget,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-  guint curr_width = sugtk_sym_view_get_width(insp->symbolView);
-  guint curr_zoom = sugtk_sym_view_get_zoom(insp->symbolView);
-
-  curr_zoom >>= 1;
-
-  if (curr_zoom < 1)
-    curr_zoom = 1;
-
-  sugtk_sym_view_set_zoom(insp->symbolView, curr_zoom);
-}
-
-void
-suscan_inspector_on_toggle_autoscroll(
-    GtkWidget *widget,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-  gboolean active;
-
-  active = gtk_toggle_tool_button_get_active(GTK_TOGGLE_TOOL_BUTTON(widget));
-
-  sugtk_sym_view_set_autoscroll(insp->symbolView, active);
-  gtk_widget_set_sensitive(GTK_WIDGET(insp->offsetSpinButton), !active);
-}
-
-void
-suscan_inspector_on_toggle_autofit(
-    GtkWidget *widget,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-  gboolean active;
-
-  active = gtk_toggle_tool_button_get_active(GTK_TOGGLE_TOOL_BUTTON(widget));
-
-  sugtk_sym_view_set_autofit(insp->symbolView, active);
-  gtk_widget_set_sensitive(GTK_WIDGET(insp->widthSpinButton), !active);
-}
-
-void
-suscan_inspector_on_set_offset(
-    GtkWidget *widget,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  if (!gtk_toggle_tool_button_get_active(
-      GTK_TOGGLE_TOOL_BUTTON(insp->autoScrollToggleButton)))
-    sugtk_sym_view_set_offset(
-        insp->symbolView,
-        gtk_spin_button_get_value(insp->offsetSpinButton));
-}
-
-void
-suscan_inspector_on_set_width(
-    GtkWidget *widget,
-    gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  if (!gtk_toggle_tool_button_get_active(
-      GTK_TOGGLE_TOOL_BUTTON(insp->autoFitToggleButton)))
-    sugtk_sym_view_set_width(
-        insp->symbolView,
-        gtk_spin_button_get_value(insp->widthSpinButton));
-}
-
-void
-suscan_gui_inspector_on_reshape(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
-
-  suscan_gui_inspector_update_spin_buttons(insp);
-}
-
-
 /************************* Decoder tab handling ******************************/
 SUBOOL
 suscan_gui_inspector_remove_codec(
@@ -1289,79 +1136,5 @@ fail:
     (void) suscan_gui_inspector_remove_codec(inspector, codec);
 
   return FALSE;
-}
-
-void
-suscan_inspector_on_scroll(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
-
-  sugtk_sym_view_set_offset(
-      inspector->symbolView,
-      floor(gtk_adjustment_get_value(inspector->symViewScrollAdjustment))
-      * sugtk_sym_view_get_width(inspector->symbolView));
-}
-
-void
-suscan_inspector_on_change_spectrum(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
-  int id;
-
-  id = suscan_gui_modemctl_helper_try_read_combo_id(
-      GTK_COMBO_BOX(inspector->spectrumSourceComboBoxText));
-
-  suscan_analyzer_inspector_set_spectrum_async(
-      inspector->_parent.gui->analyzer,
-      inspector->inshnd,
-      id,
-      rand());
-
-  sugtk_spectrum_reset(inspector->spectrum);
-}
-
-void
-suscan_inspector_on_spectrum_center(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
-
-  sugtk_spectrum_reset(inspector->spectrum);
-}
-
-void
-suscan_inspector_on_spectrum_reset(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
-
-  sugtk_spectrum_set_freq_offset(inspector->spectrum, 0);
-}
-
-void
-suscan_inspector_on_toggle_spectrum_autolevel(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
-
-  sugtk_spectrum_set_auto_level(
-      inspector->spectrum,
-      gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)));
-}
-
-void
-suscan_inspector_on_toggle_spectrum_mode(GtkWidget *widget, gpointer data)
-{
-  suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
-  SUBOOL use_wf = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-
-  if (use_wf) {
-    sugtk_spectrum_set_mode(
-        inspector->spectrum,
-        SUGTK_SPECTRUM_MODE_WATERFALL);
-    gtk_button_set_label(GTK_BUTTON(widget), "Waterfall");
-  } else {
-    sugtk_spectrum_set_mode(
-        inspector->spectrum,
-        SUGTK_SPECTRUM_MODE_SPECTROGRAM);
-    gtk_button_set_label(GTK_BUTTON(widget), "Spectrogram");
-  }
 }
 

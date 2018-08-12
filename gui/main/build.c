@@ -317,7 +317,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               gui->builder,
               "eAnalyzerBeta")),
           return SU_FALSE);
-
   SU_TRYCATCH(
       gui->gammaEntry =
           GTK_ENTRY(gtk_builder_get_object(
@@ -522,6 +521,12 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "fColors")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->demodulatorsFrame =
+          GTK_FRAME(gtk_builder_get_object(
+              gui->builder,
+              "fDemodulators")),
+          return SU_FALSE);
 
   SU_TRYCATCH(
       gui->settingsViewStack =
@@ -552,10 +557,96 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
+      gui->profileTextLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              gui->builder,
+              "lProfileText")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
       gui->profilesMenu =
           GTK_MENU(gtk_builder_get_object(
               gui->builder,
               "mProfiles")),
+          return SU_FALSE);
+
+  /* Demodulators */
+  SU_TRYCATCH(
+      gui->demodulatorsListStore =
+          GTK_LIST_STORE(gtk_builder_get_object(
+              gui->builder,
+              "lsDemodulators")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->chooseDemodulatorDialog =
+          GTK_DIALOG(gtk_builder_get_object(
+              gui->builder,
+              "dlChooseDemodulator")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->selectDemodTreeView =
+          GTK_TREE_VIEW(gtk_builder_get_object(
+              gui->builder,
+              "tvSelectDemod")),
+          return SU_FALSE);
+
+  /* Demodulator properties dialog */
+  SU_TRYCATCH(
+      gui->demodPropertiesDialog =
+          GTK_DIALOG(gtk_builder_get_object(
+              gui->builder,
+              "dlDemodProperties")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodNameEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              gui->builder,
+              "eDemodName")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodClassLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              gui->builder,
+              "lDemodClass")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodPropertiesListStore =
+          GTK_LIST_STORE(gtk_builder_get_object(
+              gui->builder,
+              "lsDemodProperties")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodPropertiesTreeView =
+          GTK_TREE_VIEW(gtk_builder_get_object(
+              gui->builder,
+              "tvDemodProperties")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodListTreeView =
+          GTK_TREE_VIEW(gtk_builder_get_object(
+              gui->builder,
+              "tvDemodList")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodPropertiesButton =
+          GTK_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "bDemodProperties")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodRemoveButton =
+          GTK_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "bDemodRemove")),
           return SU_FALSE);
 
   suscan_setup_column_formats(gui);

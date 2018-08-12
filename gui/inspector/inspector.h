@@ -21,6 +21,7 @@
 #ifndef _GUI_INSPECTOR_H
 #define _GUI_INSPECTOR_H
 
+#include <object.h>
 #include "symsrc.h"
 
 #include "spectrum.h"
@@ -50,6 +51,8 @@ struct suscan_gui_inspector {
   SUBOOL recording; /* Symbol recorder enabled */
 
   /* Current inspector configuration and cached values */
+  char *class; /* Inspector class */
+  char *label; /* Inspector label. Used to know serialization target */
   suscan_config_t *config;
   unsigned int baudrate;
   su_decider_t decider;
@@ -120,11 +123,18 @@ SUBOOL suscan_gui_inspector_feed_w_batch(
     const struct timeval *arrival,
     const struct suscan_analyzer_sample_batch_msg *msg);
 
+char *suscan_gui_inspector_to_filename(
+    const suscan_gui_inspector_t *inspector,
+    const char *prefix,
+    const char *suffix);
+
 suscan_gui_inspector_t *suscan_gui_inspector_new(
     const char *class,
     const struct sigutils_channel *channel,
     const suscan_config_t *config,
     SUHANDLE handle);
+
+void suscan_gui_inspector_update_spin_buttons(suscan_gui_inspector_t *insp);
 
 SUBOOL suscan_gui_inspector_commit_config(suscan_gui_inspector_t *insp);
 
@@ -145,6 +155,8 @@ SUBOOL suscan_gui_inspector_populate_codec_menu(
     void *private,
     GCallback on_encode,
     GCallback on_decode);
+
+SUBOOL suscan_gui_inspector_on_config_changed(suscan_gui_inspector_t *insp);
 
 SUBOOL suscan_gui_inspector_remove_codec(
     suscan_gui_inspector_t *gui,
@@ -171,6 +183,17 @@ SUBOOL suscan_gui_inspector_open_codec_tab(
     unsigned int direction,
     const SuGtkSymView *view,
     suscan_symbuf_t *source);
+
+SUBOOL suscan_gui_inspector_set_label(
+    suscan_gui_inspector_t *insp,
+    const char *label);
+
+suscan_object_t *suscan_gui_inspector_serialize(
+    const suscan_gui_inspector_t *inspector);
+
+SUBOOL suscan_gui_inspector_deserialize(
+    suscan_gui_inspector_t *inspector,
+    const suscan_object_t *object);
 
 void suscan_gui_inspector_destroy(suscan_gui_inspector_t *inspector);
 

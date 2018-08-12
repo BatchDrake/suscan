@@ -193,6 +193,26 @@ suscan_config_context_put(
   return SU_TRUE;
 }
 
+SUBOOL
+suscan_config_context_remove(
+    suscan_config_context_t *context,
+    suscan_object_t *obj)
+{
+  unsigned int i, count;
+
+  count = suscan_object_set_get_count(context->list);
+
+  for (i = 0; i < count; ++i) {
+    if (suscan_object_set_get(context->list, i) == obj) {
+      (void) suscan_object_set_put(context->list, i, NULL);
+
+      return SU_TRUE;
+    }
+  }
+
+  return SU_FALSE;
+}
+
 void
 suscan_config_context_flush(suscan_config_context_t *context)
 {

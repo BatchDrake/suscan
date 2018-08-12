@@ -84,7 +84,7 @@ SUPRIVATE void *
 suscan_worker_thread(void *data)
 {
   suscan_worker_t *worker = (suscan_worker_t *) data;
-  struct suscan_msg *msg;
+  struct suscan_msg *msg = NULL;
   struct suscan_worker_callback *cb;
   SUBOOL halt_acked = SU_FALSE;
 
@@ -100,6 +100,7 @@ suscan_worker_thread(void *data)
             /* Callback returns FALSE: remove from message queue */
             suscan_worker_callback_destroy(cb);
             suscan_msg_destroy(msg);
+            msg = NULL;
           } else {
             /* Callback returns TRUE: queue again */
             suscan_mq_write_msg(&worker->mq_in, msg);
@@ -113,6 +114,7 @@ suscan_worker_thread(void *data)
         default:
           SU_WARNING("Unexpected worker message type #%d\n", msg->type);
           suscan_msg_destroy(msg); /* Destroy message anyways */
+          msg = NULL;
       }
 
       /* Next reads: until queue is empty */
@@ -126,7 +128,14 @@ done:
 
   if (worker->halt_req) {
     halt_acked = SU_TRUE;
-    suscan_msg_destroy(msg);
+
+    /*
+     * No need to deal with callbacks here. If we reached this point
+     * and message is not NULL, it is because we received MSG_TYPE_HALT.
+     */
+    if (msg != NULL)
+      suscan_msg_destroy(msg);
+
     suscan_worker_ack_halt(worker);
   }
 

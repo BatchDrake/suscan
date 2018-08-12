@@ -206,6 +206,16 @@ void sugtk_spectrum_update_channels(
     struct sigutils_channel **channel_list,
     unsigned int channel_count);
 
+GtkMenu *sugtk_spectrum_get_channel_menu(const SuGtkSpectrum *spect);
+
+gboolean
+sugtk_spectrum_add_action_to_menu(
+    SuGtkSpectrum *spect,
+    GtkMenuShell *target,
+    const gchar *label,
+    SuGtkSpectrumMenuActionCallback action,
+    gpointer data);
+
 gboolean sugtk_spectrum_add_menu_action(
     SuGtkSpectrum *spect,
     const gchar *label,

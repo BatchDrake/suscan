@@ -43,8 +43,43 @@ suscan_gui_on_open_inspector(
           action->gui->analyzer,
           action->insp_iface->name,
           channel,
-          rand()),
+          -1),
       return);
+}
+
+struct suscan_gui_spectrum_action *
+suscan_gui_assert_spectrum_action(
+    suscan_gui_t *gui,
+    const struct suscan_inspector_interface *insp_iface,
+    suscan_object_t *demod)
+{
+  unsigned int i;
+  struct suscan_gui_spectrum_action *action = NULL;
+
+  for (i = 0; i < gui->action_count; ++i)
+    if (gui->action_list[i]->insp_iface == insp_iface
+        && gui->action_list[i]->demod == demod)
+      return gui->action_list[i];
+
+  SU_TRYCATCH(
+      action = calloc(1, sizeof(struct suscan_gui_spectrum_action)),
+      goto fail);
+
+  action->gui = gui;
+  action->insp_iface = insp_iface;
+  action->demod = demod;
+
+  SU_TRYCATCH(
+      (action->index = PTR_LIST_APPEND_CHECK(gui->action, action)) != -1,
+      goto fail);
+
+  return action;
+
+fail:
+  if (action != NULL)
+    free(action);
+
+  return NULL;
 }
 
 SUPRIVATE SUBOOL
@@ -59,13 +94,8 @@ suscan_gui_add_inspector_action(
   SU_TRYCATCH(action_text = strbuild("Open %s", insp_iface->desc), goto done);
 
   SU_TRYCATCH(
-      action = calloc(1, sizeof(struct suscan_gui_spectrum_action)),
+      action = suscan_gui_assert_spectrum_action(gui, insp_iface, NULL),
       goto done);
-
-  action->gui = gui;
-  action->insp_iface = insp_iface;
-
-  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(gui->action, action) != -1, goto done);
 
   (void) sugtk_spectrum_add_menu_action(
       gui->spectrum,
@@ -91,6 +121,7 @@ SUBOOL
 suscan_gui_add_all_inspector_actions(suscan_gui_t *gui)
 {
   const struct suscan_inspector_interface **iface_list;
+  GtkMenu *menu;
   unsigned int iface_count;
   unsigned int i;
 
@@ -100,6 +131,16 @@ suscan_gui_add_all_inspector_actions(suscan_gui_t *gui)
     SU_TRYCATCH(
         suscan_gui_add_inspector_action(gui, iface_list[i]),
         return SU_FALSE);
+
+  /* Demodulators are also inspector actions */
+  gui->demodMenuItem = GTK_MENU_ITEM(
+      gtk_menu_item_new_with_label("Demodulate as..."));
+
+  menu = sugtk_spectrum_get_channel_menu(gui->spectrum);
+
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu), GTK_WIDGET(gui->demodMenuItem));
+
+  gtk_widget_set_sensitive(GTK_WIDGET(gui->demodMenuItem), FALSE);
 
   return SU_TRUE;
 }

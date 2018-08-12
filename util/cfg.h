@@ -22,6 +22,7 @@
 #define _CONFIG_H
 
 #include <util.h>
+#include <object.h>
 #include <sigutils/sigutils.h>
 
 enum suscan_field_type {
@@ -126,5 +127,11 @@ suscan_config_t *suscan_string_to_config(
     const char *string);
 
 char *suscan_config_to_string(const suscan_config_t *config);
+
+suscan_object_t *suscan_config_to_object(const suscan_config_t *config);
+
+SUBOOL suscan_object_to_config(
+    suscan_config_t *config,
+    const suscan_object_t *object);
 
 #endif /* _CONFIG_H */

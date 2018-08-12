@@ -333,7 +333,7 @@ suscan_analyzer_open_inspector(
   SU_TRYCATCH(
       new = suscan_inspector_new(
           class,
-          analyzer->effective_samp_rate,
+          suscan_analyzer_get_samp_rate(analyzer),
           schan),
       goto fail);
 

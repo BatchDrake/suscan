@@ -61,16 +61,55 @@ suscan_gui_msgbox(
   va_end(ap);
 }
 
-const char *
-suscan_gui_ask_for_profile_name(
+SUBOOL
+suscan_gui_yes_or_no(
     suscan_gui_t *gui,
     const char *title,
-    const char *text)
+    const char *fmt,
+    ...)
+{
+  gint ret;
+  va_list ap;
+  char *message;
+  GtkWidget *dialog;
+
+  va_start(ap, fmt);
+
+  if ((message = vstrbuild(fmt, ap)) != NULL) {
+    dialog = gtk_message_dialog_new(
+        gui->main,
+        GTK_DIALOG_DESTROY_WITH_PARENT,
+        GTK_MESSAGE_QUESTION,
+        GTK_BUTTONS_YES_NO,
+        "%s",
+        message);
+
+    gtk_window_set_title(GTK_WINDOW(dialog), title);
+
+    ret = gtk_dialog_run(GTK_DIALOG(dialog));
+
+    gtk_widget_destroy(dialog);
+
+    free(message);
+  }
+
+  va_end(ap);
+
+  return ret == GTK_RESPONSE_YES;
+}
+
+const char *
+suscan_gui_prompt(
+    suscan_gui_t *gui,
+    const char *title,
+    const char *text,
+    const char *defl)
 {
   int result;
 
-  if (text != NULL)
-    gtk_entry_set_text(gui->profileNameEntry, text);
+  gtk_label_set_text(gui->profileTextLabel, text);
+  if (defl != NULL)
+    gtk_entry_set_text(gui->profileNameEntry, defl);
 
   gtk_window_set_title(GTK_WINDOW(gui->profileNameDialog), title);
 
@@ -86,6 +125,15 @@ suscan_gui_ask_for_profile_name(
     return gtk_entry_get_text(gui->profileNameEntry);
 
   return NULL;
+}
+
+const char *
+suscan_gui_ask_for_profile_name(
+    suscan_gui_t *gui,
+    const char *title,
+    const char *defl)
+{
+  return suscan_gui_prompt(gui, title, "Profile name", defl);
 }
 
 void
