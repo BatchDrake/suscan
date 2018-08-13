@@ -65,22 +65,6 @@ suscan_gui_msg_envelope_new(
 
 /************************** Update GUI state *********************************/
 void
-suscan_gui_change_button_icon(GtkButton *button, const char *icon)
-{
-  GtkWidget *prev;
-  GtkWidget *image;
-
-  SU_TRYCATCH(
-      image = gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_BUTTON),
-      return);
-
-  prev = gtk_bin_get_child(GTK_BIN(button));
-  gtk_container_remove(GTK_CONTAINER(button), prev);
-  gtk_widget_show(GTK_WIDGET(image));
-  gtk_container_add(GTK_CONTAINER(button), image);
-}
-
-void
 suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
 {
   const suscan_source_config_t *config = NULL;
@@ -95,9 +79,9 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
   switch (state) {
     case SUSCAN_GUI_STATE_STOPPED:
       subtitle = "Stopped";
-      suscan_gui_change_button_icon(
-          GTK_BUTTON(gui->toggleConnect),
-          "media-playback-start-symbolic");
+      gtk_tool_button_set_icon_name(
+          GTK_TOOL_BUTTON(gui->toggleConnect),
+          "media-playback-start");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(
@@ -112,9 +96,9 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
 
     case SUSCAN_GUI_STATE_RUNNING:
       subtitle = "Running";
-      suscan_gui_change_button_icon(
-          GTK_BUTTON(gui->toggleConnect),
-          "media-playback-stop-symbolic");
+      gtk_tool_button_set_icon_name(
+          GTK_TOOL_BUTTON(gui->toggleConnect),
+          "media-playback-stop");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(
@@ -147,9 +131,9 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
     case SUSCAN_GUI_STATE_STOPPING:
     case SUSCAN_GUI_STATE_QUITTING:
       subtitle = "Stopping...";
-      suscan_gui_change_button_icon(
-          GTK_BUTTON(gui->toggleConnect),
-          "media-playback-start-symbolic");
+      gtk_tool_button_set_icon_name(
+          GTK_TOOL_BUTTON(gui->toggleConnect),
+          "media-playback-start");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(

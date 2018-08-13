@@ -95,8 +95,8 @@ struct suscan_gui {
   GtkWindow *main;
   GtkLabel *titleLabel;
   GtkLabel *subTitleLabel;
-  GtkButton *toggleConnect;
-  GtkButton *preferencesButton;
+  GtkToggleToolButton *toggleConnect;
+  GtkToolButton *preferencesButton;
   GtkListStore *sourceListStore;
   GtkListStore *channelListStore;
   GtkDialog *settingsDialog;

@@ -126,14 +126,15 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
 
   SU_TRYCATCH(
       gui->toggleConnect =
-          GTK_BUTTON(gtk_builder_get_object(gui->builder, "bToggleConnect")),
+          GTK_TOGGLE_TOOL_BUTTON(
+              gtk_builder_get_object(gui->builder, "tbToggleConnect")),
       return SU_FALSE);
 
   SU_TRYCATCH(
       gui->preferencesButton =
-          GTK_BUTTON(gtk_builder_get_object(
+          GTK_TOOL_BUTTON(gtk_builder_get_object(
               gui->builder,
-              "bPreferences")),
+              "tbPreferences")),
       return SU_FALSE);
 
   SU_TRYCATCH(
