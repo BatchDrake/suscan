@@ -129,12 +129,6 @@ struct suscan_gui {
   GtkCellRendererText *noiseLevelCellRenderer;
   GtkCellRendererText *bandwidthCellRenderer;
 
-  GtkLevelBar *cpuLevelBar;
-  GtkLabel *cpuLabel;
-
-  GtkLevelBar *n0LevelBar;
-  GtkLabel *n0Label;
-
   /* Setting dialogs widgets */
   GtkStack       *settingsViewStack;
   GtkColorButton *paFgColorButton;

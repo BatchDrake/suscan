@@ -137,34 +137,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
       return SU_FALSE);
 
   SU_TRYCATCH(
-      gui->cpuLabel =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lCpu")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->cpuLevelBar =
-          GTK_LEVEL_BAR(gtk_builder_get_object(
-              gui->builder,
-              "lbCpu")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->n0Label =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lN0")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->n0LevelBar =
-          GTK_LEVEL_BAR(gtk_builder_get_object(
-              gui->builder,
-              "lbN0")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
       gui->channelListStore =
           GTK_LIST_STORE(gtk_builder_get_object(
               gui->builder,

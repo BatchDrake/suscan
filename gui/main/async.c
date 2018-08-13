@@ -237,8 +237,6 @@ suscan_async_update_channels_cb(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   PTR_LIST(struct sigutils_channel, channel);
-  SUFLOAT cpu;
-  char cpu_str[10];
   unsigned int i;
   GtkTreeIter new_element;
 
@@ -246,13 +244,6 @@ suscan_async_update_channels_cb(gpointer user_data)
 
   if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
     goto done;
-
-  cpu = envelope->gui->analyzer->cpu_usage;
-
-  snprintf(cpu_str, sizeof(cpu_str), "%.1lf%%", cpu * 100);
-
-  gtk_label_set_text(envelope->gui->cpuLabel, cpu_str);
-  gtk_level_bar_set_value(envelope->gui->cpuLevelBar, cpu);
 
   /* Move channel list to GUI */
   suscan_analyzer_channel_msg_take_channels(
@@ -338,12 +329,6 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
    * TODO: Move this functions to something like
    * suscan_update_spectrum_labels
    */
-  snprintf(text, sizeof(text), "%.1lf dBFS", SU_POWER_DB(msg->N0));
-
-  gtk_label_set_text(envelope->gui->n0Label, text);
-  gtk_level_bar_set_value(
-      envelope->gui->n0LevelBar,
-      1e-2 * (SU_POWER_DB(msg->N0) + 100));
 
   fs = msg->samp_rate;
 
