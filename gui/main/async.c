@@ -23,7 +23,7 @@
 
 #include "gui.h"
 
-#define SUSCAN_ANALYZER_MAX_MESSAGE_DELAY_MS 40
+#define SUSCAN_ANALYZER_MAX_SPECTRUM_MESSAGE_DELAY_MS 40
 
 /* Asynchronous thread: take messages from analyzer and parse them */
 struct suscan_gui_msg_envelope {
@@ -306,7 +306,7 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
 
   ms = sub.tv_sec * 1000 + sub.tv_usec / 1000;
 
-  if (ms > SUSCAN_ANALYZER_MAX_MESSAGE_DELAY_MS)
+  if (ms > SUSCAN_ANALYZER_MAX_SPECTRUM_MESSAGE_DELAY_MS)
     goto done;
 
   /*

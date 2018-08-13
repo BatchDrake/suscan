@@ -26,7 +26,7 @@
 
 G_BEGIN_DECLS
 
-#define SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS 40 /* 25 fps */
+#define SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS 50 /* 25 fps */
 #define SUGTK_TYPE_SPECTRUM            (sugtk_spectrum_get_type ())
 #define SUGTK_SPECTRUM(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SUGTK_TYPE_SPECTRUM, SuGtkSpectrum))
 #define SUGTK_SPECTRUM_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST  ((klass), SUGTK_TYPE_SPECTRUM, SuGtkSpectrumClass))
