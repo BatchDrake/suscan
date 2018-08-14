@@ -191,6 +191,16 @@
       <action-widget response="0">button4</action-widget>
     </action-widgets>
   </object>
+  <object class="GtkImage" id="image1">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">start-capture.png</property>
+  </object>
+  <object class="GtkImage" id="image2">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">preferences.png</property>
+  </object>
   <object class="GtkListStore" id="lsDemodProperties">
     <columns>
       <!-- column-name param -->
@@ -731,7 +741,8 @@
                                   <object class="GtkImage">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="icon_name">network-wireless</property>
+                                    <property name="vexpand">False</property>
+                                    <property name="pixbuf">select-source.png</property>
                                     <property name="icon_size">3</property>
                                   </object>
                                 </child>
@@ -748,7 +759,7 @@
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="use_underline">True</property>
-                            <property name="icon_name">media-playback-start</property>
+                            <property name="icon_widget">image1</property>
                             <signal name="clicked" handler="suscan_on_toggle_connect" swapped="no"/>
                           </object>
                           <packing>
@@ -761,7 +772,7 @@
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="use_underline">True</property>
-                            <property name="icon_name">applications-system</property>
+                            <property name="icon_widget">image2</property>
                             <signal name="clicked" handler="suscan_on_settings" swapped="no"/>
                           </object>
                           <packing>

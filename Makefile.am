@@ -11,4 +11,6 @@ guidir=$(pkgdatadir)/gui
 gui_DATA=rsrc/main.glade rsrc/channel-inspector.glade rsrc/codec-tab.glade   \
  rsrc/ui.css rsrc/icon-color.png rsrc/icon-color-about.png                   \
  rsrc/symbol-tool.glade rsrc/channel-inspector-new.glade rsrc/modemctl.glade \
- rsrc/estimator.glade rsrc/profile.glade rsrc/splash.glade rsrc/splash.png
+ rsrc/estimator.glade rsrc/profile.glade rsrc/splash.glade rsrc/splash.png   \
+ rsrc/icon.png rsrc/start-capture.png rsrc/select-source.png                 \
+ rsrc/preferences.png
