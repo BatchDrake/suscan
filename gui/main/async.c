@@ -79,9 +79,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
   switch (state) {
     case SUSCAN_GUI_STATE_STOPPED:
       subtitle = "Stopped";
-      gtk_tool_button_set_icon_name(
-          GTK_TOOL_BUTTON(gui->toggleConnect),
-          "media-playback-start");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(
@@ -96,9 +93,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
 
     case SUSCAN_GUI_STATE_RUNNING:
       subtitle = "Running";
-      gtk_tool_button_set_icon_name(
-          GTK_TOOL_BUTTON(gui->toggleConnect),
-          "media-playback-stop");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(
@@ -131,9 +125,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
     case SUSCAN_GUI_STATE_STOPPING:
     case SUSCAN_GUI_STATE_QUITTING:
       subtitle = "Stopping...";
-      gtk_tool_button_set_icon_name(
-          GTK_TOOL_BUTTON(gui->toggleConnect),
-          "media-playback-start");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(
