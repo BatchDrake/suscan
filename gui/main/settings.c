@@ -534,8 +534,10 @@ suscan_gui_load_settings(suscan_gui_t *gui)
       gui->gtkui_obj,
       "active_profile")) != NULL) {
 
-    if ((profile = suscan_gui_lookup_profile(gui, value)) != NULL)
+    if ((profile = suscan_gui_lookup_profile(gui, value)) != NULL) {
       SU_TRYCATCH(suscan_gui_select_profile(gui, profile), return SU_FALSE);
+      SU_TRYCATCH(suscan_gui_update_profile_menu(gui), return SU_FALSE);
+    }
   }
 
   /* All set, move settings to dialog */

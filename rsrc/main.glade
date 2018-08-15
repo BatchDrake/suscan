@@ -1466,9 +1466,6 @@
         </child>
       </object>
     </child>
-    <child type="titlebar">
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkDialog" id="dlSettings">
     <property name="can_focus">False</property>

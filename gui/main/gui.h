@@ -393,6 +393,8 @@ SUBOOL suscan_gui_select_profile(
     suscan_gui_t *gui,
     suscan_gui_profile_t *profile);
 
+SUBOOL suscan_gui_update_profile_menu(suscan_gui_t *gui);
+
 suscan_gui_profile_t *suscan_gui_lookup_profile(
     const suscan_gui_t *gui,
     const char *label);
