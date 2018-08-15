@@ -32,15 +32,15 @@
 G_DEFINE_TYPE(SuGtkPalBox, sugtk_pal_box, GTK_TYPE_COMBO_BOX);
 
 static GdkPixbuf *
-sugtk_pal_box_create_thumbnail(const suscan_gui_pallete_t *pal)
+sugtk_pal_box_create_thumbnail(const suscan_gui_palette_t *pal)
 {
   GdkPixbuf *thumbnail = NULL;
-  const suscan_gradient_t *gradient = suscan_gui_pallete_get_gradient(pal);
+  const suscan_gradient_t *gradient = suscan_gui_palette_get_gradient(pal);
   unsigned int i, j, index;
   unsigned char r, g, b;
 
   thumbnail = gdk_pixbuf_new_from_data(
-      suscan_gui_pallete_get_thumbnail(pal),
+      suscan_gui_palette_get_thumbnail(pal),
       GDK_COLORSPACE_RGB, /* RGB-colorspace */
       FALSE, /* No alpha-channel */
       8, /* Bits per RGB-component */
@@ -55,7 +55,7 @@ done:
 }
 
 gboolean
-sugtk_pal_box_append(SuGtkPalBox *palbox, const suscan_gui_pallete_t *pal)
+sugtk_pal_box_append(SuGtkPalBox *palbox, const suscan_gui_palette_t *pal)
 {
   GdkPixbuf *thumbnail;
   GtkTreeIter iter;
@@ -71,7 +71,7 @@ sugtk_pal_box_append(SuGtkPalBox *palbox, const suscan_gui_pallete_t *pal)
       0,
       thumbnail,
       1,
-      suscan_gui_pallete_get_name(pal),
+      suscan_gui_palette_get_name(pal),
       2,
       pal,
       -1);
@@ -94,7 +94,7 @@ sugtk_pal_box_dispose(GObject* object)
   }
 
   if (palbox->def_pal != NULL) {
-    suscan_gui_pallete_destroy(palbox->def_pal);
+    suscan_gui_palette_destroy(palbox->def_pal);
     palbox->def_pal = NULL;
   }
 
@@ -111,17 +111,17 @@ sugtk_pal_box_class_init(SuGtkPalBoxClass *class)
   g_object_class->dispose = sugtk_pal_box_dispose;
 }
 
-static suscan_gui_pallete_t *
-sugtk_pal_box_create_default_pallete(void)
+static suscan_gui_palette_t *
+sugtk_pal_box_create_default_palette(void)
 {
-  suscan_gui_pallete_t *new = NULL;
+  suscan_gui_palette_t *new = NULL;
   unsigned int i;
 
-  SU_TRYCATCH(new = suscan_gui_pallete_new("Default"), return NULL);
+  SU_TRYCATCH(new = suscan_gui_palette_new("Default"), return NULL);
 
   for (i = 0; i < 256; ++i)
     SU_TRYCATCH(
-        suscan_gui_pallete_add_stop(
+        suscan_gui_palette_add_stop(
             new,
             i,
             wf_gradient[i][0],
@@ -129,7 +129,7 @@ sugtk_pal_box_create_default_pallete(void)
             wf_gradient[i][2]),
         return NULL);
 
-  suscan_gui_pallete_compose(new); /* Necessary to create the thumbnail */
+  suscan_gui_palette_compose(new); /* Necessary to create the thumbnail */
 
   return new;
 }
@@ -176,21 +176,24 @@ sugtk_pal_box_init(SuGtkPalBox *palbox)
       NULL);
 }
 
-const suscan_gui_pallete_t *
-sugtk_pal_box_get_pallete(const SuGtkPalBox *palbox)
+const suscan_gui_palette_t *
+sugtk_pal_box_get_palette(const SuGtkPalBox *palbox)
 {
   GtkTreeIter iter;
-  const suscan_gui_pallete_t *pallete;
+  const suscan_gui_palette_t *palette;
 
-  if (gtk_combo_box_get_active_iter(&palbox->parent_instance, &iter)) {
+  /* This should be const!! */
+  if (gtk_combo_box_get_active_iter(
+      (GtkComboBox *)&palbox->parent_instance,
+      &iter)) {
     gtk_tree_model_get(
         GTK_TREE_MODEL(palbox->store),
         &iter,
         2,
-        &pallete,
+        &palette,
         -1);
 
-    return pallete;
+    return palette;
   }
 
   return NULL;
@@ -204,7 +207,7 @@ sugtk_pal_box_new(void)
   GtkTreePath *path = NULL;
 
   SU_TRYCATCH(
-      palbox->def_pal = sugtk_pal_box_create_default_pallete(),
+      palbox->def_pal = sugtk_pal_box_create_default_palette(),
       {
           gtk_widget_destroy(widget);
           return NULL;

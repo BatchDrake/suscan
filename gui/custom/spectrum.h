@@ -21,9 +21,9 @@
 #ifndef _GUI_SPECTRUM_H
 #define _GUI_SPECTRUM_H
 
+#include <palettes.h>
 #include "sugtk.h"
 #include <sigutils/softtune.h>
-#include <palletes.h>
 
 G_BEGIN_DECLS
 
@@ -265,9 +265,9 @@ SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, bg_color);
 SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, text_color);
 SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, axes_color);
 
-void sugtk_spectrum_set_pallete(
+void sugtk_spectrum_set_palette(
     SuGtkSpectrum *spect,
-    const suscan_gui_pallete_t *pallete);
+    const suscan_gui_palette_t *palette);
 
 G_END_DECLS
 

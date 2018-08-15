@@ -20,40 +20,40 @@
 
 #include <string.h>
 
-#define SU_LOG_DOMAIN "gui-wf-palletes"
+#define SU_LOG_DOMAIN "gui-wf-palettes"
 
 #include <confdb.h>
 #include "gui.h"
 
-/*********************** Initialize palletes from config *********************/
+/*********************** Initialize palettes from config *********************/
 SUBOOL
-suscan_gui_load_palletes(suscan_gui_t *gui)
+suscan_gui_load_palettes(suscan_gui_t *gui)
 {
   suscan_config_context_t *ctx;
-  suscan_gui_pallete_t *pallete = NULL, *old_pal;
+  suscan_gui_palette_t *palette = NULL, *old_pal;
   const suscan_object_t *list, *entry;
   unsigned int i, count;
 
-  /* If the palletes context exists: deserialize all pallete objects */
-  if ((ctx = suscan_config_context_lookup("palletes")) != NULL) {
+  /* If the palettes context exists: deserialize all palette objects */
+  if ((ctx = suscan_config_context_lookup("palettes")) != NULL) {
     list = suscan_config_context_get_list(ctx);
     count = suscan_object_set_get_count(list);
 
     for (i = 0; i < count; ++i) {
       if ((entry = suscan_object_set_get(list, i)) != NULL) {
         SU_TRYCATCH(
-            pallete = suscan_gui_pallete_deserialize(entry),
+            palette = suscan_gui_palette_deserialize(entry),
             {
-              SU_WARNING("Failed to deserialize pallete, skipping\n");
+              SU_WARNING("Failed to deserialize palette, skipping\n");
               continue;
             });
 
         SU_TRYCATCH(
-            PTR_LIST_APPEND_CHECK(gui->pallete, pallete) != -1,
+            PTR_LIST_APPEND_CHECK(gui->palette, palette) != -1,
             goto fail);
 
-        old_pal = pallete;
-        pallete = NULL;
+        old_pal = palette;
+        palette = NULL;
 
         SU_TRYCATCH(
             sugtk_pal_box_append(gui->waterfallPalBox, old_pal),
@@ -65,8 +65,8 @@ suscan_gui_load_palletes(suscan_gui_t *gui)
   return SU_TRUE;
 
 fail:
-  if (pallete != NULL)
-    suscan_gui_pallete_destroy(pallete);
+  if (palette != NULL)
+    suscan_gui_palette_destroy(palette);
 
   return SU_FALSE;
 }

@@ -1229,11 +1229,11 @@ sugtk_spectrum_add_menu_action(
 }
 
 void
-sugtk_spectrum_set_pallete(
+sugtk_spectrum_set_palette(
     SuGtkSpectrum *spect,
-    const suscan_gui_pallete_t *pallete)
+    const suscan_gui_palette_t *palette)
 {
-  spect->gradient = suscan_gui_pallete_get_gradient(pallete);
+  spect->gradient = suscan_gui_palette_get_gradient(palette);
 }
 
 /****************************** Event handling *******************************/

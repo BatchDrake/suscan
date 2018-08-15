@@ -26,7 +26,7 @@
 #include "modemctl.h"
 #include "gui.h"
 
-void suscan_gui_on_pallete_changed(GtkWidget *widget, gpointer data);
+void suscan_gui_on_palette_changed(GtkWidget *widget, gpointer data);
 
 SUPRIVATE void
 suscan_gui_double_data_func(
@@ -659,7 +659,7 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
   g_signal_connect(
       G_OBJECT(gui->waterfallPalBox),
       "changed",
-      G_CALLBACK(suscan_gui_on_pallete_changed),
+      G_CALLBACK(suscan_gui_on_palette_changed),
       gui);
 
   gtk_grid_attach(

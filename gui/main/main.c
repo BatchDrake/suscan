@@ -250,8 +250,8 @@ suscan_gui_new(void)
   /* Load source profiles */
   SU_TRYCATCH(suscan_gui_load_profiles(gui), goto fail);
 
-  /* Load palletes */
-  SU_TRYCATCH(suscan_gui_load_palletes(gui), goto fail);
+  /* Load palettes */
+  SU_TRYCATCH(suscan_gui_load_palettes(gui), goto fail);
 
   /* All done. Load settings and apply them */
   SU_TRYCATCH(suscan_gui_load_settings(gui), goto fail);

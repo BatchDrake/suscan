@@ -54,8 +54,8 @@ libgui_la_SOURCES = \
   main/inspector.c \
   main/log.c \
   main/main.c \
-  main/palletes.c \
-  main/palletes.h \
+  main/palettes.c \
+  main/palettes.h \
   main/params.c \
   main/profile.c \
   main/settings.c \

@@ -21,13 +21,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define SU_LOG_DOMAIN "gui-palletes"
+#define SU_LOG_DOMAIN "gui-palettes"
 
-#include "palletes.h"
+#include <palettes.h>
 #include <object.h>
 
 void
-suscan_gui_pallete_destroy(suscan_gui_pallete_t *pal)
+suscan_gui_palette_destroy(suscan_gui_palette_t *pal)
 {
   if (pal->name != NULL)
     free(pal->name);
@@ -38,90 +38,90 @@ suscan_gui_pallete_destroy(suscan_gui_pallete_t *pal)
   free(pal);
 }
 
-suscan_gui_pallete_t *
-suscan_gui_pallete_new(const char *name)
+suscan_gui_palette_t *
+suscan_gui_palette_new(const char *name)
 {
-  suscan_gui_pallete_t *new = NULL;
+  suscan_gui_palette_t *new = NULL;
 
-  SU_TRYCATCH(new = calloc(1, sizeof(suscan_gui_pallete_t)), goto fail);
+  SU_TRYCATCH(new = calloc(1, sizeof(suscan_gui_palette_t)), goto fail);
 
   SU_TRYCATCH(new->name = strdup(name), goto fail);
   SU_TRYCATCH(
       new->thumbnail = calloc(
           3,
-          SUSCAN_GUI_PALLETE_THUMB_WIDTH * SUSCAN_GUI_PALLETE_THUMB_HEIGHT),
+          SUSCAN_GUI_PALETTE_THUMB_WIDTH * SUSCAN_GUI_PALETTE_THUMB_HEIGHT),
       goto fail);
 
   return new;
 
 fail:
   if (new != NULL)
-    suscan_gui_pallete_destroy(new);
+    suscan_gui_palette_destroy(new);
 
   return NULL;
 }
 
 SUBOOL
-suscan_gui_pallete_add_stop(
-    suscan_gui_pallete_t *pallete,
+suscan_gui_palette_add_stop(
+    suscan_gui_palette_t *palette,
     unsigned int stop,
     float r, float g, float b)
 {
   unsigned char bit, byte;
 
-  SU_TRYCATCH(stop < SUSCAN_GUI_PALLETE_MAX_STOPS, return SU_FALSE);
+  SU_TRYCATCH(stop < SUSCAN_GUI_PALETTE_MAX_STOPS, return SU_FALSE);
 
-  pallete->gradient[stop][0] = r;
-  pallete->gradient[stop][1] = g;
-  pallete->gradient[stop][2] = b;
+  palette->gradient[stop][0] = r;
+  palette->gradient[stop][1] = g;
+  palette->gradient[stop][2] = b;
 
   byte = stop >> 3;
   bit  = stop & 7;
 
-  pallete->bitmap[byte] |= 1 << bit;
+  palette->bitmap[byte] |= 1 << bit;
 
   return SU_TRUE;
 }
 
 void
-suscan_gui_pallete_compose(suscan_gui_pallete_t *pallete)
+suscan_gui_palette_compose(suscan_gui_palette_t *palette)
 {
   unsigned char bit, byte;
   SUFLOAT alpha, c0, c1, r, g, b;
   int prev = -1;
   int i, j, index;
 
-  for (i = 0; i < SUSCAN_GUI_PALLETE_MAX_STOPS; ++i) {
+  for (i = 0; i < SUSCAN_GUI_PALETTE_MAX_STOPS; ++i) {
     byte = i >> 3;
     bit  = i & 7;
 
-    if (pallete->bitmap[byte] & (1 << bit)) {
+    if (palette->bitmap[byte] & (1 << bit)) {
       /* Used color found! */
       if (prev == -1) {
         /* This is the first stop. Fill from 0 until this one */
         for (j = 0; j < i; ++j) {
-          pallete->gradient[j][0] = pallete->gradient[i][0];
-          pallete->gradient[j][1] = pallete->gradient[i][1];
-          pallete->gradient[j][2] = pallete->gradient[i][2];
+          palette->gradient[j][0] = palette->gradient[i][0];
+          palette->gradient[j][1] = palette->gradient[i][1];
+          palette->gradient[j][2] = palette->gradient[i][2];
         }
       } else {
         /* Not the first stop. perform square root mixing */
         for (j = prev + 1; j < i; ++j) {
           alpha = (float) (j - prev) / (float) (i - prev);
 
-          c0 = pallete->gradient[i][0];
-          c1 = pallete->gradient[prev][0];
-          pallete->gradient[j][0] =
+          c0 = palette->gradient[i][0];
+          c1 = palette->gradient[prev][0];
+          palette->gradient[j][0] =
               SU_SQRT(alpha * c0 * c0 + (1 - alpha) * c1 * c1);
 
-          c0 = pallete->gradient[i][1];
-          c1 = pallete->gradient[prev][1];
-          pallete->gradient[j][1] =
+          c0 = palette->gradient[i][1];
+          c1 = palette->gradient[prev][1];
+          palette->gradient[j][1] =
               SU_SQRT(alpha * c0 * c0 + (1 - alpha) * c1 * c1);
 
-          c0 = pallete->gradient[i][2];
-          c1 = pallete->gradient[prev][2];
-          pallete->gradient[j][2] =
+          c0 = palette->gradient[i][2];
+          c1 = palette->gradient[prev][2];
+          palette->gradient[j][2] =
               SU_SQRT(alpha * c0 * c0 + (1 - alpha) * c1 * c1);
         }
       }
@@ -131,37 +131,37 @@ suscan_gui_pallete_compose(suscan_gui_pallete_t *pallete)
   }
 
   if (prev != -1) {
-    for (j = prev + 1; j < SUSCAN_GUI_PALLETE_MAX_STOPS; ++j) {
-      pallete->gradient[j][0] = pallete->gradient[prev][0];
-      pallete->gradient[j][1] = pallete->gradient[prev][1];
-      pallete->gradient[j][2] = pallete->gradient[prev][2];
+    for (j = prev + 1; j < SUSCAN_GUI_PALETTE_MAX_STOPS; ++j) {
+      palette->gradient[j][0] = palette->gradient[prev][0];
+      palette->gradient[j][1] = palette->gradient[prev][1];
+      palette->gradient[j][2] = palette->gradient[prev][2];
     }
   }
 
   /* Compose thumbnail */
-  for (i = 0; i < SUSCAN_GUI_PALLETE_THUMB_WIDTH; ++i) {
-    index = ((SUSCAN_GUI_PALLETE_MAX_STOPS - 1) * i)
-        / (SUSCAN_GUI_PALLETE_THUMB_WIDTH - 1);
+  for (i = 0; i < SUSCAN_GUI_PALETTE_THUMB_WIDTH; ++i) {
+    index = ((SUSCAN_GUI_PALETTE_MAX_STOPS - 1) * i)
+        / (SUSCAN_GUI_PALETTE_THUMB_WIDTH - 1);
 
-    r = 0xff * pallete->gradient[index][0];
-    g = 0xff * pallete->gradient[index][1];
-    b = 0xff * pallete->gradient[index][2];
+    r = 0xff * palette->gradient[index][0];
+    g = 0xff * palette->gradient[index][1];
+    b = 0xff * palette->gradient[index][2];
 
-    for (j = 0; j < SUSCAN_GUI_PALLETE_THUMB_HEIGHT; ++j) {
-      pallete->thumbnail[3 * (SUSCAN_GUI_PALLETE_THUMB_WIDTH * j + i) + 0] = r;
-      pallete->thumbnail[3 * (SUSCAN_GUI_PALLETE_THUMB_WIDTH * j + i) + 1] = g;
-      pallete->thumbnail[3 * (SUSCAN_GUI_PALLETE_THUMB_WIDTH * j + i) + 2] = b;
+    for (j = 0; j < SUSCAN_GUI_PALETTE_THUMB_HEIGHT; ++j) {
+      palette->thumbnail[3 * (SUSCAN_GUI_PALETTE_THUMB_WIDTH * j + i) + 0] = r;
+      palette->thumbnail[3 * (SUSCAN_GUI_PALETTE_THUMB_WIDTH * j + i) + 1] = g;
+      palette->thumbnail[3 * (SUSCAN_GUI_PALETTE_THUMB_WIDTH * j + i) + 2] = b;
     }
   }
 }
 
 /* Serialization and deserialization */
-suscan_gui_pallete_t *
-suscan_gui_pallete_deserialize(const suscan_object_t *object)
+suscan_gui_palette_t *
+suscan_gui_palette_deserialize(const suscan_object_t *object)
 {
   const char *name;
   const suscan_object_t *stops, *entry;
-  suscan_gui_pallete_t *new = NULL;
+  suscan_gui_palette_t *new = NULL;
   unsigned int i, count;
   int position;
   SUFLOAT red, green, blue;
@@ -178,7 +178,7 @@ suscan_gui_pallete_deserialize(const suscan_object_t *object)
       suscan_object_get_type(stops) == SUSCAN_OBJECT_TYPE_SET,
       return NULL);
 
-  SU_TRYCATCH(new = suscan_gui_pallete_new(name), goto fail);
+  SU_TRYCATCH(new = suscan_gui_palette_new(name), goto fail);
 
   /* Traverse stop list */
   count = suscan_object_set_get_count(stops);
@@ -200,18 +200,18 @@ suscan_gui_pallete_deserialize(const suscan_object_t *object)
         continue;
 
       SU_TRYCATCH(
-          suscan_gui_pallete_add_stop(new, position, red, green, blue),
+          suscan_gui_palette_add_stop(new, position, red, green, blue),
           goto fail);
     }
   }
 
-  suscan_gui_pallete_compose(new);
+  suscan_gui_palette_compose(new);
 
   return new;
 
 fail:
   if (new != NULL)
-    suscan_gui_pallete_destroy(new);
+    suscan_gui_palette_destroy(new);
 
   return NULL;
 }
