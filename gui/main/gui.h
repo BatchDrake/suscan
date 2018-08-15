@@ -29,6 +29,7 @@
 #include <profile/profile.h>
 #include <spectrum.h>
 #include <lcd.h>
+#include <palbox.h>
 
 #include <inspector/inspector.h>
 #include <symsrc/symtool.h>
@@ -111,11 +112,13 @@ struct suscan_gui {
   GtkSpinButton *throttleSampRateSpinButton;
   GtkCheckButton *throttleOverrideCheckButton;
 
+  GtkGrid           *spectrumControlsGrid;
   GtkToggleButton   *overlayChannelToggleButton;
   GtkToggleButton   *autoGainToggleButton;
   GtkScale          *gainScale;
   GtkScale          *rangeScale;
   GtkScale          *panadapterScale;
+  SuGtkPalBox       *waterfallPalBox;
 
   GtkTreeViewColumn *centerFrequencyCol;
   GtkTreeViewColumn *snrCol;

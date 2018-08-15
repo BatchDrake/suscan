@@ -22,6 +22,8 @@ libgui_la_SOURCES = \
   custom/histogram.h \
   custom/lcd.c \
   custom/lcd.h \
+	custom/palbox.c \
+  custom/palbox.h \
   custom/spectrum.c \
   custom/spectrum.h \
   custom/sugtk.h \
@@ -46,11 +48,14 @@ libgui_la_SOURCES = \
   main/build.c \
   main/callbacks.c \
   main/common.c \
+  main/defaults.h \
   main/demod.c \
   main/gui.h \
   main/inspector.c \
   main/log.c \
   main/main.c \
+  main/palletes.c \
+  main/palletes.h \
   main/params.c \
   main/profile.c \
   main/settings.c \
