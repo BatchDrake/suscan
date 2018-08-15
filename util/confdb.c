@@ -146,7 +146,7 @@ fail:
   return SU_FALSE;
 }
 
-SUPRIVATE suscan_config_context_t *
+suscan_config_context_t *
 suscan_config_context_lookup(const char *name)
 {
   unsigned int i;

@@ -176,6 +176,26 @@ sugtk_pal_box_init(SuGtkPalBox *palbox)
       NULL);
 }
 
+const suscan_gui_pallete_t *
+sugtk_pal_box_get_pallete(const SuGtkPalBox *palbox)
+{
+  GtkTreeIter iter;
+  const suscan_gui_pallete_t *pallete;
+
+  if (gtk_combo_box_get_active_iter(&palbox->parent_instance, &iter)) {
+    gtk_tree_model_get(
+        GTK_TREE_MODEL(palbox->store),
+        &iter,
+        2,
+        &pallete,
+        -1);
+
+    return pallete;
+  }
+
+  return NULL;
+}
+
 GtkWidget *
 sugtk_pal_box_new(void)
 {

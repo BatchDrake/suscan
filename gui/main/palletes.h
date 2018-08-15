@@ -27,7 +27,7 @@
 #define SUSCAN_GUI_PALLETE_BITMAP_SZ ((SUSCAN_GUI_PALLETE_MAX_STOPS + 7) / 8)
 
 #define SUSCAN_GUI_PALLETE_THUMB_WIDTH  64
-#define SUSCAN_GUI_PALLETE_THUMB_HEIGHT 16
+#define SUSCAN_GUI_PALLETE_THUMB_HEIGHT 20
 
 typedef float suscan_gradient_t[SUSCAN_GUI_PALLETE_MAX_STOPS][3];
 
@@ -65,5 +65,7 @@ SUBOOL suscan_gui_pallete_add_stop(
     unsigned int stop,
     float r, float g, float b);
 void suscan_gui_pallete_compose(suscan_gui_pallete_t *pallete);
+suscan_gui_pallete_t *suscan_gui_pallete_deserialize(
+    const suscan_object_t *object);
 
 #endif /* _GUI_MAIN_PALLETES_H */

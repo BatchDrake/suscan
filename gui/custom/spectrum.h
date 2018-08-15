@@ -23,6 +23,7 @@
 
 #include "sugtk.h"
 #include <sigutils/softtune.h>
+#include <palletes.h>
 
 G_BEGIN_DECLS
 
@@ -129,6 +130,8 @@ struct _SuGtkSpectrum
 
   gsufloat s_wf_ratio;
   gsufloat w_top;
+
+  const suscan_gradient_t *gradient;
 
   /* Surfaces */
   cairo_surface_t *sf_spectrum; /* This is actually the main surface */
@@ -261,6 +264,10 @@ SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, fg_color);
 SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, bg_color);
 SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, text_color);
 SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, axes_color);
+
+void sugtk_spectrum_set_pallete(
+    SuGtkSpectrum *spect,
+    const suscan_gui_pallete_t *pallete);
 
 G_END_DECLS
 

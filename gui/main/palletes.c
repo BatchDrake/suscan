@@ -20,9 +20,11 @@
 
 #include <stdlib.h>
 #include <string.h>
+
 #define SU_LOG_DOMAIN "gui-palletes"
 
 #include "palletes.h"
+#include <object.h>
 
 void
 suscan_gui_pallete_destroy(suscan_gui_pallete_t *pal)
@@ -104,7 +106,7 @@ suscan_gui_pallete_compose(suscan_gui_pallete_t *pallete)
         }
       } else {
         /* Not the first stop. perform square root mixing */
-        for (j = prev + 1; j < i; ++i) {
+        for (j = prev + 1; j < i; ++j) {
           alpha = (float) (j - prev) / (float) (i - prev);
 
           c0 = pallete->gradient[i][0];
@@ -153,3 +155,63 @@ suscan_gui_pallete_compose(suscan_gui_pallete_t *pallete)
   }
 }
 
+/* Serialization and deserialization */
+suscan_gui_pallete_t *
+suscan_gui_pallete_deserialize(const suscan_object_t *object)
+{
+  const char *name;
+  const suscan_object_t *stops, *entry;
+  suscan_gui_pallete_t *new = NULL;
+  unsigned int i, count;
+  int position;
+  SUFLOAT red, green, blue;
+
+  SU_TRYCATCH(
+      name = suscan_object_get_field_value(object, "name"),
+      return NULL);
+
+  SU_TRYCATCH(
+      stops = suscan_object_get_field(object, "stops"),
+      return NULL);
+
+  SU_TRYCATCH(
+      suscan_object_get_type(stops) == SUSCAN_OBJECT_TYPE_SET,
+      return NULL);
+
+  SU_TRYCATCH(new = suscan_gui_pallete_new(name), goto fail);
+
+  /* Traverse stop list */
+  count = suscan_object_set_get_count(stops);
+
+  for (i = 0; i < count; ++i) {
+    if ((entry = suscan_object_set_get(stops, i)) != NULL) {
+      position = suscan_object_get_field_uint(entry, "position", -1);
+      if (position < 0 || position > 255)
+        continue;
+
+      red = suscan_object_get_field_float(entry, "red", -1);
+      if (red < 0 || red > 1)
+        continue;
+      green = suscan_object_get_field_float(entry, "green", -1);
+      if (green < 0 || green > 1)
+        continue;
+      blue = suscan_object_get_field_float(entry, "blue", -1);
+      if (blue < 0 || blue > 1)
+        continue;
+
+      SU_TRYCATCH(
+          suscan_gui_pallete_add_stop(new, position, red, green, blue),
+          goto fail);
+    }
+  }
+
+  suscan_gui_pallete_compose(new);
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_gui_pallete_destroy(new);
+
+  return NULL;
+}

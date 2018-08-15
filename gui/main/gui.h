@@ -234,6 +234,10 @@ struct suscan_gui {
   PTR_LIST(suscan_gui_profile_t, profile);
   suscan_gui_profile_t *active_profile;
 
+  /* Waterfall palletes */
+  PTR_LIST(suscan_gui_pallete_t, pallete);
+  const suscan_gui_pallete_t *current_pallete;
+
   /* Flag to prevent nested callback calling */
   SUBOOL updating_settings;
 };
@@ -411,6 +415,9 @@ void suscan_gui_reset_all_profiles(suscan_gui_t *gui);
 struct suscan_gui_src_ui *suscan_gui_lookup_source_config(
     const suscan_gui_t *gui,
     const struct suscan_source *src);
+
+/* Palletes */
+SUBOOL suscan_gui_load_palletes(suscan_gui_t *gui);
 
 /* Demodulator API */
 suscan_object_t *suscan_gui_demod_lookup(

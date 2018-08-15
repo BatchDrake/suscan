@@ -247,7 +247,11 @@ suscan_gui_new(void)
 
   sugtk_lcd_set_value_cb(gui->freqLcd, suscan_gui_on_set_frequency, gui);
 
+  /* Load source profiles */
   SU_TRYCATCH(suscan_gui_load_profiles(gui), goto fail);
+
+  /* Load palletes */
+  SU_TRYCATCH(suscan_gui_load_palletes(gui), goto fail);
 
   /* All done. Load settings and apply them */
   SU_TRYCATCH(suscan_gui_load_settings(gui), goto fail);

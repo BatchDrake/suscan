@@ -60,6 +60,7 @@ libgui_la_SOURCES = \
   main/profile.c \
   main/settings.c \
   main/symtool.c \
+  main/wfpals.c \
   modemctls/afc.c \
   modemctls/agc.c \
   modemctls/clock.c \
