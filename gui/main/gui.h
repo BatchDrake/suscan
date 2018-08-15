@@ -236,7 +236,6 @@ struct suscan_gui {
 
   /* Waterfall palettes */
   PTR_LIST(suscan_gui_palette_t, palette);
-  const suscan_gui_palette_t *current_palette;
 
   /* Flag to prevent nested callback calling */
   SUBOOL updating_settings;

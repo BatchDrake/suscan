@@ -34,6 +34,13 @@ suscan_gui_destroy(suscan_gui_t *gui)
 
   suscan_gui_clear_profile_menu(gui);
 
+  for (i = 0; i < gui->palette_count; ++i)
+    if (gui->palette_list[i] != NULL)
+      suscan_gui_palette_destroy(gui->palette_list[i]);
+
+  if (gui->palette_list != NULL)
+    free(gui->palette_list);
+
   for (i = 0; i < gui->action_count; ++i)
     if (gui->action_list[i] != NULL)
       free(gui->action_list[i]);
