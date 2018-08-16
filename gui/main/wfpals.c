@@ -26,17 +26,17 @@
 #include "gui.h"
 
 /*********************** Initialize palettes from config *********************/
-SUPRIVATE SUBOOL
-suscan_gui_has_palette(const suscan_gui_t *gui, const char *name)
+suscan_gui_palette_t *
+suscan_gui_lookup_palette(const suscan_gui_t *gui, const char *name)
 {
   unsigned int i;
 
   for (i = 0; i < gui->palette_count; ++i)
     if (gui->palette_list[i] != NULL
         && strcmp(suscan_gui_palette_get_name(gui->palette_list[i]), name) == 0)
-      return SU_TRUE;
+      return gui->palette_list[i];
 
-  return SU_FALSE;
+  return NULL;
 }
 
 SUBOOL
@@ -56,7 +56,7 @@ suscan_gui_load_palettes(suscan_gui_t *gui)
     for (i = 0; i < count; ++i) {
       if ((entry = suscan_object_set_get(list, i)) != NULL) {
         name = suscan_object_get_field_value(entry, "name");
-          if (name != NULL && !suscan_gui_has_palette(gui, name)) {
+          if (name != NULL && suscan_gui_lookup_palette(gui, name) == NULL) {
           SU_TRYCATCH(
               palette = suscan_gui_palette_deserialize(entry),
               {

@@ -414,6 +414,10 @@ struct suscan_gui_src_ui *suscan_gui_lookup_source_config(
 /* Palletes */
 SUBOOL suscan_gui_load_palettes(suscan_gui_t *gui);
 
+suscan_gui_palette_t *suscan_gui_lookup_palette(
+    const suscan_gui_t *gui,
+    const char *name);
+
 /* Demodulator API */
 suscan_object_t *suscan_gui_demod_lookup(
     const suscan_gui_t *gui,

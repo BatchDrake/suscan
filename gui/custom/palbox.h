@@ -57,9 +57,16 @@ gboolean sugtk_pal_box_append(
     const suscan_gui_palette_t *pal);
 
 GType sugtk_pal_box_get_type(void);
+
 GtkWidget *sugtk_pal_box_new(void);
+
 const suscan_gui_palette_t *sugtk_pal_box_get_palette(
     const SuGtkPalBox *palbox);
+
+gboolean sugtk_pal_box_set_palette(
+    SuGtkPalBox *palbox,
+    const suscan_gui_palette_t *palette);
+
 G_END_DECLS
 
 #endif /* _GUI_PALBOX_H */

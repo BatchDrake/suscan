@@ -520,6 +520,7 @@ suscan_gui_load_settings(suscan_gui_t *gui)
 {
   const char *value;
   suscan_gui_profile_t *profile = NULL;
+  suscan_gui_palette_t *palette = NULL;
 
   SU_TRYCATCH(suscan_gui_assert_settings_obj(gui), return SU_FALSE);
 
@@ -532,6 +533,15 @@ suscan_gui_load_settings(suscan_gui_t *gui)
     if ((profile = suscan_gui_lookup_profile(gui, value)) != NULL) {
       SU_TRYCATCH(suscan_gui_select_profile(gui, profile), return SU_FALSE);
       SU_TRYCATCH(suscan_gui_update_profile_menu(gui), return SU_FALSE);
+    }
+  }
+
+  if ((value = suscan_object_get_field_value(
+      gui->gtkui_obj,
+      "active_palette")) != NULL) {
+    if ((palette = suscan_gui_lookup_palette(gui, value)) != NULL) {
+      if (!sugtk_pal_box_set_palette(gui->waterfallPalBox, palette))
+        SU_WARNING("Selected palette not in palbox\n");
     }
   }
 
@@ -691,6 +701,8 @@ done:
 void
 suscan_gui_store_settings(suscan_gui_t *gui)
 {
+  const suscan_gui_palette_t *palette;
+
   (void) suscan_gui_store_gtkui_settings(gui);
 
   if (gui->active_profile != NULL)
@@ -699,5 +711,12 @@ suscan_gui_store_settings(suscan_gui_t *gui)
         "active_profile",
         suscan_source_config_get_label(
             suscan_gui_profile_get_source_config(gui->active_profile)));
+
+  if ((palette = sugtk_pal_box_get_palette(gui->waterfallPalBox)) != NULL) {
+    suscan_object_set_field_value(
+        gui->gtkui_obj,
+        "active_palette",
+        suscan_gui_palette_get_name(palette));
+  }
 }
 

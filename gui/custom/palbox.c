@@ -199,6 +199,33 @@ sugtk_pal_box_get_palette(const SuGtkPalBox *palbox)
   return NULL;
 }
 
+gboolean
+sugtk_pal_box_set_palette(
+    SuGtkPalBox *palbox,
+    const suscan_gui_palette_t *palette)
+{
+  GtkTreeIter iter;
+  const suscan_gui_palette_t *current;
+
+  if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(palbox->store), &iter)) {
+    do {
+      gtk_tree_model_get(
+          GTK_TREE_MODEL(palbox->store),
+          &iter,
+          2,
+          &current,
+          -1);
+      if (current == palette) {
+        gtk_combo_box_set_active_iter(&palbox->parent_instance, &iter);
+        return TRUE;
+      }
+
+    } while (gtk_tree_model_iter_next(GTK_TREE_MODEL(palbox->store), &iter));
+  }
+
+  return FALSE;
+}
+
 GtkWidget *
 sugtk_pal_box_new(void)
 {
