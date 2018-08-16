@@ -80,6 +80,7 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
     case SUSCAN_GUI_STATE_STOPPED:
       subtitle = "Stopped";
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
+      gtk_toggle_tool_button_set_active(gui->toggleConnect, FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
@@ -94,6 +95,7 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
     case SUSCAN_GUI_STATE_RUNNING:
       subtitle = "Running";
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
+      gtk_toggle_tool_button_set_active(gui->toggleConnect, TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
