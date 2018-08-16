@@ -28,6 +28,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#ifndef PKGDATADIR
+#define PKGDATADIR "/usr/share/suscan"
+#endif
+
 #ifdef linux
 # include <linux/unistd.h>
 # define TID_FUNC (int) syscall (224)

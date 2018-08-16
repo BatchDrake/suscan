@@ -34,10 +34,6 @@
 #include <inspector/inspector.h>
 #include <symsrc/symtool.h>
 
-#ifndef PKGDATADIR
-#define PKGDATADIR "/usr"
-#endif
-
 #define SUSCAN_GUI_SETTINGS_ID          "org.actinid.SUScan"
 #define SUSCAN_GUI_MAX_CHANNELS         10
 #define SUSCAN_GUI_SPECTRUM_PANEL_WIDTH 320

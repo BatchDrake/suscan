@@ -26,12 +26,26 @@
 #include "gui.h"
 
 /*********************** Initialize palettes from config *********************/
+SUPRIVATE SUBOOL
+suscan_gui_has_palette(const suscan_gui_t *gui, const char *name)
+{
+  unsigned int i;
+
+  for (i = 0; i < gui->palette_count; ++i)
+    if (gui->palette_list[i] != NULL
+        && strcmp(suscan_gui_palette_get_name(gui->palette_list[i]), name) == 0)
+      return SU_TRUE;
+
+  return SU_FALSE;
+}
+
 SUBOOL
 suscan_gui_load_palettes(suscan_gui_t *gui)
 {
   suscan_config_context_t *ctx;
   suscan_gui_palette_t *palette = NULL, *old_pal;
   const suscan_object_t *list, *entry;
+  const char *name;
   unsigned int i, count;
 
   /* If the palettes context exists: deserialize all palette objects */
@@ -41,23 +55,26 @@ suscan_gui_load_palettes(suscan_gui_t *gui)
 
     for (i = 0; i < count; ++i) {
       if ((entry = suscan_object_set_get(list, i)) != NULL) {
-        SU_TRYCATCH(
-            palette = suscan_gui_palette_deserialize(entry),
-            {
-              SU_WARNING("Failed to deserialize palette, skipping\n");
-              continue;
-            });
+        name = suscan_object_get_field_value(entry, "name");
+          if (name != NULL && !suscan_gui_has_palette(gui, name)) {
+          SU_TRYCATCH(
+              palette = suscan_gui_palette_deserialize(entry),
+              {
+                SU_WARNING("Failed to deserialize palette, skipping\n");
+                continue;
+              });
 
-        SU_TRYCATCH(
-            PTR_LIST_APPEND_CHECK(gui->palette, palette) != -1,
-            goto fail);
+          SU_TRYCATCH(
+              PTR_LIST_APPEND_CHECK(gui->palette, palette) != -1,
+              goto fail);
 
-        old_pal = palette;
-        palette = NULL;
+          old_pal = palette;
+          palette = NULL;
 
-        SU_TRYCATCH(
-            sugtk_pal_box_append(gui->waterfallPalBox, old_pal),
-            goto fail);
+          SU_TRYCATCH(
+              sugtk_pal_box_append(gui->waterfallPalBox, old_pal),
+              goto fail);
+        }
       }
     }
   }

@@ -28,8 +28,6 @@
 
 #include "defaults.h"
 
-#include <locale.h>
-
 /* Transfer settings to objects */
 void
 suscan_gui_apply_settings_on_inspector(
@@ -522,9 +520,6 @@ suscan_gui_load_settings(suscan_gui_t *gui)
 {
   const char *value;
   suscan_gui_profile_t *profile = NULL;
-
-  /* This is SO broken. Seriously, wtf */
-  setlocale(LC_NUMERIC, "C");
 
   SU_TRYCATCH(suscan_gui_assert_settings_obj(gui), return SU_FALSE);
 
