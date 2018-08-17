@@ -483,6 +483,7 @@ sugtk_spectrum_commit_waterfall_line(SuGtkSpectrum *spect)
   guint psd_size;
   cairo_t *cr_wf = NULL;
   gsufloat val;
+  const suscan_gradient_t *grad = spect->gradient;
 
   psd_data = spect->psd_data;
   psd_size = spect->psd_size;
@@ -531,12 +532,11 @@ sugtk_spectrum_commit_waterfall_line(SuGtkSpectrum *spect)
 
       index = round(val * 255);
 
-      /* TODO: add more gradients */
       cairo_set_source_rgb(
           cr_wf,
-          wf_gradient[index][0],
-          wf_gradient[index][1],
-          wf_gradient[index][2]);
+          (*grad)[index][0],
+          (*grad)[index][1],
+          (*grad)[index][2]);
 
       cairo_move_to(cr_wf, i - 1, 0);
       cairo_line_to(cr_wf, i, 0);
@@ -1228,6 +1228,14 @@ sugtk_spectrum_add_menu_action(
       data);
 }
 
+void
+sugtk_spectrum_set_palette(
+    SuGtkSpectrum *spect,
+    const suscan_gui_palette_t *palette)
+{
+  spect->gradient = suscan_gui_palette_get_gradient(palette);
+}
+
 /****************************** Event handling *******************************/
 static void
 sugtk_spectrum_parse_dragging(
@@ -1644,6 +1652,8 @@ sugtk_spectrum_new(void)
   SuGtkSpectrum *spect;
 
   spect = SUGTK_SPECTRUM(g_object_new(SUGTK_TYPE_SPECTRUM, NULL));
+
+  spect->gradient = &wf_gradient;
 
   spect->channelMenu = GTK_MENU(gtk_menu_new());
   spect->channelHeaderMenuItem =

@@ -48,7 +48,10 @@ suscan_object_value_is_inlinable(const char *data)
     return SU_FALSE;
 
   while (*data) {
-    if (*data == '"' || (isspace(*data) && *data != ' ') || !isprint(*data))
+    if (*data == '"'
+        || (isspace(*data) && *data != ' ')
+        || !isprint(*data)
+        || *data == '&')
       return SU_FALSE;
 
     ++data;

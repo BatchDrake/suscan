@@ -26,6 +26,8 @@
 #include "modemctl.h"
 #include "gui.h"
 
+void suscan_gui_on_palette_changed(GtkWidget *widget, gpointer data);
+
 SUPRIVATE void
 suscan_gui_double_data_func(
     GtkTreeViewColumn *tree_column,
@@ -275,6 +277,13 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           GTK_SCALE(gtk_builder_get_object(
               gui->builder,
               "sbPanadapter")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->spectrumControlsGrid =
+          GTK_GRID(gtk_builder_get_object(
+              gui->builder,
+              "grSpectrumControls")),
           return SU_FALSE);
 
   SU_TRYCATCH(
@@ -641,6 +650,27 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
 
   sugtk_spectrum_set_mode(gui->spectrum, SUGTK_SPECTRUM_MODE_BOTH);
   sugtk_spectrum_set_show_channels(gui->spectrum, TRUE);
+
+  /* Add custom spectrum controls */
+  SU_TRYCATCH(
+      gui->waterfallPalBox = SUGTK_PAL_BOX(sugtk_pal_box_new()),
+      return SU_FALSE);
+
+  g_signal_connect(
+      G_OBJECT(gui->waterfallPalBox),
+      "changed",
+      G_CALLBACK(suscan_gui_on_palette_changed),
+      gui);
+
+  gtk_grid_attach(
+      gui->spectrumControlsGrid,
+      GTK_WIDGET(gui->waterfallPalBox),
+      1, /* Left */
+      5, /* Top */
+      1, /* Width */
+      1) /* Height */;
+
+  gtk_widget_show(GTK_WIDGET(gui->waterfallPalBox));
 
   /* Update GUI on spectrum state */
   gui->updating_settings = SU_TRUE;

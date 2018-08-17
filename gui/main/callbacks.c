@@ -376,3 +376,12 @@ suscan_gui_select_demod_on_changed(
   }
 }
 
+void
+suscan_gui_on_palette_changed(GtkWidget *widget, gpointer data)
+{
+  const suscan_gui_palette_t *palette;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  if ((palette = sugtk_pal_box_get_palette(gui->waterfallPalBox)) != NULL)
+    sugtk_spectrum_set_palette(gui->spectrum, palette);
+}

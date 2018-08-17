@@ -745,6 +745,13 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
               "aHistogram")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      inspector->spectrumCtlsGrid =
+          GTK_GRID(gtk_builder_get_object(
+              inspector->builder,
+              "grSpectrumCtls")),
+          return SU_FALSE);
+
   /* Add symbol view */
   inspector->symbolView = SUGTK_SYM_VIEW(sugtk_sym_view_new());
 
@@ -843,6 +850,28 @@ suscan_gui_inspector_load_all_widgets(suscan_gui_inspector_t *inspector)
       inspector);
 
   gtk_widget_show(GTK_WIDGET(inspector->histogram));
+
+  /* Waterfall palbox */
+  SU_TRYCATCH(
+      inspector->wfPalBox = SUGTK_PAL_BOX(sugtk_pal_box_new()),
+      return SU_FALSE);
+
+  g_signal_connect(
+      G_OBJECT(inspector->wfPalBox),
+      "changed",
+      G_CALLBACK(suscan_gui_inspector_on_palette_changed),
+      inspector);
+
+  gtk_grid_attach(
+      inspector->spectrumCtlsGrid,
+      GTK_WIDGET(inspector->wfPalBox),
+      0, /* Left */
+      3, /* Top */
+      2, /* Width */
+      1  /* Height */);
+
+  gtk_widget_show(GTK_WIDGET(inspector->wfPalBox));
+  gtk_widget_set_sensitive(GTK_WIDGET(inspector->wfPalBox), FALSE);
 
   /* Somehow Glade fails to set these default values */
   gtk_toggle_tool_button_set_active(

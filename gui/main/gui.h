@@ -29,13 +29,10 @@
 #include <profile/profile.h>
 #include <spectrum.h>
 #include <lcd.h>
+#include <palbox.h>
 
 #include <inspector/inspector.h>
 #include <symsrc/symtool.h>
-
-#ifndef PKGDATADIR
-#define PKGDATADIR "/usr"
-#endif
 
 #define SUSCAN_GUI_SETTINGS_ID          "org.actinid.SUScan"
 #define SUSCAN_GUI_MAX_CHANNELS         10
@@ -111,11 +108,13 @@ struct suscan_gui {
   GtkSpinButton *throttleSampRateSpinButton;
   GtkCheckButton *throttleOverrideCheckButton;
 
+  GtkGrid           *spectrumControlsGrid;
   GtkToggleButton   *overlayChannelToggleButton;
   GtkToggleButton   *autoGainToggleButton;
   GtkScale          *gainScale;
   GtkScale          *rangeScale;
   GtkScale          *panadapterScale;
+  SuGtkPalBox       *waterfallPalBox;
 
   GtkTreeViewColumn *centerFrequencyCol;
   GtkTreeViewColumn *snrCol;
@@ -230,6 +229,9 @@ struct suscan_gui {
   /* Source configuration profiles */
   PTR_LIST(suscan_gui_profile_t, profile);
   suscan_gui_profile_t *active_profile;
+
+  /* Waterfall palettes */
+  PTR_LIST(suscan_gui_palette_t, palette);
 
   /* Flag to prevent nested callback calling */
   SUBOOL updating_settings;
@@ -408,6 +410,17 @@ void suscan_gui_reset_all_profiles(suscan_gui_t *gui);
 struct suscan_gui_src_ui *suscan_gui_lookup_source_config(
     const suscan_gui_t *gui,
     const struct suscan_source *src);
+
+/* Palettes */
+SUBOOL suscan_gui_load_palettes(suscan_gui_t *gui);
+
+suscan_gui_palette_t *suscan_gui_lookup_palette(
+    const suscan_gui_t *gui,
+    const char *name);
+
+SUBOOL suscan_gui_populate_pal_box(
+    const suscan_gui_t *gui,
+    SuGtkPalBox *palbox);
 
 /* Demodulator API */
 suscan_object_t *suscan_gui_demod_lookup(

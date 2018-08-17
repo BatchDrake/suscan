@@ -1113,7 +1113,7 @@
                                         <property name="vexpand">True</property>
                                         <property name="left_padding">12</property>
                                         <child>
-                                          <object class="GtkGrid">
+                                          <object class="GtkGrid" id="grSpectrumControls">
                                             <property name="visible">True</property>
                                             <property name="can_focus">False</property>
                                             <property name="margin_left">3</property>
@@ -1249,6 +1249,21 @@
                                                 <property name="top_attach">0</property>
                                                 <property name="width">2</property>
                                               </packing>
+                                            </child>
+                                            <child>
+                                              <object class="GtkLabel">
+                                                <property name="visible">True</property>
+                                                <property name="can_focus">False</property>
+                                                <property name="halign">start</property>
+                                                <property name="label" translatable="yes">Palette</property>
+                                              </object>
+                                              <packing>
+                                                <property name="left_attach">0</property>
+                                                <property name="top_attach">5</property>
+                                              </packing>
+                                            </child>
+                                            <child>
+                                              <placeholder/>
                                             </child>
                                           </object>
                                         </child>
