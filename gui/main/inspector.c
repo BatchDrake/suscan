@@ -184,7 +184,17 @@ suscan_gui_add_inspector(
       goto fail);
 
   inspector_added = SU_TRUE;
+
+  /* TODO: Create method to attach to gui */
   insp->_parent.gui = gui;
+  SU_TRYCATCH(
+      suscan_gui_populate_pal_box(gui, insp->wfPalBox),
+      goto fail);
+
+  /* Inherit palette selection from main GUI */
+  (void) sugtk_pal_box_set_palette(
+      insp->wfPalBox,
+      sugtk_pal_box_get_palette(gui->waterfallPalBox));
 
   SU_TRYCATCH(
       (page = gtk_notebook_append_page_menu(

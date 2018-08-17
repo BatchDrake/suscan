@@ -220,6 +220,16 @@ suscan_inspector_on_toggle_spectrum_autolevel(GtkWidget *widget, gpointer data)
 }
 
 void
+suscan_gui_inspector_on_palette_changed(GtkWidget *widget, gpointer data)
+{
+  const suscan_gui_palette_t *palette;
+  suscan_gui_inspector_t *insp = (suscan_gui_inspector_t *) data;
+
+  if ((palette = sugtk_pal_box_get_palette(insp->wfPalBox)) != NULL)
+    sugtk_spectrum_set_palette(insp->spectrum, palette);
+}
+
+void
 suscan_inspector_on_toggle_spectrum_mode(GtkWidget *widget, gpointer data)
 {
   suscan_gui_inspector_t *inspector = (suscan_gui_inspector_t *) data;
@@ -230,11 +240,13 @@ suscan_inspector_on_toggle_spectrum_mode(GtkWidget *widget, gpointer data)
         inspector->spectrum,
         SUGTK_SPECTRUM_MODE_WATERFALL);
     gtk_button_set_label(GTK_BUTTON(widget), "Waterfall");
+    gtk_widget_set_sensitive(GTK_WIDGET(inspector->wfPalBox), TRUE);
   } else {
     sugtk_spectrum_set_mode(
         inspector->spectrum,
         SUGTK_SPECTRUM_MODE_SPECTROGRAM);
-    gtk_button_set_label(GTK_BUTTON(widget), "Spectrogram");
+    gtk_button_set_label(GTK_BUTTON(widget), "Spectrum");
+    gtk_widget_set_sensitive(GTK_WIDGET(inspector->wfPalBox), FALSE);
   }
 }
 

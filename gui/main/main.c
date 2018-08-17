@@ -259,6 +259,9 @@ suscan_gui_new(void)
 
   /* Load palettes */
   SU_TRYCATCH(suscan_gui_load_palettes(gui), goto fail);
+  SU_TRYCATCH(
+      suscan_gui_populate_pal_box(gui, gui->waterfallPalBox),
+      goto fail);
 
   /* All done. Load settings and apply them */
   SU_TRYCATCH(suscan_gui_load_settings(gui), goto fail);

@@ -40,10 +40,24 @@ suscan_gui_lookup_palette(const suscan_gui_t *gui, const char *name)
 }
 
 SUBOOL
+suscan_gui_populate_pal_box(const suscan_gui_t *gui, SuGtkPalBox *palbox)
+{
+  unsigned int i;
+
+  for (i = 0; i < gui->palette_count; ++i)
+      if (gui->palette_list[i] != NULL)
+        SU_TRYCATCH(
+            sugtk_pal_box_append(palbox, gui->palette_list[i]),
+            return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_gui_load_palettes(suscan_gui_t *gui)
 {
   suscan_config_context_t *ctx;
-  suscan_gui_palette_t *palette = NULL, *old_pal;
+  suscan_gui_palette_t *palette = NULL;
   const suscan_object_t *list, *entry;
   const char *name;
   unsigned int i, count;
@@ -68,12 +82,7 @@ suscan_gui_load_palettes(suscan_gui_t *gui)
               PTR_LIST_APPEND_CHECK(gui->palette, palette) != -1,
               goto fail);
 
-          old_pal = palette;
           palette = NULL;
-
-          SU_TRYCATCH(
-              sugtk_pal_box_append(gui->waterfallPalBox, old_pal),
-              goto fail);
         }
       }
     }
