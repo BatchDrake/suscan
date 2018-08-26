@@ -3,7 +3,8 @@ AUTOMAKE_OPTIONS = subdir-objects
 
 noinst_LTLIBRARIES = libanalyzer.la
 
-libanalyzer_la_CFLAGS = -I. -ggdb @sigutils_CFLAGS@ @analyzer_CFLAGS@ @soapysdr_CFLAGS@
+libanalyzer_la_CFLAGS = -I. -ggdb @sigutils_CFLAGS@ @analyzer_CFLAGS@ \
+ @soapysdr_CFLAGS@ -DPKGDATADIR=\"$(pkgdatadir)\"
 
 libanalyzer_la_SOURCES = \
     analyzer.c \

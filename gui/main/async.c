@@ -23,9 +23,12 @@
 
 #include "gui.h"
 
+#define SUSCAN_ANALYZER_MAX_SPECTRUM_MESSAGE_DELAY_MS 40
+
 /* Asynchronous thread: take messages from analyzer and parse them */
 struct suscan_gui_msg_envelope {
   suscan_gui_t *gui;
+  struct timeval arrival;
   uint32_t type;
   void *private;
 };
@@ -52,6 +55,7 @@ suscan_gui_msg_envelope_new(
       new = malloc(sizeof (struct suscan_gui_msg_envelope)),
       return NULL);
 
+  gettimeofday(&new->arrival, NULL);
   new->gui = gui;
   new->private = private;
   new->type = type;
@@ -60,22 +64,6 @@ suscan_gui_msg_envelope_new(
 }
 
 /************************** Update GUI state *********************************/
-void
-suscan_gui_change_button_icon(GtkButton *button, const char *icon)
-{
-  GtkWidget *prev;
-  GtkWidget *image;
-
-  SU_TRYCATCH(
-      image = gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_BUTTON),
-      return);
-
-  prev = gtk_bin_get_child(GTK_BIN(button));
-  gtk_container_remove(GTK_CONTAINER(button), prev);
-  gtk_widget_show(GTK_WIDGET(image));
-  gtk_container_add(GTK_CONTAINER(button), image);
-}
-
 void
 suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
 {
@@ -91,10 +79,8 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
   switch (state) {
     case SUSCAN_GUI_STATE_STOPPED:
       subtitle = "Stopped";
-      suscan_gui_change_button_icon(
-          GTK_BUTTON(gui->toggleConnect),
-          "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
+      gtk_toggle_tool_button_set_active(gui->toggleConnect, FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
@@ -108,10 +94,8 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
 
     case SUSCAN_GUI_STATE_RUNNING:
       subtitle = "Running";
-      suscan_gui_change_button_icon(
-          GTK_BUTTON(gui->toggleConnect),
-          "media-playback-stop-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), TRUE);
+      gtk_toggle_tool_button_set_active(gui->toggleConnect, TRUE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), TRUE);
       gtk_widget_set_sensitive(
           GTK_WIDGET(gui->throttleOverrideCheckButton),
@@ -143,9 +127,6 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
     case SUSCAN_GUI_STATE_STOPPING:
     case SUSCAN_GUI_STATE_QUITTING:
       subtitle = "Stopping...";
-      suscan_gui_change_button_icon(
-          GTK_BUTTON(gui->toggleConnect),
-          "media-playback-start-symbolic");
       gtk_widget_set_sensitive(GTK_WIDGET(gui->toggleConnect), FALSE);
       gtk_widget_set_sensitive(GTK_WIDGET(gui->preferencesButton), FALSE);
       gtk_widget_set_sensitive(
@@ -233,8 +214,6 @@ suscan_async_update_channels_cb(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   PTR_LIST(struct sigutils_channel, channel);
-  SUFLOAT cpu;
-  char cpu_str[10];
   unsigned int i;
   GtkTreeIter new_element;
 
@@ -242,13 +221,6 @@ suscan_async_update_channels_cb(gpointer user_data)
 
   if (envelope->gui->state != SUSCAN_GUI_STATE_RUNNING)
     goto done;
-
-  cpu = envelope->gui->analyzer->cpu_usage;
-
-  snprintf(cpu_str, sizeof(cpu_str), "%.1lf%%", cpu * 100);
-
-  gtk_label_set_text(envelope->gui->cpuLabel, cpu_str);
-  gtk_level_bar_set_value(envelope->gui->cpuLevelBar, cpu);
 
   /* Move channel list to GUI */
   suscan_analyzer_channel_msg_take_channels(
@@ -305,10 +277,12 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
 {
   struct suscan_gui_msg_envelope *envelope;
   struct suscan_analyzer_psd_msg *msg;
+  struct timeval tv, sub;
   char text[32];
   static const char *units[] = {"sps", "ksps", "Msps"};
   SUFLOAT fs;
   unsigned int i;
+  unsigned long long int ms;
 
   envelope = (struct suscan_gui_msg_envelope *) user_data;
   msg = (struct suscan_analyzer_psd_msg *) envelope->private;
@@ -317,15 +291,21 @@ suscan_async_update_main_spectrum_cb(gpointer user_data)
     goto done;
 
   /*
+   * Check whether this is arriving too late, and discard it to prevent
+   * main GUI's event queue from clogging up
+   */
+  gettimeofday(&tv, NULL);
+  timersub(&tv, &envelope->arrival, &sub);
+
+  ms = sub.tv_sec * 1000 + sub.tv_usec / 1000;
+
+  if (ms > SUSCAN_ANALYZER_MAX_SPECTRUM_MESSAGE_DELAY_MS)
+    goto done;
+
+  /*
    * TODO: Move this functions to something like
    * suscan_update_spectrum_labels
    */
-  snprintf(text, sizeof(text), "%.1lf dBFS", SU_POWER_DB(msg->N0));
-
-  gtk_label_set_text(envelope->gui->n0Label, text);
-  gtk_level_bar_set_value(
-      envelope->gui->n0LevelBar,
-      1e-2 * (SU_POWER_DB(msg->N0) + 100));
 
   fs = msg->samp_rate;
 
@@ -368,7 +348,9 @@ suscan_async_parse_sample_batch_msg(gpointer user_data)
     goto done;
 
   /* Append all these samples to the inspector GUI */
-  SU_TRYCATCH(suscan_gui_inspector_feed_w_batch(insp, msg), goto done);
+  SU_TRYCATCH(
+      suscan_gui_inspector_feed_w_batch(insp, &envelope->arrival, msg),
+      goto done);
 
 done:
   suscan_gui_msg_envelope_destroy(envelope);
@@ -383,6 +365,8 @@ suscan_async_parse_inspector_msg(gpointer user_data)
   struct suscan_analyzer_inspector_msg *msg;
   suscan_gui_inspector_t *new_insp = NULL;
   suscan_gui_inspector_t *insp = NULL;
+  const char *label;
+  int req_id;
   unsigned int i;
   char text[64];
 
@@ -439,8 +423,30 @@ suscan_async_parse_inspector_msg(gpointer user_data)
           suscan_gui_remove_inspector(envelope->gui, new_insp);
           goto done);
 
+      insp = new_insp;
       new_insp = NULL;
 
+      /*
+       * XXX: This is dangerous!! What happens if the user
+       * deletes the object before the inspector is opened??
+       */
+      if (msg->req_id != -1) {
+        /* Req ID refers to the action ID in the main GUI object */
+        SU_TRYCATCH(
+            suscan_gui_inspector_deserialize(
+                insp,
+                envelope->gui->action_list[msg->req_id]->demod),
+            goto done);
+
+        if ((label = suscan_object_get_field_value(
+            envelope->gui->action_list[msg->req_id]->demod,
+            "label")) == NULL)
+          label = "Unnamed demodulator";
+
+        SU_TRYCATCH(
+            suscan_gui_inspector_set_label(insp, label),
+            goto done);
+      }
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
@@ -458,6 +464,7 @@ suscan_async_parse_inspector_msg(gpointer user_data)
       SU_TRYCATCH(
           suscan_gui_inspector_set_config(insp, msg->config),
           goto done);
+
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:

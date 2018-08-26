@@ -26,6 +26,8 @@
 #include "modemctl.h"
 #include "gui.h"
 
+void suscan_gui_on_palette_changed(GtkWidget *widget, gpointer data);
+
 SUPRIVATE void
 suscan_gui_double_data_func(
     GtkTreeViewColumn *tree_column,
@@ -126,42 +128,15 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
 
   SU_TRYCATCH(
       gui->toggleConnect =
-          GTK_BUTTON(gtk_builder_get_object(gui->builder, "bToggleConnect")),
+          GTK_TOGGLE_TOOL_BUTTON(
+              gtk_builder_get_object(gui->builder, "tbToggleConnect")),
       return SU_FALSE);
 
   SU_TRYCATCH(
       gui->preferencesButton =
-          GTK_BUTTON(gtk_builder_get_object(
+          GTK_TOOL_BUTTON(gtk_builder_get_object(
               gui->builder,
-              "bPreferences")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->cpuLabel =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lCpu")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->cpuLevelBar =
-          GTK_LEVEL_BAR(gtk_builder_get_object(
-              gui->builder,
-              "lbCpu")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->n0Label =
-          GTK_LABEL(gtk_builder_get_object(
-              gui->builder,
-              "lN0")),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      gui->n0LevelBar =
-          GTK_LEVEL_BAR(gtk_builder_get_object(
-              gui->builder,
-              "lbN0")),
+              "tbPreferences")),
       return SU_FALSE);
 
   SU_TRYCATCH(
@@ -305,6 +280,13 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
+      gui->spectrumControlsGrid =
+          GTK_GRID(gtk_builder_get_object(
+              gui->builder,
+              "grSpectrumControls")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
       gui->alphaEntry =
           GTK_ENTRY(gtk_builder_get_object(
               gui->builder,
@@ -317,7 +299,6 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               gui->builder,
               "eAnalyzerBeta")),
           return SU_FALSE);
-
   SU_TRYCATCH(
       gui->gammaEntry =
           GTK_ENTRY(gtk_builder_get_object(
@@ -522,6 +503,12 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
               "fColors")),
           return SU_FALSE);
 
+  SU_TRYCATCH(
+      gui->demodulatorsFrame =
+          GTK_FRAME(gtk_builder_get_object(
+              gui->builder,
+              "fDemodulators")),
+          return SU_FALSE);
 
   SU_TRYCATCH(
       gui->settingsViewStack =
@@ -552,19 +539,101 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
           return SU_FALSE);
 
   SU_TRYCATCH(
+      gui->profileTextLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              gui->builder,
+              "lProfileText")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
       gui->profilesMenu =
           GTK_MENU(gtk_builder_get_object(
               gui->builder,
               "mProfiles")),
           return SU_FALSE);
 
+  /* Demodulators */
+  SU_TRYCATCH(
+      gui->demodulatorsListStore =
+          GTK_LIST_STORE(gtk_builder_get_object(
+              gui->builder,
+              "lsDemodulators")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->chooseDemodulatorDialog =
+          GTK_DIALOG(gtk_builder_get_object(
+              gui->builder,
+              "dlChooseDemodulator")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->selectDemodTreeView =
+          GTK_TREE_VIEW(gtk_builder_get_object(
+              gui->builder,
+              "tvSelectDemod")),
+          return SU_FALSE);
+
+  /* Demodulator properties dialog */
+  SU_TRYCATCH(
+      gui->demodPropertiesDialog =
+          GTK_DIALOG(gtk_builder_get_object(
+              gui->builder,
+              "dlDemodProperties")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodNameEntry =
+          GTK_ENTRY(gtk_builder_get_object(
+              gui->builder,
+              "eDemodName")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodClassLabel =
+          GTK_LABEL(gtk_builder_get_object(
+              gui->builder,
+              "lDemodClass")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodPropertiesListStore =
+          GTK_LIST_STORE(gtk_builder_get_object(
+              gui->builder,
+              "lsDemodProperties")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodPropertiesTreeView =
+          GTK_TREE_VIEW(gtk_builder_get_object(
+              gui->builder,
+              "tvDemodProperties")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodListTreeView =
+          GTK_TREE_VIEW(gtk_builder_get_object(
+              gui->builder,
+              "tvDemodList")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodPropertiesButton =
+          GTK_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "bDemodProperties")),
+          return SU_FALSE);
+
+  SU_TRYCATCH(
+      gui->demodRemoveButton =
+          GTK_BUTTON(gtk_builder_get_object(
+              gui->builder,
+              "bDemodRemove")),
+          return SU_FALSE);
+
   suscan_setup_column_formats(gui);
 
   gtk_combo_box_set_active(gui->sourceCombo, 0);
-
-  /* Update preferences */
-  suscan_gui_analyzer_params_to_dialog(gui);
-  suscan_gui_settings_to_dialog(gui);
 
   /* Add spectrum view */
   gui->spectrum = SUGTK_SPECTRUM(sugtk_spectrum_new());
@@ -581,6 +650,27 @@ suscan_gui_load_all_widgets(suscan_gui_t *gui)
 
   sugtk_spectrum_set_mode(gui->spectrum, SUGTK_SPECTRUM_MODE_BOTH);
   sugtk_spectrum_set_show_channels(gui->spectrum, TRUE);
+
+  /* Add custom spectrum controls */
+  SU_TRYCATCH(
+      gui->waterfallPalBox = SUGTK_PAL_BOX(sugtk_pal_box_new()),
+      return SU_FALSE);
+
+  g_signal_connect(
+      G_OBJECT(gui->waterfallPalBox),
+      "changed",
+      G_CALLBACK(suscan_gui_on_palette_changed),
+      gui);
+
+  gtk_grid_attach(
+      gui->spectrumControlsGrid,
+      GTK_WIDGET(gui->waterfallPalBox),
+      1, /* Left */
+      5, /* Top */
+      1, /* Width */
+      1) /* Height */;
+
+  gtk_widget_show(GTK_WIDGET(gui->waterfallPalBox));
 
   /* Update GUI on spectrum state */
   gui->updating_settings = SU_TRUE;

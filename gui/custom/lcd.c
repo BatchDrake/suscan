@@ -623,7 +623,8 @@ sugtk_lcd_new(void)
 
   gtk_widget_set_size_request(
       widget,
-      lcd->size * (lcd->length + 2), 2 * lcd->size);
+      lcd->size * (lcd->length + 3),
+      2 * lcd->size);
 
   return widget;
 }

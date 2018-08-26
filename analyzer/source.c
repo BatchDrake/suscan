@@ -1530,8 +1530,8 @@ SUPRIVATE SUSDIFF
 suscan_source_read_file(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
 {
   SUFLOAT *as_real;
-  int got;
-  unsigned int real_count, i;
+  int got, i;
+  unsigned int real_count;
 
   if (source->force_eos)
     return 0;
@@ -1706,7 +1706,9 @@ suscan_source_config_check(const suscan_source_config_t *config)
     return SU_FALSE;
   }
 
-  if (config->samp_rate < 1) {
+  if (config->samp_rate < 1
+      && !(config->type == SUSCAN_SOURCE_TYPE_FILE
+          && config->format == SUSCAN_SOURCE_FORMAT_WAV)) {
     SU_ERROR("Sample rate cannot be zero!\n");
     return SU_FALSE;
   }

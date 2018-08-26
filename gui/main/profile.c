@@ -107,7 +107,7 @@ suscan_gui_on_set_active_profile(GtkWidget *widget, gpointer data)
     (void) suscan_gui_select_profile(gui, profile);
 }
 
-SUPRIVATE SUBOOL
+SUBOOL
 suscan_gui_update_profile_menu(suscan_gui_t *gui)
 {
   unsigned int i;

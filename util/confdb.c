@@ -33,7 +33,7 @@
 
 PTR_LIST(SUPRIVATE suscan_config_context_t, context);
 
-SUPRIVATE const char *confdb_system_path = "/usr/local/share/suscan/config";
+SUPRIVATE const char *confdb_system_path = PKGDATADIR "/config";
 SUPRIVATE const char *confdb_user_path;
 
 const char *
@@ -146,7 +146,7 @@ fail:
   return SU_FALSE;
 }
 
-SUPRIVATE suscan_config_context_t *
+suscan_config_context_t *
 suscan_config_context_lookup(const char *name)
 {
   unsigned int i;
@@ -191,6 +191,26 @@ suscan_config_context_put(
   SU_TRYCATCH(suscan_object_set_append(context->list, obj), return SU_FALSE);
 
   return SU_TRUE;
+}
+
+SUBOOL
+suscan_config_context_remove(
+    suscan_config_context_t *context,
+    suscan_object_t *obj)
+{
+  unsigned int i, count;
+
+  count = suscan_object_set_get_count(context->list);
+
+  for (i = 0; i < count; ++i) {
+    if (suscan_object_set_get(context->list, i) == obj) {
+      (void) suscan_object_set_put(context->list, i, NULL);
+
+      return SU_TRUE;
+    }
+  }
+
+  return SU_FALSE;
 }
 
 void

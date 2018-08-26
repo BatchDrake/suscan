@@ -1,0 +1,1614 @@
+<?xml version="1.0" ?>
+
+<suscan:serialization xmlns:suscan="http://actinid.org/suscan" name="root">
+  <suscan:object class="palette">
+    <suscan:field name="name"><![CDATA[Red & Lime]]></suscan:field>
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="1" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="1" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="banana (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".23137254901960784313" />
+        <suscan:field name="green" value=".23137254901960784313" />
+        <suscan:field name="blue" value=".10588235294117647058" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".46666666666666666666" />
+        <suscan:field name="green" value=".46666666666666666666" />
+        <suscan:field name="blue" value=".23137254901960784313" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".70196078431372549019" />
+        <suscan:field name="green" value=".70196078431372549019" />
+        <suscan:field name="blue" value=".35686274509803921568" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".89019607843137254901" />
+        <suscan:field name="green" value=".89019607843137254901" />
+        <suscan:field name="blue" value=".48235294117647058823" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".92156862745098039215" />
+        <suscan:field name="green" value=".92156862745098039215" />
+        <suscan:field name="blue" value=".59215686274509803921" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".93725490196078431372" />
+        <suscan:field name="green" value=".93725490196078431372" />
+        <suscan:field name="blue" value=".71764705882352941176" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".96862745098039215686" />
+        <suscan:field name="green" value=".96862745098039215686" />
+        <suscan:field name="blue" value=".85882352941176470588" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="blue1 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".00784313725490196078" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".25098039215686274509" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".02745098039215686274" />
+        <suscan:field name="green" value=".04313725490196078431" />
+        <suscan:field name="blue" value=".50196078431372549019" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".15294117647058823529" />
+        <suscan:field name="green" value=".18431372549019607843" />
+        <suscan:field name="blue" value=".75294117647058823529" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".37254901960784313725" />
+        <suscan:field name="green" value=".45098039215686274509" />
+        <suscan:field name="blue" value=".85098039215686274509" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".59215686274509803921" />
+        <suscan:field name="green" value=".70196078431372549019" />
+        <suscan:field name="blue" value=".90588235294117647058" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".73333333333333333333" />
+        <suscan:field name="green" value=".79607843137254901960" />
+        <suscan:field name="blue" value=".93725490196078431372" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".85882352941176470588" />
+        <suscan:field name="green" value=".89019607843137254901" />
+        <suscan:field name="blue" value=".96862745098039215686" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="blue2 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value=".01176470588235294117" />
+        <suscan:field name="green" value=".01176470588235294117" />
+        <suscan:field name="blue" value=".25098039215686274509" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".02745098039215686274" />
+        <suscan:field name="green" value=".04313725490196078431" />
+        <suscan:field name="blue" value=".50196078431372549019" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".15294117647058823529" />
+        <suscan:field name="green" value=".18431372549019607843" />
+        <suscan:field name="blue" value=".75294117647058823529" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".37254901960784313725" />
+        <suscan:field name="green" value=".45098039215686274509" />
+        <suscan:field name="blue" value=".85098039215686274509" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".59215686274509803921" />
+        <suscan:field name="green" value=".70196078431372549019" />
+        <suscan:field name="blue" value=".90588235294117647058" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".73333333333333333333" />
+        <suscan:field name="green" value=".79607843137254901960" />
+        <suscan:field name="blue" value=".93725490196078431372" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".85882352941176470588" />
+        <suscan:field name="green" value=".89019607843137254901" />
+        <suscan:field name="blue" value=".96862745098039215686" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".99215686274509803921" />
+        <suscan:field name="blue" value=".42352941176470588235" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="blue3 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".12156862745098039215" />
+        <suscan:field name="green" value=".12156862745098039215" />
+        <suscan:field name="blue" value=".12156862745098039215" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".24705882352941176470" />
+        <suscan:field name="green" value=".24705882352941176470" />
+        <suscan:field name="blue" value=".24705882352941176470" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".35686274509803921568" />
+        <suscan:field name="green" value=".35686274509803921568" />
+        <suscan:field name="blue" value=".65490196078431372549" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".46666666666666666666" />
+        <suscan:field name="green" value=".46666666666666666666" />
+        <suscan:field name="blue" value=".74901960784313725490" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".60784313725490196078" />
+        <suscan:field name="green" value=".60784313725490196078" />
+        <suscan:field name="blue" value=".85882352941176470588" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".74901960784313725490" />
+        <suscan:field name="green" value=".74901960784313725490" />
+        <suscan:field name="blue" value=".74901960784313725490" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".87450980392156862745" />
+        <suscan:field name="green" value=".87450980392156862745" />
+        <suscan:field name="blue" value=".87450980392156862745" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="brown (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".41960784313725490196" />
+        <suscan:field name="green" value=".24705882352941176470" />
+        <suscan:field name="blue" value=".04313725490196078431" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".68627450980392156862" />
+        <suscan:field name="green" value=".37254901960784313725" />
+        <suscan:field name="blue" value=".12156862745098039215" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".78039215686274509803" />
+        <suscan:field name="green" value=".46666666666666666666" />
+        <suscan:field name="blue" value=".16862745098039215686" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".84313725490196078431" />
+        <suscan:field name="green" value=".63921568627450980392" />
+        <suscan:field name="blue" value=".24705882352941176470" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".90588235294117647058" />
+        <suscan:field name="green" value=".82745098039215686274" />
+        <suscan:field name="blue" value=".34117647058823529411" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".95294117647058823529" />
+        <suscan:field name="green" value=".96862745098039215686" />
+        <suscan:field name="blue" value=".43529411764705882352" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".96862745098039215686" />
+        <suscan:field name="green" value=".98431372549019607843" />
+        <suscan:field name="blue" value=".70196078431372549019" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="cyan1 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".01960784313725490196" />
+        <suscan:field name="green" value=".03921568627450980392" />
+        <suscan:field name="blue" value=".03921568627450980392" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".08627450980392156862" />
+        <suscan:field name="green" value=".16470588235294117647" />
+        <suscan:field name="blue" value=".16470588235294117647" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".20392156862745098039" />
+        <suscan:field name="green" value=".38823529411764705882" />
+        <suscan:field name="blue" value=".38823529411764705882" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".36862745098039215686" />
+        <suscan:field name="green" value=".68627450980392156862" />
+        <suscan:field name="blue" value=".68627450980392156862" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".51372549019607843137" />
+        <suscan:field name="green" value=".81960784313725490196" />
+        <suscan:field name="blue" value=".81960784313725490196" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".63529411764705882352" />
+        <suscan:field name="green" value=".87843137254901960784" />
+        <suscan:field name="blue" value=".87843137254901960784" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".79215686274509803921" />
+        <suscan:field name="green" value=".93725490196078431372" />
+        <suscan:field name="blue" value=".93725490196078431372" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="cyan2 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".13725490196078431372" />
+        <suscan:field name="green" value=".20000000000000000000" />
+        <suscan:field name="blue" value=".20000000000000000000" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".29411764705882352941" />
+        <suscan:field name="green" value=".40392156862745098039" />
+        <suscan:field name="blue" value=".40392156862745098039" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".45098039215686274509" />
+        <suscan:field name="green" value=".62352941176470588235" />
+        <suscan:field name="blue" value=".62352941176470588235" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".60784313725490196078" />
+        <suscan:field name="green" value=".82745098039215686274" />
+        <suscan:field name="blue" value=".82745098039215686274" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".71764705882352941176" />
+        <suscan:field name="green" value=".90588235294117647058" />
+        <suscan:field name="blue" value=".90588235294117647058" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".79607843137254901960" />
+        <suscan:field name="green" value=".93725490196078431372" />
+        <suscan:field name="blue" value=".93725490196078431372" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".89019607843137254901" />
+        <suscan:field name="green" value=".96862745098039215686" />
+        <suscan:field name="blue" value=".96862745098039215686" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="cyan3 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".36862745098039215686" />
+        <suscan:field name="green" value=".44705882352941176470" />
+        <suscan:field name="blue" value=".44705882352941176470" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".54117647058823529411" />
+        <suscan:field name="green" value=".63529411764705882352" />
+        <suscan:field name="blue" value=".63529411764705882352" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".67058823529411764705" />
+        <suscan:field name="green" value=".78823529411764705882" />
+        <suscan:field name="blue" value=".78823529411764705882" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".78039215686274509803" />
+        <suscan:field name="green" value=".90980392156862745098" />
+        <suscan:field name="blue" value=".90980392156862745098" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".84705882352941176470" />
+        <suscan:field name="green" value=".95294117647058823529" />
+        <suscan:field name="blue" value=".95294117647058823529" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".89411764705882352941" />
+        <suscan:field name="green" value=".96862745098039215686" />
+        <suscan:field name="blue" value=".96862745098039215686" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".94509803921568627450" />
+        <suscan:field name="green" value=".98431372549019607843" />
+        <suscan:field name="blue" value=".98431372549019607843" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="default (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".02352941176470588235" />
+        <suscan:field name="blue" value=".53333333333333333333" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".07450980392156862745" />
+        <suscan:field name="blue" value=".77647058823529411764" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".12549019607843137254" />
+        <suscan:field name="blue" value=".93725490196078431372" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".67450980392156862745" />
+        <suscan:field name="green" value=".65490196078431372549" />
+        <suscan:field name="blue" value=".41176470588235294117" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".76078431372549019607" />
+        <suscan:field name="green" value=".77647058823529411764" />
+        <suscan:field name="blue" value=".19215686274509803921" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".88235294117647058823" />
+        <suscan:field name="green" value=".89411764705882352941" />
+        <suscan:field name="blue" value=".41960784313725490196" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".20000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="digipan (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".25098039215686274509" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".50196078431372549019" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".85098039215686274509" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".58823529411764705882" />
+        <suscan:field name="green" value=".57647058823529411764" />
+        <suscan:field name="blue" value=".36078431372549019607" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".71764705882352941176" />
+        <suscan:field name="green" value=".72941176470588235294" />
+        <suscan:field name="blue" value=".18039215686274509803" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".88235294117647058823" />
+        <suscan:field name="green" value=".89411764705882352941" />
+        <suscan:field name="blue" value=".41960784313725490196" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".20000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="fldigi (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".69411764705882352941" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".01176470588235294117" />
+        <suscan:field name="green" value=".43137254901960784313" />
+        <suscan:field name="blue" value=".89019607843137254901" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".80000000000000000000" />
+        <suscan:field name="blue" value=".80000000000000000000" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".87450980392156862745" />
+        <suscan:field name="green" value=".87450980392156862745" />
+        <suscan:field name="blue" value=".87450980392156862745" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".91764705882352941176" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".95686274509803921568" />
+        <suscan:field name="green" value=".95686274509803921568" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".98039215686274509803" />
+        <suscan:field name="green" value=".49411764705882352941" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value=".95686274509803921568" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="gmfsk (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="1.00392156862745098039" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".24313725490196078431" />
+        <suscan:field name="blue" value=".76078431372549019607" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".49411764705882352941" />
+        <suscan:field name="blue" value=".50980392156862745098" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".74509803921568627450" />
+        <suscan:field name="blue" value=".25882352941176470588" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".99607843137254901960" />
+        <suscan:field name="blue" value=".00784313725490196078" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".24313725490196078431" />
+        <suscan:field name="green" value=".76078431372549019607" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".49411764705882352941" />
+        <suscan:field name="green" value=".50980392156862745098" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".74509803921568627450" />
+        <suscan:field name="green" value=".25882352941176470588" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value=".99607843137254901960" />
+        <suscan:field name="green" value=".00784313725490196078" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="gray1 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".27058823529411764705" />
+        <suscan:field name="green" value=".27058823529411764705" />
+        <suscan:field name="blue" value=".27058823529411764705" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".38823529411764705882" />
+        <suscan:field name="green" value=".38823529411764705882" />
+        <suscan:field name="blue" value=".38823529411764705882" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".47450980392156862745" />
+        <suscan:field name="green" value=".47450980392156862745" />
+        <suscan:field name="blue" value=".47450980392156862745" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".54901960784313725490" />
+        <suscan:field name="green" value=".54901960784313725490" />
+        <suscan:field name="blue" value=".54901960784313725490" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".61568627450980392156" />
+        <suscan:field name="green" value=".61568627450980392156" />
+        <suscan:field name="blue" value=".61568627450980392156" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".67450980392156862745" />
+        <suscan:field name="green" value=".67450980392156862745" />
+        <suscan:field name="blue" value=".67450980392156862745" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".72941176470588235294" />
+        <suscan:field name="green" value=".72941176470588235294" />
+        <suscan:field name="blue" value=".72941176470588235294" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value=".78039215686274509803" />
+        <suscan:field name="green" value=".78039215686274509803" />
+        <suscan:field name="blue" value=".78039215686274509803" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="gray2 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".34509803921568627450" />
+        <suscan:field name="green" value=".34509803921568627450" />
+        <suscan:field name="blue" value=".34509803921568627450" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".49411764705882352941" />
+        <suscan:field name="green" value=".49411764705882352941" />
+        <suscan:field name="blue" value=".49411764705882352941" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".60784313725490196078" />
+        <suscan:field name="green" value=".60784313725490196078" />
+        <suscan:field name="blue" value=".60784313725490196078" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".70196078431372549019" />
+        <suscan:field name="green" value=".70196078431372549019" />
+        <suscan:field name="blue" value=".70196078431372549019" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".78431372549019607843" />
+        <suscan:field name="green" value=".78431372549019607843" />
+        <suscan:field name="blue" value=".78431372549019607843" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".86274509803921568627" />
+        <suscan:field name="green" value=".86274509803921568627" />
+        <suscan:field name="blue" value=".86274509803921568627" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".92941176470588235294" />
+        <suscan:field name="green" value=".92941176470588235294" />
+        <suscan:field name="blue" value=".92941176470588235294" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value=".99607843137254901960" />
+        <suscan:field name="green" value=".99607843137254901960" />
+        <suscan:field name="blue" value=".99607843137254901960" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="green1 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".12549019607843137254" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".25098039215686274509" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".37647058823529411764" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".50196078431372549019" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".62745098039215686274" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".75294117647058823529" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".87843137254901960784" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="green2 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".23529411764705882352" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".40000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".59215686274509803921" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".94901960784313725490" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value=".34901960784313725490" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".94117647058823529411" />
+        <suscan:field name="green" value=".47058823529411764705" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".58039215686274509803" />
+        <suscan:field name="blue" value=".15686274509803921568" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="jungle (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".41960784313725490196" />
+        <suscan:field name="green" value=".26274509803921568627" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".87450980392156862745" />
+        <suscan:field name="green" value=".56078431372549019607" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".48235294117647058823" />
+        <suscan:field name="blue" value=".10588235294117647058" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".35686274509803921568" />
+        <suscan:field name="blue" value=".27843137254901960784" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".76470588235294117647" />
+        <suscan:field name="blue" value=".37254901960784313725" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".76470588235294117647" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value=".43529411764705882352" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".59215686274509803921" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value=".59215686274509803921" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="negative (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".87450980392156862745" />
+        <suscan:field name="green" value=".87450980392156862745" />
+        <suscan:field name="blue" value=".87450980392156862745" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".74901960784313725490" />
+        <suscan:field name="green" value=".74901960784313725490" />
+        <suscan:field name="blue" value=".74901960784313725490" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".62352941176470588235" />
+        <suscan:field name="green" value=".62352941176470588235" />
+        <suscan:field name="blue" value=".62352941176470588235" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".49803921568627450980" />
+        <suscan:field name="green" value=".49803921568627450980" />
+        <suscan:field name="blue" value=".49803921568627450980" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".37254901960784313725" />
+        <suscan:field name="green" value=".37254901960784313725" />
+        <suscan:field name="blue" value=".37254901960784313725" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".24705882352941176470" />
+        <suscan:field name="green" value=".24705882352941176470" />
+        <suscan:field name="blue" value=".24705882352941176470" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".12156862745098039215" />
+        <suscan:field name="green" value=".12156862745098039215" />
+        <suscan:field name="blue" value=".12156862745098039215" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="orange (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".24705882352941176470" />
+        <suscan:field name="green" value=".10588235294117647058" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".51372549019607843137" />
+        <suscan:field name="green" value=".24705882352941176470" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".78039215686274509803" />
+        <suscan:field name="green" value=".37254901960784313725" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".98431372549019607843" />
+        <suscan:field name="green" value=".49803921568627450980" />
+        <suscan:field name="blue" value=".04313725490196078431" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".98431372549019607843" />
+        <suscan:field name="green" value=".60784313725490196078" />
+        <suscan:field name="blue" value=".27843137254901960784" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".98431372549019607843" />
+        <suscan:field name="green" value=".73333333333333333333" />
+        <suscan:field name="blue" value=".51372549019607843137" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".98431372549019607843" />
+        <suscan:field name="green" value=".85882352941176470588" />
+        <suscan:field name="blue" value=".74901960784313725490" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="pink (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".24705882352941176470" />
+        <suscan:field name="green" value=".13725490196078431372" />
+        <suscan:field name="blue" value=".13725490196078431372" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".52941176470588235294" />
+        <suscan:field name="green" value=".29411764705882352941" />
+        <suscan:field name="blue" value=".29411764705882352941" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".79607843137254901960" />
+        <suscan:field name="green" value=".43529411764705882352" />
+        <suscan:field name="blue" value=".43529411764705882352" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".57647058823529411764" />
+        <suscan:field name="blue" value=".57647058823529411764" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".68627450980392156862" />
+        <suscan:field name="blue" value=".68627450980392156862" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".78039215686274509803" />
+        <suscan:field name="blue" value=".78039215686274509803" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".89019607843137254901" />
+        <suscan:field name="blue" value=".89019607843137254901" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="rainbow (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".63921568627450980392" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".34117647058823529411" />
+        <suscan:field name="blue" value=".74901960784313725490" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".81176470588235294117" />
+        <suscan:field name="blue" value=".85882352941176470588" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".96862745098039215686" />
+        <suscan:field name="blue" value=".54509803921568627450" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value=".09019607843137254901" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".37254901960784313725" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".85882352941176470588" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".67058823529411764705" />
+        <suscan:field name="blue" value=".60784313725490196078" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="scope (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".65490196078431372549" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".30980392156862745098" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".93725490196078431372" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value=".29411764705882352941" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".37254901960784313725" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".49803921568627450980" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="sunburst (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".23137254901960784313" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".48235294117647058823" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".51372549019607843137" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".70196078431372549019" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".92156862745098039215" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".29411764705882352941" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".16862745098039215686" />
+        <suscan:field name="blue" value=".16862745098039215686" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value=".84313725490196078431" />
+        <suscan:field name="blue" value=".43529411764705882352" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value=".71764705882352941176" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="vk4bdj (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".12549019607843137254" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".60392156862745098039" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".63137254901960784313" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value=".69411764705882352941" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".61176470588235294117" />
+        <suscan:field name="green" value=".81960784313725490196" />
+        <suscan:field name="blue" value=".56470588235294117647" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".75294117647058823529" />
+        <suscan:field name="green" value=".72549019607843137254" />
+        <suscan:field name="blue" value=".71764705882352941176" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".83921568627450980392" />
+        <suscan:field name="green" value=".87058823529411764705" />
+        <suscan:field name="blue" value=".87843137254901960784" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="yellow1 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".12156862745098039215" />
+        <suscan:field name="green" value=".12156862745098039215" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".24705882352941176470" />
+        <suscan:field name="green" value=".24705882352941176470" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".37254901960784313725" />
+        <suscan:field name="green" value=".37254901960784313725" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".49803921568627450980" />
+        <suscan:field name="green" value=".49803921568627450980" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".62352941176470588235" />
+        <suscan:field name="green" value=".62352941176470588235" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".74901960784313725490" />
+        <suscan:field name="green" value=".74901960784313725490" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".87450980392156862745" />
+        <suscan:field name="green" value=".87450980392156862745" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="yellow2 (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value=".15294117647058823529" />
+        <suscan:field name="green" value=".15294117647058823529" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".29411764705882352941" />
+        <suscan:field name="green" value=".29411764705882352941" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".43529411764705882352" />
+        <suscan:field name="green" value=".43529411764705882352" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".57647058823529411764" />
+        <suscan:field name="green" value=".57647058823529411764" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".71764705882352941176" />
+        <suscan:field name="green" value=".71764705882352941176" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".85882352941176470588" />
+        <suscan:field name="green" value=".85882352941176470588" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name" value="yl2kf (fldigi)" />
+    <suscan:object_set name="stops">
+      <suscan:object>
+        <suscan:field name="position" value="0" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value="0" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="31" />
+        <suscan:field name="red" value="0" />
+        <suscan:field name="green" value="0" />
+        <suscan:field name="blue" value=".46666666666666666666" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="63" />
+        <suscan:field name="red" value=".02745098039215686274" />
+        <suscan:field name="green" value=".04313725490196078431" />
+        <suscan:field name="blue" value=".76470588235294117647" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="95" />
+        <suscan:field name="red" value=".15294117647058823529" />
+        <suscan:field name="green" value=".18431372549019607843" />
+        <suscan:field name="blue" value=".62352941176470588235" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="127" />
+        <suscan:field name="red" value=".37254901960784313725" />
+        <suscan:field name="green" value=".45098039215686274509" />
+        <suscan:field name="blue" value=".79607843137254901960" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="159" />
+        <suscan:field name="red" value=".59215686274509803921" />
+        <suscan:field name="green" value=".70196078431372549019" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="191" />
+        <suscan:field name="red" value=".73333333333333333333" />
+        <suscan:field name="green" value=".79607843137254901960" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="223" />
+        <suscan:field name="red" value=".85882352941176470588" />
+        <suscan:field name="green" value=".89019607843137254901" />
+        <suscan:field name="blue" value="1.00000000000000000000" />
+      </suscan:object>
+      <suscan:object>
+        <suscan:field name="position" value="255" />
+        <suscan:field name="red" value="1.00000000000000000000" />
+        <suscan:field name="green" value="1.00000000000000000000" />
+        <suscan:field name="blue" value=".01960784313725490196" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+</suscan:serialization>

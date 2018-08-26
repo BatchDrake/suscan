@@ -80,7 +80,24 @@
                     <property name="label_xalign">0</property>
                     <property name="shadow_type">in</property>
                     <child>
-                      <placeholder/>
+                      <object class="GtkScrolledWindow">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="hscrollbar_policy">never</property>
+                        <property name="overlay_scrolling">False</property>
+                        <property name="max_content_height">128</property>
+                        <property name="propagate_natural_height">True</property>
+                        <child>
+                          <object class="GtkViewport" id="vpGains">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="shadow_type">none</property>
+                            <child>
+                              <placeholder/>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
                     </child>
                     <child type="label">
                       <object class="GtkLabel">

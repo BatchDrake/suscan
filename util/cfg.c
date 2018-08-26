@@ -609,3 +609,171 @@ fail:
   return NULL;
 }
 
+suscan_object_t *
+suscan_config_to_object(const suscan_config_t *config)
+{
+  suscan_object_t *new = NULL;
+  unsigned int i;
+
+  SU_TRYCATCH(new = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
+
+  for (i = 0; i < config->desc->field_count; ++i) {
+    switch (config->desc->field_list[i]->type) {
+      case SUSCAN_FIELD_TYPE_FILE:
+      case SUSCAN_FIELD_TYPE_STRING:
+        SU_TRYCATCH(
+            suscan_object_set_field_value(
+                new,
+                config->desc->field_list[i]->name,
+                config->values[i]->as_string),
+            goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_INTEGER:
+        SU_TRYCATCH(
+            suscan_object_set_field_int(
+                new,
+                config->desc->field_list[i]->name,
+                config->values[i]->as_int),
+            goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FLOAT:
+        SU_TRYCATCH(
+            suscan_object_set_field_float(
+                new,
+                config->desc->field_list[i]->name,
+                config->values[i]->as_float),
+            goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_BOOLEAN:
+        SU_TRYCATCH(
+            suscan_object_set_field_bool(
+                new,
+                config->desc->field_list[i]->name,
+                config->values[i]->as_bool),
+            goto fail);
+        break;
+
+      default:
+        SU_ERROR(
+            "Cannot serialize field type %d\n",
+            config->desc->field_list[i]->type);
+    }
+  }
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_object_destroy(new);
+
+  return NULL;
+}
+
+SUBOOL
+suscan_object_to_config(suscan_config_t *config, const suscan_object_t *object)
+{
+  unsigned int i, count;
+  const suscan_object_t *entry;
+  const char *key, *val;
+  const struct suscan_config_desc *desc;
+  struct suscan_field *field = NULL;
+  uint64_t int_val;
+  SUFLOAT float_val;
+  SUBOOL bool_val;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      suscan_object_get_type(object) == SUSCAN_OBJECT_TYPE_OBJECT,
+      goto done);
+
+  count = suscan_object_field_count(object);
+
+  desc = config->desc;
+
+  for (i = 0; i < count; ++i) {
+    entry = suscan_object_get_field_by_index(object, i);
+
+    if (entry != NULL) {
+      key = suscan_object_get_name(entry);
+      val = suscan_object_get_value(entry);
+
+      if ((field = suscan_config_desc_lookup_field(desc, key)) == NULL) {
+        SU_WARNING("Field `%s' not supported by config, ignored\n", key);
+        continue;
+      }
+
+      switch (field->type) {
+        case SUSCAN_FIELD_TYPE_FILE:
+          if (!suscan_config_set_file(config, key, val)) {
+            SU_ERROR("Cannot set file parameter `%s'\n", key);
+            goto done;
+          }
+          break;
+
+        case SUSCAN_FIELD_TYPE_STRING:
+          if (!suscan_config_set_string(config, key, val)) {
+            SU_ERROR("Cannot set string parameter `%s'\n", key);
+            goto done;
+          }
+          break;
+
+        case SUSCAN_FIELD_TYPE_INTEGER:
+          if (sscanf(val, "%lli", &int_val) < 1) {
+            SU_ERROR("Invalid value for parameter `%s': `%s'\n", key, val);
+            goto done;
+          }
+
+          if (!suscan_config_set_integer(config, key, int_val)) {
+            SU_ERROR("Cannot set string parameter `%s'\n", key);
+            goto done;
+          }
+          break;
+
+        case SUSCAN_FIELD_TYPE_FLOAT:
+          if (sscanf(val, SUFLOAT_FMT, &float_val) < 1) {
+            SU_ERROR("Invalid value for parameter `%s': `%s'\n", key, val);
+            goto done;
+          }
+
+          if (!suscan_config_set_float(config, key, float_val)) {
+            SU_ERROR("Cannot set string parameter `%s'\n", key);
+            goto done;
+          }
+          break;
+
+        case SUSCAN_FIELD_TYPE_BOOLEAN:
+          if (strcasecmp(val, "true") == 0 ||
+              strcasecmp(val, "yes")  == 0 ||
+              strcasecmp(val, "1")    == 0)
+            bool_val = SU_TRUE;
+          else if (strcasecmp(val, "false") == 0 ||
+              strcasecmp(val, "no")         == 0 ||
+              strcasecmp(val, "0")          == 0)
+            bool_val = SU_FALSE;
+          else {
+            SU_ERROR("Invalid boolean value for parameter `%s': %s\n", key, val);
+            goto done;
+          }
+
+          if (!suscan_config_set_bool(config, key, bool_val)) {
+            SU_ERROR("Failed to set boolean parameter `%s'\n", key);
+            goto done;
+          }
+          break;
+
+        default:
+          SU_ERROR("Parameter `%s' cannot be set for this config\n", key);
+          break;
+      }
+    }
+  }
+
+  ok = SU_TRUE;
+
+done:
+
+  return ok;
+}

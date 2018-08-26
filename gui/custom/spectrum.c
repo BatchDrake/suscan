@@ -483,6 +483,7 @@ sugtk_spectrum_commit_waterfall_line(SuGtkSpectrum *spect)
   guint psd_size;
   cairo_t *cr_wf = NULL;
   gsufloat val;
+  const suscan_gradient_t *grad = spect->gradient;
 
   psd_data = spect->psd_data;
   psd_size = spect->psd_size;
@@ -531,12 +532,11 @@ sugtk_spectrum_commit_waterfall_line(SuGtkSpectrum *spect)
 
       index = round(val * 255);
 
-      /* TODO: add more gradients */
       cairo_set_source_rgb(
           cr_wf,
-          wf_gradient[index][0],
-          wf_gradient[index][1],
-          wf_gradient[index][2]);
+          (*grad)[index][0],
+          (*grad)[index][1],
+          (*grad)[index][2]);
 
       cairo_move_to(cr_wf, i - 1, 0);
       cairo_line_to(cr_wf, i, 0);
@@ -919,11 +919,13 @@ static void
 sugtk_spectrum_refresh(SuGtkSpectrum *spect)
 {
   struct timeval tv, sub;
-
+  unsigned long long int ms;
   gettimeofday(&tv, NULL);
   timersub(&tv, &spect->last_redraw_time, &sub);
 
-  if (sub.tv_usec > SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS * 1000) {
+  ms = sub.tv_usec / 1000 + sub.tv_sec * 1000;
+
+  if (ms > SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS) {
     sugtk_spectrum_refresh_hard(spect);
     spect->last_redraw_time = tv;
   }
@@ -1150,15 +1152,25 @@ sugtk_spectrum_on_menu_action(GtkWidget *widget, gpointer data)
   (ctx->action)(spect, spect->menu_fc, &spect->menu_channel, ctx->data);
 }
 
-gboolean
-sugtk_spectrum_add_menu_action(
+GtkMenu *
+sugtk_spectrum_get_channel_menu(const SuGtkSpectrum *spect)
+{
+  return spect->channelMenu;
+}
+
+static SuGtkSpectrumMenuContext *
+sugtk_spectrum_assert_context(
     SuGtkSpectrum *spect,
-    const gchar *label,
     SuGtkSpectrumMenuActionCallback action,
     gpointer data)
 {
+  unsigned int i;
   SuGtkSpectrumMenuContext *ctx;
-  GtkWidget *actionItem;
+
+  for (i = 0; i < spect->context_count; ++i)
+    if (spect->context_list[i]->action == action
+        && spect->context_list[i]->data == data)
+      return spect->context_list[i];
 
   ctx = g_new(SuGtkSpectrumMenuContext, 1);
 
@@ -1166,15 +1178,31 @@ sugtk_spectrum_add_menu_action(
   ctx->data   = data;
   ctx->spect  = spect;
 
-  /* FIXME: use GList */
   if (PTR_LIST_APPEND_CHECK(spect->context, ctx) == -1) {
     g_free(ctx);
-    return FALSE;
+    return NULL;
   }
+
+  return ctx;
+}
+
+gboolean
+sugtk_spectrum_add_action_to_menu(
+    SuGtkSpectrum *spect,
+    GtkMenuShell *target,
+    const gchar *label,
+    SuGtkSpectrumMenuActionCallback action,
+    gpointer data)
+{
+  SuGtkSpectrumMenuContext *ctx;
+  GtkWidget *actionItem;
+
+  if ((ctx = sugtk_spectrum_assert_context(spect, action, data)) == NULL)
+    return FALSE;
 
   actionItem = gtk_menu_item_new_with_label(label);
 
-  gtk_menu_shell_append(GTK_MENU_SHELL(spect->channelMenu), actionItem);
+  gtk_menu_shell_append(target, actionItem);
 
   g_signal_connect(
       actionItem,
@@ -1183,6 +1211,29 @@ sugtk_spectrum_add_menu_action(
       ctx);
 
   return TRUE;
+}
+
+gboolean
+sugtk_spectrum_add_menu_action(
+    SuGtkSpectrum *spect,
+    const gchar *label,
+    SuGtkSpectrumMenuActionCallback action,
+    gpointer data)
+{
+  return sugtk_spectrum_add_action_to_menu(
+      spect,
+      GTK_MENU_SHELL(spect->channelMenu),
+      label,
+      action,
+      data);
+}
+
+void
+sugtk_spectrum_set_palette(
+    SuGtkSpectrum *spect,
+    const suscan_gui_palette_t *palette)
+{
+  spect->gradient = suscan_gui_palette_get_gradient(palette);
 }
 
 /****************************** Event handling *******************************/
@@ -1601,6 +1652,8 @@ sugtk_spectrum_new(void)
   SuGtkSpectrum *spect;
 
   spect = SUGTK_SPECTRUM(g_object_new(SUGTK_TYPE_SPECTRUM, NULL));
+
+  spect->gradient = &wf_gradient;
 
   spect->channelMenu = GTK_MENU(gtk_menu_new());
   spect->channelHeaderMenuItem =

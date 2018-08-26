@@ -48,9 +48,11 @@ suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
   SUSCOUNT samps;
   SUSDIFF  nsecs;
   SUSDIFF  avail;
+  SUBOOL  retry;
 
   if (h > 0) {
     do {
+      retry = SU_FALSE;
       clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
 
       timespecsub(&tn, &throttle->t0, &sub);
@@ -79,7 +81,8 @@ suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
         sleep_time.tv_nsec = nsecs % 1000000000;
 
         (void) nanosleep(&sleep_time, NULL);
-        continue;
+
+        retry = SU_TRUE;
       } else {
         /* Check to avoid slow readers to overflow the available counter */
         if (avail > SUSCAN_THROTTLE_RESET_THRESHOLD) {
@@ -89,7 +92,7 @@ suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
 
         h = MIN(avail, h);
       }
-    } while (SU_FALSE);
+    } while (retry);
   }
 
   return h;

@@ -23,6 +23,7 @@
 #define SU_LOG_DOMAIN "gui-init"
 
 #include "gui.h"
+#include <locale.h>
 
 #define suscan_gui_splash_INITIALIZER { \
   NULL, /* builder */ \
@@ -157,6 +158,9 @@ suscan_graphical_init(int argc, char **argv)
   SUBOOL ok = SU_FALSE;
 
   gtk_init(&argc, &argv);
+
+  /* This is SO broken. Seriously, wtf */
+  setlocale(LC_NUMERIC, "C");
 
   /* Create builder */
   SU_TRYCATCH(

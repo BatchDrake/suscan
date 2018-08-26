@@ -21,12 +21,13 @@
 #ifndef _GUI_SPECTRUM_H
 #define _GUI_SPECTRUM_H
 
+#include <palettes.h>
 #include "sugtk.h"
 #include <sigutils/softtune.h>
 
 G_BEGIN_DECLS
 
-#define SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS 40 /* 25 fps */
+#define SUGTK_SPECTRUM_MIN_REDRAW_INTERVAL_MS 50 /* 25 fps */
 #define SUGTK_TYPE_SPECTRUM            (sugtk_spectrum_get_type ())
 #define SUGTK_SPECTRUM(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), SUGTK_TYPE_SPECTRUM, SuGtkSpectrum))
 #define SUGTK_SPECTRUM_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST  ((klass), SUGTK_TYPE_SPECTRUM, SuGtkSpectrumClass))
@@ -130,6 +131,8 @@ struct _SuGtkSpectrum
   gsufloat s_wf_ratio;
   gsufloat w_top;
 
+  const suscan_gradient_t *gradient;
+
   /* Surfaces */
   cairo_surface_t *sf_spectrum; /* This is actually the main surface */
   cairo_surface_t *sf_wf[2]; /* Used for keeping the waterfall history */
@@ -206,6 +209,16 @@ void sugtk_spectrum_update_channels(
     struct sigutils_channel **channel_list,
     unsigned int channel_count);
 
+GtkMenu *sugtk_spectrum_get_channel_menu(const SuGtkSpectrum *spect);
+
+gboolean
+sugtk_spectrum_add_action_to_menu(
+    SuGtkSpectrum *spect,
+    GtkMenuShell *target,
+    const gchar *label,
+    SuGtkSpectrumMenuActionCallback action,
+    gpointer data);
+
 gboolean sugtk_spectrum_add_menu_action(
     SuGtkSpectrum *spect,
     const gchar *label,
@@ -251,6 +264,10 @@ SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, fg_color);
 SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, bg_color);
 SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, text_color);
 SUGTK_SPECTRUM_GETTER_PROTO(GdkRGBA, axes_color);
+
+void sugtk_spectrum_set_palette(
+    SuGtkSpectrum *spect,
+    const suscan_gui_palette_t *palette);
 
 G_END_DECLS
 

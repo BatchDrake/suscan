@@ -44,6 +44,7 @@ struct suscan_config_context {
 
 typedef struct suscan_config_context suscan_config_context_t;
 
+suscan_config_context_t *suscan_config_context_lookup(const char *name);
 suscan_config_context_t *suscan_config_context_assert(const char *name);
 
 SUBOOL suscan_config_context_add_path(
@@ -53,6 +54,10 @@ SUBOOL suscan_config_context_add_path(
 void suscan_config_context_flush(suscan_config_context_t *context);
 
 SUBOOL suscan_config_context_put(
+    suscan_config_context_t *context,
+    suscan_object_t *obj);
+
+SUBOOL suscan_config_context_remove(
     suscan_config_context_t *context,
     suscan_object_t *obj);
 

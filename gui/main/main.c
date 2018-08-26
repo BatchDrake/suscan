@@ -34,6 +34,13 @@ suscan_gui_destroy(suscan_gui_t *gui)
 
   suscan_gui_clear_profile_menu(gui);
 
+  for (i = 0; i < gui->palette_count; ++i)
+    if (gui->palette_list[i] != NULL)
+      suscan_gui_palette_destroy(gui->palette_list[i]);
+
+  if (gui->palette_list != NULL)
+    free(gui->palette_list);
+
   for (i = 0; i < gui->action_count; ++i)
     if (gui->action_list[i] != NULL)
       free(gui->action_list[i]);
@@ -230,11 +237,11 @@ suscan_gui_new(void)
   SU_TRYCATCH(gui = calloc(1, sizeof(suscan_gui_t)), goto fail);
 
   SU_TRYCATCH(
-      gui->g_settings = g_settings_new(SUSCAN_GUI_SETTINGS_ID),
+      gui->gtkui_ctx = suscan_config_context_assert("gtkui"),
       goto fail);
 
   SU_TRYCATCH(
-      gui->settings_ctx = suscan_config_context_assert("gtkui"),
+      gui->demod_ctx = suscan_config_context_assert("demod"),
       goto fail);
 
   SU_TRYCATCH(
@@ -247,12 +254,17 @@ suscan_gui_new(void)
 
   sugtk_lcd_set_value_cb(gui->freqLcd, suscan_gui_on_set_frequency, gui);
 
+  /* Load source profiles */
   SU_TRYCATCH(suscan_gui_load_profiles(gui), goto fail);
+
+  /* Load palettes */
+  SU_TRYCATCH(suscan_gui_load_palettes(gui), goto fail);
+  SU_TRYCATCH(
+      suscan_gui_populate_pal_box(gui, gui->waterfallPalBox),
+      goto fail);
 
   /* All done. Load settings and apply them */
   SU_TRYCATCH(suscan_gui_load_settings(gui), goto fail);
-
-  suscan_gui_apply_settings(gui);
 
   suscan_gui_update_state(gui, SUSCAN_GUI_STATE_STOPPED);
 

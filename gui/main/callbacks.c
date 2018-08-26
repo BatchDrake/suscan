@@ -43,7 +43,6 @@ suscan_on_about(GtkWidget *widget, gpointer data)
   gtk_widget_hide(GTK_WIDGET(gui->aboutDialog));
 }
 
-
 void
 suscan_on_settings(GtkWidget *widget, gpointer data)
 {
@@ -104,6 +103,16 @@ suscan_on_activate_color_settings(GtkListBoxRow *row, gpointer data)
   gtk_stack_set_visible_child(
         gui->settingsViewStack,
         GTK_WIDGET(gui->colorsFrame));
+}
+
+void
+suscan_on_activate_demodulator_settings(GtkListBoxRow *row, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  gtk_stack_set_visible_child(
+        gui->settingsViewStack,
+        GTK_WIDGET(gui->demodulatorsFrame));
 }
 
 void
@@ -279,4 +288,100 @@ suscan_gui_on_add_profile(GtkWidget *widget, gpointer data)
       }
     }
   } while (name != NULL);
+}
+
+void
+suscan_gui_on_demod_properties(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gpointer ptr;
+  GtkTreeIter iter;
+  GtkTreeSelection *sel;
+
+  sel = gtk_tree_view_get_selection(gui->demodListTreeView);
+  if (gtk_tree_selection_get_selected(sel, NULL, &iter)) {
+    gtk_tree_model_get(
+        GTK_TREE_MODEL(gui->demodulatorsListStore),
+        &iter,
+        3,
+        &ptr,
+        -1);
+    (void) suscan_gui_show_demod_properties(gui, (suscan_object_t *) ptr);
+  }
+}
+
+void
+suscan_gui_on_demod_remove(GtkWidget *widget, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gpointer ptr;
+  GtkTreeIter iter;
+  GtkTreeSelection *sel;
+  const char *name;
+
+  sel = gtk_tree_view_get_selection(gui->demodListTreeView);
+  if (gtk_tree_selection_get_selected(sel, NULL, &iter)) {
+    gtk_tree_model_get(
+        GTK_TREE_MODEL(gui->demodulatorsListStore),
+        &iter,
+        3,
+        &ptr,
+        -1);
+
+    if ((name = suscan_object_get_field_value(
+        (suscan_object_t *) ptr,
+        "label")) == NULL)
+      name = "<no name>";
+
+    if (suscan_gui_yes_or_no(
+        gui,
+        "Remove profile",
+        "Delete profile `%s'? This operation cannot be undone.",
+        name))
+      (void) suscan_gui_demod_remove(gui, (suscan_object_t *) ptr);
+  }
+}
+
+void
+suscan_gui_on_demod_selection_changed(GtkTreeSelection *sel, gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gboolean sensitive;
+
+  sensitive = gtk_tree_selection_get_selected(sel, NULL, NULL);
+
+  gtk_widget_set_sensitive(GTK_WIDGET(gui->demodPropertiesButton), sensitive);
+  gtk_widget_set_sensitive(GTK_WIDGET(gui->demodRemoveButton), sensitive);
+}
+
+void
+suscan_gui_select_demod_on_changed(
+    GtkTreeSelection *sel,
+    gpointer data)
+{
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+  gpointer ptr;
+  GtkTreeIter iter;
+
+  if (gtk_tree_selection_get_selected(sel, NULL, &iter)) {
+    gtk_tree_model_get(
+        GTK_TREE_MODEL(gui->demodulatorsListStore),
+        &iter,
+        3,
+        &ptr,
+        -1);
+    gui->selected_demod = (suscan_object_t *) ptr;
+  } else {
+    gui->selected_demod = NULL;
+  }
+}
+
+void
+suscan_gui_on_palette_changed(GtkWidget *widget, gpointer data)
+{
+  const suscan_gui_palette_t *palette;
+  suscan_gui_t *gui = (suscan_gui_t *) data;
+
+  if ((palette = sugtk_pal_box_get_palette(gui->waterfallPalBox)) != NULL)
+    sugtk_spectrum_set_palette(gui->spectrum, palette);
 }

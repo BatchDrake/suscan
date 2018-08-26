@@ -51,6 +51,8 @@ suscan_gui_start(
   SU_TRYCATCH(suscan_graphical_init(argc, argv), goto fail);
 
   SU_TRYCATCH(suscan_confdb_use("gtkui"), goto fail);
+  SU_TRYCATCH(suscan_confdb_use("demod"), goto fail);
+  SU_TRYCATCH(suscan_confdb_use("palettes"), goto fail);
 
   SU_TRYCATCH(suscan_gui_helper_preload(), goto fail);
 

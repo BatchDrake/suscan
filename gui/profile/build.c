@@ -172,5 +172,12 @@ suscan_gui_profile_load_all_widgets(suscan_gui_profile_t *profile)
               "frGains")),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+      profile->gainsViewport =
+          GTK_VIEWPORT(gtk_builder_get_object(
+              profile->builder,
+              "vpGains")),
+      return SU_FALSE);
+
   return SU_TRUE;
 }
