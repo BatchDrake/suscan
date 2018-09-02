@@ -76,6 +76,8 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
     source_name = suscan_source_config_get_label(config);
   }
 
+  gui->updating_state = SU_TRUE;
+
   switch (state) {
     case SUSCAN_GUI_STATE_STOPPED:
       subtitle = "Stopped";
@@ -139,6 +141,8 @@ suscan_gui_update_state(suscan_gui_t *gui, enum suscan_gui_state state)
       suscan_gui_detach_all_inspectors(gui);
       break;
   }
+
+  gui->updating_state = SU_FALSE;
 
   gui->state = state;
 

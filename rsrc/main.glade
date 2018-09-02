@@ -760,7 +760,7 @@
                             <property name="can_focus">False</property>
                             <property name="use_underline">True</property>
                             <property name="icon_widget">image1</property>
-                            <signal name="clicked" handler="suscan_on_toggle_connect" swapped="no"/>
+                            <signal name="clicked" handler="suscan_on_toggle_connect" after="yes" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">False</property>

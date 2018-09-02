@@ -128,23 +128,25 @@ suscan_on_toggle_connect(GtkWidget *widget, gpointer data)
 {
   suscan_gui_t *gui = (suscan_gui_t *) data;
 
-  switch (gui->state) {
-    case SUSCAN_GUI_STATE_STOPPED:
-      if (!suscan_gui_connect(gui)) {
-        suscan_error(
-            gui,
-            "Connect to source",
-            "Failed to start source. Please verify source parameters and"
-            "see log messages for details");
-      }
-      break;
+  if (!gui->updating_state) {
+    switch (gui->state) {
+      case SUSCAN_GUI_STATE_STOPPED:
+        if (!suscan_gui_connect(gui)) {
+          suscan_error(
+              gui,
+              "Connect to source",
+              "Failed to start source. Please verify source parameters and"
+              "see log messages for details");
+        }
+        break;
 
-    case SUSCAN_GUI_STATE_RUNNING:
-      suscan_gui_disconnect(gui);
-      break;
+      case SUSCAN_GUI_STATE_RUNNING:
+        suscan_gui_disconnect(gui);
+        break;
 
-    default:
-      suscan_error(gui, "Error", "Impossiburu!");
+      default:
+        suscan_error(gui, "Error", "Impossiburu!");
+    }
   }
 }
 
