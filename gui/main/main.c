@@ -133,7 +133,7 @@ suscan_gui_connect(suscan_gui_t *gui)
       &gui->analyzer_params,
       config,
       &gui->mq_out)) == NULL)
-    return SU_FALSE;
+    goto fail;
 
 
   /* Change state. This counts as running because analyzer exists */

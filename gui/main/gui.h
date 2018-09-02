@@ -233,8 +233,9 @@ struct suscan_gui {
   /* Waterfall palettes */
   PTR_LIST(suscan_gui_palette_t, palette);
 
-  /* Flag to prevent nested callback calling */
+  /* Flags to prevent nested callback calling */
   SUBOOL updating_settings;
+  SUBOOL updating_state;
 };
 
 typedef struct suscan_gui suscan_gui_t;
