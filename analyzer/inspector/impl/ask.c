@@ -346,6 +346,8 @@ suscan_ask_inspector_feed(
   SUBOOL new_sample = SU_FALSE;
   SUCOMPLEX samp_phase_samples;
   SUCOMPLEX last = 0;
+  unsigned int counts = 0;
+  struct timeval tv, otv, sub;
 
   struct suscan_ask_inspector *ask_insp =
       (struct suscan_ask_inspector *) private;
@@ -414,7 +416,6 @@ suscan_ask_inspector_feed(
 
     /* Apply channel equalizer, if enabled */
     if (new_sample) {
-
       /* Reduce amplitude so it fits in the constellation window */
       suscan_inspector_push_sample(insp, output * .75);
       new_sample = SU_FALSE;
@@ -456,11 +457,18 @@ suscan_ask_inspector_register(void)
   SU_TRYCATCH(suscan_config_desc_add_mf_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_br_params(iface.cfgdesc), return SU_FALSE);
 
-  /* No estimators yet */
+  /* Add estimator */
+  SU_TRYCATCH(
+      suscan_inspector_interface_add_estimator(&iface, "baud-nonlinear"),
+      return SU_FALSE);
 
   /* Add applicable spectrum sources */
   SU_TRYCATCH(
       suscan_inspector_interface_add_spectsrc(&iface, "psd"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_inspector_interface_add_spectsrc(&iface, "cyclo"),
       return SU_FALSE);
 
   /* Register inspector interface */
