@@ -57,6 +57,7 @@ struct suscan_gui_inspector {
   suscan_config_t *config;
   unsigned int baudrate;
   su_decider_t decider;
+  SUBOOL amplitude_decider; /* Decision is based on absolute value */
   struct sigutils_decider_params decider_params;
 
   /* GTK Builder */

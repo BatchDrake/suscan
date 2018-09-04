@@ -63,6 +63,7 @@ libgui_la_SOURCES = \
   main/wfpals.c \
   modemctls/afc.c \
   modemctls/agc.c \
+  modemctls/ask.c \
   modemctls/clock.c \
   modemctls/equalizer.c \
   modemctls/fsk.c \

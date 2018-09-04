@@ -112,12 +112,13 @@ suscan_gui_inspector_set_bits(suscan_gui_inspector_t *insp, unsigned int bpp)
 SUSYMBOL
 suscan_gui_inspector_decide(
     const suscan_gui_inspector_t *inspector,
-    SUCOMPLEX sample)
+    SUFLOAT sample)
 {
-  if (suscan_gui_inspector_get_bits(inspector) > 0)
-    return SU_TOSYM(su_decider_decide(&inspector->decider, SU_C_ARG(sample)));
-  else
+  if (suscan_gui_inspector_get_bits(inspector) > 0) {
+    return SU_TOSYM(su_decider_decide(&inspector->decider, sample));
+  } else {
     return SU_NOSYMBOL;
+  }
 }
 
 void
@@ -178,6 +179,7 @@ suscan_gui_inspector_feed_w_batch(
   SUBITS *decbuf;
   SUSYMBOL sym;
   SUBITS bits;
+  SUFLOAT sample;
   SUBOOL clogged_up = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
@@ -205,7 +207,12 @@ suscan_gui_inspector_feed_w_batch(
     sugtk_trans_mtx_reset(insp->transMatrix);
 
   for (i = 0; i < full_samp_count; ++i)
-    if ((sym = suscan_gui_inspector_decide(insp, msg->samples[i]))
+    if (insp->amplitude_decider)
+      sample = SU_C_ABS(msg->samples[i]);
+    else
+      sample = SU_C_ARG(msg->samples[i]);
+
+    if ((sym = suscan_gui_inspector_decide(insp, sample))
         != SU_NOSYMBOL) {
       bits = SU_FROMSYM(sym);
 
@@ -224,8 +231,8 @@ suscan_gui_inspector_feed_w_batch(
       /* Feed transition matrix and phase plot */
       if (!clogged_up) {
         sugtk_trans_mtx_push(insp->transMatrix, bits);
-        sugtk_waveform_push(insp->phasePlot, SU_C_ARG(msg->samples[i]) / PI);
-        sugtk_histogram_push(insp->histogram, SU_C_ARG(msg->samples[i]));
+        sugtk_waveform_push(insp->phasePlot, sample / PI);
+        sugtk_histogram_push(insp->histogram, sample);
       }
     }
 
@@ -912,6 +919,10 @@ suscan_gui_inspector_on_config_changed(suscan_gui_inspector_t *insp)
       insp->config,
       "fsk.bits-per-symbol")) != NULL)
     suscan_gui_inspector_set_bits(insp, value->as_int);
+  else if ((value = suscan_config_get_value(
+      insp->config,
+      "ask.bits-per-symbol")) != NULL)
+    suscan_gui_inspector_set_bits(insp, value->as_int);
   else
     suscan_gui_inspector_set_bits(insp, 1);
 
@@ -1029,6 +1040,10 @@ suscan_gui_inspector_new(
   SU_TRYCATCH(suscan_gui_symsrc_init(&new->_parent, NULL), goto fail);
 
   SU_TRYCATCH(new->class = strdup(class), goto fail);
+
+  /* ASK decision is slightly different */
+  if (suscan_config_get_value(config, "amplitude-decision") != NULL)
+    new->amplitude_decider = SU_TRUE;
 
   new->channel = *channel;
   new->index = -1;
