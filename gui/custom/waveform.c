@@ -190,24 +190,27 @@ sugtk_waveform_on_configure_event(
 {
   SuGtkWaveForm *waveform = SUGTK_WAVEFORM(widget);
 
-  waveform->width  = event->width;
-  waveform->height = event->height;
 
-  if (waveform->sf_waveform != NULL)
-    cairo_surface_destroy(waveform->sf_waveform);
+  if (GDK_IS_WINDOW(gtk_widget_get_window(widget))) {
+    waveform->width  = event->width;
+    waveform->height = event->height;
 
-  waveform->sf_waveform = gdk_window_create_similar_surface(
-      gtk_widget_get_window(widget),
-      CAIRO_CONTENT_COLOR,
-      waveform->width,
-      waveform->height);
+    if (waveform->sf_waveform != NULL)
+      cairo_surface_destroy(waveform->sf_waveform);
 
-  waveform->last_redraw_time.tv_sec  = 0;
-  waveform->last_redraw_time.tv_usec = 0;
-  waveform->last_drawn = 0;
-  waveform->count = SUGTK_WAVEFORM_DRAW_THRESHOLD;
+    waveform->sf_waveform = gdk_window_create_similar_surface(
+        gtk_widget_get_window(widget),
+        CAIRO_CONTENT_COLOR,
+        waveform->width,
+        waveform->height);
 
-  sugtk_waveform_commit(waveform);
+    waveform->last_redraw_time.tv_sec  = 0;
+    waveform->last_redraw_time.tv_usec = 0;
+    waveform->last_drawn = 0;
+    waveform->count = SUGTK_WAVEFORM_DRAW_THRESHOLD;
+
+    sugtk_waveform_commit(waveform);
+  }
 
   return TRUE;
 }

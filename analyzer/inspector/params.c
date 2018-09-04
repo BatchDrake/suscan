@@ -608,3 +608,142 @@ suscan_inspector_fsk_params_save(
   return SU_TRUE;
 
 }
+
+/****************************** ASK config ***********************************/
+SUBOOL
+suscan_config_desc_add_ask_params(suscan_config_desc_t *desc)
+{
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "amplitude-decision",
+          "Bits per ASK level"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "ask.bits-per-symbol",
+          "Bits per ASK level"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "ask.use-pll",
+          "Center carrier using PLL"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "ask.offset",
+          "Local oscilator frequency"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "ask.loop-bw",
+          "PLL cutoff frequency"),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_ask_params_parse(
+    struct suscan_inspector_ask_params *params,
+    const suscan_config_t *config)
+{
+  struct suscan_field_value *value;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "ask.bits-per-symbol"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->bits_per_level = value->as_int;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "ask.use-pll"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_BOOLEAN, return SU_FALSE);
+
+  params->uses_pll = value->as_bool;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "ask.offset"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->offset = value->as_float;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "ask.loop-bw"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->cutoff = value->as_float;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_ask_params_save(
+    const struct suscan_inspector_ask_params *params,
+    suscan_config_t *config)
+{
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "ask.bits-per-symbol",
+          params->bits_per_level),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_bool(
+          config,
+          "ask.use-pll",
+          params->uses_pll),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "ask.loop-bw",
+          params->cutoff),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "ask.offset",
+          params->offset),
+      return SU_FALSE);
+
+  return SU_TRUE;
+
+}

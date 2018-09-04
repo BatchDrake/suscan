@@ -140,6 +140,7 @@ SUSDIFF suscan_inspector_feed_bulk(
 SUBOOL suscan_init_inspectors(void);
 
 /* Builtin inspectors */
+SUBOOL suscan_ask_inspector_register(void);
 SUBOOL suscan_fsk_inspector_register(void);
 SUBOOL suscan_psk_inspector_register(void);
 

@@ -302,24 +302,26 @@ sugtk_histogram_on_configure_event(
 {
   SuGtkHistogram *histogram = SUGTK_HISTOGRAM(widget);
 
-  histogram->width  = event->width;
-  histogram->height = event->height;
+  if (GDK_IS_WINDOW(gtk_widget_get_window(widget))) {
+    histogram->width  = event->width;
+    histogram->height = event->height;
 
-  if (histogram->sf_histogram != NULL)
-    cairo_surface_destroy(histogram->sf_histogram);
+    if (histogram->sf_histogram != NULL)
+      cairo_surface_destroy(histogram->sf_histogram);
 
-  histogram->sf_histogram = gdk_window_create_similar_surface(
-      gtk_widget_get_window(widget),
-      CAIRO_CONTENT_COLOR,
-      histogram->width,
-      histogram->height);
+    histogram->sf_histogram = gdk_window_create_similar_surface(
+        gtk_widget_get_window(widget),
+        CAIRO_CONTENT_COLOR,
+        histogram->width,
+        histogram->height);
 
-  histogram->last_redraw_time.tv_sec  = 0;
-  histogram->last_redraw_time.tv_usec = 0;
-  histogram->last_drawn = 0;
-  histogram->count = SUGTK_HISTOGRAM_DRAW_THRESHOLD;
+    histogram->last_redraw_time.tv_sec  = 0;
+    histogram->last_redraw_time.tv_usec = 0;
+    histogram->last_drawn = 0;
+    histogram->count = SUGTK_HISTOGRAM_DRAW_THRESHOLD;
 
-  sugtk_histogram_commit(histogram);
+    sugtk_histogram_commit(histogram);
+  }
 
   return TRUE;
 }

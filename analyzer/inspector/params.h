@@ -142,5 +142,20 @@ SUBOOL suscan_inspector_fsk_params_save(
     const struct suscan_inspector_fsk_params *params,
     suscan_config_t *config);
 
+/****************************** ASK config ***********************************/
+struct suscan_inspector_ask_params {
+  unsigned int bits_per_level;
+  SUBOOL  uses_pll;
+  SUFLOAT cutoff;
+  SUFLOAT offset;
+};
+
+SUBOOL suscan_config_desc_add_ask_params(suscan_config_desc_t *desc);
+SUBOOL suscan_inspector_ask_params_parse(
+    struct suscan_inspector_ask_params *params,
+    const suscan_config_t *config);
+SUBOOL suscan_inspector_ask_params_save(
+    const struct suscan_inspector_ask_params *params,
+    suscan_config_t *config);
 
 #endif /* _INSPECTOR_PARAMS_H */

@@ -162,6 +162,10 @@ sugtk_spectrum_reconfigure_surfaces(SuGtkSpectrum *spect)
   gsufloat old_g_width;
   gsufloat ratio;
 
+  /* No window available, nothing to reconfigure */
+  if (!GDK_IS_WINDOW(gtk_widget_get_window(widget)))
+    return;
+
   /* Update geometry parameters */
   old_g_width = spect->g_width;
 
