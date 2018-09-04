@@ -290,19 +290,21 @@ sugtk_trans_mtx_on_configure_event(
 {
   SuGtkTransMtx *mtx = SUGTK_TRANS_MTX(widget);
 
-  mtx->width  = event->width;
-  mtx->height = event->height;
+  if (GDK_IS_WINDOW(gtk_widget_get_window(widget))) {
+    mtx->width  = event->width;
+    mtx->height = event->height;
 
-  if (mtx->surface != NULL)
-    cairo_surface_destroy(mtx->surface);
+    if (mtx->surface != NULL)
+      cairo_surface_destroy(mtx->surface);
 
-  mtx->surface = gdk_window_create_similar_surface(
-      gtk_widget_get_window(widget),
-      CAIRO_CONTENT_COLOR,
-      event->width,
-      event->height);
+    mtx->surface = gdk_window_create_similar_surface(
+        gtk_widget_get_window(widget),
+        CAIRO_CONTENT_COLOR,
+        event->width,
+        event->height);
 
-  sugtk_trans_mtx_refresh_hard(mtx);
+    sugtk_trans_mtx_refresh_hard(mtx);
+  }
 
   return TRUE;
 }

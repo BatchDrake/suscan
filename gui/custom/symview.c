@@ -562,19 +562,21 @@ sugtk_sym_view_on_configure_event(
 {
   SuGtkSymView *view = SUGTK_SYM_VIEW(widget);
 
-  if (view->surface != NULL)
-    cairo_surface_destroy(view->surface);
+  if (GDK_IS_WINDOW(gtk_widget_get_window(widget))) {
+    if (view->surface != NULL)
+      cairo_surface_destroy(view->surface);
 
-  view->surface = gdk_window_create_similar_surface(
-      gtk_widget_get_window(widget),
-      CAIRO_CONTENT_COLOR,
-      event->width,
-      event->height);
+    view->surface = gdk_window_create_similar_surface(
+        gtk_widget_get_window(widget),
+        CAIRO_CONTENT_COLOR,
+        event->width,
+        event->height);
 
-  if (view->autofit)
-    sugtk_sym_view_set_width(view, event->width / view->window_zoom);
+    if (view->autofit)
+      sugtk_sym_view_set_width(view, event->width / view->window_zoom);
 
-  sugtk_sym_view_refresh_hard(view);
+    sugtk_sym_view_refresh_hard(view);
+  }
 
   return TRUE;
 }

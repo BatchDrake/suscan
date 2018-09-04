@@ -186,6 +186,10 @@ sugtk_lcd_update_glyphs(SuGtkLcd *lcd)
   guint glyph_width  = lcd->glyph_width;
   guint glyph_height = lcd->glyph_height;
 
+  /* No window available, nothing to update */
+  if (!GDK_IS_WINDOW(gtk_widget_get_window(GTK_WIDGET(lcd))))
+    return;
+
   lcd->curr_thickness = glyph_width * lcd->thickness;
   lcd->curr_length = (1 - 2 * lcd->padding) * glyph_width;
 
@@ -301,6 +305,10 @@ sugtk_lcd_set_value(SuGtkLcd *lcd, gulong value)
 static void
 sugtk_lcd_recreate_surfaces(SuGtkLcd *lcd)
 {
+  /* No window available, nothing to reconfigure */
+  if (!GDK_IS_WINDOW(gtk_widget_get_window(GTK_WIDGET(lcd))))
+    return;
+
   if (lcd->sf_display != NULL)
     cairo_surface_destroy(lcd->sf_display);
 

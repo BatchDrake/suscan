@@ -183,24 +183,26 @@ sugtk_constellation_on_configure_event(
 {
   SuGtkConstellation *constellation = SUGTK_CONSTELLATION(widget);
 
-  constellation->width  = event->width;
-  constellation->height = event->height;
+  if (GDK_IS_WINDOW(gtk_widget_get_window(widget))) {
+    constellation->width  = event->width;
+    constellation->height = event->height;
 
-  if (constellation->sf_constellation != NULL)
-    cairo_surface_destroy(constellation->sf_constellation);
+    if (constellation->sf_constellation != NULL)
+      cairo_surface_destroy(constellation->sf_constellation);
 
-  constellation->sf_constellation = gdk_window_create_similar_surface(
-      gtk_widget_get_window(widget),
-      CAIRO_CONTENT_COLOR,
-      constellation->width,
-      constellation->height);
+    constellation->sf_constellation = gdk_window_create_similar_surface(
+        gtk_widget_get_window(widget),
+        CAIRO_CONTENT_COLOR,
+        constellation->width,
+        constellation->height);
 
-  constellation->last_redraw_time.tv_sec  = 0;
-  constellation->last_redraw_time.tv_usec = 0;
-  constellation->last_drawn = 0;
-  constellation->count = SUGTK_CONSTELLATION_DRAW_THRESHOLD;
+    constellation->last_redraw_time.tv_sec  = 0;
+    constellation->last_redraw_time.tv_usec = 0;
+    constellation->last_drawn = 0;
+    constellation->count = SUGTK_CONSTELLATION_DRAW_THRESHOLD;
 
-  sugtk_constellation_commit(constellation);
+    sugtk_constellation_commit(constellation);
+  }
 
   return TRUE;
 }
