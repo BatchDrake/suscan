@@ -206,7 +206,7 @@ suscan_gui_inspector_feed_w_batch(
   if (!clogged_up)
     sugtk_trans_mtx_reset(insp->transMatrix);
 
-  for (i = 0; i < full_samp_count; ++i)
+  for (i = 0; i < full_samp_count; ++i) {
     if (insp->amplitude_decider)
       sample = SU_C_ABS(msg->samples[i]);
     else
@@ -235,6 +235,7 @@ suscan_gui_inspector_feed_w_batch(
         sugtk_histogram_push(insp->histogram, sample);
       }
     }
+  }
 
   /* Transition matrix has been fed. Update */
   if (full_samp_count > 0 && !clogged_up) {
