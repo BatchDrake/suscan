@@ -45,8 +45,8 @@ struct suscan_analyzer_params {
 
 #define suscan_analyzer_params_INITIALIZER {                                \
   sigutils_channel_detector_params_INITIALIZER, /* detector_params */       \
-  .1,                                           /* channel_update_int */    \
-  .04                                           /* psd_update_int */        \
+  SU_ADDSFX(.1),                                /* channel_update_int */    \
+  SU_ADDSFX(.04)                                /* psd_update_int */        \
 }
 
 struct suscan_analyzer {
