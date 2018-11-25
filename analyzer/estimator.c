@@ -67,9 +67,9 @@ suscan_estimator_new(const struct suscan_estimator_class *class, SUSCOUNT fs)
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_estimator_t)), goto fail);
 
-  new->class = class;
+  new->classptr = class;
 
-  SU_TRYCATCH(new->private = (class->ctor) (fs), goto fail);
+  SU_TRYCATCH(new->privdata = (class->ctor) (fs), goto fail);
 
   return new;
 
@@ -86,20 +86,20 @@ suscan_estimator_feed(
     const SUCOMPLEX *samples,
     SUSCOUNT size)
 {
-  return (estimator->class->feed) (estimator->private, samples, size);
+  return (estimator->classptr->feed) (estimator->privdata, samples, size);
 }
 
 SUBOOL
 suscan_estimator_read(const suscan_estimator_t *estimator, SUFLOAT *out)
 {
-  return (estimator->class->read) (estimator->private, out);
+  return (estimator->classptr->read) (estimator->privdata, out);
 }
 
 void
 suscan_estimator_destroy(suscan_estimator_t *estimator)
 {
   if (estimator != NULL)
-    (estimator->class->dtor) (estimator->private);
+    (estimator->classptr->dtor) (estimator->privdata);
 
   free(estimator);
 }

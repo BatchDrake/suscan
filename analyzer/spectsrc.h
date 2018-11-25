@@ -21,6 +21,10 @@
 #ifndef _SPECTSRC_H
 #define _SPECTSRC_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
 
@@ -34,28 +38,28 @@ struct suscan_spectsrc_class {
 
   SUBOOL (*preproc)  (
       struct suscan_spectsrc *src,
-      void *private,
+      void *privdata,
       SUCOMPLEX *buffer,
       SUSCOUNT size);
 
   SUBOOL (*postproc) (
       struct suscan_spectsrc *src,
-      void *private,
+      void *privdata,
       SUCOMPLEX *buffer,
       SUSCOUNT size);
 
-  void (*dtor) (void *private);
+  void (*dtor) (void *privdata);
 };
 
 const struct suscan_spectsrc_class *suscan_spectsrc_class_lookup(
     const char *name);
 
 SUBOOL suscan_spectsrc_class_register(
-    const struct suscan_spectsrc_class *class);
+    const struct suscan_spectsrc_class *classdef);
 
 struct suscan_spectsrc {
-  const struct suscan_spectsrc_class *class;
-  void *private;
+  const struct suscan_spectsrc_class *classptr;
+  void *privdata;
 
   enum sigutils_channel_detector_window window_type;
   SUFLOAT           *output_buf;
@@ -72,7 +76,7 @@ struct suscan_spectsrc {
 typedef struct suscan_spectsrc suscan_spectsrc_t;
 
 suscan_spectsrc_t *suscan_spectsrc_new(
-    const struct suscan_spectsrc_class *class,
+    const struct suscan_spectsrc_class *classdef,
     SUSCOUNT size,
     enum sigutils_channel_detector_window window_type);
 
@@ -94,5 +98,9 @@ SUBOOL suscan_spectsrc_exp_4_register(void);
 SUBOOL suscan_spectsrc_exp_8_register(void);
 
 SUBOOL suscan_init_spectsrcs(void);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _SPECTSRC_H */

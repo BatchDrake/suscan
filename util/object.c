@@ -59,8 +59,8 @@ suscan_object_destroy(suscan_object_t *obj)
   if (obj->name != NULL)
     free(obj->name);
 
-  if (obj->class != NULL)
-    free(obj->class);
+  if (obj->class_name != NULL)
+    free(obj->class_name);
 
   free(obj);
 }
@@ -87,7 +87,7 @@ fail:
 const char *
 suscan_object_get_class(const suscan_object_t *object)
 {
-  return object->class;
+  return object->class_name;
 }
 
 SUBOOL
@@ -95,14 +95,14 @@ suscan_object_set_class(suscan_object_t *object, const char *class)
 {
   char *classdup = NULL;
 
-  if (object->class != class) {
+  if (object->class_name != class) {
     if (class != NULL)
       SU_TRYCATCH(classdup = strdup(class), return SU_FALSE);
 
-    if (object->class != NULL)
-      free(object->class);
+    if (object->class_name != NULL)
+      free(object->class_name);
 
-    object->class = classdup;
+    object->class_name = classdup;
   }
 
   return SU_TRUE;

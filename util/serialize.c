@@ -97,8 +97,8 @@ suscan_object_to_xml_internal(
   if (object->name != NULL)
     sosprintf(sos, " name=\"%s\"", object->name);
 
-  if (object->class != NULL)
-    sosprintf(sos, " class=\"%s\"", object->class);
+  if (object->class_name != NULL)
+    sosprintf(sos, " class=\"%s\"", object->class_name);
 
   /* Specific serializators */
   switch (object->type) {

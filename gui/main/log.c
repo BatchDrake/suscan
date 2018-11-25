@@ -179,7 +179,7 @@ suscan_gui_setup_logging(suscan_gui_t *gui)
   /* Log messages will be emitted from the same thread, always */
   config.exclusive = SU_FALSE;
   config.log_func = suscan_gui_log_func;
-  config.private = gui;
+  config.priv = gui;
 
   su_log_init(&config);
 }

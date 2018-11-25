@@ -59,7 +59,7 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
   if (insp->params_requested) {
     suscan_inspector_lock(insp);
 
-    (insp->iface->commit_config) (insp->private);
+    (insp->iface->commit_config) (insp->privdata);
 
     insp->params_requested = SU_FALSE;
 
@@ -74,8 +74,8 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
 
   pthread_mutex_destroy(&insp->mutex);
 
-  if (insp->private != NULL)
-    (insp->iface->close) (insp->private);
+  if (insp->privdata != NULL)
+    (insp->iface->close) (insp->privdata);
 
   for (i = 0; i < insp->estimator_count; ++i)
     suscan_estimator_destroy(insp->estimator_list[i]);
@@ -100,7 +100,7 @@ suscan_inspector_set_config(
   /* TODO: Protect? */
   insp->params_requested = SU_TRUE;
 
-  return (insp->iface->parse_config) (insp->private, config);
+  return (insp->iface->parse_config) (insp->privdata, config);
 }
 
 SUBOOL
@@ -108,7 +108,7 @@ suscan_inspector_get_config(
     const suscan_inspector_t *insp,
     suscan_config_t *config)
 {
-  return (insp->iface->get_config) (insp->private, config);
+  return (insp->iface->get_config) (insp->privdata, config);
 }
 
 SUPRIVATE SUBOOL
@@ -198,7 +198,7 @@ suscan_inspector_new(
 
   /* All set to call specific inspector */
   new->iface = iface;
-  SU_TRYCATCH(new->private = (iface->open) (&new->samp_info), goto fail);
+  SU_TRYCATCH(new->privdata = (iface->open) (&new->samp_info), goto fail);
 
   /* Creation successful! Add all estimators and spectrum sources */
   for (i = 0; i < iface->spectsrc_count; ++i)
@@ -228,7 +228,7 @@ suscan_inspector_feed_bulk(
 {
   insp->sampler_ptr = 0;
 
-  return (insp->iface->feed) (insp->private, insp, x, count);
+  return (insp->iface->feed) (insp->privdata, insp, x, count);
 }
 
 SUBOOL

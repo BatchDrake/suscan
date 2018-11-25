@@ -661,7 +661,7 @@ suscan_analyzer_open_channel(
     const struct sigutils_channel *chan_info,
     SUBOOL (*on_data) (
         const struct sigutils_specttuner_channel *channel,
-        void *private,
+        void *privdata,
         const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
         SUSCOUNT size),
         void *private)
@@ -686,7 +686,7 @@ suscan_analyzer_open_channel(
               chan_info->f_hi - chan_info->f_lo));
   params.guard = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
   params.on_data = on_data;
-  params.private = private;
+  params.privdata = private;
   params.precise = SU_FALSE;
 
   suscan_analyzer_enter_sched(analyzer);
@@ -749,7 +749,7 @@ suscan_analyzer_bind_inspector_to_channel(
    * this task to the channel, so it knows that to do when new data
    * arrives to it.
    */
-  channel->params.private = task_info;
+  channel->params.privdata = task_info;
 
   /* Now we can say that the inspector is actually running */
   insp->state = SUSCAN_ASYNC_STATE_RUNNING;

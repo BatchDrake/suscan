@@ -21,6 +21,10 @@
 #ifndef _ESTIMATOR_H
 #define _ESTIMATOR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <sigutils/sigutils.h>
 
 #define SUSCAN_DEFAULT_ESTIMATOR_BUFSIZ 1024
@@ -32,16 +36,16 @@ struct suscan_estimator_class {
 
   void * (*ctor) (SUSCOUNT fs);
 
-  SUBOOL (*feed) (void *private, const SUCOMPLEX *samples, SUSCOUNT size);
+  SUBOOL (*feed) (void *privdata, const SUCOMPLEX *samples, SUSCOUNT size);
 
-  SUBOOL (*read) (const void *private, SUFLOAT *out);
+  SUBOOL (*read) (const void *privdata, SUFLOAT *out);
 
-  void (*dtor) (void *private);
+  void (*dtor) (void *privdata);
 };
 
 struct suscan_estimator {
-  const struct suscan_estimator_class *class;
-  void *private;
+  const struct suscan_estimator_class *classptr;
+  void *privdata;
   SUBOOL enabled;
 };
 
@@ -63,10 +67,10 @@ suscan_estimator_set_enabled(suscan_estimator_t *estimator, SUBOOL state)
 }
 
 SUBOOL suscan_estimator_class_register(
-    const struct suscan_estimator_class *class);
+    const struct suscan_estimator_class *classdef);
 
 suscan_estimator_t *suscan_estimator_new(
-    const struct suscan_estimator_class *class,
+    const struct suscan_estimator_class *classdef,
     SUSCOUNT fs);
 
 SUBOOL suscan_estimator_feed(
@@ -85,5 +89,9 @@ SUBOOL suscan_estimator_fac_register(void);
 SUBOOL suscan_estimator_nonlinear_register(void);
 
 SUBOOL suscan_init_estimators(void);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _ANALYZER_ESTIMATOR_H */

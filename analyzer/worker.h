@@ -38,7 +38,7 @@ enum suscan_worker_state {
 struct suscan_worker {
   struct suscan_mq mq_in; /* Receive callbacks from here */
   struct suscan_mq *mq_out; /* Send callbacks to here */
-  void *private; /* Worker private data */
+  void *privdata; /* Worker private data */
   SUBOOL halt_req;
   enum suscan_worker_state state;
   pthread_t thread;
@@ -51,7 +51,7 @@ struct suscan_worker_callback {
       struct suscan_mq *mq_out,
       void *wk_private,
       void *cb_private);
-  void *private;
+  void *privdata;
 };
 
 /******************************* Worker API ***********************************/
@@ -61,13 +61,13 @@ SUBOOL suscan_worker_push(
         struct suscan_mq *mq_out,
         void *wk_private,
         void *cb_private),
-    void *private);
+    void *privdata);
 void suscan_worker_req_halt(suscan_worker_t *worker);
 SUBOOL suscan_worker_destroy(suscan_worker_t *worker);
 SUBOOL suscan_worker_halt(suscan_worker_t *worker);
 suscan_worker_t *suscan_worker_new(
     struct suscan_mq *mq_out,
-    void *private);
+    void *privdata);
 
 
 #endif /* _WORKER_H */

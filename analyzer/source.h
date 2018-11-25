@@ -21,6 +21,10 @@
 #ifndef _SOURCE_H
 #define _SOURCE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <sndfile.h>
 #include <sigutils/sigutils.h>
 #include <SoapySDR/Device.h>
@@ -85,8 +89,8 @@ SUBOOL suscan_source_device_walk(
     SUBOOL (*function) (
         const suscan_source_device_t *dev,
         unsigned int index,
-        void *private),
-    void *private);
+        void *privdata),
+    void *privdata);
 
 const suscan_source_device_t *suscan_source_device_get_by_index(
     unsigned int index);
@@ -145,8 +149,8 @@ struct suscan_source_config {
 typedef struct suscan_source_config suscan_source_config_t;
 
 SUBOOL suscan_source_config_walk(
-    SUBOOL (*function) (suscan_source_config_t *cfg, void *private),
-    void *private);
+    SUBOOL (*function) (suscan_source_config_t *cfg, void *privdata),
+    void *privdata);
 
 /* Serialization methods */
 suscan_object_t *suscan_source_config_to_object(
@@ -231,8 +235,8 @@ struct suscan_source_gain_value *suscan_source_config_lookup_gain(
 
 SUBOOL suscan_source_config_walk_gains(
     const suscan_source_config_t *config,
-    SUBOOL (*gain_cb) (void *private, const char *name, SUFLOAT value),
-    void *private);
+    SUBOOL (*gain_cb) (void *privdata, const char *name, SUFLOAT value),
+    void *privdata);
 
 struct suscan_source_gain_value *suscan_source_config_assert_gain(
     suscan_source_config_t *config,
@@ -339,5 +343,9 @@ void suscan_source_destroy(suscan_source_t *config);
 SUBOOL suscan_source_config_register(suscan_source_config_t *config);
 
 SUBOOL suscan_init_sources(void);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _SOURCE_H */

@@ -120,7 +120,7 @@ suscan_analyzer_open_async(
           req_id),
       goto done);
 
-  SU_TRYCATCH(req->class = strdup(class), goto done);
+  SU_TRYCATCH(req->class_name = strdup(class), goto done);
 
   req->channel = *channel;
 

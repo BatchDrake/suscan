@@ -149,7 +149,7 @@ suscan_msg_new(uint32_t type, void *private)
   SU_TRYCATCH(new = suscan_mq_alloc_msg(), return NULL);
 
   new->type = type;
-  new->private = private;
+  new->privdata = private;
   new->next = NULL;
 
   return new;
@@ -264,7 +264,7 @@ suscan_mq_read_internal(
 
   msg = suscan_mq_read_msg_internal(mq, ptype == NULL, type);
 
-  private = msg->private;
+  private = msg->privdata;
 
   if (ptype != NULL)
     *ptype = msg->type;
@@ -327,7 +327,7 @@ suscan_mq_poll_internal(
   msg = suscan_mq_poll_msg_internal(mq, ptype == NULL, type);
 
   if (msg != NULL) {
-    *private = msg->private;
+    *private = msg->privdata;
 
     if (ptype != NULL)
       *ptype = msg->type;

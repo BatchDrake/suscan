@@ -21,8 +21,11 @@
 #ifndef _CODEC_CODEC_H
 #define _CODEC_CODEC_H
 
-#include <sigutils/sigutils.h>
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
+#include <sigutils/sigutils.h>
 #include <cfg.h>
 
 /* Process error codes are detailed in suscan_codec_progress */
@@ -52,38 +55,38 @@ struct suscan_codec_class {
   suscan_config_desc_t *config_desc;
   unsigned int directions;
   SUBOOL (*ctor) (
-      void **private,
+      void **privdata,
       struct suscan_codec *codec,
       unsigned int bits_per_symbol,
       const suscan_config_t *config,
       enum su_codec_direction direction);
   SUSDIFF (*process) (
-      void *private,
+      void *privdata,
       struct suscan_codec *codec,
       grow_buf_t *result, /* Out */
       struct suscan_codec_progress *progress, /* Out */
       const SUBITS *data,
       SUSCOUNT len);
-  void (*dtor) (void *private);
+  void (*dtor) (void *privdata);
 };
 
 struct suscan_codec {
-  const struct suscan_codec_class *class;
+  const struct suscan_codec_class *classptr;
   unsigned int bits_per_symbol;
   unsigned int output_bits_per_symbol;
-  void *private;
+  void *privdata;
 };
 
 typedef struct suscan_codec suscan_codec_t;
 
-SUBOOL suscan_codec_class_register(const struct suscan_codec_class *class);
+SUBOOL suscan_codec_class_register(const struct suscan_codec_class *classdef);
 
 void suscan_codec_class_get_list(
     const struct suscan_codec_class ***list,
     unsigned int *count);
 
 suscan_config_t *suscan_codec_class_make_config(
-    const struct suscan_codec_class *class);
+    const struct suscan_codec_class *classdef);
 
 void suscan_codec_destroy(suscan_codec_t *codec);
 
@@ -94,7 +97,7 @@ unsigned int suscan_codec_get_output_bits_per_symbol(
     const suscan_codec_t *codec);
 
 suscan_codec_t *suscan_codec_class_make_codec(
-    const struct suscan_codec_class *class,
+    const struct suscan_codec_class *classdef,
     unsigned int bits_per_symbol,
     const suscan_config_t *config,
     enum su_codec_direction direction);
@@ -110,5 +113,9 @@ SUBOOL suscan_codec_class_register_builtin(void);
 
 /* Builtin codecs */
 SUBOOL suscan_codec_class_diff_register(void);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _CODEC_CODEC_H */

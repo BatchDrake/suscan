@@ -21,6 +21,10 @@
 #ifndef _ANALYZER_H
 #define _ANALYZER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
 #include <pthread.h>
@@ -140,10 +144,10 @@ su_specttuner_channel_t *suscan_analyzer_open_channel(
     const struct sigutils_channel *chan_info,
     SUBOOL (*on_data) (
         const struct sigutils_specttuner_channel *channel,
-        void *private,
+        void *privdata,
         const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
         SUSCOUNT size),
-        void *private);
+        void *privdata);
 
 SUBOOL
 suscan_analyzer_close_channel(
@@ -172,13 +176,13 @@ SUBOOL suscan_analyzer_set_freq_async(
 
 SUBOOL suscan_analyzer_open_async(
     suscan_analyzer_t *analyzer,
-    const char *class,
+    const char *classname,
     const struct sigutils_channel *channel,
     uint32_t req_id);
 
 SUHANDLE suscan_analyzer_open(
     suscan_analyzer_t *analyzer,
-    const char *class,
+    const char *classname,
     const struct sigutils_channel *channel);
 
 SUBOOL suscan_analyzer_close_async(
@@ -220,5 +224,9 @@ SUBOOL suscan_analyzer_reset_equalizer_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     uint32_t req_id);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _ANALYZER_H */

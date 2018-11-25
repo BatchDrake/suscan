@@ -39,7 +39,7 @@ suscan_codec_diff_ctor(
   struct suscan_field_value *value = NULL;
   su_codec_t *sucodec;
 
-  if (codec->class == &pim_dpsk_class && bits_per_symbol < 2) {
+  if (codec->classptr == &pim_dpsk_class && bits_per_symbol < 2) {
     SU_ERROR(
         "This decoder cannot be created for less than 2 bits per symbol\n");
     return SU_FALSE;
@@ -58,7 +58,7 @@ suscan_codec_diff_ctor(
   else
     su_codec_set_direction(sucodec, SU_CODEC_DIRECTION_BACKWARDS);
 
-  if (codec->class == &pim_dpsk_class)
+  if (codec->classptr == &pim_dpsk_class)
     codec->output_bits_per_symbol -= 1;
   *private = sucodec;
 
@@ -78,7 +78,7 @@ suscan_codec_diff_process(
   SUSYMBOL ret;
   SUSCOUNT processed;
   SUBITS c;
-  SUBOOL divide = codec->class == &pim_dpsk_class;
+  SUBOOL divide = codec->classptr == &pim_dpsk_class;
 
   processed = len;
 
