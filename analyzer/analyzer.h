@@ -49,6 +49,17 @@ struct suscan_analyzer_params {
   SU_ADDSFX(.04)                                /* psd_update_int */        \
 }
 
+typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
+      void *privdata,
+      struct suscan_analyzer *analyzer,
+      const SUCOMPLEX *samples,
+      SUSCOUNT length);
+
+struct suscan_analyzer_baseband_filter {
+  suscan_analyzer_baseband_filter_func_t func;
+  void *privdata;
+};
+
 struct suscan_analyzer {
   struct suscan_analyzer_params params;
   struct suscan_mq mq_in;   /* To-thread messages */
@@ -86,6 +97,7 @@ struct suscan_analyzer {
   suscan_worker_t *slow_wk; /* Worker for slow operations */
   SUCOMPLEX *read_buf;
   SUSCOUNT   read_size;
+  PTR_LIST(struct suscan_analyzer_baseband_filter, bbfilt);
 
   /* Spectral tuner */
   su_specttuner_t    *stuner;
@@ -138,6 +150,11 @@ void suscan_analyzer_source_barrier(suscan_analyzer_t *analyzer);
 void suscan_analyzer_enter_sched(suscan_analyzer_t *analyzer);
 
 void suscan_analyzer_leave_sched(suscan_analyzer_t *analyzer);
+
+SUBOOL suscan_analyzer_register_baseband_filter(
+    suscan_analyzer_t *analyzer,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata);
 
 su_specttuner_channel_t *suscan_analyzer_open_channel(
     suscan_analyzer_t *analyzer,

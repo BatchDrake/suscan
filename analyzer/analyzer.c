@@ -75,6 +75,79 @@ suscan_analyzer_process_end(suscan_analyzer_t *analyzer)
   }
 }
 
+/************************* Baseband filter API *******************************/
+SUPRIVATE struct suscan_analyzer_baseband_filter *
+suscan_analyzer_baseband_filter_new(
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata)
+{
+  struct suscan_analyzer_baseband_filter *filter;
+
+  SU_TRYCATCH(
+      filter = malloc(sizeof (struct suscan_analyzer_baseband_filter)),
+      return NULL);
+
+  filter->func = func;
+  filter->privdata = privdata;
+
+  return filter;
+}
+
+SUPRIVATE void
+suscan_analyzer_baseband_filter_destroy(
+    struct suscan_analyzer_baseband_filter *filter)
+{
+  free(filter);
+}
+
+SUBOOL
+suscan_analyzer_register_baseband_filter(
+    suscan_analyzer_t *analyzer,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata)
+{
+  struct suscan_analyzer_baseband_filter *new;
+
+  SU_TRYCATCH(
+      new = suscan_analyzer_baseband_filter_new(func, privdata),
+      goto fail);
+
+  new->func = func;
+  new->privdata = privdata;
+
+  SU_TRYCATCH(
+      PTR_LIST_APPEND_CHECK(analyzer->bbfilt, new) != -1,
+      goto fail);
+
+  return SU_TRUE;
+
+fail:
+  if (new != NULL)
+    suscan_analyzer_baseband_filter_destroy(new);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_feed_baseband_filters(
+    suscan_analyzer_t *analyzer,
+    const SUCOMPLEX *samples,
+    SUSCOUNT length)
+{
+  unsigned int i;
+
+  for (i = 0; i < analyzer->bbfilt_count; ++i)
+    if (analyzer->bbfilt_list[i] != NULL)
+      if (!analyzer->bbfilt_list[i]->func(
+          analyzer->bbfilt_list[i]->privdata,
+          analyzer,
+          samples,
+          length))
+        return SU_FALSE;
+
+  return SU_TRUE;
+}
+
 /************************ Source worker callback *****************************/
 #ifdef SUSCAN_DEBUG_THROTTLE
 SUBOOL   dbg_rate_set;
@@ -167,6 +240,7 @@ suscan_source_wk_cb(
   SUSCOUNT read_size;
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
+  unsigned int i;
 #ifdef SUSCAN_DEBUG_THROTTLE
   struct timespec sub;
 #endif
@@ -203,6 +277,13 @@ suscan_source_wk_cb(
 
     if (!suscan_analyzer_is_real_time(analyzer))
       suscan_throttle_advance(&analyzer->throttle, got);
+
+    SU_TRYCATCH(
+        suscan_analyzer_feed_baseband_filters(
+            analyzer,
+            analyzer->read_buf,
+            got),
+        goto done);
 
     /* Feed channel detector! */
     SU_TRYCATCH(
@@ -850,6 +931,14 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   /* Delete source information */
   if (analyzer->source != NULL)
     suscan_source_destroy(analyzer->source);
+
+  /* Delete all baseband filters */
+  for (i = 0; i < analyzer->bbfilt_count; ++i)
+    if (analyzer->bbfilt_list[i] != NULL)
+      suscan_analyzer_baseband_filter_destroy(analyzer->bbfilt_list[i]);
+
+  if (analyzer->bbfilt_list != NULL)
+    free(analyzer->bbfilt_list);
 
   suscan_mq_finalize(&analyzer->mq_in);
 
