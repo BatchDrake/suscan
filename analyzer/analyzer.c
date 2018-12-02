@@ -249,12 +249,19 @@ suscan_source_wk_cb(
   mutex_acquired = SU_TRUE;
 
   /* With non-real time sources, use throttle to control CPU usage */
-  if (suscan_analyzer_is_real_time(analyzer))
+  if (suscan_analyzer_is_real_time(analyzer)) {
     read_size = analyzer->read_size;
-  else
+  } else {
+    SU_TRYCATCH(
+        pthread_mutex_lock(&analyzer->throttle_mutex) != -1,
+        goto done);
     read_size = suscan_throttle_get_portion(
         &analyzer->throttle,
         analyzer->read_size);
+    SU_TRYCATCH(
+        pthread_mutex_unlock(&analyzer->throttle_mutex) != -1,
+        goto done);
+  }
 
   /* Ready to read */
   suscan_analyzer_read_start(analyzer);
@@ -275,8 +282,15 @@ suscan_source_wk_cb(
     dbg_rate_counter += got;
 #endif
 
-    if (!suscan_analyzer_is_real_time(analyzer))
+    if (!suscan_analyzer_is_real_time(analyzer)) {
+      SU_TRYCATCH(
+          pthread_mutex_lock(&analyzer->throttle_mutex) != -1,
+          goto done);
       suscan_throttle_advance(&analyzer->throttle, got);
+      SU_TRYCATCH(
+          pthread_mutex_unlock(&analyzer->throttle_mutex) != -1,
+          goto done);
+    }
 
     SU_TRYCATCH(
         suscan_analyzer_feed_baseband_filters(
@@ -445,7 +459,7 @@ suscan_analyzer_override_throttle(suscan_analyzer_t *analyzer, SUSCOUNT val)
   SU_TRYCATCH(!suscan_analyzer_is_real_time(analyzer), goto done);
 
   SU_TRYCATCH(
-      pthread_mutex_lock(&analyzer->det_mutex) != -1,
+      pthread_mutex_lock(&analyzer->throttle_mutex) != -1,
       goto done);
   mutex_acquired = SU_TRUE;
 
@@ -456,8 +470,9 @@ suscan_analyzer_override_throttle(suscan_analyzer_t *analyzer, SUSCOUNT val)
   ok = SU_TRUE;
 
 done:
+
   if (mutex_acquired)
-    pthread_mutex_unlock(&analyzer->det_mutex);
+    pthread_mutex_unlock(&analyzer->throttle_mutex);
 
   return ok;
 }
@@ -912,6 +927,9 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   if (analyzer->detector != NULL)
     su_channel_detector_destroy(analyzer->detector);
 
+  if (analyzer->det_mutex_init)
+    pthread_mutex_destroy(&analyzer->det_mutex);
+
   /* Free spectral tuner */
   if (analyzer->stuner != NULL)
     su_specttuner_destroy(analyzer->stuner);
@@ -931,6 +949,9 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   /* Delete source information */
   if (analyzer->source != NULL)
     suscan_source_destroy(analyzer->source);
+
+  if (analyzer->throttle_mutex_init)
+    pthread_mutex_destroy(&analyzer->throttle_mutex);
 
   /* Delete all baseband filters */
   for (i = 0; i < analyzer->bbfilt_count; ++i)
@@ -953,10 +974,15 @@ suscan_analyzer_source_init(
   SU_TRYCATCH(analyzer->source = suscan_source_new(config), goto fail);
 
   /* For non-realtime sources (i.e. file sources), enable throttling */
-  if (!suscan_analyzer_is_real_time(analyzer))
+  if (!suscan_analyzer_is_real_time(analyzer)) {
+    /* Create throttle mutex */
+      (void) pthread_mutex_init(&analyzer->throttle_mutex, NULL); /* Always succeeds */
+      analyzer->throttle_mutex_init = SU_TRUE;
+
     suscan_throttle_init(
         &analyzer->throttle,
         suscan_analyzer_get_samp_rate(analyzer));
+  }
 
   analyzer->effective_samp_rate = suscan_analyzer_get_samp_rate(analyzer);
 
@@ -1026,6 +1052,7 @@ suscan_analyzer_new(
 
   /* Create channel detector */
   (void) pthread_mutex_init(&new->det_mutex, NULL); /* Always succeeds */
+  new->det_mutex_init = SU_TRUE;
   det_params = params->detector_params;
   suscan_analyzer_init_detector_params(new, &det_params);
   SU_TRYCATCH(

@@ -70,8 +70,11 @@ struct suscan_analyzer {
 
   /* Source members */
   suscan_source_t *source;
-  suscan_throttle_t throttle; /* For non-realtime sources */
+  SUBOOL det_mutex_init;
   pthread_mutex_t det_mutex;
+  suscan_throttle_t throttle; /* For non-realtime sources */
+  SUBOOL throttle_mutex_init;
+  pthread_mutex_t throttle_mutex;
   SUSCOUNT effective_samp_rate; /* Used for GUI */
 
   /* Periodic updates */

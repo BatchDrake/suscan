@@ -1050,6 +1050,7 @@ suscan_source_config_clone(const suscan_source_config_t *config)
   new->average = config->average;
   new->channel = config->channel;
   new->loop = config->loop;
+  new->device = config->device;
 
   return new;
 
