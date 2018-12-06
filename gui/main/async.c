@@ -386,7 +386,7 @@ suscan_async_parse_inspector_msg(gpointer user_data)
       /* Create new inspector and append to tab */
       SU_TRYCATCH(
           new_insp = suscan_gui_inspector_new(
-              msg->class,
+              msg->class_name,
               &msg->channel,
               msg->config,
               msg->handle),

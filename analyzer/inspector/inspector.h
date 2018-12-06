@@ -21,8 +21,11 @@
 #ifndef _INSPECTOR_H
 #define _INSPECTOR_H
 
-#include <sigutils/sigutils.h>
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
+#include <sigutils/sigutils.h>
 #include "interface.h"
 
 #define SUHANDLE int32_t
@@ -49,7 +52,7 @@ struct suscan_inspector {
 
   /* Specific inspector interface being used */
   const struct suscan_inspector_interface *iface;
-  void *private;
+  void *privdata;
 
   struct suscan_inspector_sampling_info samp_info; /* Sampling information */
 
@@ -143,5 +146,9 @@ SUBOOL suscan_init_inspectors(void);
 SUBOOL suscan_ask_inspector_register(void);
 SUBOOL suscan_fsk_inspector_register(void);
 SUBOOL suscan_psk_inspector_register(void);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _INSPECTOR_H */

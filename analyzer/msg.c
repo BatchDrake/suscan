@@ -186,8 +186,8 @@ suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
     if (msg->spectsrc_list != NULL)
       free(msg->spectsrc_list);
 
-    if (msg->class != NULL)
-      free(msg->class);
+    if (msg->class_name != NULL)
+      free(msg->class_name);
   } else if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
     if (msg->spectrum_data != NULL)
       free(msg->spectrum_data);

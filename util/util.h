@@ -61,51 +61,6 @@
 
 #define IN_BOUNDS(x, range) (((x) >= 0) && ((x) < (range)))
 
-#define WARNING(fmt, arg...)                                        \
-      do {                                                          \
-        errno_save ();                                              \
-        fprintf (stderr, "(%d) warning (%s@" __FILE__ ":%d): " fmt, \
-          TID_FUNC,                                                 \
-          __FUNCTION__, __LINE__, ## arg);                          \
-        errno_restore ();                                           \
-      } while (0)
-
-#define ERROR(fmt, arg...)                                          \
-      do {                                                          \
-        errno_save ();                                              \
-        fprintf (stderr, "(%d) error (%s@" __FILE__ ":%d): " fmt,   \
-          TID_FUNC,                                                 \
-          __FUNCTION__, __LINE__, ## arg);                          \
-        errno_restore ();                                           \
-      } while (0)
-
-#define NOTICE(fmt, arg...)                                         \
-      do {                                                          \
-        errno_save ();                                              \
-        fprintf (stderr, "(%d) notice (%s@" __FILE__ ":%d): " fmt,  \
-          TID_FUNC,                                                 \
-          __FUNCTION__, __LINE__, ## arg);                          \
-        errno_restore ();                                           \
-      } while (0)
-
-
-#ifndef NDEBUG
-  #define DEBUG(fmt, arg...)                                        \
-      do {                                                          \
-        errno_save ();                                              \
-        fprintf (stderr, "(%d) debug: " __FILE__ ":%d: %s: " fmt,   \
-          TID_FUNC,                                                 \
-          __LINE__, __FUNCTION__, ## arg);                          \
-        errno_restore ();                                           \
-      } while (0)
-
-#else
-  #define DEBUG(fmt, arg...)                                   
-#endif
-
-#define debug DEBUG
-#define error ERROR
-
 #define PTR_LIST(type, name)                         \
   type ** name ## _list;                             \
   int     name ## _count;

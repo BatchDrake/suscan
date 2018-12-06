@@ -115,7 +115,7 @@ suscan_spectsrc_new(
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_spectsrc_t)), goto fail);
 
-  new->class = class;
+  new->classptr = class;
   new->window_type = window_type;
   new->window_size = size;
 
@@ -133,7 +133,7 @@ suscan_spectsrc_new(
       goto fail);
 
   SU_TRYCATCH(
-      new->private = (class->ctor) (new),
+      new->privdata = (class->ctor) (new),
       goto fail);
 
   SU_TRYCATCH(
@@ -173,11 +173,11 @@ suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
 
   src->window_ptr = 0;
 
-  if (src->class->preproc != NULL)
+  if (src->classptr->preproc != NULL)
     SU_TRYCATCH(
-        (src->class->preproc) (
+        (src->classptr->preproc) (
             src,
-            src->private,
+            src->privdata,
             src->window_buffer,
             src->window_size),
         return SU_FALSE);
@@ -192,9 +192,9 @@ suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
 
   /* Apply postprocessing */
   SU_TRYCATCH(
-      (src->class->postproc) (
+      (src->classptr->postproc) (
           src,
-          src->private,
+          src->privdata,
           src->window_buffer,
           src->window_size),
       return SU_FALSE);
@@ -231,7 +231,7 @@ void
 suscan_spectsrc_destroy(suscan_spectsrc_t *spectsrc)
 {
   if (spectsrc != NULL)
-    (spectsrc->class->dtor) (spectsrc->private);
+    (spectsrc->classptr->dtor) (spectsrc->privdata);
 
   if (spectsrc->fft_plan != NULL)
     SU_FFTW(_destroy_plan)(spectsrc->fft_plan);

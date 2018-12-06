@@ -76,9 +76,9 @@ suscan_codec_get_output_bits_per_symbol(const suscan_codec_t *codec)
 void
 suscan_codec_destroy(suscan_codec_t *codec)
 {
-  if (codec->class != NULL)
-    if (codec->class->ctor != NULL && codec->class->dtor != NULL)
-      (codec->class->dtor) (codec->private);
+  if (codec->classptr != NULL)
+    if (codec->classptr->ctor != NULL && codec->classptr->dtor != NULL)
+      (codec->classptr->dtor) (codec->privdata);
 
   free(codec);
 }
@@ -96,17 +96,17 @@ suscan_codec_class_make_codec(
 
   new->bits_per_symbol = bits_per_symbol;
   new->output_bits_per_symbol = bits_per_symbol;
-  new->class = class;
+  new->classptr = class;
 
   if (class->ctor != NULL)
     SU_TRYCATCH(
         (class->ctor) (
-            &new->private,
+            &new->privdata,
             new,
             bits_per_symbol,
             config,
             direction),
-        new->class = NULL;
+        new->classptr = NULL;
         goto fail);
 
   return new;
@@ -133,8 +133,8 @@ suscan_codec_feed(
 
   progress->updated = SU_FALSE;
 
-  return (codec->class->process) (
-      codec->private,
+  return (codec->classptr->process) (
+      codec->privdata,
       codec,
       result,
       progress,

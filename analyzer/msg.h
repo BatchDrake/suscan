@@ -21,6 +21,10 @@
 #ifndef _MSG_H
 #define _MSG_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <util.h>
 #include <stdint.h>
 
@@ -106,7 +110,7 @@ struct suscan_analyzer_inspector_msg {
 
   union {
     struct {
-      char *class;
+      char *class_name;
       struct sigutils_channel channel;
       suscan_config_t *config;
       PTR_LIST_CONST(struct suscan_estimator_class, estimator);
@@ -224,5 +228,9 @@ void suscan_analyzer_sample_batch_msg_destroy(
 
 /* Generic message disposer */
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _MSG_H */

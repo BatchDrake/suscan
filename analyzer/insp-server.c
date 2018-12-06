@@ -346,7 +346,7 @@ suscan_analyzer_open_inspector(
     SU_TRYCATCH(
         PTR_LIST_APPEND_CHECK(
             msg->estimator,
-            (void *) new->estimator_list[i]->class) != -1,
+            (void *) new->estimator_list[i]->classptr) != -1,
         goto fail);
 
   /* Add applicable spectrum sources */
@@ -354,7 +354,7 @@ suscan_analyzer_open_inspector(
     SU_TRYCATCH(
         PTR_LIST_APPEND_CHECK(
             msg->spectsrc,
-            (void *) new->spectsrc_list[i]->class) != -1,
+            (void *) new->spectsrc_list[i]->classptr) != -1,
         goto fail);
 
   /*
@@ -415,7 +415,7 @@ suscan_analyzer_parse_inspector_msg(
       SU_TRYCATCH(
           suscan_analyzer_open_inspector(
               analyzer,
-              msg->class,
+              msg->class_name,
               &msg->channel, msg),
           goto done);
       break;

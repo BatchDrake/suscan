@@ -34,7 +34,7 @@ struct suscan_object {
   enum suscan_object_type type;
 
   char *name; /* May be NULL */
-  char *class; /* May be NULL as well */
+  char *class_name; /* May be NULL as well */
 
   union {
     char *value;
@@ -67,7 +67,7 @@ const char *suscan_object_get_class(const suscan_object_t *object);
 
 SUBOOL suscan_object_set_class(
     suscan_object_t *object,
-    const char *class);
+    const char *class_name);
 
 enum suscan_object_type suscan_object_get_type(const suscan_object_t *object);
 
@@ -160,7 +160,7 @@ suscan_object_t *suscan_object_set_get(
 SUBOOL suscan_object_set_put(
     suscan_object_t *object,
     unsigned int index,
-    suscan_object_t *new);
+    suscan_object_t *new_obj);
 
 SUBOOL suscan_object_set_delete(
     suscan_object_t *object,
@@ -168,7 +168,7 @@ SUBOOL suscan_object_set_delete(
 
 SUBOOL suscan_object_set_append(
     suscan_object_t *object,
-    suscan_object_t *new);
+    suscan_object_t *new_obj);
 
 #endif /* _UTIL_OBJECT_H */
 

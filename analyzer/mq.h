@@ -21,6 +21,10 @@
 #ifndef _MQ_H
 #define _MQ_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <pthread.h>
 #include <sigutils/sigutils.h>
 
@@ -30,7 +34,7 @@
 
 struct suscan_msg {
   uint32_t type;
-  void *private;
+  void *privdata;
   struct suscan_msg *next;
 
 #ifdef SUSCAN_MQ_USE_POOL
@@ -53,15 +57,19 @@ void  *suscan_mq_read(struct suscan_mq *mq, uint32_t *type);
 void  *suscan_mq_read_w_type(struct suscan_mq *mq, uint32_t type);
 struct suscan_msg *suscan_mq_read_msg(struct suscan_mq *mq);
 struct suscan_msg *suscan_mq_read_msg_w_type(struct suscan_mq *mq, uint32_t type);
-SUBOOL suscan_mq_poll(struct suscan_mq *mq, uint32_t *type, void **private);
-SUBOOL suscan_mq_poll_w_type(struct suscan_mq *mq, uint32_t type, void **private);
+SUBOOL suscan_mq_poll(struct suscan_mq *mq, uint32_t *type, void **privdata);
+SUBOOL suscan_mq_poll_w_type(struct suscan_mq *mq, uint32_t type, void **privdata);
 struct suscan_msg *suscan_mq_poll_msg(struct suscan_mq *mq);
 struct suscan_msg *suscan_mq_poll_msg_w_type(struct suscan_mq *mq, uint32_t type);
-SUBOOL suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *private);
+SUBOOL suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *privdata);
 void   suscan_mq_wait(struct suscan_mq *mq);
-SUBOOL suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *private);
+SUBOOL suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *privdata);
 void suscan_mq_write_msg(struct suscan_mq *mq, struct suscan_msg *msg);
 void suscan_mq_write_msg_urgent(struct suscan_mq *mq, struct suscan_msg *msg);
 void suscan_msg_destroy(struct suscan_msg *msg);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _MQ_H */

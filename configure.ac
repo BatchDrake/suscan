@@ -49,6 +49,9 @@ AC_FUNC_MALLOC
 GLOBAL_LDFLAGS="-lm -lpthread -ldl -export-dynamic -rdynamic"
 analyzer_CFLAGS="-O3 -ffast-math"
 
+PKG_PROG_PKG_CONFIG
+PKG_INSTALLDIR
+
 dnl Macro snippets imported from dependency `sigutils'
 PKG_CHECK_MODULES(sigutils, [sigutils >= 0.1], , [AC_MSG_ERROR([Couldn't find sigutils])])
 AC_SUBST(sigutils_CFLAGS)
@@ -85,4 +88,5 @@ AC_OUTPUT([
   codec/Makefile
   analyzer/Makefile
   gui/Makefile
+  suscan.pc
 ])

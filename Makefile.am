@@ -16,3 +16,26 @@ gui_DATA=rsrc/main.glade rsrc/channel-inspector.glade rsrc/codec-tab.glade   \
  rsrc/preferences.png
 confdir=$(pkgdatadir)/config
 conf_DATA=rsrc/palettes.xml
+
+pkgconfig_DATA = suscan.pc
+
+nobase_pkginclude_HEADERS = 			\
+  analyzer/msg.h									\
+  analyzer/inspector/inspector.h	\
+  analyzer/inspector/params.h			\
+  analyzer/inspector/interface.h	\
+  analyzer/inspsched.h						\
+  analyzer/xsig.h									\
+  analyzer/spectsrc.h							\
+  analyzer/worker.h								\
+  analyzer/estimator.h						\
+  analyzer/source.h								\
+  analyzer/symbuf.h								\
+  analyzer/mq.h										\
+  analyzer/throttle.h							\
+  analyzer/analyzer.h							\
+  codec/codec.h										\
+  util/confdb.h										\
+  util/cfg.h											\
+  util/util.h											\
+  util/object.h									

@@ -21,6 +21,10 @@
 #ifndef _ANALYZER_H
 #define _ANALYZER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
 #include <pthread.h>
@@ -41,9 +45,20 @@ struct suscan_analyzer_params {
 
 #define suscan_analyzer_params_INITIALIZER {                                \
   sigutils_channel_detector_params_INITIALIZER, /* detector_params */       \
-  .1,                                           /* channel_update_int */    \
-  .04                                           /* psd_update_int */        \
+  SU_ADDSFX(.1),                                /* channel_update_int */    \
+  SU_ADDSFX(.04)                                /* psd_update_int */        \
 }
+
+typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
+      void *privdata,
+      struct suscan_analyzer *analyzer,
+      const SUCOMPLEX *samples,
+      SUSCOUNT length);
+
+struct suscan_analyzer_baseband_filter {
+  suscan_analyzer_baseband_filter_func_t func;
+  void *privdata;
+};
 
 struct suscan_analyzer {
   struct suscan_analyzer_params params;
@@ -55,8 +70,11 @@ struct suscan_analyzer {
 
   /* Source members */
   suscan_source_t *source;
-  suscan_throttle_t throttle; /* For non-realtime sources */
+  SUBOOL det_mutex_init;
   pthread_mutex_t det_mutex;
+  suscan_throttle_t throttle; /* For non-realtime sources */
+  SUBOOL throttle_mutex_init;
+  pthread_mutex_t throttle_mutex;
   SUSCOUNT effective_samp_rate; /* Used for GUI */
 
   /* Periodic updates */
@@ -82,6 +100,7 @@ struct suscan_analyzer {
   suscan_worker_t *slow_wk; /* Worker for slow operations */
   SUCOMPLEX *read_buf;
   SUSCOUNT   read_size;
+  PTR_LIST(struct suscan_analyzer_baseband_filter, bbfilt);
 
   /* Spectral tuner */
   su_specttuner_t    *stuner;
@@ -135,15 +154,20 @@ void suscan_analyzer_enter_sched(suscan_analyzer_t *analyzer);
 
 void suscan_analyzer_leave_sched(suscan_analyzer_t *analyzer);
 
+SUBOOL suscan_analyzer_register_baseband_filter(
+    suscan_analyzer_t *analyzer,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata);
+
 su_specttuner_channel_t *suscan_analyzer_open_channel(
     suscan_analyzer_t *analyzer,
     const struct sigutils_channel *chan_info,
     SUBOOL (*on_data) (
         const struct sigutils_specttuner_channel *channel,
-        void *private,
+        void *privdata,
         const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
         SUSCOUNT size),
-        void *private);
+        void *privdata);
 
 SUBOOL
 suscan_analyzer_close_channel(
@@ -172,13 +196,13 @@ SUBOOL suscan_analyzer_set_freq_async(
 
 SUBOOL suscan_analyzer_open_async(
     suscan_analyzer_t *analyzer,
-    const char *class,
+    const char *classname,
     const struct sigutils_channel *channel,
     uint32_t req_id);
 
 SUHANDLE suscan_analyzer_open(
     suscan_analyzer_t *analyzer,
-    const char *class,
+    const char *classname,
     const struct sigutils_channel *channel);
 
 SUBOOL suscan_analyzer_close_async(
@@ -220,5 +244,9 @@ SUBOOL suscan_analyzer_reset_equalizer_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     uint32_t req_id);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _ANALYZER_H */

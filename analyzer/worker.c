@@ -43,7 +43,7 @@ suscan_worker_callback_new(
     return NULL;
 
   cb->func = func;
-  cb->private = private;
+  cb->privdata = private;
 
   return cb;
 }
@@ -95,8 +95,8 @@ suscan_worker_thread(void *data)
     do {
       switch (msg->type) {
         case SUSCAN_WORKER_MSG_TYPE_CALLBACK:
-          cb = (struct suscan_worker_callback *) msg->private;
-          if (!(cb->func) (worker->mq_out, worker->private, cb->private)) {
+          cb = (struct suscan_worker_callback *) msg->privdata;
+          if (!(cb->func) (worker->mq_out, worker->privdata, cb->privdata)) {
             /* Callback returns FALSE: remove from message queue */
             suscan_worker_callback_destroy(cb);
             suscan_msg_destroy(msg);
@@ -241,7 +241,7 @@ suscan_worker_new(
 
   new->state = SUSCAN_WORKER_STATE_CREATED;
   new->mq_out = mq_out;
-  new->private = private;
+  new->privdata = private;
 
   if (!suscan_mq_init(&new->mq_in))
     goto fail;

@@ -9,6 +9,8 @@ libanalyzer_la_CFLAGS = -I. -ggdb @sigutils_CFLAGS@ @analyzer_CFLAGS@ \
 libanalyzer_la_SOURCES = \
     analyzer.c \
     analyzer.h \
+    bufpool.c \
+    bufpool.h \
     client.c \
     estimator.c \
     estimator.h \
