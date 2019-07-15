@@ -49,6 +49,8 @@ struct suscan_source_device_info {
 
 #define suscan_source_device_info_INITIALIZER   \
 {                                               \
+  NULL, /* gain_list */                         \
+  0, /* gain_count */                           \
   NULL, /* antenna_list */                      \
   0, /* antenna_count */                        \
 }

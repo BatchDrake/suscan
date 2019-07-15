@@ -25,6 +25,10 @@
 #include "util.h"
 #include "object.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 /* Helper functions */
 const char *suscan_confdb_get_system_path(void);
 
@@ -38,8 +42,8 @@ struct suscan_config_context {
 
   suscan_object_t *list;
 
-  void *private;
-  SUBOOL (*on_save) (struct suscan_config_context *ctx, void *private);
+  void *userdata;
+  SUBOOL (*on_save) (struct suscan_config_context *ctx, void *userdata);
 };
 
 typedef struct suscan_config_context suscan_config_context_t;
@@ -72,11 +76,11 @@ suscan_config_context_get_list(suscan_config_context_t *context)
 SUINLINE void
 suscan_config_context_set_on_save(
     suscan_config_context_t *ctx,
-    SUBOOL (*on_save) (struct suscan_config_context *ctx, void *private),
-    void *private)
+    SUBOOL (*on_save) (struct suscan_config_context *ctx, void *userdata),
+    void *userdata)
 {
   ctx->on_save = on_save;
-  ctx->private = private;
+  ctx->userdata = userdata;
 }
 
 SUBOOL suscan_confdb_scan_all(void);
@@ -84,5 +88,9 @@ SUBOOL suscan_confdb_scan_all(void);
 SUBOOL suscan_confdb_save_all(void);
 
 SUBOOL suscan_confdb_use(const char *name);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _UTIL_CONFDB_H */

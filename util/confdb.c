@@ -317,7 +317,7 @@ suscan_config_context_save(suscan_config_context_t *context)
   SUBOOL ok = SU_FALSE;
 
   if (context->on_save != NULL)
-    SU_TRYCATCH((context->on_save)(context, context->private), goto done);
+    SU_TRYCATCH((context->on_save)(context, context->userdata), goto done);
 
   SU_TRYCATCH(suscan_object_to_xml(context->list, &data, &size), goto done);
 

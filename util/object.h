@@ -24,7 +24,11 @@
 #include "util.h"
 #include <sigutils/types.h>
 
-enum suscan_object_type {
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+  enum suscan_object_type {
   SUSCAN_OBJECT_TYPE_OBJECT,
   SUSCAN_OBJECT_TYPE_SET,
   SUSCAN_OBJECT_TYPE_FIELD,
@@ -169,6 +173,10 @@ SUBOOL suscan_object_set_delete(
 SUBOOL suscan_object_set_append(
     suscan_object_t *object,
     suscan_object_t *new_obj);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _UTIL_OBJECT_H */
 
