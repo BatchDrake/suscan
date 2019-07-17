@@ -363,7 +363,7 @@ suscan_ask_inspector_feed(
     /* Perform gain control */
     switch (ask_insp->cur_params.gc.gc_ctrl) {
       case SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL:
-        const_gain *= 2 * ask_insp->cur_params.gc.gc_gain;
+        const_gain = 2 * ask_insp->cur_params.gc.gc_gain * det_x;
         break;
 
       case SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC:
