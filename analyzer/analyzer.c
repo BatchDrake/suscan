@@ -208,6 +208,85 @@ suscan_analyzer_feed_inspectors(
   return ok;
 }
 
+SUPRIVATE void
+suscan_analyzer_gain_request_destroy(struct suscan_analyzer_gain_request *req)
+{
+  if (req->name != NULL)
+    free(req->name);
+
+  free(req);
+}
+
+SUPRIVATE struct suscan_analyzer_gain_request *
+suscan_analyzer_gain_request_new(const char *name, SUFLOAT value)
+{
+  struct suscan_analyzer_gain_request *new = NULL;
+
+  SU_TRYCATCH(
+      new = calloc(1, sizeof(struct suscan_analyzer_gain_request)),
+      goto fail);
+
+  SU_TRYCATCH(new->name = strdup(name), goto fail);
+  new->value = value;
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_analyzer_gain_request_destroy(new);
+
+  return NULL;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_set_gain_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
+  SUBOOL mutex_acquired = SU_FALSE;
+  PTR_LIST_LOCAL(struct suscan_analyzer_gain_request, request);
+  unsigned int i;
+
+  /* vvvvvvvvvvvvvvvvvv Acquire gain request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
+  SU_TRYCATCH(pthread_mutex_lock(&analyzer->gain_req_mutex) != -1, goto fail);
+  mutex_acquired = SU_TRUE;
+
+  request_list  = analyzer->gain_request_list;
+  request_count = analyzer->gain_request_count;
+
+  analyzer->gain_request_list  = NULL;
+  analyzer->gain_request_count = 0;
+
+  pthread_mutex_unlock(&analyzer->gain_req_mutex);
+  mutex_acquired = SU_FALSE;
+  /* ^^^^^^^^^^^^^^^^^^ Release gain request mutex ^^^^^^^^^^^^^^^^^^^^^^^^^ */
+
+  /* Process all requests */
+  for (i = 0; i < request_count; ++i) {
+    SU_TRYCATCH(
+        suscan_source_set_gain(
+            analyzer->source,
+            request_list[i]->name,
+            request_list[i]->value),
+        goto fail);
+  }
+
+fail:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&analyzer->gain_req_mutex);
+
+  for (i = 0; i < request_count; ++i)
+    suscan_analyzer_gain_request_destroy(request_list[i]);
+
+  if (request_list != NULL)
+    free(request_list);
+
+  return SU_FALSE;
+}
+
+
 SUPRIVATE SUBOOL
 suscan_analyzer_set_freq_cb(
     struct suscan_mq *mq_out,
@@ -953,6 +1032,16 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   if (analyzer->throttle_mutex_init)
     pthread_mutex_destroy(&analyzer->throttle_mutex);
 
+  /* Delete all pending gain requessts */
+  for (i = 0; i < analyzer->gain_request_count; ++i)
+    suscan_analyzer_gain_request_destroy(analyzer->gain_request_list[i]);
+
+  if (analyzer->gain_request_list != NULL)
+    free(analyzer->gain_request_list);
+
+  if (analyzer->gain_req_mutex_init)
+    pthread_mutex_destroy(&analyzer->gain_req_mutex);
+
   /* Delete all baseband filters */
   for (i = 0; i < analyzer->bbfilt_count; ++i)
     if (analyzer->bbfilt_list[i] != NULL)
@@ -1003,6 +1092,47 @@ suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq)
       analyzer->slow_wk,
       suscan_analyzer_set_freq_cb,
       NULL);
+}
+
+SUBOOL
+suscan_analyzer_set_gain(
+    suscan_analyzer_t *analyzer,
+    const char *name,
+    SUFLOAT value)
+{
+  struct suscan_analyzer_gain_request *req = NULL;
+  SUBOOL mutex_acquired = SU_FALSE;
+
+  SU_TRYCATCH(req = suscan_analyzer_gain_request_new(name, value), goto fail);
+
+  /* vvvvvvvvvvvvvvvvvv Acquire gain request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
+  SU_TRYCATCH(
+      pthread_mutex_lock(&analyzer->gain_req_mutex) != -1,
+      goto fail);
+  mutex_acquired = SU_TRUE;
+
+  SU_TRYCATCH(
+      PTR_LIST_APPEND_CHECK(analyzer->gain_request, req) != -1,
+      goto fail);
+  req = NULL;
+
+  pthread_mutex_unlock(&analyzer->gain_req_mutex);
+  mutex_acquired = SU_FALSE;
+  /* ^^^^^^^^^^^^^^^^^^ Release gain request mutex ^^^^^^^^^^^^^^^^^^^^^^^^^ */
+
+  return suscan_worker_push(
+      analyzer->slow_wk,
+      suscan_analyzer_set_gain_cb,
+      NULL);
+
+fail:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&analyzer->gain_req_mutex);
+
+  if (req != NULL)
+    suscan_analyzer_gain_request_destroy(req);
+
+  return SU_FALSE;
 }
 
 suscan_analyzer_t *
@@ -1072,6 +1202,10 @@ suscan_analyzer_new(
     SU_ERROR("Cannot create slow worker thread\n");
     goto fail;
   }
+
+  /* Initialize gain request mutex */
+  SU_TRYCATCH(pthread_mutex_init(&new->gain_req_mutex, NULL) != -1, goto fail);
+  new->gain_req_mutex_init = SU_TRUE;
 
   /* Create spectral tuner, with matching read size */
   st_params.window_size = new->read_size * 4;

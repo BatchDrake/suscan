@@ -60,6 +60,11 @@ struct suscan_analyzer_baseband_filter {
   void *privdata;
 };
 
+struct suscan_analyzer_gain_request {
+  char *name;
+  SUFLOAT value;
+};
+
 struct suscan_analyzer {
   struct suscan_analyzer_params params;
   struct suscan_mq mq_in;   /* To-thread messages */
@@ -87,6 +92,11 @@ struct suscan_analyzer {
   /* Frequency request */
   SUBOOL freq_req;
   SUFREQ freq_req_value;
+
+  /* Gain request */
+  pthread_mutex_t gain_req_mutex;
+  SUBOOL gain_req_mutex_init;
+  PTR_LIST(struct suscan_analyzer_gain_request, gain_request);
 
   /* Usage statistics (CPU, etc) */
   SUFLOAT cpu_usage;
@@ -130,6 +140,10 @@ suscan_analyzer_get_samp_rate(const suscan_analyzer_t *analyzer)
 }
 
 SUBOOL suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq);
+SUBOOL suscan_analyzer_set_gain(
+    suscan_analyzer_t *analyzer,
+    const char *name,
+    SUFLOAT value);
 
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
 struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg(

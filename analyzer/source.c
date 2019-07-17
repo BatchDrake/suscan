@@ -113,7 +113,6 @@ suscan_source_device_lookup_gain_desc(
 {
   unsigned int i;
 
-  printf("Looking up gain %s in %d gains\n", name, dev->gain_desc_count);
   for (i = 0; i < dev->gain_desc_count; ++i)
     if (strcmp(dev->gain_desc_list[i]->name, name) == 0)
       return dev->gain_desc_list[i];
@@ -1670,6 +1669,36 @@ suscan_source_stop_capture(suscan_source_t *source)
 
   return SU_TRUE;
 }
+
+SUBOOL
+suscan_source_set_gain(suscan_source_t *source, const char *name, SUFLOAT val)
+{
+  if (!source->capturing)
+    return SU_FALSE;
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
+    return SU_FALSE;
+
+  /* Update config */
+  suscan_source_config_set_gain(source->config, name, val);
+
+  /* Set device frequency */
+  if (SoapySDRDevice_setGainElement(
+      source->sdr,
+      SOAPY_SDR_RX,
+      source->config->channel,
+      name,
+      val) != 0) {
+    SU_ERROR(
+        "Failed to set SDR gain `%s': %s\n",
+        name,
+        SoapySDRDevice_lastError());
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
 
 SUBOOL
 suscan_source_set_freq(suscan_source_t *source, SUFREQ freq)

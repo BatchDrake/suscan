@@ -314,6 +314,10 @@ SUBOOL suscan_source_stop_capture(suscan_source_t *source);
 SUBOOL suscan_source_start_capture(suscan_source_t *source);
 
 SUBOOL suscan_source_set_freq(suscan_source_t *source, SUFREQ freq);
+SUBOOL suscan_source_set_gain(
+    suscan_source_t *source,
+    const char *name,
+    SUFLOAT gain);
 
 suscan_source_t *suscan_source_new(suscan_source_config_t *config);
 
