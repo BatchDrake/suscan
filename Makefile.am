@@ -15,7 +15,7 @@ gui_DATA=rsrc/main.glade rsrc/channel-inspector.glade rsrc/codec-tab.glade   \
  rsrc/icon.png rsrc/start-capture.png rsrc/select-source.png                 \
  rsrc/preferences.png
 confdir=$(pkgdatadir)/config
-conf_DATA=rsrc/palettes.xml
+conf_DATA=rsrc/palettes.xml rsrc/autogains.xml
 
 pkgconfig_DATA = suscan.pc
 

@@ -199,6 +199,54 @@ fail:
   return NULL;
 }
 
+suscan_config_t *
+suscan_config_dup(const suscan_config_t *config)
+{
+  suscan_config_t *new = NULL;
+  unsigned int i;
+  void *tmp;
+
+  SU_TRYCATCH(
+      new = suscan_config_new(config->desc),
+      goto fail);
+
+  for (i = 0; i < new->desc->field_count; ++i) {
+    switch (new->desc->field_list[i]->type) {
+      case SUSCAN_FIELD_TYPE_BOOLEAN:
+        new->values[i]->as_bool = config->values[i]->as_bool;
+        break;
+
+      case SUSCAN_FIELD_TYPE_FLOAT:
+        new->values[i]->as_float = config->values[i]->as_float;
+        break;
+
+      case SUSCAN_FIELD_TYPE_INTEGER:
+        new->values[i]->as_int = config->values[i]->as_int;
+        break;
+
+      case SUSCAN_FIELD_TYPE_FILE:
+      case SUSCAN_FIELD_TYPE_STRING:
+        SU_TRYCATCH(
+            tmp = realloc(
+                new->values[i],
+                sizeof (struct suscan_field_value) +
+                strlen(config->values[i]->as_string) + 1),
+            return SU_FALSE);
+        new->values[i] = tmp;
+        strcpy(new->values[i]->as_string, config->values[i]->as_string);
+        break;
+    }
+  }
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_config_destroy(new);
+
+  return new;
+}
+
 SUBOOL
 suscan_config_set_integer(
     suscan_config_t *cfg,

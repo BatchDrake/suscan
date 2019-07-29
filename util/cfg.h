@@ -21,6 +21,10 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <util.h>
 #include <object.h>
 #include <sigutils/sigutils.h>
@@ -85,6 +89,8 @@ void suscan_config_destroy(suscan_config_t *config);
 
 suscan_config_t *suscan_config_new(const suscan_config_desc_t *desc);
 
+suscan_config_t *suscan_config_dup(const suscan_config_t *config);
+
 void suscan_config_desc_destroy(suscan_config_desc_t *cfgdesc);
 
 suscan_config_desc_t *suscan_config_desc_new(void);
@@ -133,5 +139,9 @@ suscan_object_t *suscan_config_to_object(const suscan_config_t *config);
 SUBOOL suscan_object_to_config(
     suscan_config_t *config,
     const suscan_object_t *object);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _CONFIG_H */

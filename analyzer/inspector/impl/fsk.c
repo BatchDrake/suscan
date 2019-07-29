@@ -71,7 +71,6 @@ struct suscan_fsk_inspector {
   su_ncqo_t           lo;         /* Oscillator for manual carrier offset */
   SUCOMPLEX           phase;      /* Local oscillator phase */
   SUCOMPLEX           last;       /* Last sample processed */
-
   SUFLOAT   sym_phase;  /* Current sampling phase, in samples */
   SUFLOAT   sym_period; /* Symbol period */
   SUCOMPLEX sampler_prev; /* Used for interpolation */
@@ -107,6 +106,7 @@ suscan_fsk_inspector_params_initialize(
   params->mf.mf_rolloff = SUSCAN_FSK_INSPECTOR_DEFAULT_ROLL_OFF;
 
   params->fsk.bits_per_tone = 1;
+  params->fsk.phase = PI;
 }
 
 SUPRIVATE void
@@ -150,7 +150,7 @@ suscan_fsk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
 
   /* Initialize local oscillator */
   su_ncqo_init(&new->lo, 0);
-  new->phase = 1.;
+  new->phase = SU_C_EXP(I * new->cur_params.fsk.phase);
 
   /* Initialize AGC */
   tau = 1. / bw; /* Samples per symbol */
@@ -283,6 +283,9 @@ suscan_fsk_inspector_commit_config(void *private)
   insp->cd.alpha = insp->cur_params.br.br_alpha;
   insp->cd.beta = insp->cur_params.br.br_beta;
 
+  /* Update output phase */
+  insp->phase = SU_C_EXP(I * insp->cur_params.fsk.phase);
+  
   /* Update matched filter */
   if (mf_changed && insp->sym_period > 0) {
     if (!su_iir_rrc_init(
@@ -324,7 +327,7 @@ suscan_fsk_inspector_feed(
 
   for (i = 0; i < count && suscan_inspector_sampler_buf_avail(insp) > 0; ++i) {
     /* Re-center carrier */
-    det_x = x[i] * SU_C_CONJ(su_ncqo_read(&fsk_insp->lo)) * fsk_insp->phase;
+    det_x = x[i] * SU_C_CONJ(su_ncqo_read(&fsk_insp->lo));
 
     /* Perform gain control */
     switch (fsk_insp->cur_params.gc.gc_ctrl) {
@@ -380,7 +383,7 @@ suscan_fsk_inspector_feed(
     if (new_sample) {
 
       /* Reduce amplitude so it fits in the constellation window */
-      suscan_inspector_push_sample(insp, output * .75);
+      suscan_inspector_push_sample(insp, output * .75 * fsk_insp->phase);
       new_sample = SU_FALSE;
     }
   }

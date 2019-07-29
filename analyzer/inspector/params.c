@@ -570,6 +570,15 @@ suscan_config_desc_add_fsk_params(suscan_config_desc_t *desc)
           "Bits per FSK tone"),
       return SU_FALSE);
 
+    SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "fsk.phase",
+          "Quadrature demodulator phase"),
+      return SU_FALSE);
+
   return SU_TRUE;
 }
 
@@ -590,6 +599,16 @@ suscan_inspector_fsk_params_parse(
 
   params->bits_per_tone = value->as_int;
 
+    SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "fsk.phase"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->phase = value->as_float;
+  
   return SU_TRUE;
 }
 
@@ -604,6 +623,13 @@ suscan_inspector_fsk_params_save(
           "fsk.bits-per-symbol",
           params->bits_per_tone),
       return SU_FALSE);
+
+  SU_TRYCATCH(
+    suscan_config_set_float(
+      config,
+      "fsk.phase",
+      params->phase),
+    return SU_FALSE);
 
   return SU_TRUE;
 

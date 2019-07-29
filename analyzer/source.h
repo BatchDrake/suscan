@@ -70,6 +70,17 @@ struct suscan_source_device {
 typedef struct suscan_source_device suscan_source_device_t;
 
 SUINLINE const char *
+suscan_source_device_get_driver(const suscan_source_device_t *dev)
+{
+  const char *driver;
+
+  if ((driver = SoapySDRKwargs_get(dev->args, "driver")) == NULL)
+    driver = dev->driver;
+
+  return driver;
+}
+
+SUINLINE const char *
 suscan_source_device_get_desc(const suscan_source_device_t *dev)
 {
   return dev->desc;

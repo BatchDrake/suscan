@@ -33,10 +33,18 @@
 void
 suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate)
 {
-  throttle->samp_count = 0;
+  memset(throttle, 0, sizeof(suscan_throttle_t));
   throttle->samp_rate = samp_rate;
 
   clock_gettime(CLOCK_MONOTONIC_RAW, &throttle->t0);
+
+  /*
+   * In some circumstances, if both calls to clock_gettime happen
+   * almost simultaneously, the difference in t0 is below the clock
+   * resolution, entering in a full speed read that will hog the
+   * CPU. This is definitely a bug, and this a workaround.
+   */
+  usleep(100000);
 }
 
 SUSCOUNT
