@@ -324,6 +324,8 @@ typedef struct suscan_source suscan_source_t;
 SUBOOL suscan_source_stop_capture(suscan_source_t *source);
 SUBOOL suscan_source_start_capture(suscan_source_t *source);
 
+SUBOOL suscan_source_set_agc(suscan_source_t *source, SUBOOL set);
+SUBOOL suscan_source_set_dc_remove(suscan_source_t *source, SUBOOL remove);
 SUBOOL suscan_source_set_freq(suscan_source_t *source, SUFREQ freq);
 SUBOOL suscan_source_set_gain(
     suscan_source_t *source,

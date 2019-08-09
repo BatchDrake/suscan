@@ -773,3 +773,135 @@ suscan_inspector_ask_params_save(
   return SU_TRUE;
 
 }
+
+/****************************** Audio config *********************************/
+SUBOOL
+suscan_config_desc_add_audio_params(suscan_config_desc_t *desc)
+{
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "audio.volume",
+          "Audio gain"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "audio.cutoff",
+          "Audio low pass filter"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "audio.sample-rate",
+          "Audio sample rate"),
+      return SU_FALSE);
+
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "audio.demodulator",
+          "Analog demodulator to use"),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_audio_params_parse(
+    struct suscan_inspector_audio_params *params,
+    const suscan_config_t *config)
+{
+  struct suscan_field_value *value;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "audio.volume"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->volume = value->as_float;
+
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "audio.cutoff"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->cutoff = value->as_float;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "audio.sample-rate"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->sample_rate = value->as_int;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "audio.demodulator"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->demod = value->as_int;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_audio_params_save(
+    const struct suscan_inspector_audio_params *params,
+    suscan_config_t *config)
+{
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "audio.volume",
+          params->volume),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "audio.cutoff",
+          params->cutoff),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "audio.sample-rate",
+          params->sample_rate),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "audio.demodulator",
+          params->demod),
+      return SU_FALSE);
+
+  return SU_TRUE;
+
+}

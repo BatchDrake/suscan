@@ -55,14 +55,17 @@ suscan_inspector_sampler_loop(
         (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
         goto fail);
 
-    if (suscan_inspector_get_output_length(insp) > 0) {
-      /* New sampes produced by sampler: send to client */
+    if (suscan_inspector_get_output_length(insp) > insp->sample_msg_watermark) {
+      /* New samples produced by sampler: send to client */
       SU_TRYCATCH(
           msg = suscan_analyzer_sample_batch_msg_new(
               insp->inspector_id,
               suscan_inspector_get_output_buffer(insp),
               suscan_inspector_get_output_length(insp)),
           goto fail);
+
+      /* Reset size */
+      insp->sampler_ptr = 0;
 
       SU_TRYCATCH(
           suscan_mq_write(mq_out, SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES, msg),
@@ -319,9 +322,10 @@ suscan_analyzer_open_inspector(
 
   /* Open a channel to feed this inspector */
   SU_TRYCATCH(
-      schan = suscan_analyzer_open_channel(
+      schan = suscan_analyzer_open_channel_ex(
           analyzer,
           channel,
+          msg->precise,
           suscan_analyzer_on_channel_data,
           NULL),
       goto fail);
@@ -407,7 +411,9 @@ suscan_analyzer_parse_inspector_msg(
   suscan_inspector_t *insp = NULL;
   unsigned int i;
   SUHANDLE handle = -1;
+  SUFLOAT f0;
   SUBOOL ok = SU_FALSE;
+  SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL update_baud;
 
   switch (msg->kind) {
@@ -503,6 +509,61 @@ suscan_analyzer_parse_inspector_msg(
       }
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_WATERMARK:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else {
+        if (!suscan_inspector_set_msg_watermark(insp, msg->watermark))
+          msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND;
+      }
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_FREQ:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else {
+        f0 = SU_NORM2ANG_FREQ(
+                SU_ABS2NORM_FREQ(
+                    suscan_analyzer_get_samp_rate(analyzer),
+                    msg->channel.fc - msg->channel.ft));
+
+        if (f0 < 0)
+          f0 += 2 * PI;
+
+        SU_TRYCATCH(
+            pthread_mutex_lock(&analyzer->det_mutex) != -1,
+            goto done);
+        mutex_acquired = SU_TRUE;
+
+        /* vvvvvvvvvvvvvvvvvvvvvv Set frequency start vvvvvvvvvvvvvvvvvvvvvv */
+        /*
+         * XXX: This is ugly. I coded this quickly due to time constraints,
+         * but the right way to do it would be:
+         *
+         *   - Make the reference to the channel object non-const
+         *   - Expose a method called suscan_inspector_set_freq
+         *   - Expose another method called suscan_analyzer_(un)lock_source
+         *   - Change frequency inside
+         */
+        su_specttuner_set_channel_freq(
+            analyzer->stuner,
+            (su_specttuner_channel_t *) insp->samp_info.schan,
+            f0);
+        /* ^^^^^^^^^^^^^^^^^^^^^ Set frequency end ^^^^^^^^^^^^^^^^^^^^^^^^^ */
+        SU_TRYCATCH(
+            pthread_mutex_unlock(&analyzer->det_mutex) != -1,
+            goto done);
+        mutex_acquired = SU_FALSE;
+      }
+
+      break;
+
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
       if ((insp = suscan_analyzer_get_inspector(
           analyzer,
@@ -556,5 +617,8 @@ suscan_analyzer_parse_inspector_msg(
   ok = SU_TRUE;
 
 done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&analyzer->det_mutex);
+
   return ok;
 }

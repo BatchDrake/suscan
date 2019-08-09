@@ -105,10 +105,11 @@ done:
 
 /****************************** Inspector methods ****************************/
 SUBOOL
-suscan_analyzer_open_async(
+suscan_analyzer_open_ex_async(
     suscan_analyzer_t *analyzer,
     const char *class,
     const struct sigutils_channel *channel,
+    SUBOOL precise,
     uint32_t req_id)
 {
   struct suscan_analyzer_inspector_msg *req = NULL;
@@ -123,6 +124,7 @@ suscan_analyzer_open_async(
   SU_TRYCATCH(req->class_name = strdup(class), goto done);
 
   req->channel = *channel;
+  req->precise = precise;
 
   if (!suscan_analyzer_write(
       analyzer,
@@ -141,6 +143,21 @@ done:
     suscan_analyzer_inspector_msg_destroy(req);
 
   return ok;
+}
+
+SUBOOL
+suscan_analyzer_open_async(
+    suscan_analyzer_t *analyzer,
+    const char *class,
+    const struct sigutils_channel *channel,
+    uint32_t req_id)
+{
+  return suscan_analyzer_open_ex_async(
+      analyzer,
+      class,
+      channel,
+      SU_FALSE,
+      req_id);
 }
 
 SUHANDLE
@@ -250,6 +267,45 @@ suscan_analyzer_close(
 done:
   if (resp != NULL)
     suscan_analyzer_inspector_msg_destroy(resp);
+
+  return ok;
+}
+
+SUBOOL
+suscan_analyzer_set_inspector_freq_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUFREQ freq,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_inspector_msg *req = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_FREQ,
+          req_id),
+      goto done);
+
+  req->handle = handle;
+  req->channel.fc = freq;
+  req->channel.ft = 0;
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+      req)) {
+    SU_ERROR("Failed to send set_freq command\n");
+    goto done;
+  }
+
+  req = NULL; /* Now it belongs to the queue */
+
+  ok = SU_TRUE;
+
+done:
+  if (req != NULL)
+    suscan_analyzer_inspector_msg_destroy(req);
 
   return ok;
 }
@@ -446,4 +502,43 @@ done:
 
   return ok;
 }
+
+SUBOOL
+suscan_analyzer_set_inspector_watermark_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUSCOUNT watermark,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_inspector_msg *req = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_WATERMARK,
+          req_id),
+      goto done);
+
+  req->handle = handle;
+  req->watermark = watermark;
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+      req)) {
+    SU_ERROR("Failed to send set_watermark command\n");
+    goto done;
+  }
+
+  req = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (req != NULL)
+    suscan_analyzer_inspector_msg_destroy(req);
+
+  return ok;
+}
+
 

@@ -344,7 +344,7 @@ suscan_ask_inspector_feed(
   SUCOMPLEX det_x;
   SUCOMPLEX output;
   SUBOOL new_sample = SU_FALSE;
-  SUCOMPLEX samp_phase_samples;
+  SUFLOAT samp_phase_samples;
   SUCOMPLEX last = 0;
   unsigned int counts = 0;
   struct timeval tv, otv, sub;
@@ -372,10 +372,8 @@ suscan_ask_inspector_feed(
     }
 
     /* Apply PLL, if enabled */
-    if (ask_insp->cur_params.ask.uses_pll) {
-      su_pll_feed(&ask_insp->pll, SU_C_REAL(const_gain));
-      const_gain *= SU_C_CONJ(su_ncqo_get(&ask_insp->pll.ncqo));
-    }
+    if (ask_insp->cur_params.ask.uses_pll)
+      const_gain = su_pll_track(&ask_insp->pll, const_gain);
 
     /* Put real component around the unit circle */
     det_x = const_gain;

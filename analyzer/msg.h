@@ -96,6 +96,8 @@ enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_FREQ,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_WATERMARK,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND
@@ -113,6 +115,7 @@ struct suscan_analyzer_inspector_msg {
       char *class_name;
       struct sigutils_channel channel;
       suscan_config_t *config;
+      SUBOOL precise;
       PTR_LIST_CONST(struct suscan_estimator_class, estimator);
       PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc);
     };
@@ -132,6 +135,7 @@ struct suscan_analyzer_inspector_msg {
       SUFLOAT   N0;
     };
 
+    SUSCOUNT watermark;
     struct suscan_analyzer_params params;
   };
 };

@@ -81,6 +81,7 @@ struct suscan_analyzer {
   SUBOOL throttle_mutex_init;
   pthread_mutex_t throttle_mutex;
   SUSCOUNT effective_samp_rate; /* Used for GUI */
+  SUBOOL iq_rev;
 
   /* Periodic updates */
   SUFLOAT  interval_channels;
@@ -144,6 +145,9 @@ SUBOOL suscan_analyzer_set_gain(
     suscan_analyzer_t *analyzer,
     const char *name,
     SUFLOAT value);
+SUBOOL suscan_analyzer_set_dc_remove(suscan_analyzer_t *analyzer, SUBOOL val);
+SUBOOL suscan_analyzer_set_iq_reverse(suscan_analyzer_t *analyzer, SUBOOL val);
+SUBOOL suscan_analyzer_set_agc(suscan_analyzer_t *analyzer, SUBOOL val);
 
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
 struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg(
@@ -172,6 +176,17 @@ SUBOOL suscan_analyzer_register_baseband_filter(
     suscan_analyzer_t *analyzer,
     suscan_analyzer_baseband_filter_func_t func,
     void *privdata);
+
+su_specttuner_channel_t *suscan_analyzer_open_channel_ex(
+    suscan_analyzer_t *analyzer,
+    const struct sigutils_channel *chan_info,
+    SUBOOL precise,
+    SUBOOL (*on_data) (
+        const struct sigutils_specttuner_channel *channel,
+        void *privdata,
+        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
+        SUSCOUNT size),
+        void *privdata);
 
 su_specttuner_channel_t *suscan_analyzer_open_channel(
     suscan_analyzer_t *analyzer,
@@ -203,9 +218,11 @@ SUBOOL suscan_analyzer_set_throttle_async(
     SUSCOUNT samp_rate,
     uint32_t req_id);
 
-SUBOOL suscan_analyzer_set_freq_async(
+SUBOOL suscan_analyzer_open_ex_async(
     suscan_analyzer_t *analyzer,
-    SUFREQ freq,
+    const char *classname,
+    const struct sigutils_channel *channel,
+    SUBOOL precise,
     uint32_t req_id);
 
 SUBOOL suscan_analyzer_open_async(
@@ -239,6 +256,18 @@ SUBOOL suscan_analyzer_set_inspector_config_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     const suscan_config_t *config,
+    uint32_t req_id);
+
+SUBOOL suscan_analyzer_set_inspector_freq_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUFREQ freq,
+    uint32_t req_id);
+
+SUBOOL suscan_analyzer_set_inspector_watermark_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUSCOUNT watermark,
     uint32_t req_id);
 
 SUBOOL suscan_analyzer_inspector_estimator_cmd_async(

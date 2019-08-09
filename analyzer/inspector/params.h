@@ -159,4 +159,26 @@ SUBOOL suscan_inspector_ask_params_save(
     const struct suscan_inspector_ask_params *params,
     suscan_config_t *config);
 
+/**************************** Resampler config *******************************/
+enum suscan_inspector_audio_demod {
+  SUSCAN_INSPECTOR_AUDIO_DEMOD_DISABLED,
+  SUSCAN_INSPECTOR_AUDIO_DEMOD_AM,
+  SUSCAN_INSPECTOR_AUDIO_DEMOD_FM
+};
+
+struct suscan_inspector_audio_params {
+  unsigned int sample_rate; /* Resampler output */
+  enum suscan_inspector_audio_demod demod;
+  SUFLOAT cutoff; /* Cutoff frequency for audio filter */
+  SUFLOAT volume;
+};
+
+SUBOOL suscan_config_desc_add_audio_params(suscan_config_desc_t *desc);
+SUBOOL suscan_inspector_audio_params_parse(
+    struct suscan_inspector_audio_params *params,
+    const suscan_config_t *config);
+SUBOOL suscan_inspector_audio_params_save(
+    const struct suscan_inspector_audio_params *params,
+    suscan_config_t *config);
+
 #endif /* _INSPECTOR_PARAMS_H */

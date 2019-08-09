@@ -286,6 +286,33 @@ fail:
   return SU_FALSE;
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_set_dc_remove_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
+  SUBOOL remove = (SUBOOL) (uintptr_t) cb_private;
+
+  (void) suscan_source_set_dc_remove(analyzer->source, remove);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_set_agc_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
+  SUBOOL set = (SUBOOL) (uintptr_t) cb_private;
+
+  (void) suscan_source_set_agc(analyzer->source, set);
+
+  return SU_FALSE;
+}
 
 SUPRIVATE SUBOOL
 suscan_analyzer_set_freq_cb(
@@ -306,6 +333,25 @@ suscan_analyzer_set_freq_cb(
   }
 
   return SU_FALSE;
+}
+
+/* Hacky way to perform IQ inversion without depending on the FPU */
+SUPRIVATE SUBOOL
+suscan_analyzer_do_iq_rev(SUCOMPLEX *buf, SUSCOUNT size)
+{
+  SUSCOUNT i;
+  size <<= 1;
+#ifdef _SU_SINGLE_PRECISION
+  uint32_t *as_ints = (uint32_t *) buf;
+  for (i = 1; i < size; i += 2)
+    as_ints[i] ^= 0x80000000;
+
+#else
+  uint64_t *as_ints = (uint64_t *) buf;
+  for (i = 1; i < size; i += 2)
+    as_ints[i] ^= 0x8000000000000000ull;
+
+#endif
 }
 
 SUPRIVATE SUBOOL
@@ -349,6 +395,7 @@ suscan_source_wk_cb(
   if (!dbg_rate_set) {
     dbg_rate_set = SU_TRUE;
     dbg_rate_source_start = analyzer->read_start;
+    dbg_rate_counter = 0;
   }
 #endif
 
@@ -360,6 +407,9 @@ suscan_source_wk_cb(
 #ifdef SUSCAN_DEBUG_THROTTLE
     dbg_rate_counter += got;
 #endif
+
+    if (analyzer->iq_rev)
+      suscan_analyzer_do_iq_rev(analyzer->read_buf, read_size);
 
     if (!suscan_analyzer_is_real_time(analyzer)) {
       SU_TRYCATCH(
@@ -475,8 +525,8 @@ suscan_source_wk_cb(
     timespecsub(&analyzer->process_end, &dbg_rate_source_start, &sub);
 
     if (sub.tv_sec != dbg_rate_last_second) {
-      dbg_rate_mean += ((SUFLOAT) dbg_rate_counter / (SUFLOAT) sub.tv_sec - dbg_rate_mean);
-      SU_INFO("Current read rate: %lg\n", dbg_rate_mean);
+      dbg_rate_mean = (SUFLOAT) dbg_rate_counter / (sub.tv_sec + 1e-9 * sub.tv_nsec);
+      printf("Current read rate: %lg\n", dbg_rate_mean);
       dbg_rate_last_second = sub.tv_sec;
     }
 #endif
@@ -534,6 +584,8 @@ suscan_analyzer_override_throttle(suscan_analyzer_t *analyzer, SUSCOUNT val)
 {
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
+
+  printf("Override throttle to %d\n", val);
 
   SU_TRYCATCH(!suscan_analyzer_is_real_time(analyzer), goto done);
 
@@ -831,15 +883,16 @@ suscan_analyzer_leave_sched(suscan_analyzer_t *analyzer)
 }
 
 su_specttuner_channel_t *
-suscan_analyzer_open_channel(
+suscan_analyzer_open_channel_ex(
     suscan_analyzer_t *analyzer,
     const struct sigutils_channel *chan_info,
+    SUBOOL precise,
     SUBOOL (*on_data) (
         const struct sigutils_specttuner_channel *channel,
         void *privdata,
         const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
         SUSCOUNT size),
-        void *private)
+        void *privdata)
 {
   su_specttuner_channel_t *channel = NULL;
   struct sigutils_specttuner_channel_params params =
@@ -861,8 +914,8 @@ suscan_analyzer_open_channel(
               chan_info->f_hi - chan_info->f_lo));
   params.guard = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
   params.on_data = on_data;
-  params.privdata = private;
-  params.precise = SU_FALSE;
+  params.privdata = privdata;
+  params.precise = precise;
 
   suscan_analyzer_enter_sched(analyzer);
 
@@ -874,6 +927,25 @@ done:
   suscan_analyzer_leave_sched(analyzer);
 
   return channel;
+}
+
+su_specttuner_channel_t *
+suscan_analyzer_open_channel(
+    suscan_analyzer_t *analyzer,
+    const struct sigutils_channel *chan_info,
+    SUBOOL (*on_data) (
+        const struct sigutils_specttuner_channel *channel,
+        void *privdata,
+        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
+        SUSCOUNT size),
+        void *privdata)
+{
+  return suscan_analyzer_open_channel_ex(
+      analyzer,
+      chan_info,
+      SU_FALSE,
+      on_data,
+      privdata);
 }
 
 SUBOOL
@@ -1095,6 +1167,30 @@ suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq)
 }
 
 SUBOOL
+suscan_analyzer_set_dc_remove(suscan_analyzer_t *analyzer, SUBOOL remove)
+{
+  return suscan_worker_push(
+        analyzer->slow_wk,
+        suscan_analyzer_set_dc_remove_cb,
+        (void *) (uintptr_t) remove);
+}
+
+SUBOOL
+suscan_analyzer_set_agc(suscan_analyzer_t *analyzer, SUBOOL set)
+{
+  return suscan_worker_push(
+        analyzer->slow_wk,
+        suscan_analyzer_set_agc_cb,
+        (void *) (uintptr_t) set);
+}
+
+SUBOOL
+suscan_analyzer_set_iq_reverse(suscan_analyzer_t *analyzer, SUBOOL rev)
+{
+  analyzer->iq_rev = rev;
+}
+
+SUBOOL
 suscan_analyzer_set_gain(
     suscan_analyzer_t *analyzer,
     const char *name,
@@ -1147,6 +1243,10 @@ suscan_analyzer_new(
   struct sigutils_channel_detector_params det_params;
   unsigned int worker_count;
   unsigned int i;
+
+#ifdef SUSCAN_DEBUG_THROTTLE
+  dbg_rate_set = SU_FALSE;
+#endif /* SUSCAN_DEBUG_THROTTLE */
 
   if ((new = calloc(1, sizeof (suscan_analyzer_t))) == NULL) {
     SU_ERROR("Cannot allocate analyzer\n");

@@ -43,7 +43,6 @@ enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_HALTED
 };
 
-
 /* TODO: protect baudrate access with mutexes */
 struct suscan_inspector {
   pthread_mutex_t mutex;
@@ -69,12 +68,24 @@ struct suscan_inspector {
   /* Sampler output */
   SUCOMPLEX sampler_buf[SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE];
   SUSCOUNT  sampler_ptr;
+  SUSCOUNT  sample_msg_watermark; /* Watermark. When reached, message is sent */
 
   PTR_LIST(suscan_estimator_t, estimator); /* Parameter estimators */
   PTR_LIST(suscan_spectsrc_t, spectsrc); /* Spectrum source */
 };
 
 typedef struct suscan_inspector suscan_inspector_t;
+
+SUINLINE SUBOOL
+suscan_inspector_set_msg_watermark(suscan_inspector_t *insp, SUSCOUNT wm)
+{
+  if (wm > SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE)
+    return SU_FALSE;
+
+  insp->sample_msg_watermark = wm;
+
+  return SU_TRUE;
+}
 
 SUINLINE SUSCOUNT
 suscan_inspector_sampler_buf_avail(const suscan_inspector_t *insp)
@@ -146,6 +157,7 @@ SUBOOL suscan_init_inspectors(void);
 SUBOOL suscan_ask_inspector_register(void);
 SUBOOL suscan_fsk_inspector_register(void);
 SUBOOL suscan_psk_inspector_register(void);
+SUBOOL suscan_audio_inspector_register(void);
 
 #ifdef __cplusplus
 }

@@ -332,14 +332,18 @@ suscan_fsk_inspector_feed(
     /* Perform gain control */
     switch (fsk_insp->cur_params.gc.gc_ctrl) {
       case SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL:
-        const_gain *= 2 * fsk_insp->cur_params.gc.gc_gain;
+        const_gain = 2 * fsk_insp->cur_params.gc.gc_gain * det_x;
         break;
 
       case SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC:
-        const_gain  = 2 * su_agc_feed(&fsk_insp->agc, det_x);
+        const_gain = 2 * su_agc_feed(&fsk_insp->agc, det_x);
         break;
     }
 
+    /*
+     * We are actually encoding frequency information in the phase. This
+     * is intentional, as the UI quantizes the argument of each sample.
+     */
     det_x = (const_gain * SU_C_CONJ(last)) /
         (.5 * (const_gain * SU_C_CONJ(const_gain) + last * SU_C_CONJ(last)) + 1e-8);
 

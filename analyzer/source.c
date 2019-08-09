@@ -1670,6 +1670,53 @@ suscan_source_stop_capture(suscan_source_t *source)
   return SU_TRUE;
 }
 
+
+SUBOOL
+suscan_source_set_agc(suscan_source_t *source, SUBOOL set)
+{
+  if (!source->capturing)
+    return SU_FALSE;
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
+    return SU_FALSE;
+
+  if (SoapySDRDevice_setGainMode(
+      source->sdr,
+      SOAPY_SDR_RX,
+      0,
+      set ? true : false)
+      != 0) {
+    SU_ERROR("Failed to set AGC\n");
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_set_dc_remove(suscan_source_t *source, SUBOOL remove)
+{
+  if (!source->capturing)
+    return SU_FALSE;
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
+    return SU_FALSE;
+
+  if (SoapySDRDevice_setDCOffsetMode(
+      source->sdr,
+      SOAPY_SDR_RX,
+      0,
+      remove ? true : false)
+      != 0) {
+    SU_ERROR("Failed to set DC mode\n");
+    return SU_FALSE;
+  } else {
+    source->config->dc_remove = remove;
+  }
+
+  return SU_TRUE;
+}
+
 SUBOOL
 suscan_source_set_gain(suscan_source_t *source, const char *name, SUFLOAT val)
 {

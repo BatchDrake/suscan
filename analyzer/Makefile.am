@@ -17,6 +17,7 @@ libanalyzer_la_SOURCES = \
     estimators/fac.c \
     estimators/nonlinear.c \
     inspector/impl/ask.c \
+    inspector/impl/audio.c \
     inspector/impl/fsk.c \
     inspector/impl/psk.c \
     inspector/inspector.c \

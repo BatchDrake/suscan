@@ -226,8 +226,6 @@ suscan_inspector_feed_bulk(
     const SUCOMPLEX *x,
     int count)
 {
-  insp->sampler_ptr = 0;
-
   return (insp->iface->feed) (insp->privdata, insp, x, count);
 }
 
@@ -237,6 +235,7 @@ suscan_init_inspectors(void)
   SU_TRYCATCH(suscan_ask_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_psk_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_fsk_inspector_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_audio_inspector_register(), return SU_FALSE);
 
   return SU_TRUE;
 }
