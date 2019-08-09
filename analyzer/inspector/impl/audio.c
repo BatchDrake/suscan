@@ -52,6 +52,8 @@ struct suscan_audio_inspector_params {
 #define SUSCAN_AUDIO_INSPECTOR_DELAY_LINE_FRAC  (SUSCAN_AUDIO_INSPECTOR_FAST_RISE_FRAC * 10)
 #define SUSCAN_AUDIO_INSPECTOR_MAG_HISTORY_FRAC (SUSCAN_AUDIO_INSPECTOR_FAST_RISE_FRAC * 10)
 
+#define SUSCAN_AUDIO_INSPECTOR_BRICKWALL_LEN    200
+
 struct suscan_audio_inspector {
   struct suscan_inspector_sampling_info samp_info;
   struct suscan_audio_inspector_params req_params;
@@ -61,11 +63,11 @@ struct suscan_audio_inspector {
   su_agc_t  agc;          /* AGC, for AM-like modulations */
   su_iir_filt_t filt;     /* Input filter */
   su_pll_t pll;           /* Carrier tracking PLL */
+  su_ncqo_t lo;           /* Oscillator */
   SUCOMPLEX last;         /* Last processed sample (for quad demod) */
   SUFLOAT   sym_phase;    /* Current sampling phase, in samples */
   SUFLOAT   sym_period;   /* Symbol period */
   SUCOMPLEX sampler_prev; /* Used for interpolation */
-  SUBOOL    filt_init;    /* Flag to save whether the filter was initialized */
 };
 
 SUPRIVATE void
@@ -102,7 +104,6 @@ suscan_audio_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
       new = calloc(1, sizeof(struct suscan_audio_inspector)),
       goto fail);
 
-
   new->samp_info = *sinfo;
 
   suscan_audio_inspector_params_initialize(&new->cur_params, sinfo);
@@ -124,6 +125,15 @@ suscan_audio_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
 
   /* PLL init, always one tenth of the bandwidth */
   su_pll_init(&new->pll, 0, .005f * bw);
+
+  /* Filter init */
+  su_iir_bwlpf_init(
+      &new->filt,
+      5,
+      SU_ABS2NORM_FREQ(sinfo->equiv_fs, new->cur_params.audio.cutoff));
+
+  /* NCQO init, used to sideband adjustment */
+  su_ncqo_init(&new->lo, 0);
 
   return new;
 
@@ -185,17 +195,38 @@ suscan_audio_inspector_commit_config(void *private)
   SUBOOL filt_initialized;
   SUFLOAT fs = insp->samp_info.equiv_fs;
 
-  filt_initialized = su_iir_bwlpf_init(
-      &filt,
-      5,
-      SU_ABS2NORM_FREQ(fs, insp->req_params.audio.cutoff));
-  if (!filt_initialized) {
-    SU_ERROR("No memory left to initialize demodulator filter");
-  } else {
-    su_iir_filt_finalize(&insp->filt);
-    insp->filt = filt;
-    insp->filt_init = SU_TRUE;
+  if (insp->req_params.audio.demod != SUSCAN_INSPECTOR_AUDIO_DEMOD_DISABLED) {
+    switch (insp->req_params.audio.demod)
+    {
+      case SUSCAN_INSPECTOR_AUDIO_DEMOD_AM:
+      case SUSCAN_INSPECTOR_AUDIO_DEMOD_FM:
+        filt_initialized = su_iir_bwlpf_init(
+            &filt,
+            5,
+            SU_ABS2NORM_FREQ(fs, insp->req_params.audio.cutoff));
+        break;
+
+      case SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB:
+      case SUSCAN_INSPECTOR_AUDIO_DEMOD_USB:
+        filt_initialized = su_iir_brickwall_lp_init(
+            &filt,
+            SUSCAN_AUDIO_INSPECTOR_BRICKWALL_LEN,
+            SU_ABS2NORM_FREQ(fs, insp->req_params.audio.cutoff));
+        break;
+    }
+
+    if (!filt_initialized) {
+      SU_ERROR("No memory left to initialize audio filter");
+    } else {
+      su_iir_filt_finalize(&insp->filt);
+      insp->filt = filt;
+    }
   }
+
+  /* Initialize oscillator */
+  su_ncqo_set_freq(
+      &insp->lo,
+      SU_ABS2NORM_FREQ(fs, .5f * insp->req_params.audio.cutoff));
 
   /* Set sampling info */
   if (insp->req_params.audio.sample_rate > 0)
@@ -218,6 +249,7 @@ suscan_audio_inspector_feed(
   SUCOMPLEX last, det_x;
   SUSCOUNT i;
   SUFLOAT alpha, output;
+  SUCOMPLEX lo;
   struct suscan_audio_inspector *self =
       (struct suscan_audio_inspector *) private;
 
@@ -243,15 +275,25 @@ suscan_audio_inspector_feed(
     switch (self->cur_params.audio.demod) {
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_FM:
         output = SU_C_ARG(det_x * SU_C_CONJ(last)) / M_PI;
-        last = det_x;
+        output  = su_iir_filt_feed(&self->filt, output);
+        last   = det_x;
         break;
 
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_AM:
         output = su_pll_track(&self->pll, det_x);
-    }
+        output  = su_iir_filt_feed(&self->filt, output);
+        break;
 
-    if (self->filt_init)
-      output = su_iir_filt_feed(&self->filt, output);
+      case SUSCAN_INSPECTOR_AUDIO_DEMOD_USB:
+        lo = su_ncqo_read(&self->lo);
+        output  = su_iir_filt_feed(&self->filt, det_x * lo) * SU_C_CONJ(lo);
+        break;
+
+      case SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB:
+        lo = su_ncqo_read(&self->lo);
+        output  = su_iir_filt_feed(&self->filt, det_x * SU_C_CONJ(lo)) * lo;
+        break;
+    }
 
     output *= self->cur_params.audio.volume;
 
