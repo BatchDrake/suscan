@@ -60,8 +60,17 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
     suscan_inspector_lock(insp);
 
     (insp->iface->commit_config) (insp->privdata);
-
     insp->params_requested = SU_FALSE;
+
+    suscan_inspector_unlock(insp);
+  }
+
+  if (insp->bandwidth_notified) {
+    suscan_inspector_lock(insp);
+
+    if (insp->iface->new_bandwidth != NULL)
+      (insp->iface->new_bandwidth) (insp->privdata, insp->new_bandwidth);
+    insp->bandwidth_notified = SU_FALSE;
 
     suscan_inspector_unlock(insp);
   }
@@ -109,6 +118,17 @@ suscan_inspector_get_config(
     suscan_config_t *config)
 {
   return (insp->iface->get_config) (insp->privdata, config);
+}
+
+SUBOOL
+suscan_inspector_notify_bandwidth(
+    suscan_inspector_t *insp,
+    SUFREQ new_bandwidth)
+{
+  insp->new_bandwidth = new_bandwidth;
+  insp->bandwidth_notified = SU_TRUE;
+
+  return SU_TRUE;
 }
 
 SUPRIVATE SUBOOL
@@ -170,7 +190,7 @@ suscan_inspector_t *
 suscan_inspector_new(
     const char *name,
     SUFLOAT fs,
-    const su_specttuner_channel_t *channel)
+    su_specttuner_channel_t *channel)
 {
   suscan_inspector_t *new = NULL;
   const struct suscan_inspector_interface *iface = NULL;

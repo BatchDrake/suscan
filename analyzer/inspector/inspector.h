@@ -63,7 +63,9 @@ struct suscan_inspector {
   SUSDIFF   per_cnt_spectrum;
   uint32_t  spectsrc_index;
 
-  SUBOOL    params_requested; /* New samples requested */
+  SUBOOL    params_requested;    /* New parameters requested */
+  SUBOOL    bandwidth_notified;  /* New bandwidth set */
+  SUFREQ    new_bandwidth;
 
   /* Sampler output */
   SUCOMPLEX sampler_buf[SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE];
@@ -122,6 +124,12 @@ suscan_inspector_create_config(const suscan_inspector_t *insp)
   return suscan_config_new(insp->iface->cfgdesc);
 }
 
+SUINLINE su_specttuner_channel_t *
+suscan_inspector_get_channel(const suscan_inspector_t *insp)
+{
+  return insp->samp_info.schan;
+}
+
 /******************************* Public API **********************************/
 void suscan_inspector_lock(suscan_inspector_t *insp);
 
@@ -137,6 +145,10 @@ SUBOOL suscan_inspector_set_config(
     suscan_inspector_t *insp,
     const suscan_config_t *config);
 
+SUBOOL suscan_inspector_notify_bandwidth(
+    suscan_inspector_t *insp,
+    SUFREQ new_bandwidth);
+
 SUBOOL suscan_inspector_get_config(
     const suscan_inspector_t *insp,
     suscan_config_t *config);
@@ -144,7 +156,7 @@ SUBOOL suscan_inspector_get_config(
 suscan_inspector_t *suscan_inspector_new(
     const char *name,
     SUFLOAT fs,
-    const su_specttuner_channel_t *channel);
+    su_specttuner_channel_t *channel);
 
 SUSDIFF suscan_inspector_feed_bulk(
     suscan_inspector_t *insp,

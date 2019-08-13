@@ -67,9 +67,7 @@ struct suscan_psk_inspector {
 
   /* Blocks */
   su_agc_t            agc;        /* AGC, for sampler */
-  su_costas_t         costas_2;   /* 2nd order Costas loop */
-  su_costas_t         costas_4;   /* 4th order Costas loop */
-  su_costas_t         costas_8;   /* 8th order Costas loop */
+  su_costas_t         costas;     /* Costas loop */
   su_iir_filt_t       mf;         /* Matched filter (Root Raised Cosine) */
   su_clock_detector_t cd;         /* Clock detector */
   su_equalizer_t      eq;         /* Equalizer */
@@ -124,9 +122,7 @@ suscan_psk_inspector_destroy(struct suscan_psk_inspector *insp)
 
   su_agc_finalize(&insp->agc);
 
-  su_costas_finalize(&insp->costas_2);
-  su_costas_finalize(&insp->costas_4);
-  su_costas_finalize(&insp->costas_8);
+  su_costas_finalize(&insp->costas);
 
   su_clock_detector_finalize(&insp->cd);
 
@@ -193,28 +189,8 @@ suscan_psk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
   /* Initialize PLLs */
   SU_TRYCATCH(
       su_costas_init(
-          &new->costas_2,
+          &new->costas,
           SU_COSTAS_KIND_BPSK,
-          0         /* Frequency hint */,
-          bw        /* Arm bandwidth */,
-          3         /* Order */,
-          SU_ABS2NORM_FREQ(sinfo->equiv_fs, new->cur_params.fc.fc_loopbw)),
-      goto fail);
-
-  SU_TRYCATCH(
-      su_costas_init(
-          &new->costas_4,
-          SU_COSTAS_KIND_QPSK,
-          0         /* Frequency hint */,
-          bw        /* Arm bandwidth */,
-          3         /* Order */,
-          SU_ABS2NORM_FREQ(sinfo->equiv_fs, new->cur_params.fc.fc_loopbw)),
-      goto fail);
-
-  SU_TRYCATCH(
-      su_costas_init(
-          &new->costas_8,
-          SU_COSTAS_KIND_8PSK,
           0         /* Frequency hint */,
           bw        /* Arm bandwidth */,
           3         /* Order */,
@@ -312,6 +288,7 @@ suscan_psk_inspector_commit_config(void *private)
   SUBOOL costas_changed;
   SUFLOAT actual_baud;
   su_costas_t costas;
+  enum sigutils_costas_kind kind;
 
   su_iir_filt_t mf = su_iir_filt_INITIALIZER;
   struct suscan_psk_inspector *insp = (struct suscan_psk_inspector *) private;
@@ -368,14 +345,7 @@ suscan_psk_inspector_commit_config(void *private)
     }
   }
 
-  /* Re-center costas loops */
-  if (insp->cur_params.fc.fc_ctrl == SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
-    su_ncqo_set_freq(&insp->costas_2.ncqo, 0);
-    su_ncqo_set_freq(&insp->costas_4.ncqo, 0);
-    su_ncqo_set_freq(&insp->costas_8.ncqo, 0);
-  }
-
-  /* Update Costas loops */
+  /* Costas bandwidth changed */
   if (costas_changed) {
     SU_TRYCATCH(
         su_costas_init(
@@ -388,36 +358,27 @@ suscan_psk_inspector_commit_config(void *private)
                 insp->samp_info.equiv_fs,
                 insp->cur_params.fc.fc_loopbw)),
         return);
-    su_costas_finalize(&insp->costas_2);
-    insp->costas_2 = costas;
+    su_costas_finalize(&insp->costas);
+    insp->costas = costas;
+  }
 
-    SU_TRYCATCH(
-        su_costas_init(
-            &costas,
-            SU_COSTAS_KIND_QPSK,
-            0 /* Frequency hint */,
-            insp->samp_info.bw,
-            3 /* Order */,
-            SU_ABS2NORM_FREQ(
-                insp->samp_info.equiv_fs,
-                insp->cur_params.fc.fc_loopbw)),
-        return);
-    su_costas_finalize(&insp->costas_4);
-    insp->costas_4 = costas;
+  /* Readjust Costas loop */
+  switch (insp->cur_params.fc.fc_ctrl) {
+    case SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL:
+      su_ncqo_set_freq(&insp->costas.ncqo, 0);
+      break;
 
-    SU_TRYCATCH(
-        su_costas_init(
-            &costas,
-            SU_COSTAS_KIND_8PSK,
-            0 /* Frequency hint */,
-            insp->samp_info.bw,
-            3 /* Order */,
-            SU_ABS2NORM_FREQ(
-                insp->samp_info.equiv_fs,
-                insp->cur_params.fc.fc_loopbw)),
-        return);
-    su_costas_finalize(&insp->costas_8);
-    insp->costas_8 = costas;
+    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2:
+      su_costas_set_kind(&insp->costas, SU_COSTAS_KIND_BPSK);
+      break;
+
+    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4:
+      su_costas_set_kind(&insp->costas, SU_COSTAS_KIND_QPSK);
+      break;
+
+    case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8:
+      su_costas_set_kind(&insp->costas, SU_COSTAS_KIND_8PSK);
+      break;
   }
 }
 
@@ -456,25 +417,10 @@ suscan_psk_inspector_feed(
     }
 
     /* Perform frequency correction */
-    switch (psk_insp->cur_params.fc.fc_ctrl) {
-      case SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL:
-        /* No-op */
-        break;
-
-      case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_2:
-        su_costas_feed(&psk_insp->costas_2, det_x);
-        det_x = psk_insp->costas_2.y;
-        break;
-
-      case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_4:
-        su_costas_feed(&psk_insp->costas_4, det_x);
-        det_x = psk_insp->costas_4.y;
-        break;
-
-      case SUSCAN_INSPECTOR_CARRIER_CONTROL_COSTAS_8:
-        su_costas_feed(&psk_insp->costas_8, det_x);
-        det_x = psk_insp->costas_8.y;
-        break;
+    if (psk_insp->cur_params.fc.fc_ctrl
+        != SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL) {
+      su_costas_feed(&psk_insp->costas, det_x);
+      det_x = psk_insp->costas.y;
     }
 
     /* Add matched filter, if enabled */

@@ -106,7 +106,8 @@ suscan_fsk_inspector_params_initialize(
   params->mf.mf_rolloff = SUSCAN_FSK_INSPECTOR_DEFAULT_ROLL_OFF;
 
   params->fsk.bits_per_tone = 1;
-  params->fsk.phase = PI;
+  params->fsk.quad_demod    = SU_FALSE;
+  params->fsk.phase         = PI;
 }
 
 SUPRIVATE void
@@ -344,8 +345,12 @@ suscan_fsk_inspector_feed(
      * We are actually encoding frequency information in the phase. This
      * is intentional, as the UI quantizes the argument of each sample.
      */
-    det_x = (const_gain * SU_C_CONJ(last)) /
-        (.5 * (const_gain * SU_C_CONJ(const_gain) + last * SU_C_CONJ(last)) + 1e-8);
+
+    if (fsk_insp->cur_params.fsk.quad_demod)
+      det_x = const_gain * SU_C_CONJ(last);
+    else
+      det_x = (const_gain * SU_C_CONJ(last)) /
+      (.5 * (const_gain * SU_C_CONJ(const_gain) + last * SU_C_CONJ(last)) + 1e-8);
 
     last = const_gain;
 

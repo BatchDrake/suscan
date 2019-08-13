@@ -75,8 +75,8 @@ struct suscan_analyzer {
 
   /* Source members */
   suscan_source_t *source;
-  SUBOOL det_mutex_init;
-  pthread_mutex_t det_mutex;
+  SUBOOL loop_init;
+  pthread_mutex_t loop_mutex;
   suscan_throttle_t throttle; /* For non-realtime sources */
   SUBOOL throttle_mutex_init;
   pthread_mutex_t throttle_mutex;
@@ -90,14 +90,19 @@ struct suscan_analyzer {
   SUFLOAT  interval_psd;
   SUSCOUNT per_cnt_psd;
 
+  /* This mutex shall protect hot-config requests */
+  pthread_mutex_t hotconf_mutex;
+
   /* Frequency request */
   SUBOOL freq_req;
   SUFREQ freq_req_value;
 
   /* Gain request */
-  pthread_mutex_t gain_req_mutex;
   SUBOOL gain_req_mutex_init;
   PTR_LIST(struct suscan_analyzer_gain_request, gain_request);
+
+  /* Atenna request */
+  char *antenna_req;
 
   /* Usage statistics (CPU, etc) */
   SUFLOAT cpu_usage;
@@ -145,6 +150,9 @@ SUBOOL suscan_analyzer_set_gain(
     suscan_analyzer_t *analyzer,
     const char *name,
     SUFLOAT value);
+SUBOOL suscan_analyzer_set_antenna(
+    suscan_analyzer_t *analyzer,
+    const char *name);
 SUBOOL suscan_analyzer_set_dc_remove(suscan_analyzer_t *analyzer, SUBOOL val);
 SUBOOL suscan_analyzer_set_iq_reverse(suscan_analyzer_t *analyzer, SUBOOL val);
 SUBOOL suscan_analyzer_set_agc(suscan_analyzer_t *analyzer, SUBOOL val);
@@ -165,6 +173,10 @@ suscan_analyzer_t *suscan_analyzer_new(
     const struct suscan_analyzer_params *params,
     suscan_source_config_t *config,
     struct suscan_mq *mq);
+
+SUBOOL suscan_analyzer_lock_loop(suscan_analyzer_t *analyzer);
+
+void suscan_analyzer_unlock_loop(suscan_analyzer_t *analyzer);
 
 void suscan_analyzer_source_barrier(suscan_analyzer_t *analyzer);
 
@@ -256,6 +268,13 @@ SUBOOL suscan_analyzer_set_inspector_config_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     const suscan_config_t *config,
+    uint32_t req_id);
+
+SUBOOL
+suscan_analyzer_set_inspector_bandwidth_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUFREQ bw,
     uint32_t req_id);
 
 SUBOOL suscan_analyzer_set_inspector_freq_async(

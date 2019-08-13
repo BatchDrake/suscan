@@ -579,6 +579,17 @@ suscan_config_desc_add_fsk_params(suscan_config_desc_t *desc)
           "Quadrature demodulator phase"),
       return SU_FALSE);
 
+
+    SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "fsk.quad-demod",
+          "Use traditional argument-based quadrature demodultor"),
+      return SU_FALSE);
+
+
   return SU_TRUE;
 }
 
@@ -599,7 +610,7 @@ suscan_inspector_fsk_params_parse(
 
   params->bits_per_tone = value->as_int;
 
-    SU_TRYCATCH(
+  SU_TRYCATCH(
       value = suscan_config_get_value(
           config,
           "fsk.phase"),
@@ -608,6 +619,17 @@ suscan_inspector_fsk_params_parse(
   SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
 
   params->phase = value->as_float;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "fsk.quad-demod"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_BOOLEAN, return SU_FALSE);
+
+  params->quad_demod = value->as_bool;
+
   
   return SU_TRUE;
 }

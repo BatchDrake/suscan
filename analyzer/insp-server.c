@@ -394,6 +394,79 @@ fail:
   return SU_FALSE;
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_set_inspector_freq(
+    suscan_analyzer_t *analyzer,
+    suscan_inspector_t *insp,
+    SUFREQ freq)
+{
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+  SUFLOAT f0;
+
+  f0 = SU_NORM2ANG_FREQ(
+      SU_ABS2NORM_FREQ(suscan_analyzer_get_samp_rate(analyzer), freq));
+
+  if (f0 < 0)
+    f0 += 2 * PI;
+
+  SU_TRYCATCH(suscan_analyzer_lock_loop(analyzer), goto done);
+  mutex_acquired = SU_TRUE;
+
+  /* vvvvvvvvvvvvvvvvvvvvvv Set frequency start vvvvvvvvvvvvvvvvvvvvvv */
+  su_specttuner_set_channel_freq(
+      analyzer->stuner,
+      suscan_inspector_get_channel(insp),
+      f0);
+
+  /* ^^^^^^^^^^^^^^^^^^^^^ Set frequency end ^^^^^^^^^^^^^^^^^^^^^^^^^ */
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    suscan_analyzer_unlock_loop(analyzer);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_set_inspector_bandwidth(
+    suscan_analyzer_t *analyzer,
+    suscan_inspector_t *insp,
+    SUFREQ bandwidth)
+{
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+  SUFLOAT relbw;
+
+  relbw = SU_NORM2ANG_FREQ(
+      SU_ABS2NORM_FREQ(suscan_analyzer_get_samp_rate(analyzer), bandwidth));
+
+  if (relbw < 0)
+    relbw += 2 * PI;
+
+  SU_TRYCATCH(suscan_analyzer_lock_loop(analyzer), goto done);
+  mutex_acquired = SU_TRUE;
+
+  /* vvvvvvvvvvvvvvvvvvvvvv Set bandwidth start vvvvvvvvvvvvvvvvvvvvvv */
+  su_specttuner_set_channel_bandwidth(
+      analyzer->stuner,
+      suscan_inspector_get_channel(insp),
+      relbw);
+
+  SU_TRYCATCH(suscan_inspector_notify_bandwidth(insp, bandwidth), goto done);
+  /* ^^^^^^^^^^^^^^^^^^^^^ Set bandwidth end ^^^^^^^^^^^^^^^^^^^^^^^^^ */
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    suscan_analyzer_unlock_loop(analyzer);
+
+  return ok;
+}
+
+
 /*
  * We have ownership on msg, this messages are urgent: they are placed
  * in the beginning of the queue
@@ -411,7 +484,7 @@ suscan_analyzer_parse_inspector_msg(
   suscan_inspector_t *insp = NULL;
   unsigned int i;
   SUHANDLE handle = -1;
-  SUFLOAT f0;
+  SUFLOAT f0, new_bw;
   SUBOOL ok = SU_FALSE;
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL update_baud;
@@ -517,7 +590,7 @@ suscan_analyzer_parse_inspector_msg(
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
         if (!suscan_inspector_set_msg_watermark(insp, msg->watermark))
-          msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND;
+          msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT;
       }
       break;
 
@@ -528,38 +601,31 @@ suscan_analyzer_parse_inspector_msg(
         /* No such handle */
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
-        f0 = SU_NORM2ANG_FREQ(
-                SU_ABS2NORM_FREQ(
-                    suscan_analyzer_get_samp_rate(analyzer),
-                    msg->channel.fc - msg->channel.ft));
-
-        if (f0 < 0)
-          f0 += 2 * PI;
-
         SU_TRYCATCH(
-            pthread_mutex_lock(&analyzer->det_mutex) != -1,
-            goto done);
-        mutex_acquired = SU_TRUE;
+            suscan_analyzer_set_inspector_freq(
+                analyzer,
+                insp,
+                msg->channel.fc - msg->channel.ft),
+            msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT);
+      }
 
-        /* vvvvvvvvvvvvvvvvvvvvvv Set frequency start vvvvvvvvvvvvvvvvvvvvvv */
-        /*
-         * XXX: This is ugly. I coded this quickly due to time constraints,
-         * but the right way to do it would be:
-         *
-         *   - Make the reference to the channel object non-const
-         *   - Expose a method called suscan_inspector_set_freq
-         *   - Expose another method called suscan_analyzer_(un)lock_source
-         *   - Change frequency inside
-         */
-        su_specttuner_set_channel_freq(
-            analyzer->stuner,
-            (su_specttuner_channel_t *) insp->samp_info.schan,
-            f0);
-        /* ^^^^^^^^^^^^^^^^^^^^^ Set frequency end ^^^^^^^^^^^^^^^^^^^^^^^^^ */
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_BANDWIDTH:
+      if ((insp = suscan_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else if (msg->channel.bw >= insp->samp_info.equiv_fs){
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT;
+      } else {
         SU_TRYCATCH(
-            pthread_mutex_unlock(&analyzer->det_mutex) != -1,
-            goto done);
-        mutex_acquired = SU_FALSE;
+            suscan_analyzer_set_inspector_bandwidth(
+                analyzer,
+                insp,
+                msg->channel.bw),
+            msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT);
       }
 
       break;
@@ -618,7 +684,7 @@ suscan_analyzer_parse_inspector_msg(
 
 done:
   if (mutex_acquired)
-    pthread_mutex_unlock(&analyzer->det_mutex);
+    suscan_analyzer_unlock_loop(analyzer);
 
   return ok;
 }

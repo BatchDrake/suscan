@@ -249,8 +249,8 @@ suscan_analyzer_set_gain_cb(
   PTR_LIST_LOCAL(struct suscan_analyzer_gain_request, request);
   unsigned int i;
 
-  /* vvvvvvvvvvvvvvvvvv Acquire gain request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
-  SU_TRYCATCH(pthread_mutex_lock(&analyzer->gain_req_mutex) != -1, goto fail);
+  /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
+  SU_TRYCATCH(pthread_mutex_lock(&analyzer->hotconf_mutex) != -1, goto fail);
   mutex_acquired = SU_TRUE;
 
   request_list  = analyzer->gain_request_list;
@@ -259,9 +259,9 @@ suscan_analyzer_set_gain_cb(
   analyzer->gain_request_list  = NULL;
   analyzer->gain_request_count = 0;
 
-  pthread_mutex_unlock(&analyzer->gain_req_mutex);
+  pthread_mutex_unlock(&analyzer->hotconf_mutex);
   mutex_acquired = SU_FALSE;
-  /* ^^^^^^^^^^^^^^^^^^ Release gain request mutex ^^^^^^^^^^^^^^^^^^^^^^^^^ */
+  /* ^^^^^^^^^^^^^^^^^^ Release hotconf request mutex ^^^^^^^^^^^^^^^^^^^^^^^^^ */
 
   /* Process all requests */
   for (i = 0; i < request_count; ++i) {
@@ -275,13 +275,47 @@ suscan_analyzer_set_gain_cb(
 
 fail:
   if (mutex_acquired)
-    pthread_mutex_unlock(&analyzer->gain_req_mutex);
+    pthread_mutex_unlock(&analyzer->hotconf_mutex);
 
   for (i = 0; i < request_count; ++i)
     suscan_analyzer_gain_request_destroy(request_list[i]);
 
   if (request_list != NULL)
     free(request_list);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_set_antenna_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
+  SUBOOL mutex_acquired = SU_FALSE;
+  char *req = NULL;
+  unsigned int i;
+
+  /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
+  SU_TRYCATCH(pthread_mutex_lock(&analyzer->hotconf_mutex) != -1, goto fail);
+  mutex_acquired = SU_TRUE;
+
+  req = analyzer->antenna_req;
+  analyzer->antenna_req = NULL;
+
+  pthread_mutex_unlock(&analyzer->hotconf_mutex);
+  mutex_acquired = SU_FALSE;
+  /* ^^^^^^^^^^^^^^^^^^ Release hotconf request mutex ^^^^^^^^^^^^^^^^^^^^^^^^^ */
+
+  suscan_source_set_antenna(analyzer->source, req);
+
+fail:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&analyzer->hotconf_mutex);
+
+  if (req != NULL)
+    free(req);
 
   return SU_FALSE;
 }
@@ -354,6 +388,19 @@ suscan_analyzer_do_iq_rev(SUCOMPLEX *buf, SUSCOUNT size)
 #endif
 }
 
+SUBOOL
+suscan_analyzer_lock_loop(suscan_analyzer_t *analyzer)
+{
+  return pthread_mutex_lock(&analyzer->loop_mutex) != -1;
+}
+
+void
+suscan_analyzer_unlock_loop(suscan_analyzer_t *analyzer)
+{
+  (void) pthread_mutex_unlock(&analyzer->loop_mutex);
+}
+
+
 SUPRIVATE SUBOOL
 suscan_source_wk_cb(
     struct suscan_mq *mq_out,
@@ -370,7 +417,7 @@ suscan_source_wk_cb(
   struct timespec sub;
 #endif
 
-  SU_TRYCATCH(pthread_mutex_lock(&analyzer->det_mutex) != -1, goto done);
+  SU_TRYCATCH(suscan_analyzer_lock_loop(analyzer), goto done);
   mutex_acquired = SU_TRUE;
 
   /* With non-real time sources, use throttle to control CPU usage */
@@ -535,7 +582,7 @@ suscan_source_wk_cb(
 
 done:
   if (mutex_acquired)
-    (void) pthread_mutex_unlock(&analyzer->det_mutex);
+    (void) suscan_analyzer_unlock_loop(analyzer);
 
   return restart;
 }
@@ -584,8 +631,6 @@ suscan_analyzer_override_throttle(suscan_analyzer_t *analyzer, SUSCOUNT val)
 {
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
-
-  printf("Override throttle to %d\n", val);
 
   SU_TRYCATCH(!suscan_analyzer_is_real_time(analyzer), goto done);
 
@@ -710,7 +755,7 @@ suscan_analyzer_thread(void *data)
            */
 
           SU_TRYCATCH(
-              pthread_mutex_lock(&analyzer->det_mutex) != -1,
+              pthread_mutex_lock(&analyzer->loop_mutex) != -1,
               goto done);
           mutex_acquired = SU_TRUE;
 
@@ -745,7 +790,7 @@ suscan_analyzer_thread(void *data)
           /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
 
           SU_TRYCATCH(
-              pthread_mutex_unlock(&analyzer->det_mutex) != -1,
+              pthread_mutex_unlock(&analyzer->loop_mutex) != -1,
               goto done);
           mutex_acquired = SU_FALSE;
 
@@ -763,7 +808,7 @@ suscan_analyzer_thread(void *data)
 
 done:
   if (mutex_acquired)
-    (void) pthread_mutex_unlock(&analyzer->det_mutex);
+    (void) pthread_mutex_unlock(&analyzer->loop_mutex);
 
   if (private != NULL)
     suscan_analyzer_dispose_message(type, private);
@@ -1078,8 +1123,8 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   if (analyzer->detector != NULL)
     su_channel_detector_destroy(analyzer->detector);
 
-  if (analyzer->det_mutex_init)
-    pthread_mutex_destroy(&analyzer->det_mutex);
+  if (analyzer->loop_init)
+    pthread_mutex_destroy(&analyzer->loop_mutex);
 
   /* Free spectral tuner */
   if (analyzer->stuner != NULL)
@@ -1112,7 +1157,7 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
     free(analyzer->gain_request_list);
 
   if (analyzer->gain_req_mutex_init)
-    pthread_mutex_destroy(&analyzer->gain_req_mutex);
+    pthread_mutex_destroy(&analyzer->hotconf_mutex);
 
   /* Delete all baseband filters */
   for (i = 0; i < analyzer->bbfilt_count; ++i)
@@ -1191,6 +1236,46 @@ suscan_analyzer_set_iq_reverse(suscan_analyzer_t *analyzer, SUBOOL rev)
 }
 
 SUBOOL
+suscan_analyzer_set_antenna(
+    suscan_analyzer_t *analyzer,
+    const char *name)
+{
+  char *req = NULL;
+  SUBOOL mutex_acquired = SU_FALSE;
+
+  SU_TRYCATCH(req = strdup(name), goto fail);
+
+  /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvv */
+  SU_TRYCATCH(
+      pthread_mutex_lock(&analyzer->hotconf_mutex) != -1,
+      goto fail);
+  mutex_acquired = SU_TRUE;
+
+  if (analyzer->antenna_req != NULL)
+    free(analyzer->antenna_req);
+  analyzer->antenna_req = req;
+  req = NULL;
+
+  pthread_mutex_unlock(&analyzer->hotconf_mutex);
+  mutex_acquired = SU_FALSE;
+  /* ^^^^^^^^^^^^^^^^^^ Release hotconf request mutex ^^^^^^^^^^^^^^^^^^^^^^^ */
+
+  return suscan_worker_push(
+      analyzer->slow_wk,
+      suscan_analyzer_set_antenna_cb,
+      NULL);
+
+fail:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&analyzer->hotconf_mutex);
+
+  if (req != NULL)
+    free(req);
+
+  return SU_FALSE;
+}
+
+SUBOOL
 suscan_analyzer_set_gain(
     suscan_analyzer_t *analyzer,
     const char *name,
@@ -1201,9 +1286,9 @@ suscan_analyzer_set_gain(
 
   SU_TRYCATCH(req = suscan_analyzer_gain_request_new(name, value), goto fail);
 
-  /* vvvvvvvvvvvvvvvvvv Acquire gain request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
+  /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvv */
   SU_TRYCATCH(
-      pthread_mutex_lock(&analyzer->gain_req_mutex) != -1,
+      pthread_mutex_lock(&analyzer->hotconf_mutex) != -1,
       goto fail);
   mutex_acquired = SU_TRUE;
 
@@ -1212,9 +1297,9 @@ suscan_analyzer_set_gain(
       goto fail);
   req = NULL;
 
-  pthread_mutex_unlock(&analyzer->gain_req_mutex);
+  pthread_mutex_unlock(&analyzer->hotconf_mutex);
   mutex_acquired = SU_FALSE;
-  /* ^^^^^^^^^^^^^^^^^^ Release gain request mutex ^^^^^^^^^^^^^^^^^^^^^^^^^ */
+  /* ^^^^^^^^^^^^^^^^^^ Release hotconf request mutex ^^^^^^^^^^^^^^^^^^^^^^^ */
 
   return suscan_worker_push(
       analyzer->slow_wk,
@@ -1223,13 +1308,14 @@ suscan_analyzer_set_gain(
 
 fail:
   if (mutex_acquired)
-    pthread_mutex_unlock(&analyzer->gain_req_mutex);
+    pthread_mutex_unlock(&analyzer->hotconf_mutex);
 
   if (req != NULL)
     suscan_analyzer_gain_request_destroy(req);
 
   return SU_FALSE;
 }
+
 
 suscan_analyzer_t *
 suscan_analyzer_new(
@@ -1281,8 +1367,8 @@ suscan_analyzer_new(
   new->interval_psd      = params->psd_update_int;
 
   /* Create channel detector */
-  (void) pthread_mutex_init(&new->det_mutex, NULL); /* Always succeeds */
-  new->det_mutex_init = SU_TRUE;
+  (void) pthread_mutex_init(&new->loop_mutex, NULL); /* Always succeeds */
+  new->loop_init = SU_TRUE;
   det_params = params->detector_params;
   suscan_analyzer_init_detector_params(new, &det_params);
   SU_TRYCATCH(
@@ -1304,7 +1390,7 @@ suscan_analyzer_new(
   }
 
   /* Initialize gain request mutex */
-  SU_TRYCATCH(pthread_mutex_init(&new->gain_req_mutex, NULL) != -1, goto fail);
+  SU_TRYCATCH(pthread_mutex_init(&new->hotconf_mutex, NULL) != -1, goto fail);
   new->gain_req_mutex_init = SU_TRUE;
 
   /* Create spectral tuner, with matching read size */

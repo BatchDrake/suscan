@@ -90,7 +90,11 @@ suscan_audio_inspector_destroy(struct suscan_audio_inspector *insp)
 {
   su_iir_filt_finalize(&insp->filt);
 
+  su_pll_finalize(&insp->pll);
+
   su_agc_finalize(&insp->agc);
+
+  free(insp);
 }
 
 SUPRIVATE struct suscan_audio_inspector *
@@ -133,7 +137,7 @@ suscan_audio_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
       SU_ABS2NORM_FREQ(sinfo->equiv_fs, new->cur_params.audio.cutoff));
 
   /* NCQO init, used to sideband adjustment */
-  su_ncqo_init(&new->lo, 0);
+  su_ncqo_init(&new->lo, .5 * bw);
 
   return new;
 
@@ -187,6 +191,20 @@ suscan_audio_inspector_parse_config(void *private, const suscan_config_t *config
 
 /* Called inside inspector mutex */
 void
+suscan_audio_inspector_new_bandwidth(void *private, SUFREQ bw)
+{
+  struct suscan_audio_inspector *insp =
+        (struct suscan_audio_inspector *) private;
+  SUFLOAT fs = insp->samp_info.equiv_fs;
+
+  /* Initialize oscillator */
+  su_ncqo_set_freq(
+      &insp->lo,
+      SU_ABS2NORM_FREQ(fs, .5 * bw));
+}
+
+/* Called inside inspector mutex */
+void
 suscan_audio_inspector_commit_config(void *private)
 {
   struct suscan_audio_inspector *insp =
@@ -222,11 +240,6 @@ suscan_audio_inspector_commit_config(void *private)
       insp->filt = filt;
     }
   }
-
-  /* Initialize oscillator */
-  su_ncqo_set_freq(
-      &insp->lo,
-      SU_ABS2NORM_FREQ(fs, .5f * insp->req_params.audio.cutoff));
 
   /* Set sampling info */
   if (insp->req_params.audio.sample_rate > 0)
@@ -286,12 +299,12 @@ suscan_audio_inspector_feed(
 
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_USB:
         lo = su_ncqo_read(&self->lo);
-        output  = su_iir_filt_feed(&self->filt, det_x * lo) * SU_C_CONJ(lo);
+        output  = su_iir_filt_feed(&self->filt, det_x * lo);
         break;
 
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB:
         lo = su_ncqo_read(&self->lo);
-        output  = su_iir_filt_feed(&self->filt, det_x * SU_C_CONJ(lo)) * lo;
+        output  = su_iir_filt_feed(&self->filt, det_x * SU_C_CONJ(lo));
         break;
     }
 
@@ -331,6 +344,7 @@ SUPRIVATE struct suscan_inspector_interface iface = {
     .get_config = suscan_audio_inspector_get_config,
     .parse_config = suscan_audio_inspector_parse_config,
     .commit_config = suscan_audio_inspector_commit_config,
+    .new_bandwidth = suscan_audio_inspector_new_bandwidth,
     .feed = suscan_audio_inspector_feed,
     .close = suscan_audio_inspector_close
 };

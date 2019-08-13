@@ -32,7 +32,7 @@
 struct suscan_inspector;
 
 struct suscan_inspector_sampling_info {
-  const su_specttuner_channel_t *schan; /* Borrowed: specttuner channel */
+  su_specttuner_channel_t *schan; /* Borrowed: specttuner channel */
   SUFLOAT equiv_fs;    /* Equivalent sample rate */
   SUFLOAT bw;          /* Bandwidth */
   SUFLOAT f0;
@@ -54,6 +54,9 @@ struct suscan_inspector_interface {
 
   /* Parse config and store it in a temporary area */
   SUBOOL (*parse_config) (void *priv, const suscan_config_t *config);
+
+  /* Adjust on new bandwidth */
+  void (*new_bandwidth) (void *priv, SUFREQ bandwidth);
 
   /* Commit parsed config */
   void (*commit_config) (void *priv);

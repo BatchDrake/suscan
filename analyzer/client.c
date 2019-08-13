@@ -272,6 +272,44 @@ done:
 }
 
 SUBOOL
+suscan_analyzer_set_inspector_bandwidth_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUFREQ bw,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_inspector_msg *req = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_BANDWIDTH,
+          req_id),
+      goto done);
+
+  req->handle = handle;
+  req->channel.bw = bw;
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+      req)) {
+    SU_ERROR("Failed to send set_bw command\n");
+    goto done;
+  }
+
+  req = NULL; /* Now it belongs to the queue */
+
+  ok = SU_TRUE;
+
+done:
+  if (req != NULL)
+    suscan_analyzer_inspector_msg_destroy(req);
+
+  return ok;
+}
+
+SUBOOL
 suscan_analyzer_set_inspector_freq_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,

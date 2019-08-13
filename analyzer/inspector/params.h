@@ -132,6 +132,7 @@ SUBOOL suscan_inspector_br_params_save(
 /****************************** FSK config ***********************************/
 struct suscan_inspector_fsk_params {
   unsigned int bits_per_tone; /* Bits per symbol (dummy) */
+  SUBOOL quad_demod;
   SUFLOAT phase; /* Demodulator phase */
 };
 

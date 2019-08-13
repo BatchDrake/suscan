@@ -1746,6 +1746,33 @@ suscan_source_set_gain(suscan_source_t *source, const char *name, SUFLOAT val)
   return SU_TRUE;
 }
 
+SUBOOL
+suscan_source_set_antenna(suscan_source_t *source, const char *name)
+{
+  if (!source->capturing)
+    return SU_FALSE;
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
+    return SU_FALSE;
+
+  /* Update config */
+  suscan_source_config_set_antenna(source->config, name);
+
+  /* Set device frequency */
+  if (SoapySDRDevice_setAntenna(
+      source->sdr,
+      SOAPY_SDR_RX,
+      source->config->channel,
+      name) != 0) {
+    SU_ERROR(
+        "Failed to set SDR antenna `%s': %s\n",
+        name,
+        SoapySDRDevice_lastError());
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
 
 SUBOOL
 suscan_source_set_freq(suscan_source_t *source, SUFREQ freq)
