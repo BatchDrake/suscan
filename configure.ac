@@ -68,10 +68,6 @@ AC_SUBST(sndfile_LIBS)
 PKG_CHECK_MODULES(soapysdr, [ SoapySDR >= 0.5.0 ], , [AC_MSG_ERROR([Couldn't find SoapySDR libraries])])
 AC_SUBST(soapysdr_CFLAGS)
 AC_SUBST(soapysdr_LIBS)
-
-PKG_CHECK_MODULES([gtk3], [ gtk+-3.0 >= 3.22.0 ], , [AC_MSG_ERROR([Couldn't find GTK3])])
-AC_SUBST(gtk3_CFLAGS)
-AC_SUBST(gtk3_LIBS)
   
 PKG_CHECK_MODULES([xml2], [ libxml-2.0 >= 2.9.0 ], , [AC_MSG_ERROR([Couldn't find libxml2])])
 AC_SUBST(xml2_CFLAGS)
@@ -87,6 +83,5 @@ AC_OUTPUT([
   util/Makefile
   codec/Makefile
   analyzer/Makefile
-  gui/Makefile
   suscan.pc
 ])

@@ -12,32 +12,32 @@ lib_LTLIBRARIES = libsuscan.la
 
 ############################## COMMON SECTION ################################
 SUSCAN_COMMON_CFLAGS =        \
-  -I. -I../util -I../codec -I../ctk -I.. -g -O0 \
-	@sigutils_CFLAGS@ 					\
-	@fftw3_CFLAGS@     					\
-	@sndfile_CFLAGS@						\
+  -I. -I../util -I../codec -I.. -g -O0 		\
+	@sigutils_CFLAGS@ 			\
+	@fftw3_CFLAGS@     			\
+	@sndfile_CFLAGS@			\
 	@GLOBAL_CFLAGS@			        \
-	@xml2_CFLAGS@								\
+	@xml2_CFLAGS@				\
 	@soapysdr_CFLAGS@
-	
-SUSCAN_COMMON_LIBS =          \
-  ../util/libutil.la          \
+
+SUSCAN_COMMON_LIBS =          		\
+  ../util/libutil.la          		\
 	../analyzer/libanalyzer.la	\
 	../codec/libcodec.la	    	\
-	@sigutils_LIBS@		 					\
-	@fftw3_LIBS@     						\
-	@sndfile_LIBS@							\
-	@soapysdr_LIBS@							\
-	@xml2_LIBS@								  \
+	@sigutils_LIBS@		 	\
+	@fftw3_LIBS@     		\
+	@sndfile_LIBS@			\
+	@soapysdr_LIBS@			\
+	@xml2_LIBS@			\
 	@GLOBAL_LDFLAGS@								
 
 ########################## SUSCAN RULES ######################################
-suscan_CFLAGS = $(SUSCAN_COMMON_CFLAGS) @gtk3_CFLAGS@	
-	
+suscan_CFLAGS = $(SUSCAN_COMMON_CFLAGS)
+
 suscan_LDFLAGS = @GLOBAL_LDFLAGS@ -Wl,--whole-archive \
 	-Wl,--allow-multiple-definition
 
-suscan_LDADD = ../gui/libgui.la $(SUSCAN_COMMON_LIBS) @gtk3_LIBS@								
+suscan_LDADD = $(SUSCAN_COMMON_LIBS)								
 
 suscan_SOURCES = common.c fingerprint.c lib.c main.c suscan.h
 

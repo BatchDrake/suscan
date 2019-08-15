@@ -18,7 +18,6 @@
 #include <codec.h>
 
 SUPRIVATE struct option long_options[] = {
-    {"fingerprint", no_argument, NULL, 'f'},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0}
 };
@@ -29,24 +28,19 @@ SUPRIVATE void
 help(const char *argv0)
 {
   fprintf(stderr, "Usage:\n");
-  fprintf(stderr, "  %s [options] [source1 [source2 [...]]]\n\n", argv0);
+  fprintf(stderr, "  %s [options] \n\n", argv0);
   fprintf(
       stderr,
-      "A GNU/Linux sigutils-based frequency scanner\n\n");
+      "This command will attempt to load Suscan library and display load errors.\n\n");
   fprintf(stderr, "Options:\n\n");
-  fprintf(stderr, "     -f, --fingerprint     Performs fingerprinting on all\n");
-  fprintf(stderr, "                           specified sources\n");
   fprintf(stderr, "     -h, --help            This help\n\n");
-  fprintf(stderr, "(c) 2017 Gonzalo J. Caracedo <BatchDrake@gmail.com>\n");
+  fprintf(stderr, "(c) 2019 Gonzalo J. Caracedo <BatchDrake@gmail.com>\n");
 }
 
 int
 main(int argc, char *argv[], char *envp[])
 {
-  struct suscan_source_config *config = NULL;
-  PTR_LIST_LOCAL(struct suscan_source_config, config);
   struct timeval tv;
-  enum suscan_mode mode = SUSCAN_MODE_GTK_UI;
   int exit_code = EXIT_FAILURE;
   char *msgs;
   unsigned int i;
@@ -57,12 +51,8 @@ main(int argc, char *argv[], char *envp[])
   mtrace();
 #endif
 
-  while ((c = getopt_long(argc, argv, "fh", long_options, &index)) != -1) {
+  while ((c = getopt_long(argc, argv, "h", long_options, &index)) != -1) {
     switch (c) {
-      case 'f':
-        mode = SUSCAN_MODE_FINGERPRINT;
-        break;
-
       case 'h':
         help(argv[0]);
         exit(EXIT_SUCCESS);
@@ -78,19 +68,13 @@ main(int argc, char *argv[], char *envp[])
     }
   }
 
-  if (mode == SUSCAN_MODE_GTK_UI)
-    gettimeofday(&tv, NULL);
+  gettimeofday(&tv, NULL);
 
-  if (!suscan_sigutils_init(mode)) {
+  if (!suscan_sigutils_init(SUSCAN_MODE_GTK_UI)) {
     fprintf(stderr, "%s: failed to initialize sigutils library\n", argv[0]);
     goto done;
   }
 
-  /*
-   * This block has been moved to gui.c, but it will probably be used
-   * in fingerprint mode.
-   */
-#if 0
   if (!suscan_codec_class_register_builtin()) {
     fprintf(
         stderr,
@@ -118,25 +102,10 @@ main(int argc, char *argv[], char *envp[])
     fprintf(stderr, "%s: failed to initialize inspectors\n", argv[0]);
     goto done;
   }
-#endif
 
-  switch (mode) {
-    case SUSCAN_MODE_GTK_UI:
-      if (suscan_gui_start(argc, argv, config_list, config_count)) {
-        exit_code = EXIT_SUCCESS;
-      } else {
-        fprintf(
-            stderr,
-            "%s: Gtk GUI failed to start, last error messages were:\n",
-            argv[0]);
-      }
-      break;
-
-    case SUSCAN_MODE_FINGERPRINT:
-      fprintf(stderr, "%s: fingerprint mode not implemented\n", argv[0]);
-      break;
-  }
-
+  fprintf(stderr, "%s: suscan library loaded successfully.\n", argv[0]);
+  exit_code = 0;
+  
 done:
   if ((msgs = suscan_log_get_last_messages(tv, 20)) != NULL) {
     if (*msgs) {
@@ -146,11 +115,6 @@ done:
     }
     free(msgs);
   }
-
-  for (i = 0; i < config_count; ++i)
-    suscan_source_config_destroy(config_list[i]);
-
-  (void) suscan_confdb_save_all();
 
 #ifdef DEBUG_WITH_MTRACE
   muntrace();
