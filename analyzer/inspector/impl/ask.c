@@ -68,14 +68,11 @@ struct suscan_ask_inspector {
   su_agc_t            agc;        /* AGC, for sampler */
   su_iir_filt_t       mf;         /* Matched filter (Root Raised Cosine) */
   su_clock_detector_t cd;         /* Clock detector */
+  su_sampler_t        sampler;    /* Fixed baudrate sampler */
   su_pll_t            pll;        /* PLL to center frequency */
   su_ncqo_t           lo;         /* Oscillator for manual carrier offset */
   SUCOMPLEX           phase;      /* Local oscillator phase */
   SUCOMPLEX           last;       /* Last sample processed */
-
-  SUFLOAT   sym_phase;  /* Current sampling phase, in samples */
-  SUFLOAT   sym_period; /* Symbol period */
-  SUCOMPLEX sampler_prev; /* Used for interpolation */
 };
 
 SUSCOUNT
@@ -123,6 +120,8 @@ suscan_ask_inspector_destroy(struct suscan_ask_inspector *insp)
 
   su_clock_detector_finalize(&insp->cd);
 
+  su_sampler_finalize(&insp->sampler);
+
   free(insp);
 }
 
@@ -152,6 +151,9 @@ suscan_ask_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
           .5 * bw, /* Baudrate hint */
           32  /* Buffer size */),
       goto fail);
+
+  /* Fixed baudrate sampler */
+  SU_TRYCATCH(su_sampler_init(&new->sampler, tau), goto fail);
 
   /* Create PLL */
   SU_TRYCATCH(
@@ -269,8 +271,8 @@ suscan_ask_inspector_commit_config(void *private)
   SUFLOAT fs;
   SUBOOL mf_changed;
   SUBOOL pll_changed;
-
   SUFLOAT actual_baud;
+  SUFLOAT sym_period;
   su_pll_t new_pll;
   su_iir_filt_t mf = su_iir_filt_INITIALIZER;
   struct suscan_ask_inspector *insp = (struct suscan_ask_inspector *) private;
@@ -303,24 +305,21 @@ suscan_ask_inspector_commit_config(void *private)
       &insp->lo,
       SU_ABS2NORM_FREQ(fs, insp->cur_params.ask.offset));
 
-  /* Update inspector according to params */
-  if (actual_baud > 0)
-    insp->sym_period = 1. / SU_ABS2NORM_BAUD(fs, actual_baud);
-  else
-    insp->sym_period = 0;
-
   /* Update baudrate */
   su_clock_detector_set_baud(&insp->cd, SU_ABS2NORM_BAUD(fs, actual_baud));
+  su_sampler_set_rate(&insp->sampler, SU_ABS2NORM_BAUD(fs, actual_baud));
+  su_sampler_set_phase_addend(&insp->sampler, insp->cur_params.br.sym_phase);
+  sym_period = su_sampler_get_period(&insp->sampler);
 
   insp->cd.alpha = insp->cur_params.br.br_alpha;
   insp->cd.beta = insp->cur_params.br.br_beta;
 
   /* Update matched filter */
-  if (mf_changed && insp->sym_period > 0) {
+  if (mf_changed && sym_period > 0) {
     if (!su_iir_rrc_init(
         &mf,
-        suscan_ask_inspector_mf_span(6 * insp->sym_period),
-        insp->sym_period,
+        suscan_ask_inspector_mf_span(6 * sym_period),
+        sym_period,
         insp->cur_params.mf.mf_rolloff)) {
       SU_ERROR("No memory left to update matched filter!\n");
     } else {
@@ -344,15 +343,12 @@ suscan_ask_inspector_feed(
   SUCOMPLEX det_x;
   SUCOMPLEX output;
   SUBOOL new_sample = SU_FALSE;
-  SUFLOAT samp_phase_samples;
   SUCOMPLEX last = 0;
   unsigned int counts = 0;
   struct timeval tv, otv, sub;
 
   struct suscan_ask_inspector *ask_insp =
       (struct suscan_ask_inspector *) private;
-
-  samp_phase_samples = ask_insp->cur_params.br.sym_phase * ask_insp->sym_period;
 
   last = ask_insp->last;
 
@@ -384,40 +380,17 @@ suscan_ask_inspector_feed(
       det_x = su_iir_filt_feed(&ask_insp->mf, det_x);
 
     /* Check if channel sampler is enabled */
-    if (ask_insp->cur_params.br.br_ctrl
-        == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL) {
-      if (ask_insp->sym_period >= 1.) {
-        ask_insp->sym_phase += 1.;
-        if (ask_insp->sym_phase >= ask_insp->sym_period)
-          ask_insp->sym_phase -= ask_insp->sym_period;
-
-        new_sample =
-            (SUBOOL) (SU_FLOOR(ask_insp->sym_phase - samp_phase_samples) == 0);
-
-        /* Interpolate with previos sample for improved accuracy */
-        if (new_sample) {
-          alpha = ask_insp->sym_phase - SU_FLOOR(ask_insp->sym_phase);
-          output = ((1 - alpha) * ask_insp->sampler_prev + alpha * det_x);
-        }
-      }
-
-      /* Keep last sample for interpolation */
-      ask_insp->sampler_prev = det_x;
+    if (ask_insp->cur_params.br.br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL) {
+      output = det_x;
+      new_sample = su_sampler_feed(&ask_insp->sampler, &output);
     } else {
       /* Automatic baudrate control enabled */
       su_clock_detector_feed(&ask_insp->cd, det_x);
-
-      new_sample = su_clock_detector_read(&ask_insp->cd, &det_x, 1) == 1;
-      if (new_sample)
-        output = det_x;
+      new_sample = su_clock_detector_read(&ask_insp->cd, &output, 1) == 1;
     }
 
-    /* Apply channel equalizer, if enabled */
-    if (new_sample) {
-      /* Reduce amplitude so it fits in the constellation window */
-      suscan_inspector_push_sample(insp, output * .75);
-      new_sample = SU_FALSE;
-    }
+    if (new_sample)
+      suscan_inspector_push_sample(insp, output * .75 * ask_insp->phase);
   }
 
   ask_insp->last = last;

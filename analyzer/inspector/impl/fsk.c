@@ -68,12 +68,10 @@ struct suscan_fsk_inspector {
   su_agc_t            agc;        /* AGC, for sampler */
   su_iir_filt_t       mf;         /* Matched filter (Root Raised Cosine) */
   su_clock_detector_t cd;         /* Clock detector */
+  su_sampler_t        sampler;    /* Sampler */
   su_ncqo_t           lo;         /* Oscillator for manual carrier offset */
   SUCOMPLEX           phase;      /* Local oscillator phase */
-  SUCOMPLEX           last;       /* Last sample processed */
-  SUFLOAT   sym_phase;  /* Current sampling phase, in samples */
-  SUFLOAT   sym_period; /* Symbol period */
-  SUCOMPLEX sampler_prev; /* Used for interpolation */
+  SUCOMPLEX           last;       /* Last processed sample */
 };
 
 SUSCOUNT
@@ -119,6 +117,8 @@ suscan_fsk_inspector_destroy(struct suscan_fsk_inspector *insp)
 
   su_clock_detector_finalize(&insp->cd);
 
+  su_sampler_finalize(&insp->sampler);
+
   free(insp);
 }
 
@@ -148,6 +148,9 @@ suscan_fsk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
           .5 * bw, /* Baudrate hint */
           32  /* Buffer size */),
       goto fail);
+
+  /* Fixed baudrate sampler */
+  SU_TRYCATCH(su_sampler_init(&new->sampler, tau), goto fail);
 
   /* Initialize local oscillator */
   su_ncqo_init(&new->lo, 0);
@@ -257,6 +260,7 @@ suscan_fsk_inspector_commit_config(void *private)
   SUFLOAT fs;
   SUBOOL mf_changed;
   SUFLOAT actual_baud;
+  SUFLOAT sym_period;
   su_iir_filt_t mf = su_iir_filt_INITIALIZER;
   struct suscan_fsk_inspector *insp = (struct suscan_fsk_inspector *) private;
 
@@ -272,14 +276,11 @@ suscan_fsk_inspector_commit_config(void *private)
 
   fs = insp->samp_info.equiv_fs;
 
-  /* Update inspector according to params */
-  if (actual_baud > 0)
-    insp->sym_period = 1. / SU_ABS2NORM_BAUD(fs, actual_baud);
-  else
-    insp->sym_period = 0;
-
   /* Update baudrate */
   su_clock_detector_set_baud(&insp->cd, SU_ABS2NORM_BAUD(fs, actual_baud));
+  su_sampler_set_rate(&insp->sampler, SU_ABS2NORM_BAUD(fs, actual_baud));
+  su_sampler_set_phase_addend(&insp->sampler, insp->cur_params.br.sym_phase);
+  sym_period = su_sampler_get_period(&insp->sampler);
 
   insp->cd.alpha = insp->cur_params.br.br_alpha;
   insp->cd.beta = insp->cur_params.br.br_beta;
@@ -288,11 +289,11 @@ suscan_fsk_inspector_commit_config(void *private)
   insp->phase = SU_C_EXP(I * insp->cur_params.fsk.phase);
   
   /* Update matched filter */
-  if (mf_changed && insp->sym_period > 0) {
+  if (mf_changed && sym_period > 0) {
     if (!su_iir_rrc_init(
         &mf,
-        suscan_fsk_inspector_mf_span(6 * insp->sym_period),
-        insp->sym_period,
+        suscan_fsk_inspector_mf_span(6 * sym_period),
+        sym_period,
         insp->cur_params.mf.mf_rolloff)) {
       SU_ERROR("No memory left to update matched filter!\n");
     } else {
@@ -316,13 +317,10 @@ suscan_fsk_inspector_feed(
   SUCOMPLEX det_x;
   SUCOMPLEX output;
   SUBOOL new_sample = SU_FALSE;
-  SUCOMPLEX samp_phase_samples;
   SUCOMPLEX last = 0;
 
   struct suscan_fsk_inspector *fsk_insp =
       (struct suscan_fsk_inspector *) private;
-
-  samp_phase_samples = fsk_insp->cur_params.br.sym_phase * fsk_insp->sym_period;
 
   last = fsk_insp->last;
 
@@ -345,7 +343,6 @@ suscan_fsk_inspector_feed(
      * We are actually encoding frequency information in the phase. This
      * is intentional, as the UI quantizes the argument of each sample.
      */
-
     if (fsk_insp->cur_params.fsk.quad_demod)
       det_x = const_gain * SU_C_CONJ(last);
     else
@@ -355,46 +352,21 @@ suscan_fsk_inspector_feed(
     last = const_gain;
 
     /* Add matched filter, if enabled */
-    if (fsk_insp->cur_params.mf.mf_conf
-        == SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL)
+    if (fsk_insp->cur_params.mf.mf_conf == SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL)
       det_x = su_iir_filt_feed(&fsk_insp->mf, det_x);
 
     /* Check if channel sampler is enabled */
-    if (fsk_insp->cur_params.br.br_ctrl
-        == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL) {
-      if (fsk_insp->sym_period >= 1.) {
-        fsk_insp->sym_phase += 1.;
-        if (fsk_insp->sym_phase >= fsk_insp->sym_period)
-          fsk_insp->sym_phase -= fsk_insp->sym_period;
-
-        new_sample =
-            (SUBOOL) (SU_FLOOR(fsk_insp->sym_phase - samp_phase_samples) == 0);
-
-        /* Interpolate with previos sample for improved accuracy */
-        if (new_sample) {
-          alpha = fsk_insp->sym_phase - SU_FLOOR(fsk_insp->sym_phase);
-          output = ((1 - alpha) * fsk_insp->sampler_prev + alpha * det_x);
-        }
-      }
-
-      /* Keep last sample for interpolation */
-      fsk_insp->sampler_prev = det_x;
+    if (fsk_insp->cur_params.br.br_ctrl == SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL) {
+      output = det_x;
+      new_sample = su_sampler_feed(&fsk_insp->sampler, &output);
     } else {
       /* Automatic baudrate control enabled */
       su_clock_detector_feed(&fsk_insp->cd, det_x);
-
-      new_sample = su_clock_detector_read(&fsk_insp->cd, &det_x, 1) == 1;
-      if (new_sample)
-        output = det_x;
+      new_sample = su_clock_detector_read(&fsk_insp->cd, &output, 1) == 1;
     }
 
-    /* Apply channel equalizer, if enabled */
-    if (new_sample) {
-
-      /* Reduce amplitude so it fits in the constellation window */
+    if (new_sample)
       suscan_inspector_push_sample(insp, output * .75 * fsk_insp->phase);
-      new_sample = SU_FALSE;
-    }
   }
 
   fsk_insp->last = last;

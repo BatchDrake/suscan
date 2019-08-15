@@ -25,6 +25,7 @@
 #include <sigutils/pll.h>
 #include <sigutils/sampling.h>
 #include <sigutils/iir.h>
+#include <sigutils/clock.h>
 
 #include "inspector/interface.h"
 #include "inspector/params.h"
@@ -64,10 +65,8 @@ struct suscan_audio_inspector {
   su_iir_filt_t filt;     /* Input filter */
   su_pll_t pll;           /* Carrier tracking PLL */
   su_ncqo_t lo;           /* Oscillator */
+  su_sampler_t sampler;   /* Fixed rate sampler */
   SUCOMPLEX last;         /* Last processed sample (for quad demod) */
-  SUFLOAT   sym_phase;    /* Current sampling phase, in samples */
-  SUFLOAT   sym_period;   /* Symbol period */
-  SUCOMPLEX sampler_prev; /* Used for interpolation */
 };
 
 SUPRIVATE void
@@ -93,6 +92,8 @@ suscan_audio_inspector_destroy(struct suscan_audio_inspector *insp)
   su_pll_finalize(&insp->pll);
 
   su_agc_finalize(&insp->agc);
+
+  su_sampler_finalize(&insp->sampler);
 
   free(insp);
 }
@@ -243,11 +244,9 @@ suscan_audio_inspector_commit_config(void *private)
 
   /* Set sampling info */
   if (insp->req_params.audio.sample_rate > 0)
-    insp->sym_period = 1. / SU_ABS2NORM_BAUD(
-        fs,
-        insp->req_params.audio.sample_rate);
-  else
-    insp->sym_period = 0.;
+    su_sampler_set_rate(
+        &insp->sampler,
+        SU_ABS2NORM_BAUD(fs, insp->req_params.audio.sample_rate));
 
   insp->cur_params = insp->req_params;
 }
@@ -259,9 +258,9 @@ suscan_audio_inspector_feed(
     const SUCOMPLEX *x,
     SUSCOUNT count)
 {
-  SUCOMPLEX last, det_x;
+  SUCOMPLEX last, det_x, output;
   SUSCOUNT i;
-  SUFLOAT alpha, output;
+  SUFLOAT alpha;
   SUCOMPLEX lo;
   struct suscan_audio_inspector *self =
       (struct suscan_audio_inspector *) private;
@@ -310,20 +309,8 @@ suscan_audio_inspector_feed(
 
     output *= self->cur_params.audio.volume;
 
-    if (self->sym_period >= 1.) {
-      self->sym_phase += 1.;
-      if (self->sym_phase >= self->sym_period)
-        self->sym_phase -= self->sym_period;
-
-      /* Interpolate with previous sample for improved accuracy */
-      if ((SUBOOL) (SU_FLOOR(self->sym_phase) == 0)) {
-        alpha = self->sym_phase - SU_FLOOR(self->sym_phase);
-        output = ((1 - alpha) * self->sampler_prev + alpha * output);
-        suscan_inspector_push_sample(insp, output * .75);
-      }
-    }
-
-    self->sampler_prev = output;
+    if (su_sampler_feed(&self->sampler, &output))
+      suscan_inspector_push_sample(insp, output * .75);
   }
 
   self->last = last;
