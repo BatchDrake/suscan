@@ -341,6 +341,8 @@ suscan_analyzer_open_inspector(
       fs,
       SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan)));
 
+  if (msg->lo > .5 * fs)
+    msg->lo -= fs;
 
   /*
    * Channel has been opened, and now we have all the required information
