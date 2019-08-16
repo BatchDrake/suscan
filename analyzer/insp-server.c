@@ -316,6 +316,7 @@ suscan_analyzer_open_inspector(
     struct suscan_analyzer_inspector_msg *msg)
 {
   SUHANDLE hnd = -1;
+  unsigned int fs = suscan_analyzer_get_samp_rate(analyzer);
   su_specttuner_channel_t *schan = NULL;
   suscan_inspector_t *new = NULL;
   unsigned int i;
@@ -329,6 +330,17 @@ suscan_analyzer_open_inspector(
           suscan_analyzer_on_channel_data,
           NULL),
       goto fail);
+
+  /* Populate channel properties */
+  msg->fs = fs;
+  msg->equiv_fs = fs / su_specttuner_channel_get_decimation(schan);
+  msg->bandwidth = SU_NORM2ABS_FREQ(
+      fs,
+      SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(schan)));
+  msg->lo = SU_NORM2ABS_FREQ(
+      fs,
+      SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan)));
+
 
   /*
    * Channel has been opened, and now we have all the required information
@@ -495,7 +507,8 @@ suscan_analyzer_parse_inspector_msg(
           suscan_analyzer_open_inspector(
               analyzer,
               msg->class_name,
-              &msg->channel, msg),
+              &msg->channel,
+              msg),
           goto done);
       break;
 

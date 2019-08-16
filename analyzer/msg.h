@@ -118,6 +118,10 @@ struct suscan_analyzer_inspector_msg {
       struct sigutils_channel channel;
       suscan_config_t *config;
       SUBOOL precise;
+      unsigned int fs;  /* Baseband rate */
+      SUFLOAT equiv_fs; /* Channel rate */
+      SUFLOAT bandwidth;
+      SUFLOAT lo;
       PTR_LIST_CONST(struct suscan_estimator_class, estimator);
       PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc);
     };
