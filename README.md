@@ -25,6 +25,7 @@ After installing all dependencies, Suscan can be compiled executing the followin
 % ,/configure
 % make
 % sudo make install
+% sudo ldconfig
 ```
 
 You can verify your installation by running:
