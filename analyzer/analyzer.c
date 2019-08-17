@@ -1233,6 +1233,7 @@ SUBOOL
 suscan_analyzer_set_iq_reverse(suscan_analyzer_t *analyzer, SUBOOL rev)
 {
   analyzer->iq_rev = rev;
+  return SU_TRUE;
 }
 
 SUBOOL
