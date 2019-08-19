@@ -91,11 +91,16 @@ struct suscan_analyzer {
   SUSCOUNT per_cnt_psd;
 
   /* This mutex shall protect hot-config requests */
+  /* XXX: This is cumbersome. Create a hotconf object to handle these things */
   pthread_mutex_t hotconf_mutex;
 
   /* Frequency request */
   SUBOOL freq_req;
   SUFREQ freq_req_value;
+
+  /* Bandwidth request */
+  SUBOOL  bw_req;
+  SUFLOAT bw_req_value;
 
   /* Gain request */
   SUBOOL gain_req_mutex_init;
@@ -146,6 +151,7 @@ suscan_analyzer_get_samp_rate(const suscan_analyzer_t *analyzer)
 }
 
 SUBOOL suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq);
+SUBOOL suscan_analyzer_set_bw(suscan_analyzer_t *analyzer, SUFLOAT bw);
 SUBOOL suscan_analyzer_set_gain(
     suscan_analyzer_t *analyzer,
     const char *name,
@@ -156,6 +162,8 @@ SUBOOL suscan_analyzer_set_antenna(
 SUBOOL suscan_analyzer_set_dc_remove(suscan_analyzer_t *analyzer, SUBOOL val);
 SUBOOL suscan_analyzer_set_iq_reverse(suscan_analyzer_t *analyzer, SUBOOL val);
 SUBOOL suscan_analyzer_set_agc(suscan_analyzer_t *analyzer, SUBOOL val);
+
+void suscan_analyzer_destroy_slow_worker_data(suscan_analyzer_t *);
 
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
 struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg(
