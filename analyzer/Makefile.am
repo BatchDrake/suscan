@@ -42,6 +42,7 @@ libanalyzer_la_SOURCES = \
     spectsrcs/exp-4.c \
     spectsrcs/exp-8.c \
     spectsrcs/psd.c \
+    slow.c \
     symbuf.c \
     symbuf.h \
     throttle.c \

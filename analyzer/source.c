@@ -1775,6 +1775,33 @@ suscan_source_set_antenna(suscan_source_t *source, const char *name)
 }
 
 SUBOOL
+suscan_source_set_bandwidth(suscan_source_t *source, SUFLOAT bw)
+{
+  if (!source->capturing)
+    return SU_FALSE;
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
+    return SU_FALSE;
+
+  /* Update config */
+  suscan_source_config_set_bandwidth(source->config, bw);
+
+  /* Set device bandwidth */
+  if (SoapySDRDevice_setBandwidth(
+      source->sdr,
+      SOAPY_SDR_RX,
+      source->config->channel,
+      source->config->bandwidth) != 0) {
+    SU_ERROR(
+        "Failed to set SDR bandwidth: %s\n",
+        SoapySDRDevice_lastError());
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_source_set_freq(suscan_source_t *source, SUFREQ freq)
 {
   if (!source->capturing)
