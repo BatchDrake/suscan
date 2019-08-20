@@ -500,6 +500,28 @@ suscan_analyzer_reset_throttle(suscan_analyzer_t *analyzer)
       suscan_analyzer_get_samp_rate(analyzer));
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_readjust_detector(
+    suscan_analyzer_t *analyzer,
+    struct sigutils_channel_detector_params *params)
+{
+  su_channel_detector_t *new_detector = NULL;
+
+  su_channel_params_adjust(params);
+
+  if (!su_channel_detector_set_params(analyzer->detector, params)) {
+    /* If not possibe, re-create detector object */
+    SU_TRYCATCH(
+        new_detector = su_channel_detector_new(params),
+        return SU_FALSE);
+
+    su_channel_detector_destroy(analyzer->detector);
+    analyzer->detector = new_detector;
+  }
+
+  return SU_TRUE;
+}
+
 SUPRIVATE void *
 suscan_analyzer_thread(void *data)
 {
@@ -514,6 +536,19 @@ suscan_analyzer_thread(void *data)
   SUBOOL halt_acked = SU_FALSE;
 
   SU_TRYCATCH(suscan_source_start_capture(analyzer->source), goto done);
+  analyzer->effective_samp_rate = suscan_analyzer_get_samp_rate(analyzer);
+
+  /*
+   * In case the source rejected our initial sample rate configuration, we
+   * update the detector accordignly.
+   */
+  if (analyzer->effective_samp_rate != analyzer->detector->params.samp_rate) {
+    new_det_params = analyzer->detector->params;
+    new_det_params.samp_rate = analyzer->effective_samp_rate;
+    SU_TRYCATCH(
+        suscan_analyzer_readjust_detector(analyzer, &new_det_params),
+        goto done);
+  }
 
   if (!suscan_worker_push(
       analyzer->source_wk,
@@ -609,17 +644,9 @@ suscan_analyzer_thread(void *data)
           new_det_params.fc = new_params->detector_params.fc;
           su_channel_params_adjust(&new_det_params);
 
-          if (!su_channel_detector_set_params(
-              analyzer->detector,
-              &new_det_params)) {
-            /* If not possibe, re-create detector object */
-            SU_TRYCATCH(
-                new_detector = su_channel_detector_new(&new_det_params),
-                goto done);
-
-            su_channel_detector_destroy(analyzer->detector);
-            analyzer->detector = new_detector;
-          }
+          SU_TRYCATCH(
+              suscan_analyzer_readjust_detector(analyzer, &new_det_params),
+              goto done);
 
           analyzer->per_cnt_channels  = 0;
           analyzer->per_cnt_psd       = 0;
@@ -1021,8 +1048,6 @@ suscan_analyzer_source_init(
         &analyzer->throttle,
         suscan_analyzer_get_samp_rate(analyzer));
   }
-
-  analyzer->effective_samp_rate = suscan_analyzer_get_samp_rate(analyzer);
 
   return SU_TRUE;
 

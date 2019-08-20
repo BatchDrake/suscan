@@ -314,6 +314,7 @@ struct suscan_source {
   SoapySDRDevice *sdr;
   SoapySDRStream *rx_stream;
   size_t chan_array[1];
+  SUFLOAT samp_rate; /* Actual sample rate */
 
   /* To prevent source from looping forever */
   SUBOOL force_eos;
@@ -340,6 +341,21 @@ SUSDIFF suscan_source_read(
     suscan_source_t *source,
     SUCOMPLEX *buffer,
     SUSCOUNT max);
+
+SUINLINE enum suscan_source_type
+suscan_source_get_type(const suscan_source_t *src)
+{
+  return src->config->type;
+}
+
+SUINLINE SUFLOAT
+suscan_source_get_samp_rate(const suscan_source_t *src)
+{
+  if (src->capturing)
+    return src->samp_rate;
+  else
+    return src->config->samp_rate;
+}
 
 SUINLINE void
 suscan_source_force_eos(suscan_source_t *src)

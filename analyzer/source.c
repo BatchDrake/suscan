@@ -1391,6 +1391,7 @@ suscan_source_open_file(suscan_source_t *source)
       } else {
         SU_INFO("Failed to open source as audio file, falling back to raw...\n");
       }
+      /* No, not an error. There is no break here. */
 
     case SUSCAN_SOURCE_FORMAT_RAW:
       source->sf_info.format = SF_FORMAT_RAW | SF_FORMAT_FLOAT | SF_ENDIAN_LITTLE;
@@ -1411,9 +1412,63 @@ suscan_source_open_file(suscan_source_t *source)
       break;
   }
 
+  source->samp_rate = source->config->samp_rate;
   source->iq_file = source->sf_info.channels == 2;
 
   return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
+suscan_source_set_sample_rate_near(suscan_source_t *source)
+{
+  double *rates = NULL;
+  size_t len;
+  unsigned int i;
+  SUFLOAT closest_rate = 0;
+  SUFLOAT dist = INFINITY;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      rates = SoapySDRDevice_listSampleRates(
+          source->sdr,
+          SOAPY_SDR_RX,
+          0,
+          &len),
+      goto done);
+
+  SU_TRYCATCH(len > 0, goto done);
+
+  /*
+   * Unfortunately, SoapySDR's documentation does not ensure this list is
+   * ordered in any way, so we have to look for the closest rate in the
+   * entire list.
+   */
+  for (i = 0; i < len; ++i)
+    if (SU_ABS(rates[i] - source->config->samp_rate) < dist) {
+      dist = SU_ABS(rates[i] - source->config->samp_rate);
+      closest_rate = rates[i];
+    }
+
+  printf("Closest rate: %g\n", closest_rate);
+
+  if (SoapySDRDevice_setSampleRate(
+      source->sdr,
+      SOAPY_SDR_RX,
+      source->config->channel,
+      closest_rate) != 0) {
+    SU_ERROR(
+        "Failed to set sample rate: %s\n",
+        SoapySDRDevice_lastError());
+    goto done;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (rates != NULL)
+    free(rates);
+
+  return ok;
 }
 
 SUPRIVATE SUBOOL
@@ -1472,16 +1527,9 @@ suscan_source_open_sdr(suscan_source_t *source)
     return SU_FALSE;
   }
 
-  if (SoapySDRDevice_setSampleRate(
-      source->sdr,
-      SOAPY_SDR_RX,
-      source->config->channel,
-      source->config->samp_rate) != 0) {
-    SU_ERROR(
-        "Failed to set sample rate: %s\n",
-        SoapySDRDevice_lastError());
+  if (!suscan_source_set_sample_rate_near(source))
     return SU_FALSE;
-  }
+
   /*
    * IQ-balance should be performed automatically. SoapySDR does not support
    * that yet.
@@ -1522,6 +1570,11 @@ suscan_source_open_sdr(suscan_source_t *source)
         SoapySDRDevice_lastError());
     return SU_FALSE;
   }
+
+  source->samp_rate = SoapySDRDevice_getSampleRate(
+      source->sdr,
+      SOAPY_SDR_RX,
+      0);
 
   return SU_TRUE;
 }
