@@ -100,7 +100,6 @@ suscan_worker_thread(void *data)
             /* Callback returns FALSE: remove from message queue */
             suscan_worker_callback_destroy(cb);
             suscan_msg_destroy(msg);
-            msg = NULL;
           } else {
             /* Callback returns TRUE: queue again */
             suscan_mq_write_msg(&worker->mq_in, msg);
@@ -114,8 +113,13 @@ suscan_worker_thread(void *data)
         default:
           SU_WARNING("Unexpected worker message type #%d\n", msg->type);
           suscan_msg_destroy(msg); /* Destroy message anyways */
-          msg = NULL;
       }
+
+      /*
+       * We reached this point, one way or another, we don't hold the
+       * ownership of the message anymore.
+       */
+      msg = NULL;
 
       /* Next reads: until queue is empty */
     } while (
