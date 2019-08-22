@@ -53,7 +53,10 @@ struct suscan_audio_inspector_params {
 #define SUSCAN_AUDIO_INSPECTOR_DELAY_LINE_FRAC  (SUSCAN_AUDIO_INSPECTOR_FAST_RISE_FRAC * 10)
 #define SUSCAN_AUDIO_INSPECTOR_MAG_HISTORY_FRAC (SUSCAN_AUDIO_INSPECTOR_FAST_RISE_FRAC * 10)
 
-#define SUSCAN_AUDIO_INSPECTOR_BRICKWALL_LEN    200
+#define SUSCAN_AUDIO_INSPECTOR_BRICKWALL_LEN      200
+#define SUSCAN_AUDIO_AM_LPF_SECONDS               .1
+#define SUSCAN_AUDIO_AM_ATTENUATION               .25
+#define SUSCAN_AUDIO_AM_CARRIER_AVERAGING_SECONDS .2
 
 struct suscan_audio_inspector {
   struct suscan_inspector_sampling_info samp_info;
@@ -66,6 +69,7 @@ struct suscan_audio_inspector {
   su_pll_t pll;           /* Carrier tracking PLL */
   su_ncqo_t lo;           /* Oscillator */
   su_sampler_t sampler;   /* Fixed rate sampler */
+  SUFLOAT beta;          /* Coefficient for single pole IIR filter */
   SUCOMPLEX last;         /* Last processed sample (for quad demod) */
 };
 
@@ -128,7 +132,7 @@ suscan_audio_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
 
   SU_TRYCATCH(su_agc_init(&new->agc, &agc_params), goto fail);
 
-  /* PLL init, always one tenth of the bandwidth */
+  /* PLL init, this is an experimental optimum that works rather well for AM */
   su_pll_init(&new->pll, 0, .005f * bw);
 
   /* Filter init */
@@ -139,6 +143,10 @@ suscan_audio_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
 
   /* NCQO init, used to sideband adjustment */
   su_ncqo_init(&new->lo, .5 * bw);
+
+  /* One second time constant, used to remove AM carrier */
+  new->beta = 1 - SU_EXP(
+      -1.f / (SUSCAN_AUDIO_AM_CARRIER_AVERAGING_SECONDS * sinfo->equiv_fs));
 
   return new;
 
@@ -214,19 +222,42 @@ suscan_audio_inspector_commit_config(void *private)
   SUBOOL filt_initialized;
   SUFLOAT fs = insp->samp_info.equiv_fs;
 
+  insp->last  = 0;
+
   if (insp->req_params.audio.demod != SUSCAN_INSPECTOR_AUDIO_DEMOD_DISABLED) {
     switch (insp->req_params.audio.demod)
     {
-      case SUSCAN_INSPECTOR_AUDIO_DEMOD_AM:
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_FM:
+        /*
+         * FM transmissions are rather wide (up to 15 kHz), and pilot tones
+         * are at around 19 kHz. We prefer to attenuate the pilot tone instead
+         * of providing high stability at lower cutoff frequencies.
+         */
         filt_initialized = su_iir_bwlpf_init(
             &filt,
             5,
             SU_ABS2NORM_FREQ(fs, insp->req_params.audio.cutoff));
         break;
 
+      case SUSCAN_INSPECTOR_AUDIO_DEMOD_AM:
+        /*
+         * AM transmissions are around 12 kHz (6 per sideband). In this case,
+         * it is okay to provide a filter with lower Q but stable at lower
+         * cutoff frequencies.
+         */
+        filt_initialized = su_iir_bwlpf_init(
+            &filt,
+            3,
+            SU_ABS2NORM_FREQ(fs, insp->req_params.audio.cutoff));
+        break;
+
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB:
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_USB:
+        /*
+         * SSB transmissions are usually very narrow, and require great
+         * selectivity, even at low cutoffs. We sacrifice CPU in order
+         * to attain this.
+         */
         filt_initialized = su_iir_brickwall_lp_init(
             &filt,
             SUSCAN_AUDIO_INSPECTOR_BRICKWALL_LEN,
@@ -287,27 +318,35 @@ suscan_audio_inspector_feed(
     switch (self->cur_params.audio.demod) {
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_FM:
         output = SU_C_ARG(det_x * SU_C_CONJ(last)) / M_PI;
-        output  = su_iir_filt_feed(&self->filt, output);
         last   = det_x;
         break;
 
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_AM:
-        output = su_pll_track(&self->pll, det_x);
-        output  = su_iir_filt_feed(&self->filt, output);
+        /* Synchronous detection */
+        output  = su_pll_track(&self->pll, det_x);
+
+        /* Carrier removal */
+        last   += self->beta * (output - last);
+        output -= last;
+
+        /* Volume attenuation */
+        output *= SUSCAN_AUDIO_AM_ATTENUATION;
         break;
 
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_USB:
         lo = su_ncqo_read(&self->lo);
-        output  = su_iir_filt_feed(&self->filt, det_x * lo);
+        output  = det_x * lo;
         break;
 
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB:
         lo = su_ncqo_read(&self->lo);
-        output  = su_iir_filt_feed(&self->filt, det_x * SU_C_CONJ(lo));
+        output = det_x * SU_C_CONJ(lo);
         break;
     }
 
     output *= self->cur_params.audio.volume;
+
+    output = su_iir_filt_feed(&self->filt, output);
 
     if (su_sampler_feed(&self->sampler, &output))
       suscan_inspector_push_sample(insp, output * .75);
