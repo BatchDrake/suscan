@@ -141,13 +141,13 @@ typedef struct suscan_analyzer suscan_analyzer_t;
 SUINLINE SUBOOL
 suscan_analyzer_is_real_time(const suscan_analyzer_t *analyzer)
 {
-  return analyzer->source->config->type == SUSCAN_SOURCE_TYPE_SDR;
+  return suscan_source_get_type(analyzer->source) == SUSCAN_SOURCE_TYPE_SDR;
 }
 
 SUINLINE unsigned int
 suscan_analyzer_get_samp_rate(const suscan_analyzer_t *analyzer)
 {
-  return analyzer->source->config->samp_rate;
+  return suscan_source_get_samp_rate(analyzer->source);
 }
 
 SUBOOL suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq);
