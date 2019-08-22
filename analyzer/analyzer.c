@@ -535,21 +535,6 @@ suscan_analyzer_thread(void *data)
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL halt_acked = SU_FALSE;
 
-  SU_TRYCATCH(suscan_source_start_capture(analyzer->source), goto done);
-  analyzer->effective_samp_rate = suscan_analyzer_get_samp_rate(analyzer);
-
-  /*
-   * In case the source rejected our initial sample rate configuration, we
-   * update the detector accordignly.
-   */
-  if (analyzer->effective_samp_rate != analyzer->detector->params.samp_rate) {
-    new_det_params = analyzer->detector->params;
-    new_det_params.samp_rate = analyzer->effective_samp_rate;
-    SU_TRYCATCH(
-        suscan_analyzer_readjust_detector(analyzer, &new_det_params),
-        goto done);
-  }
-
   if (!suscan_worker_push(
       analyzer->source_wk,
       suscan_source_wk_cb,
@@ -1164,6 +1149,25 @@ suscan_analyzer_new(
   SU_TRYCATCH(pthread_mutex_init(&new->sched_lock, NULL) == 0, goto fail);
 
   new->mq_out = mq;
+
+  SU_TRYCATCH(suscan_source_start_capture(new->source), goto fail);
+  new->effective_samp_rate = suscan_analyzer_get_samp_rate(new);
+
+  /*
+   * In case the source rejected our initial sample rate configuration, we
+   * update the detector accordingly.
+   *
+   * We do this here and not in the header thread because, although this
+   * can be slower, we ensure this way we can provide an accurate value of the
+   * sample rate right after the analyzer object is created.
+   */
+  if (new->effective_samp_rate != new->detector->params.samp_rate) {
+    det_params = new->detector->params;
+    det_params.samp_rate = new->effective_samp_rate;
+    SU_TRYCATCH(
+        suscan_analyzer_readjust_detector(new, &det_params),
+        goto fail);
+  }
 
   if (pthread_create(
       &new->thread,
