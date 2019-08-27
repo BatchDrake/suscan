@@ -979,7 +979,9 @@ suscan_source_config_new(
   new->type = type;
   new->format = format;
   new->average = 1;
-
+  new->dc_remove = SU_TRUE;
+  new->loop = SU_TRUE;
+  
   SU_TRYCATCH(new->soapy_args = calloc(1, sizeof(SoapySDRKwargs)), goto fail);
 
   SU_TRYCATCH(
