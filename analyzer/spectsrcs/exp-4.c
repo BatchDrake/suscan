@@ -40,7 +40,7 @@ suscan_spectsrc_exp_4_preproc(
   SUSCOUNT i;
 
   for (i = 0; i < size; ++i)
-    buffer[i] = cpow(buffer[i] / (SU_C_ABS(buffer[i]) + 1e-8), 4);
+    buffer[i] = cpow(buffer[i] / (SU_C_ABS(buffer[i]) + 1e-8), 4) / size;
 
   return SU_TRUE;
 }
