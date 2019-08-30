@@ -222,23 +222,28 @@ suscan_analyzer_set_freq_cb(
 {
   suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
   SUFREQ freq;
+  SUFREQ lnb_freq;
 
   if (analyzer->freq_req) {
     freq = analyzer->freq_req_value;
-    if (suscan_source_set_freq(analyzer->source, freq)) {
+    lnb_freq = analyzer->lnb_req_value;
+    if (suscan_source_set_freq2(analyzer->source, freq, lnb_freq)) {
       /* XXX: Use a proper frequency adjust method */
       analyzer->detector->params.fc = freq;
     }
-    analyzer->freq_req = analyzer->freq_req_value != freq;
+    analyzer->freq_req = (analyzer->freq_req_value != freq ||
+        analyzer->lnb_req_value != lnb_freq);
   }
 
   return SU_FALSE;
 }
+
 /****************************** Slow methods **********************************/
 SUBOOL
-suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq)
+suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq, SUFREQ lnb)
 {
   analyzer->freq_req_value = freq;
+  analyzer->lnb_req_value  = lnb;
   analyzer->freq_req = SU_TRUE;
 
   /* This operation is rather slow. Do it somewhere else. */

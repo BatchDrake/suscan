@@ -674,6 +674,18 @@ suscan_source_config_set_freq(suscan_source_config_t *config, SUFREQ freq)
   config->freq = freq;
 }
 
+SUFREQ
+suscan_source_config_get_lnb_freq(const suscan_source_config_t *config)
+{
+  return config->lnb_freq;
+}
+
+void
+suscan_source_config_set_lnb_freq(suscan_source_config_t *config, SUFREQ freq)
+{
+  config->lnb_freq = freq;
+}
+
 SUFLOAT
 suscan_source_config_get_bandwidth(const suscan_source_config_t *config)
 {
@@ -1044,6 +1056,7 @@ suscan_source_config_clone(const suscan_source_config_t *config)
   }
 
   new->freq = config->freq;
+  new->lnb_freq = config->lnb_freq;
   new->bandwidth = config->bandwidth;
   new->iq_balance = config->iq_balance;
   new->dc_remove = config->dc_remove;
@@ -1164,7 +1177,9 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   if (cfg->antenna != NULL)
     SU_CFGSAVE(value, antenna);
 
+  /* XXX: This is terrible. Either change this or define SUFREQ as uint64_t */
   SU_CFGSAVE(float, freq);
+  SU_CFGSAVE(float, lnb_freq);
   SU_CFGSAVE(float, bandwidth);
   SU_CFGSAVE(bool,  iq_balance);
   SU_CFGSAVE(bool,  dc_remove);
@@ -1264,6 +1279,7 @@ suscan_source_config_from_object(const suscan_object_t *object)
     SU_TRYCATCH(suscan_source_config_set_antenna(new, tmp), goto fail);
 
   SU_CFGLOAD(float, freq, 0);
+  SU_CFGLOAD(float, lnb_freq, 0);
   SU_CFGLOAD(float, bandwidth, 0);
   SU_CFGLOAD(bool, iq_balance, SU_FALSE);
   SU_CFGLOAD(bool, dc_remove, SU_FALSE);
@@ -1451,8 +1467,6 @@ suscan_source_set_sample_rate_near(suscan_source_t *source)
       closest_rate = rates[i];
     }
 
-  printf("Closest rate: %g\n", closest_rate);
-
   if (SoapySDRDevice_setSampleRate(
       source->sdr,
       SOAPY_SDR_RX,
@@ -1510,7 +1524,7 @@ suscan_source_open_sdr(suscan_source_t *source)
       source->sdr,
       SOAPY_SDR_RX,
       source->config->channel,
-      source->config->freq,
+      source->config->freq + source->config->lnb_freq,
       NULL) != 0) {
     SU_ERROR(
         "Failed to set SDR frequency: %s\n",
@@ -1873,7 +1887,7 @@ suscan_source_set_freq(suscan_source_t *source, SUFREQ freq)
       source->sdr,
       SOAPY_SDR_RX,
       source->config->channel,
-      source->config->freq,
+      source->config->freq + source->config->lnb_freq,
       NULL) != 0) {
     SU_ERROR(
         "Failed to set SDR frequency: %s\n",
@@ -1883,6 +1897,64 @@ suscan_source_set_freq(suscan_source_t *source, SUFREQ freq)
 
   return SU_TRUE;
 }
+
+SUBOOL
+suscan_source_set_lnb_freq(suscan_source_t *source, SUFREQ freq)
+{
+  if (!source->capturing)
+    return SU_FALSE;
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
+    return SU_FALSE;
+
+  /* Update config */
+  suscan_source_config_set_lnb_freq(source->config, freq);
+
+  /* Set device frequency */
+  if (SoapySDRDevice_setFrequency(
+      source->sdr,
+      SOAPY_SDR_RX,
+      source->config->channel,
+      source->config->freq + source->config->lnb_freq,
+      NULL) != 0) {
+    SU_ERROR(
+        "Failed to set SDR frequency: %s\n",
+        SoapySDRDevice_lastError());
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb)
+{
+  if (!source->capturing)
+    return SU_FALSE;
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
+    return SU_FALSE;
+
+  /* Update config */
+  suscan_source_config_set_freq(source->config, freq);
+  suscan_source_config_set_lnb_freq(source->config, lnb);
+
+  /* Set device frequency */
+  if (SoapySDRDevice_setFrequency(
+      source->sdr,
+      SOAPY_SDR_RX,
+      source->config->channel,
+      source->config->freq + source->config->lnb_freq,
+      NULL) != 0) {
+    SU_ERROR(
+        "Failed to set SDR frequency: %s\n",
+        SoapySDRDevice_lastError());
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
 
 SUPRIVATE SUBOOL
 suscan_source_config_check(const suscan_source_config_t *config)

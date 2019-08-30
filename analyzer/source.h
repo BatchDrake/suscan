@@ -140,6 +140,7 @@ struct suscan_source_config {
 
   /* Common for all source types */
   SUFREQ  freq;
+  SUFREQ  lnb_freq;
   SUFLOAT bandwidth;
   SUBOOL  iq_balance;
   SUBOOL  dc_remove;
@@ -192,6 +193,11 @@ SUFREQ suscan_source_config_get_freq(const suscan_source_config_t *config);
 void suscan_source_config_set_freq(
     suscan_source_config_t *config,
     SUFREQ freq);
+
+SUFREQ suscan_source_config_get_lnb_freq(const suscan_source_config_t *config);
+void suscan_source_config_set_lnb_freq(
+    suscan_source_config_t *config,
+    SUFREQ lnb_freq);
 
 SUFLOAT suscan_source_config_get_bandwidth(
     const suscan_source_config_t *config);
@@ -328,6 +334,9 @@ SUBOOL suscan_source_start_capture(suscan_source_t *source);
 SUBOOL suscan_source_set_agc(suscan_source_t *source, SUBOOL set);
 SUBOOL suscan_source_set_dc_remove(suscan_source_t *source, SUBOOL remove);
 SUBOOL suscan_source_set_freq(suscan_source_t *source, SUFREQ freq);
+SUBOOL suscan_source_set_lnb_freq(suscan_source_t *source, SUFREQ freq);
+SUBOOL suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb);
+
 SUBOOL suscan_source_set_gain(
     suscan_source_t *source,
     const char *name,

@@ -97,6 +97,7 @@ struct suscan_analyzer {
   /* Frequency request */
   SUBOOL freq_req;
   SUFREQ freq_req_value;
+  SUFREQ lnb_req_value;
 
   /* Bandwidth request */
   SUBOOL  bw_req;
@@ -150,7 +151,10 @@ suscan_analyzer_get_samp_rate(const suscan_analyzer_t *analyzer)
   return suscan_source_get_samp_rate(analyzer->source);
 }
 
-SUBOOL suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq);
+SUBOOL suscan_analyzer_set_freq(
+    suscan_analyzer_t *analyzer,
+    SUFREQ freq,
+    SUFREQ lnb);
 SUBOOL suscan_analyzer_set_bw(suscan_analyzer_t *analyzer, SUFLOAT bw);
 SUBOOL suscan_analyzer_set_gain(
     suscan_analyzer_t *analyzer,
