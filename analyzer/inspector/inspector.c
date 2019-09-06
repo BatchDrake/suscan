@@ -210,7 +210,8 @@ suscan_inspector_new(
   /* Initialize sampling info */
   new->samp_info.schan = channel;
   new->samp_info.equiv_fs = fs / channel->decimation;
-  new->samp_info.bw = SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(channel));
+  new->samp_info.bw = SU_ANG2NORM_FREQ(
+      .5 * channel->decimation * su_specttuner_channel_get_bw(channel));
 
   /* Spectrum and estimator updates */
   new->interval_estimator = .1 * new->samp_info.equiv_fs;
