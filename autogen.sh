@@ -3,6 +3,23 @@
 STDOUT_LOG=autogen-stdout.log
 STDERR_LOG=autogen-stderr.log
 
+function alternatives()
+{
+    VARIABLE=$1
+    shift
+    
+    for i in $@; do
+	if which $i 2> /dev/null > /dev/null; then
+	   export $VARIABLE=$i
+	   return 0
+	fi
+    done
+
+    echo -e '(!) No alternative for \033[1m'$VARIABLE'\033[0m has been found.'
+    echo -e '(!) Provided alternatives were: '$@
+    exit 1
+}
+
 function try_to_run()
 {
     echo -en '(*) Running \033[1m'$@'\033[0m... '
@@ -17,9 +34,11 @@ function try_to_run()
    fi
 }
 
+alternatives LIBTOOLIZE glibtoolize libtoolize
+
 try_to_run aclocal
 try_to_run autoheader
-try_to_run libtoolize
+try_to_run $LIBTOOLIZE
 try_to_run automake --add-missing
 try_to_run autoconf
 
