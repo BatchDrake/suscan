@@ -21,9 +21,9 @@ SUSCAN_COMMON_CFLAGS =        \
 	@soapysdr_CFLAGS@
 
 SUSCAN_COMMON_LIBS =          		\
-  ../util/libutil.la          		\
 	../analyzer/libanalyzer.la	\
 	../codec/libcodec.la	    	\
+        ../util/libutil.la          	\
 	@sigutils_LIBS@		 	\
 	@fftw3_LIBS@     		\
 	@sndfile_LIBS@			\
@@ -34,8 +34,7 @@ SUSCAN_COMMON_LIBS =          		\
 ########################## SUSCAN RULES ######################################
 suscan_CFLAGS = $(SUSCAN_COMMON_CFLAGS)
 
-suscan_LDFLAGS = @GLOBAL_LDFLAGS@ -Wl,--whole-archive \
-	-Wl,--allow-multiple-definition
+suscan_LDFLAGS = @GLOBAL_LDFLAGS@ 
 
 suscan_LDADD = $(SUSCAN_COMMON_LIBS)								
 
