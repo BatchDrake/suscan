@@ -66,6 +66,11 @@ set(CMAKE_C_FLAGS
 set(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG} -O0 -ggdb")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -ffast-math -s -DNDEBUG")
 
+# Fix for MacOS X broken libxml2 Homebrew installation in MacOS Catalina
+if(APPLE)
+  set(XML2_INCLUDE_DIRS "/usr/local/opt/libxml2/include/libxml2")
+endif()
+
 ########################## pkg-config description #############################
 set(SIGUTILS_PC_FILE_PATH "${PROJECT_BINARY_DIR}/suscan.pc")
   
@@ -166,7 +171,15 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/worker.c
   ${ESTIMATOR_SOURCES}
   ${SPECTSRC_SOURCES})
-   
+
+link_directories(
+  ${PROJECT_BINARY_DIR}
+  ${SNDFILE_LIBRARY_DIRS}
+  ${FFTW3_LIBRARY_DIRS}
+  ${SOAPYSDR_LIBRARY_DIRS}
+  ${SIGUTILS_LIBRARY_DIRS}
+  ${XML2_LIBRARY_DIRS})
+ 
 add_library(
   suscan SHARED
   ${UTIL_HEADERS}
@@ -186,11 +199,24 @@ target_include_directories(
 set_target_properties(suscan PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 
 # Required dependencies
+target_link_libraries(suscan m ${SIGUTILS_LIBRARIES})
+
 target_include_directories(suscan SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
+target_link_libraries(suscan ${SNDFILE_LIBRARIES})
+
+target_include_directories(suscan SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
+target_link_libraries(suscan ${SNDFILE_LIBRARIES})
+
 target_include_directories(suscan SYSTEM PUBLIC ${FFTW3_INCLUDE_DIRS})
+target_link_libraries(suscan ${FFTW3_LIBRARIES})
+
 target_include_directories(suscan SYSTEM PUBLIC ${SOAPYSDR_INCLUDE_DIRS})
-target_include_directories(suscan SYSTEM PUBLIC ${SIGUTILS_INCLUDE_DIRS})
+target_link_libraries(suscan ${SOAPYSDR_LIBRARIES})
+
 target_include_directories(suscan SYSTEM PUBLIC ${XML2_INCLUDE_DIRS})
+target_link_libraries(suscan ${XML2_LIBRARIES})
+
+target_link_libraries(suscan ${CMAKE_THREAD_LIBS_INIT})
 
 # Optional dependencies
 if(VOLK_FOUND)
@@ -242,7 +268,6 @@ target_include_directories(
 # Required dependencies
 set_target_properties(suscan.status PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 
-link_directories(suscan.status ${PROJECT_BINARY_DIR})
 target_link_libraries(suscan.status sigutils)
 target_link_libraries(suscan.status suscan)
 target_link_libraries(suscan.status m)
