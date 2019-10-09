@@ -6,6 +6,7 @@ libutil_la_CFLAGS = -I. -ggdb @sigutils_CFLAGS@ @xml2_CFLAGS@ \
  -DPKGDATADIR=\"$(pkgdatadir)\" 
 
 libutil_la_SOURCES = object.c object.h serialize.c deserialize.c util.c util.h \
-	confdb.c confdb.h cfg.c cfg.h 
+	confdb.c confdb.h cfg.c cfg.h compat.c compat.h macos-barriers.h
+
 
 

@@ -31,4 +31,6 @@ nobase_pkginclude_HEADERS = 		\
   util/confdb.h				\
   util/cfg.h				\
   util/util.h				\
+  util/compat.h	                        \
+  util/macos-barriers.h                 \
   util/object.h									
