@@ -306,13 +306,13 @@ SUFLOAT
 suscan_object_get_field_float(
     const suscan_object_t *object,
     const char *name,
-    float dfl)
+    SUFLOAT dfl)
 {
   const char *text;
   SUFLOAT got;
 
   if ((text = suscan_object_get_field_value(object, name)) != NULL)
-    if (sscanf(text, "%g", &got) == 1)
+    if (sscanf(text, SUFLOAT_SCANF_FMT, &got) == 1)
       dfl = got;
 
   return dfl;
