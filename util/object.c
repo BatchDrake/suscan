@@ -388,7 +388,7 @@ SUBOOL
 suscan_object_set_field_float(
     suscan_object_t *object,
     const char *name,
-    float value)
+    SUFLOAT value)
 {
   char *as_text = NULL;
   char *comma = NULL;

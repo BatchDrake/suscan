@@ -129,7 +129,7 @@ suscan_spectsrc_new(
   }
 
   SU_TRYCATCH(
-      new->window_buffer = fftw_malloc(size * sizeof(SU_FFTW(_complex))),
+      new->window_buffer = SU_FFTW(_malloc)(size * sizeof(SU_FFTW(_complex))),
       goto fail);
 
   SU_TRYCATCH(
@@ -240,7 +240,7 @@ suscan_spectsrc_destroy(suscan_spectsrc_t *spectsrc)
     free(spectsrc->window_func);
 
   if (spectsrc->window_buffer != NULL)
-    fftw_free(spectsrc->window_buffer);
+    SU_FFTW(_free)(spectsrc->window_buffer);
 
   free(spectsrc);
 }

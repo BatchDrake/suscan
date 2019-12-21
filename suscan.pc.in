@@ -1,12 +1,12 @@
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-libdir=@libdir@
-includedir=@includedir@/suscan
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix="${prefix}"
+libdir="${prefix}/lib"
+includedir="${prefix}/include/suscan"
 
-Name: sigutils
+Name: suscan
 Description: Suscan's application programming interface library
 URL: http://github.org/BatchDrake/suscan
 Requires: sigutils >= 0.1 fftw3 >= 3.0 sndfile >= 1.0.2 SoapySDR >= 0.5.0 libxml-2.0 >= 2.9.0
-Version: @PACKAGE_VERSION@ 
+Version: @PROJECT_VERSION@ 
 Cflags: -I${includedir} -I${includedir}/util
 Libs: -L${libdir} -lsuscan
