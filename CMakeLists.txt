@@ -41,6 +41,7 @@ set(ESTIMATORDIR ${ANALYZERDIR}/estimators)
 set(INSPECTORDIR ${ANALYZERDIR}/inspector/impl)
 set(SPECTSRCDIR  ${ANALYZERDIR}/spectsrcs)
 set(UTILDIR      util)
+set(RSRCDIR      rsrc)
 
 # Compiler flags
 set(CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} ${SIGUTILS_CONFIG_CFLAGS}")
@@ -63,6 +64,10 @@ install(
   DESTINATION "${INSTALL_PKGCONFIG_DIR}")
   
 ############################ Suscan library build #############################
+set(RSRC_CONFIG_FILES
+  ${RSRCDIR}/autogains.xml
+  ${RSRCDIR}/palettes.xml)
+  
 set(UTIL_HEADERS
   ${UTILDIR}/confdb.h
   ${UTILDIR}/cfg.h
@@ -182,6 +187,10 @@ install(
   FILES ${UTIL_HEADERS} 
   DESTINATION include/suscan/util)
     
+install(
+  FILES ${RSRC_CONFIG_FILES}
+  DESTINATION share/suscan/config)
+   
 install(TARGETS suscan DESTINATION lib)
 
 ########################### Suscan test executable ############################
