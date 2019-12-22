@@ -178,7 +178,11 @@ endif()
 install(
   FILES ${ANALYZER_LIB_HEADERS} 
   DESTINATION include/suscan/analyzer)
-  
+
+install(
+  FILES ${INSPECTOR_LIB_HEADERS} 
+  DESTINATION include/suscan/analyzer/inspector)
+
 install(
   FILES ${CODEC_LIB_HEADERS} 
   DESTINATION include/suscan/codec)
@@ -236,8 +240,9 @@ target_link_libraries(suscan.status m)
 # Optional dependencies
 if(VOLK_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_VOLK=1")
-  target_include_directories(suscan SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
-  target_link_libraries(suscan ${VOLK_LIBRARIES})
+  target_include_directories(suscan.status SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
+  target_link_libraries(suscan.status ${VOLK_LIBRARIES})
 endif()
 
-  
+install(TARGETS suscan.status DESTINATION bin)
+
