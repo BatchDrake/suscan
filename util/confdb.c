@@ -20,7 +20,6 @@
 
 #include <string.h>
 #include <unistd.h>
-#include <pwd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -30,6 +29,12 @@
 
 #include <sigutils/log.h>
 #include "confdb.h"
+
+#if defined(__unix__)
+#  include <pwd.h>
+#elif defined(_WIN32)
+#  include <shlobj.h>
+#endif /* defined(__unix) */
 
 PTR_LIST(SUPRIVATE suscan_config_context_t, context);
 
@@ -42,6 +47,7 @@ suscan_confdb_get_system_path(void)
   return confdb_system_path;
 }
 
+#if defined(__unix__)
 const char *
 suscan_confdb_get_local_path(void)
 {
@@ -83,6 +89,49 @@ fail:
 
   return NULL;
 }
+#elif defined(_WIN32)
+const char *
+suscan_confdb_get_local_path(void)
+{
+  char *path = NULL;
+  char *tmp = NULL;
+  const char *result = NULL;
+  
+  if (confdb_user_path == NULL) {
+    SU_TRYCATCH(tmp = malloc(MAX_PATH), goto fail);
+    SU_TRYCATCH(
+      SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_COMMON_APPDATA, NULL, 0, tmp)),
+      goto fail);
+    SU_TRYCATCH(path = strbuild("%s/Suscan", tmp), goto fail);
+    
+    free(tmp);
+    tmp = NULL;
+    
+    if (access(path, F_OK) == -1)
+      SU_TRYCATCH(mkdir(path) != -1, goto fail);
+    
+    SU_TRYCATCH(tmp = strbuild("%s/config", path), goto fail);
+    
+    if (access(tmp, F_OK) == -1)
+      SU_TRYCATCH(mkdir(tmp) != -1, goto fail);
+    
+    confdb_user_path = tmp;
+    tmp = NULL;
+  }
+  
+  result = confdb_user_path;
+  
+fail:
+  if (tmp != NULL)
+    free(tmp);
+  
+  if (path != NULL)
+    free(path);
+  
+  return result;
+}
+
+#endif /* _WIN32 */
 
 SUPRIVATE void
 suscan_config_context_destroy(suscan_config_context_t *ctx)

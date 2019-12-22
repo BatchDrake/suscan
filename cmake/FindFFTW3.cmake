@@ -39,7 +39,7 @@ elseif(WIN32)
   endif()
   
   set(FFTW3_INCLUDE_DIRS "${FFTW3_PATH}")
-  set(FFTW3_LIBRARIES "${FFTW3_PATH}/libfftw3f-3.dll")
+  set(FFTW3_LIBRARIES "${FFTW3_PATH}/libfftw3f-3.dll;${FFTW3_PATH}/libfftw3-3.dll")
 else()
   message(FATAL_ERROR "Unsupported platform")
 endif()

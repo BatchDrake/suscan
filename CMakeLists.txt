@@ -42,6 +42,8 @@ set(INSPECTORDIR ${ANALYZERDIR}/inspector/impl)
 set(SPECTSRCDIR  ${ANALYZERDIR}/spectsrcs)
 set(UTILDIR      util)
 set(RSRCDIR      rsrc)
+set(COMPATDIR    util/compat)
+set(WIN32DIR     ${COMPATDIR}/win32)
 
 # Compiler flags
 string (REPLACE ";" " " SIGUTILS_SPC_CFLAGS "${SIGUTILS_CFLAGS}")
@@ -58,6 +60,11 @@ set(
   CACHE PATH "Installation directory for pkgconfig (.pc) files")
 set(SU_PC_CFLAGS "${SIGUTILS_CONFIG_CFLAGS}")
 set(SU_PC_LIBRARIES "-l${SNDFILE_LIBRARIES} -lm -l${FFTW3_LIBRARIES} -l${VOLK_LIBRARIES}")
+
+if(WIN32)
+  set(SU_PC_CFLAGS "${SU_PC_CFLAGS} -I${CMAKE_INSTALL_PREFIX}/include/compat/win32")
+endif()
+
 configure_file(suscan.pc.in "${SIGUTILS_PC_FILE_PATH}" @ONLY)
 
 install(
@@ -65,6 +72,12 @@ install(
   DESTINATION "${INSTALL_PKGCONFIG_DIR}")
   
 ############################ Suscan library build #############################
+set(WIN32_COMPAT_HEADERS
+  ${WIN32DIR}/sys/mman.h)
+  
+set(WIN32_COMPAT_SOURCES
+  ${WIN32DIR}/mman.c)
+  
 set(RSRC_CONFIG_FILES
   ${RSRCDIR}/autogains.xml
   ${RSRCDIR}/palettes.xml)
@@ -144,6 +157,16 @@ set(ANALYZER_LIB_SOURCES
   ${ESTIMATOR_SOURCES}
   ${SPECTSRC_SOURCES})
    
+if(WIN32)
+  set(COMPAT_SOURCES ${WIN32_COMPAT_SOURCES})
+  set(COMPAT_HEADERS ${WIN32_COMPAT_HEADERS})
+  set(COMPAT_ROOT ${WIN32DIR})
+else()
+  set(COMPAT_SOURCES)
+  set(COMPAT_HEADERS)
+  set(COMPAT_ROOT)
+endif()
+
 add_library(
   suscan SHARED
   ${UTIL_HEADERS}
@@ -153,12 +176,30 @@ add_library(
   ${CODEC_LIB_HEADERS}
   ${CODEC_LIB_SOURCES}
   ${ANALYZER_LIB_HEADERS}
-  ${ANALYZER_LIB_SOURCES})
+  ${ANALYZER_LIB_SOURCES}
+  ${COMPAT_HEADERS}
+  ${COMPAT_SOURCES})
   
+if(WIN32)
+  message(${SOAPYSDR_LIBRARIES})
+  target_link_libraries(suscan ${SOAPYSDR_LIBRARIES})
+  target_link_libraries(suscan ${SNDFILE_LIBRARIES})
+  target_link_libraries(suscan ${FFTW3_LIBRARIES}) 
+  target_link_libraries(suscan ${LIBXML2_LIBRARIES})
+  target_link_libraries(suscan ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(suscan ${SIGUTILS_LIBRARIES})
+  target_link_libraries(suscan m)
+
+  # Optional dependencies
+  if(VOLK_FOUND)
+    target_link_libraries(suscan ${VOLK_LIBRARIES})
+  endif()
+endif()
+
 # Private header directories
 target_include_directories(
   suscan 
-  PRIVATE . ${UTILDIR} ${ANALYZERDIR} ${ANALYZERDIR}/inspector ${CODECLIBDIR})
+  PRIVATE . ${UTILDIR} ${ANALYZERDIR} ${ANALYZERDIR}/inspector ${CODECLIBDIR} ${COMPAT_ROOT})
 
 set_target_properties(suscan PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 
@@ -194,7 +235,13 @@ install(
 install(
   FILES ${RSRC_CONFIG_FILES}
   DESTINATION share/suscan/config)
-   
+  
+if(WIN32)  
+  install(
+    DIRECTORY ${WIN32DIR}
+    DESTINATION include/compat/win32)
+endif()
+
 install(TARGETS suscan DESTINATION lib)
 
 ########################### Suscan test executable ############################
@@ -202,7 +249,6 @@ set(SUSCAN_HEADERS ${SRCDIR}/suscan.h)
     
 set(SUSCAN_SOURCES 
   ${SRCDIR}/common.c 
-  ${SRCDIR}/fingerprint.c 
   ${SRCDIR}/lib.c
   ${SRCDIR}/main.c)
   
@@ -233,7 +279,7 @@ target_link_libraries(suscan.status ${LIBXML2_LIBRARIES})
 
 target_link_libraries(suscan.status ${CMAKE_THREAD_LIBS_INIT})
 link_directories(suscan.status ${PROJECT_BINARY_DIR})
-target_link_libraries(suscan.status sigutils)
+target_link_libraries(suscan.status ${SIGUTILS_LIBRARIES})
 target_link_libraries(suscan.status suscan)
 target_link_libraries(suscan.status m)
 

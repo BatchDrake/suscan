@@ -28,6 +28,10 @@
 #include "analyzer.h"
 #include "msg.h"
 
+#if defined(_WIN32)
+#  include <sysinfoapi.h>
+#endif /* !defined(_WIN32) */
+
 SUPRIVATE SUBOOL
 suscan_inpsched_task_cb(
     struct suscan_mq *mq_out,
@@ -96,9 +100,15 @@ suscan_inspsched_get_min_workers(void)
 {
   long count;
 
-  if ((count = sysconf(_SC_NPROCESSORS_ONLN)) < 2)
+#if defined(_WIN32)
+  SYSTEM_INFO sysInfo;
+  GetSystemInfo(&sysInfo);
+  count = sysInfo.dwNumberOfProcessors;
+#else
+  count = sysconf(_SC_NPROCESSORS_ONLN);
+#endif /* defined(_WIN32) */
+  if (count < 2)
     count = 2;
-
   return count - 1;
 }
 

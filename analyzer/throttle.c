@@ -30,6 +30,10 @@
 #include <sigutils/sigutils.h>
 #include "throttle.h"
 
+#if defined(_WIN32) && !defined(CLOCK_MONOTONIC_RAW)
+#  define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
+#endif /* defined(_WIN32) */
+
 void
 suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate)
 {

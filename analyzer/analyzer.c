@@ -35,6 +35,10 @@
 #include "mq.h"
 #include "msg.h"
 
+#if defined(_WIN32) && !defined(CLOCK_MONOTONIC_RAW)
+#  define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
+#endif /* defined(_WIN32) */
+
 /*********************** Performance measurement *****************************/
 SUPRIVATE void
 suscan_analyzer_read_start(suscan_analyzer_t *analyzer)
