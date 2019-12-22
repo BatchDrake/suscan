@@ -21,14 +21,14 @@
 #ifndef _MSG_H
 #define _MSG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #include <util.h>
 #include <stdint.h>
 
 #include "analyzer.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_KEYBOARD      0x0
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT   0x1
