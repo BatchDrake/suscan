@@ -30,7 +30,7 @@ pkg_check_modules(SNDFILE  REQUIRED sndfile>=1.0.2)
 pkg_check_modules(FFTW3    REQUIRED fftw3f>=3.0)
 pkg_check_modules(SOAPYSDR REQUIRED SoapySDR>=0.5.0)
 pkg_check_modules(XML2     REQUIRED libxml-2.0>=2.9.0)
-pkg_check_modules(VOLK               volk>=1.0)
+pkg_check_modules(VOLK              volk>=1.0)
 
 # Source location
 set(SRCDIR       src)
@@ -44,7 +44,8 @@ set(UTILDIR      util)
 set(RSRCDIR      rsrc)
 
 # Compiler flags
-set(CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} ${SIGUTILS_CONFIG_CFLAGS}")
+string (REPLACE ";" " " SIGUTILS_SPC_CFLAGS "${SIGUTILS_CFLAGS}")
+set(CMAKE_C_FLAGS         "${CMAKE_C_FLAGS} ${SIGUTILS_CONFIG_CFLAGS}")
 set(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG} -O0 -ggdb")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -ffast-math")
 
@@ -116,8 +117,7 @@ set(ANALYZER_LIB_HEADERS
 
 set(ESTIMATOR_SOURCES
   ${ESTIMATORDIR}/fac.c
-  ${ESTIMATORDIR}/nonlinear.c
-  ${ESTIMATORDIR}/quadnln.c)
+  ${ESTIMATORDIR}/nonlinear.c)
 
 set(SPECTSRC_SOURCES
   ${SPECTSRCDIR}/cyclo.c
@@ -160,7 +160,7 @@ target_include_directories(
   suscan 
   PRIVATE . ${UTILDIR} ${ANALYZERDIR} ${ANALYZERDIR}/inspector ${CODECLIBDIR})
 
-set_target_properties(suscan PROPERTIES COMPILE_FLAGS ${SIGUTILS_CFLAGS})
+set_target_properties(suscan PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 
 # Required dependencies
 target_include_directories(suscan SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
@@ -213,7 +213,7 @@ target_include_directories(
   PRIVATE . ${UTILDIR} ${CODECLIB_DIR} ${SRCDIR})
 
 # Required dependencies
-set_target_properties(suscan.status PROPERTIES COMPILE_FLAGS ${SIGUTILS_CFLAGS})
+set_target_properties(suscan.status PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 
 target_include_directories(suscan.status SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
 target_link_libraries(suscan.status ${SNDFILE_LIBRARIES})
