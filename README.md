@@ -36,11 +36,11 @@ If the previous commands were successful, you are ready to install Suscan in you
 
 You can verify your installation by running:
 ```
-% suscan
+% suscan.status
 ```
 
 If everything went fine, you should see the message:
 
 ```
-suscan: suscan library loaded successfully.
+suscan.status: suscan library loaded successfully.
 ```
