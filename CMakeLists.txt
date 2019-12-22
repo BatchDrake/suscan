@@ -25,12 +25,12 @@ include(FindPkgConfig)
 
 # Find requirements
 find_package(Threads)
-pkg_check_modules(SIGUTILS REQUIRED sigutils>=0.1)
-pkg_check_modules(SNDFILE  REQUIRED sndfile>=1.0.2)
-pkg_check_modules(FFTW3    REQUIRED fftw3f>=3.0)
-pkg_check_modules(SOAPYSDR REQUIRED SoapySDR>=0.5.0)
-pkg_check_modules(XML2     REQUIRED libxml-2.0>=2.9.0)
-pkg_check_modules(VOLK              volk>=1.0)
+include(cmake/FindSigutils.cmake)
+include(cmake/FindSoapySDR.cmake)
+include(cmake/FindFFTW3.cmake)
+include(cmake/FindSndFile.cmake)
+include(cmake/FindLibxml2.cmake)
+include(cmake/FindVolk.cmake)
 
 # Source location
 set(SRCDIR       src)
@@ -167,7 +167,7 @@ target_include_directories(suscan SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
 target_include_directories(suscan SYSTEM PUBLIC ${FFTW3_INCLUDE_DIRS})
 target_include_directories(suscan SYSTEM PUBLIC ${SOAPYSDR_INCLUDE_DIRS})
 target_include_directories(suscan SYSTEM PUBLIC ${SIGUTILS_INCLUDE_DIRS})
-target_include_directories(suscan SYSTEM PUBLIC ${XML2_INCLUDE_DIRS})
+target_include_directories(suscan SYSTEM PUBLIC ${LIBXML2_INCLUDE_DIRS})
 
 # Optional dependencies
 if(VOLK_FOUND)
@@ -228,8 +228,8 @@ target_link_libraries(suscan.status ${FFTW3_LIBRARIES})
 target_include_directories(suscan.status SYSTEM PUBLIC ${SOAPYSDR_INCLUDE_DIRS})
 target_link_libraries(suscan.status ${SOAPYSDR_LIBRARIES})
 
-target_include_directories(suscan.status SYSTEM PUBLIC ${XML2_INCLUDE_DIRS})
-target_link_libraries(suscan.status ${XML2_LIBRARIES})
+target_include_directories(suscan.status SYSTEM PUBLIC ${LIBXML2_INCLUDE_DIRS})
+target_link_libraries(suscan.status ${LIBXML2_LIBRARIES})
 
 target_link_libraries(suscan.status ${CMAKE_THREAD_LIBS_INIT})
 link_directories(suscan.status ${PROJECT_BINARY_DIR})
