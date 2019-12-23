@@ -13,28 +13,34 @@ Suscan is a realtime DSP processing library. It provides a set of useful abstrac
 In order to build Suscan, you will need the development files for the following packages:
 
 ```
-sigutils fftw3 sndfile SoapySDR libxml
+sigutils fftw3 sndfile SoapySDR libxml-2.0
 ```
 
-If you are in a Debian-like operating system, you will also need `autoconf`, `automake`, `libtool` and `build-essential`. 
+If you are in a Debian-like operating system, you will also need `cmake` and `build-essential`. 
 
-After installing all dependencies, Suscan can be compiled executing the following commands:
+After installing all dependencies, enter Suscan's source directory and compile by typing:
 
 ```
-% ./autogen.sh
-% ,/configure
+% cd suscan
+% mkdir build
+% cd build
+% cmake ..
 % make
-% sudo make install
-% sudo ldconfig
+```
+
+If the previous commands were successful, you are ready to install Suscan in your system by executing (as root):
+
+```
+# make install
 ```
 
 You can verify your installation by running:
 ```
-% suscan
+% suscan.status
 ```
 
 If everything went fine, you should see the message:
 
 ```
-suscan: suscan library loaded successfully.
+suscan.status: suscan library loaded successfully.
 ```

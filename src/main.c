@@ -15,7 +15,7 @@
 
 #include <confdb.h>
 #include <suscan.h>
-#include <codec.h>
+#include <codec/codec.h>
 
 SUPRIVATE struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},

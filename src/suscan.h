@@ -6,7 +6,6 @@
 #ifndef _MAIN_INCLUDE_H
 #define _MAIN_INCLUDE_H
 
-#include <config.h> /* General compile-time configuration parameters */
 #include <util.h> /* From util: Common utility library */
 
 #include <analyzer/source.h> /* Generic source API */

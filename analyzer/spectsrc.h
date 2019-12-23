@@ -21,12 +21,12 @@
 #ifndef _SPECTSRC_H
 #define _SPECTSRC_H
 
+#include <sigutils/sigutils.h>
+#include <sigutils/detect.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-#include <sigutils/sigutils.h>
-#include <sigutils/detect.h>
 
 struct suscan_spectsrc;
 

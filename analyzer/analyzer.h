@@ -21,10 +21,6 @@
 #ifndef _ANALYZER_H
 #define _ANALYZER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
 #include <pthread.h>
@@ -34,6 +30,10 @@ extern "C" {
 #include "throttle.h"
 #include "inspector/inspector.h"
 #include "inspsched.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 #define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.5
 
