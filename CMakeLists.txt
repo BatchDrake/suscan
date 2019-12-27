@@ -44,6 +44,13 @@ set(UTILDIR      util)
 set(RSRCDIR      rsrc)
 
 # Compiler flags
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING
+       "Choose the type of build, options are: None Debug Release RelWithDebInfo
+MinSizeRel."
+       FORCE )
+endif()
+
 string (REPLACE ";" " " SIGUTILS_SPC_CFLAGS "${SIGUTILS_CFLAGS}")
 set(CMAKE_C_FLAGS         "${CMAKE_C_FLAGS} ${SIGUTILS_CONFIG_CFLAGS}")
 set(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG} -O0 -ggdb")
@@ -121,6 +128,10 @@ set(ESTIMATOR_SOURCES
 
 set(SPECTSRC_SOURCES
   ${SPECTSRCDIR}/cyclo.c
+  ${SPECTSRCDIR}/fmcyclo.c
+  ${SPECTSRCDIR}/fmspect.c
+  ${SPECTSRCDIR}/pmspect.c
+  ${SPECTSRCDIR}/timediff.c
   ${SPECTSRCDIR}/exp-2.c
   ${SPECTSRCDIR}/exp-4.c
   ${SPECTSRCDIR}/exp-8.c
