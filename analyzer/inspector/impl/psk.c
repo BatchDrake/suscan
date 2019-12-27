@@ -498,6 +498,18 @@ suscan_psk_inspector_register(void)
       return SU_FALSE);
 
   SU_TRYCATCH(
+      suscan_inspector_interface_add_spectsrc(&iface, "pmspect"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_inspector_interface_add_spectsrc(&iface, "timediff"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_inspector_interface_add_spectsrc(&iface, "abstimediff"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
       suscan_inspector_interface_add_spectsrc(&iface, "cyclo"),
       return SU_FALSE);
 

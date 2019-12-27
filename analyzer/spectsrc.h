@@ -93,6 +93,11 @@ void suscan_spectsrc_destroy(suscan_spectsrc_t *src);
 
 SUBOOL suscan_spectsrc_psd_register(void);
 SUBOOL suscan_spectsrc_cyclo_register(void);
+SUBOOL suscan_spectsrc_fmcyclo_register(void);
+SUBOOL suscan_spectsrc_fmspect_register(void);
+SUBOOL suscan_spectsrc_pmspect_register(void);
+SUBOOL suscan_spectsrc_timediff_register(void);
+
 SUBOOL suscan_spectsrc_exp_2_register(void);
 SUBOOL suscan_spectsrc_exp_4_register(void);
 SUBOOL suscan_spectsrc_exp_8_register(void);

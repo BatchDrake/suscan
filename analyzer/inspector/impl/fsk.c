@@ -418,6 +418,22 @@ suscan_fsk_inspector_register(void)
       suscan_inspector_interface_add_spectsrc(&iface, "cyclo"),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+      suscan_inspector_interface_add_spectsrc(&iface, "fmcyclo"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_inspector_interface_add_spectsrc(&iface, "fmspect"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_inspector_interface_add_spectsrc(&iface, "timediff"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_inspector_interface_add_spectsrc(&iface, "abstimediff"),
+      return SU_FALSE);
+
   /* Register inspector interface */
   SU_TRYCATCH(suscan_inspector_interface_register(&iface), return SU_FALSE);
 

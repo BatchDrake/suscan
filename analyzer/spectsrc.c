@@ -250,6 +250,10 @@ suscan_init_spectsrcs(void)
 {
   SU_TRYCATCH(suscan_spectsrc_psd_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_spectsrc_cyclo_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_spectsrc_fmcyclo_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_spectsrc_fmspect_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_spectsrc_pmspect_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_spectsrc_timediff_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_spectsrc_exp_2_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_spectsrc_exp_4_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_spectsrc_exp_8_register(), return SU_FALSE);
