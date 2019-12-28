@@ -95,21 +95,23 @@ suscan_inspector_spectrum_loop(
     struct suscan_mq *mq_out)
 {
   struct suscan_analyzer_inspector_msg *msg = NULL;
+  struct timespec now, sub;
   suscan_spectsrc_t *src = NULL;
   unsigned int i;
   SUFLOAT N0;
   SUSDIFF fed;
+  SUFLOAT seconds;
 
   if (insp->spectsrc_index > 0) {
-    insp->per_cnt_spectrum += samp_count;
-
     src = insp->spectsrc_list[insp->spectsrc_index - 1];
     while (samp_count > 0) {
       fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
-
       if (fed < samp_count) {
-        if (insp->per_cnt_spectrum >= insp->interval_spectrum) {
-          insp->per_cnt_spectrum = 0;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        timespecsub(&now, &insp->last_spectrum, &sub);
+        seconds = sub.tv_sec + 1e-9 * sub.tv_nsec;
+        if (seconds >= insp->interval_spectrum) {
+          insp->last_spectrum = now;
           SU_TRYCATCH(
               msg = suscan_analyzer_inspector_msg_new(
                   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM,
@@ -172,15 +174,18 @@ suscan_inspector_estimator_loop(
     struct suscan_mq *mq_out)
 {
   struct suscan_analyzer_inspector_msg *msg = NULL;
+  struct timespec now, sub;
   unsigned int i;
   SUFLOAT value;
+  SUFLOAT seconds;
 
   /* Check esimator state and update clients */
   if (insp->interval_estimator > 0) {
-    insp->per_cnt_estimator += samp_count;
-
-    if (insp->per_cnt_estimator >= insp->interval_estimator) {
-      insp->per_cnt_estimator = 0;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+    timespecsub(&now, &insp->last_estimator, &sub);
+    seconds = sub.tv_sec + 1e-9 * sub.tv_nsec;
+    if (seconds >= insp->interval_estimator) {
+      insp->last_estimator = now;
       for (i = 0; i < insp->estimator_count; ++i)
         if (suscan_estimator_is_enabled(insp->estimator_list[i])) {
           if (suscan_estimator_is_enabled(insp->estimator_list[i]))

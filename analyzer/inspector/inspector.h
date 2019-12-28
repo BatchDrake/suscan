@@ -56,12 +56,12 @@ struct suscan_inspector {
   struct suscan_inspector_sampling_info samp_info; /* Sampling information */
 
   /* Spectrum and estimator state */
-  SUSCOUNT  interval_estimator;
-  SUSDIFF   per_cnt_estimator;
+  SUFLOAT  interval_estimator;
+  SUFLOAT  interval_spectrum;
+  struct timespec last_estimator;
+  struct timespec last_spectrum;
 
-  SUSCOUNT  interval_spectrum;
-  SUSDIFF   per_cnt_spectrum;
-  uint32_t  spectsrc_index;
+  uint32_t spectsrc_index;
 
   SUBOOL    params_requested;    /* New parameters requested */
   SUBOOL    bandwidth_notified;  /* New bandwidth set */

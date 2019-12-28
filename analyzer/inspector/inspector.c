@@ -214,8 +214,12 @@ suscan_inspector_new(
       .5 * channel->decimation * su_specttuner_channel_get_bw(channel));
 
   /* Spectrum and estimator updates */
-  new->interval_estimator = .1 * new->samp_info.equiv_fs;
-  new->interval_spectrum  = .1 * new->samp_info.equiv_fs;
+  new->interval_estimator = .1;
+  new->interval_spectrum  = .1;
+
+  /* Initialize clocks */
+  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_estimator);
+  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_spectrum);
 
   /* All set to call specific inspector */
   new->iface = iface;

@@ -36,6 +36,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 #define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.5
+#define SUSCAN_ANALYZER_FS_MEASURE_INTERVAL   1.0
 
 struct suscan_analyzer_params {
   struct sigutils_channel_detector_params detector_params;
@@ -81,14 +82,14 @@ struct suscan_analyzer {
   SUBOOL throttle_mutex_init;
   pthread_mutex_t throttle_mutex;
   SUSCOUNT effective_samp_rate; /* Used for GUI */
-  SUBOOL iq_rev;
+  SUFLOAT  measured_samp_rate; /* Used for statistics */
+  SUSCOUNT measured_samp_count;
+  struct timespec last_measure;
+  SUBOOL   iq_rev;
 
   /* Periodic updates */
   SUFLOAT  interval_channels;
-  SUSCOUNT per_cnt_channels;
-
   SUFLOAT  interval_psd;
-  SUSCOUNT per_cnt_psd;
 
   /* This mutex shall protect hot-config requests */
   /* XXX: This is cumbersome. Create a hotconf object to handle these things */
@@ -115,6 +116,8 @@ struct suscan_analyzer {
   struct timespec read_start;
   struct timespec process_start;
   struct timespec process_end;
+  struct timespec last_psd;
+  struct timespec last_channels;
 
   /* Source worker objects */
   su_channel_detector_t *detector; /* Channel detector */
@@ -149,6 +152,15 @@ SUINLINE unsigned int
 suscan_analyzer_get_samp_rate(const suscan_analyzer_t *analyzer)
 {
   return suscan_source_get_samp_rate(analyzer->source);
+}
+
+SUINLINE SUFLOAT
+suscan_analyzer_get_measured_samp_rate(const suscan_analyzer_t *self)
+{
+  if (self->measured_samp_rate < 1e-12)
+    return self->measured_samp_rate;
+
+  return self->measured_samp_rate;
 }
 
 SUBOOL suscan_analyzer_set_freq(
