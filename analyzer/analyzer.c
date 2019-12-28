@@ -149,14 +149,6 @@ suscan_analyzer_feed_baseband_filters(
 }
 
 /************************ Source worker callback *****************************/
-#ifdef SUSCAN_DEBUG_THROTTLE
-SUBOOL   dbg_rate_set;
-struct timespec dbg_rate_source_start;
-SUSCOUNT dbg_rate_counter;
-SUFLOAT  dbg_rate_mean;
-SUSCOUNT dbg_rate_last_second;
-#endif
-
 SUPRIVATE SUBOOL
 suscan_analyzer_feed_inspectors(
     suscan_analyzer_t *analyzer,
@@ -252,9 +244,8 @@ suscan_source_wk_cb(
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
   unsigned int i;
-#ifdef SUSCAN_DEBUG_THROTTLE
   struct timespec sub;
-#endif
+  SUFLOAT seconds;
 
   SU_TRYCATCH(suscan_analyzer_lock_loop(analyzer), goto done);
   mutex_acquired = SU_TRUE;
@@ -277,22 +268,11 @@ suscan_source_wk_cb(
   /* Ready to read */
   suscan_analyzer_read_start(analyzer);
 
-#ifdef SUSCAN_DEBUG_THROTTLE
-  if (!dbg_rate_set) {
-    dbg_rate_set = SU_TRUE;
-    dbg_rate_source_start = analyzer->read_start;
-    dbg_rate_counter = 0;
-  }
-#endif
-
   if ((got = suscan_source_read(
       analyzer->source,
       analyzer->read_buf,
       read_size)) > 0) {
     suscan_analyzer_process_start(analyzer);
-#ifdef SUSCAN_DEBUG_THROTTLE
-    dbg_rate_counter += got;
-#endif
 
     if (analyzer->iq_rev)
       suscan_analyzer_do_iq_rev(analyzer->read_buf, read_size);
@@ -322,33 +302,48 @@ suscan_source_wk_cb(
             got) == got,
         goto done);
 
-    analyzer->per_cnt_channels += got;
-    analyzer->per_cnt_psd += got;
-
     /* Check channel update */
     if (analyzer->interval_channels > 0) {
-      if (analyzer->per_cnt_channels
-          >= analyzer->interval_channels * analyzer->effective_samp_rate) {
-        analyzer->per_cnt_channels = 0;
+      timespecsub(&analyzer->read_start, &analyzer->last_channels, &sub);
+      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
 
+      if (seconds >= analyzer->interval_channels) {
         SU_TRYCATCH(
             suscan_analyzer_send_detector_channels(
                 analyzer,
                 analyzer->detector),
             goto done);
+        analyzer->last_channels = analyzer->read_start;
       }
     }
 
-    /* Check spectrum update */
     if (analyzer->interval_psd > 0) {
-      if (analyzer->per_cnt_psd
-          >= analyzer->interval_psd * analyzer->effective_samp_rate) {
-        analyzer->per_cnt_psd = 0;
+      timespecsub(&analyzer->read_start, &analyzer->last_psd, &sub);
+      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
 
+      if (seconds >= analyzer->interval_psd) {
         SU_TRYCATCH(
             suscan_analyzer_send_psd(analyzer, analyzer->detector),
             goto done);
+        analyzer->last_psd = analyzer->read_start;
       }
+    }
+
+    if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {
+      timespecsub(&analyzer->read_start, &analyzer->last_measure, &sub);
+      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
+
+      if (seconds >= SUSCAN_ANALYZER_FS_MEASURE_INTERVAL) {
+        analyzer->measured_samp_rate =
+            analyzer->measured_samp_count / seconds;
+        analyzer->measured_samp_count = 0;
+        analyzer->last_measure = analyzer->read_start;
+#ifdef SUSCAN_DEBUG_THROTTLE
+        printf("Read rate: %g\n", analyzer->measured_samp_rate);
+#endif /* SUSCAN_DEBUG_THROTTLE */
+      }
+
+      analyzer->measured_samp_count += got;
     }
 
     /* Feed inspectors! */
@@ -407,16 +402,6 @@ suscan_source_wk_cb(
   /* Finish processing */
   suscan_analyzer_process_end(analyzer);
 
-#ifdef SUSCAN_DEBUG_THROTTLE
-    timespecsub(&analyzer->process_end, &dbg_rate_source_start, &sub);
-
-    if (sub.tv_sec != dbg_rate_last_second) {
-      dbg_rate_mean = (SUFLOAT) dbg_rate_counter / (sub.tv_sec + 1e-9 * sub.tv_nsec);
-      printf("Current read rate: %lg\n", dbg_rate_mean);
-      dbg_rate_last_second = sub.tv_sec;
-    }
-#endif
-
   restart = SU_TRUE;
 
 done:
@@ -466,7 +451,9 @@ suscan_wait_for_halt(suscan_analyzer_t *analyzer)
 }
 
 SUPRIVATE SUBOOL
-suscan_analyzer_override_throttle(suscan_analyzer_t *analyzer, SUSCOUNT val)
+suscan_analyzer_override_throttle(
+    suscan_analyzer_t *analyzer,
+    SUSCOUNT val)
 {
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
@@ -632,9 +619,6 @@ suscan_analyzer_thread(void *data)
           SU_TRYCATCH(
               suscan_analyzer_readjust_detector(analyzer, &new_det_params),
               goto done);
-
-          analyzer->per_cnt_channels  = 0;
-          analyzer->per_cnt_psd       = 0;
 
           analyzer->interval_channels = new_params->channel_update_int;
           analyzer->interval_psd      = new_params->psd_update_int;
@@ -1061,10 +1045,6 @@ suscan_analyzer_new(
   unsigned int worker_count;
   unsigned int i;
 
-#ifdef SUSCAN_DEBUG_THROTTLE
-  dbg_rate_set = SU_FALSE;
-#endif /* SUSCAN_DEBUG_THROTTLE */
-
   if ((new = calloc(1, sizeof (suscan_analyzer_t))) == NULL) {
     SU_ERROR("Cannot allocate analyzer\n");
     goto fail;
@@ -1096,6 +1076,8 @@ suscan_analyzer_new(
   /* Periodic updates */
   new->interval_channels = params->channel_update_int;
   new->interval_psd      = params->psd_update_int;
+  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_psd);
+  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_channels);
 
   /* Create channel detector */
   (void) pthread_mutex_init(&new->loop_mutex, NULL); /* Always succeeds */
