@@ -156,6 +156,35 @@ suscan_source_device_info_finalize(struct suscan_source_device_info *info)
   /* NO-OP. Keeping method in case we add dynamic members in the future */
 }
 
+SUPRIVATE void
+suscan_source_reset_devices(void)
+{
+  unsigned int i, j;
+
+  for (i = 0; i < device_count; ++i)
+    if (device_list[i] != NULL) {
+      device_list[i]->available = SU_FALSE;
+
+      for (j = 0; j < device_list[i]->gain_desc_count; ++j)
+        suscan_source_gain_desc_destroy(device_list[i]->gain_desc_list[j]);
+      device_list[i]->gain_desc_count = 0;
+
+      if (device_list[i]->gain_desc_list != NULL) {
+        free(device_list[i]->gain_desc_list);
+        device_list[i]->gain_desc_list = NULL;
+      }
+
+      for (j = 0; j < device_list[i]->antenna_count; ++j)
+        free(device_list[i]->antenna_list[j]);
+      device_list[i]->antenna_count = 0;
+
+      if (device_list[i]->antenna_list != NULL) {
+        free(device_list[i]->antenna_list);
+        device_list[i]->antenna_list = NULL;
+      }
+    }
+}
+
 SUPRIVATE char *
 suscan_source_device_build_desc(const char *driver, const char *label)
 {
@@ -187,6 +216,8 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(sdev = SoapySDRDevice_make(dev->args), goto done);
+
+  dev->available = SU_TRUE;
 
   /* Duplicate antenna list */
   if ((antenna_list = SoapySDRDevice_listAntennas(
@@ -455,7 +486,7 @@ suscan_source_register_null_device(void)
   return SU_TRUE;
 }
 
-SUPRIVATE SUBOOL
+SUBOOL
 suscan_source_detect_devices(void)
 {
   SoapySDRKwargs *soapy_dev_list = NULL;
@@ -463,6 +494,8 @@ suscan_source_detect_devices(void)
   size_t soapy_dev_len;
   unsigned int i;
   SUBOOL ok = SU_FALSE;
+
+  suscan_source_reset_devices();
 
   SU_TRYCATCH(suscan_source_register_null_device(), goto done);
 

@@ -62,6 +62,7 @@ struct suscan_source_device {
   char *desc;
   SoapySDRKwargs *args;
   int index;
+  SUBOOL available;
 
   PTR_LIST(struct suscan_source_gain_desc, gain_desc);
   PTR_LIST(char, antenna);
@@ -90,6 +91,12 @@ SUINLINE int
 suscan_source_device_get_index(const suscan_source_device_t *dev)
 {
   return dev->index;
+}
+
+SUINLINE SUBOOL
+suscan_source_device_is_available(const suscan_source_device_t *dev)
+{
+  return dev->available;
 }
 
 SUINLINE SUBOOL
@@ -387,7 +394,7 @@ suscan_source_is_capturing(const suscan_source_t *src)
 void suscan_source_destroy(suscan_source_t *config);
 
 SUBOOL suscan_source_config_register(suscan_source_config_t *config);
-
+SUBOOL suscan_source_detect_devices(void);
 SUBOOL suscan_init_sources(void);
 
 #ifdef __cplusplus
