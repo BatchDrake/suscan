@@ -80,6 +80,8 @@ suscan_object_t *suscan_object_get_field(
     const suscan_object_t *object,
     const char *name);
 
+SUBOOL suscan_object_clear_fields(suscan_object_t *object);
+
 SUBOOL suscan_object_set_field(
     suscan_object_t *object,
     const char *name,
@@ -173,6 +175,8 @@ SUBOOL suscan_object_set_delete(
 SUBOOL suscan_object_set_append(
     suscan_object_t *object,
     suscan_object_t *new_obj);
+
+SUBOOL suscan_object_set_clear(suscan_object_t *object);
 
 #ifdef __cplusplus
 }

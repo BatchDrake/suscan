@@ -198,6 +198,26 @@ suscan_object_get_field(const suscan_object_t *object, const char *name)
   return NULL;
 }
 
+SUBOOL
+suscan_object_clear_fields(suscan_object_t *object)
+{
+  unsigned int i;
+
+  SU_TRYCATCH(object->type == SUSCAN_OBJECT_TYPE_OBJECT, return SU_FALSE);
+
+  for (i = 0; i < object->field_count; ++i)
+    if (object->field_list[i] != NULL)
+      suscan_object_destroy(object->field_list[i]);
+
+  if (object->field_list != NULL)
+    free(object->field_list);
+
+  object->field_list = NULL;
+  object->field_count = 0;
+
+  return SU_TRUE;
+}
+
 const char *
 suscan_object_get_value(const suscan_object_t *object)
 {
@@ -493,6 +513,26 @@ suscan_object_set_append(suscan_object_t *object, suscan_object_t *new)
   SU_TRYCATCH(
       PTR_LIST_APPEND_CHECK(object->object, new) != -1,
       return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_object_set_clear(suscan_object_t *object)
+{
+  unsigned int i;
+
+  SU_TRYCATCH(object->type == SUSCAN_OBJECT_TYPE_SET, return SU_FALSE);
+
+  for (i = 0; i < object->object_count; ++i)
+    if (object->object_list[i] != NULL)
+      suscan_object_destroy(object->object_list[i]);
+
+  if (object->object_list != NULL)
+    free(object->object_list);
+
+  object->object_list = NULL;
+  object->object_count = 0;
 
   return SU_TRUE;
 }
