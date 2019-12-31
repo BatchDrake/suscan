@@ -230,6 +230,11 @@ target_include_directories(
 # Required dependencies
 set_target_properties(suscan.status PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 
+link_directories(suscan.status ${PROJECT_BINARY_DIR})
+target_link_libraries(suscan.status sigutils)
+target_link_libraries(suscan.status suscan)
+target_link_libraries(suscan.status m)
+
 target_include_directories(suscan.status SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
 target_link_libraries(suscan.status ${SNDFILE_LIBRARIES})
 
@@ -243,10 +248,6 @@ target_include_directories(suscan.status SYSTEM PUBLIC ${XML2_INCLUDE_DIRS})
 target_link_libraries(suscan.status ${XML2_LIBRARIES})
 
 target_link_libraries(suscan.status ${CMAKE_THREAD_LIBS_INIT})
-link_directories(suscan.status ${PROJECT_BINARY_DIR})
-target_link_libraries(suscan.status sigutils)
-target_link_libraries(suscan.status suscan)
-target_link_libraries(suscan.status m)
 
 # Optional dependencies
 if(VOLK_FOUND)
