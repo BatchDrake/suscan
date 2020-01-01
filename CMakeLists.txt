@@ -52,9 +52,15 @@ MinSizeRel."
 endif()
 
 string (REPLACE ";" " " SIGUTILS_SPC_CFLAGS "${SIGUTILS_CFLAGS}")
-set(CMAKE_C_FLAGS         "${CMAKE_C_FLAGS} ${SIGUTILS_CONFIG_CFLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SIGUTILS_CONFIG_CFLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPKGDATADIR='\"${CMAKE_INSTALL_PREFIX}/share/suscan\"'")
+# The following hack exposes __FILENAME__ to source files as the relative
+# path of each source file.
+set(CMAKE_C_FLAGS
+"${CMAKE_C_FLAGS} -D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")
+
 set(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG} -O0 -ggdb")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -ffast-math")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -ffast-math -s -DNDEBUG")
 
 ########################## pkg-config description #############################
 set(SIGUTILS_PC_FILE_PATH "${PROJECT_BINARY_DIR}/suscan.pc")
@@ -251,7 +257,6 @@ target_link_libraries(suscan.status ${CMAKE_THREAD_LIBS_INIT})
 
 # Optional dependencies
 if(VOLK_FOUND)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_VOLK=1")
   target_include_directories(suscan.status SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
   target_link_libraries(suscan.status ${VOLK_LIBRARIES})
 endif()
