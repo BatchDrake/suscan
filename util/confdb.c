@@ -39,6 +39,11 @@ SUPRIVATE const char *confdb_user_path;
 const char *
 suscan_confdb_get_system_path(void)
 {
+  const char *path = NULL;
+
+  if ((path = getenv("SUSCAN_CONFIG_PATH")) != NULL)
+    confdb_system_path = path;
+
   return confdb_system_path;
 }
 
