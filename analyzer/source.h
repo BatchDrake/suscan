@@ -45,6 +45,8 @@ struct suscan_source_gain_desc {
 struct suscan_source_device_info {
   PTR_LIST_CONST(struct suscan_source_gain_desc, gain_desc);
   PTR_LIST_CONST(char, antenna);
+  SUFREQ freq_min;
+  SUFREQ freq_max;
 };
 
 #define suscan_source_device_info_INITIALIZER   \
@@ -53,6 +55,8 @@ struct suscan_source_device_info {
   0, /* gain_count */                           \
   NULL, /* antenna_list */                      \
   0, /* antenna_count */                        \
+  0, /* freq_min */                             \
+  0, /* freq_max */                             \
 }
 
 void suscan_source_device_info_finalize(struct suscan_source_device_info *info);
@@ -66,6 +70,8 @@ struct suscan_source_device {
 
   PTR_LIST(struct suscan_source_gain_desc, gain_desc);
   PTR_LIST(char, antenna);
+  SUFREQ freq_min;
+  SUFREQ freq_max;
 };
 
 typedef struct suscan_source_device suscan_source_device_t;

@@ -205,12 +205,16 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
 {
   SoapySDRDevice *sdev = NULL;
   struct suscan_source_gain_desc *desc = NULL;
+  SoapySDRRange *freqRanges;
   SoapySDRRange range;
+  SUFREQ freq_min = INFINITY;
+  SUFREQ freq_max = -INFINITY;
   char **antenna_list = NULL;
   char **gain_list = NULL;
   char *dup = NULL;
   size_t antenna_count = 0;
   size_t gain_count = 0;
+  size_t range_count;
   unsigned int i;
 
   SUBOOL ok = SU_FALSE;
@@ -218,6 +222,28 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
   SU_TRYCATCH(sdev = SoapySDRDevice_make(dev->args), goto done);
 
   dev->available = SU_TRUE;
+
+  /* Get frequency range */
+  if ((freqRanges = SoapySDRDevice_getFrequencyRange(
+      sdev,
+      SOAPY_SDR_RX,
+      0,
+      &range_count)) != NULL) {
+    for (i = 0; i < range_count; ++i) {
+      if (freqRanges[i].minimum < freq_min)
+        freq_min = freqRanges[i].minimum;
+      if (freqRanges[i].maximum > freq_max)
+        freq_max = freqRanges[i].maximum;
+    }
+
+    if (isinf(freq_min) || isinf(freq_max)) {
+      dev->freq_min = 0;
+      dev->freq_max = 0;
+    } else {
+      dev->freq_min = freq_min;
+      dev->freq_max = freq_max;
+    }
+  }
 
   /* Duplicate antenna list */
   if ((antenna_list = SoapySDRDevice_listAntennas(
@@ -273,6 +299,13 @@ done:
   SoapySDRStrings_clear(&antenna_list, antenna_count);
   SoapySDRStrings_clear(&gain_list, gain_count);
 
+  /*
+   * I literally have no idea what to do with this.
+   */
+
+  /*if (freqRanges != NULL)
+    free(freqRanges); */
+
   if (desc != NULL)
     suscan_source_gain_desc_destroy(desc);
 
@@ -301,6 +334,9 @@ suscan_source_device_get_info(
 
   info->antenna_list = (const char **) dev->antenna_list;
   info->antenna_count = dev->antenna_count;
+
+  info->freq_min = dev->freq_min;
+  info->freq_max = dev->freq_max;
 
   return SU_TRUE;
 }
