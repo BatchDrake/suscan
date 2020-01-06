@@ -2024,6 +2024,15 @@ suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb)
   return SU_TRUE;
 }
 
+SUFREQ
+suscan_source_get_freq(const suscan_source_t *source)
+{
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE || !source->capturing)
+    return suscan_source_config_get_freq(source->config);
+
+  return SoapySDRDevice_getFrequency(source->sdr, SOAPY_SDR_RX, 0)
+      - suscan_source_config_get_lnb_freq(source->config);
+}
 
 SUPRIVATE SUBOOL
 suscan_source_config_check(const suscan_source_config_t *config)

@@ -147,7 +147,9 @@ set(SPECTSRC_SOURCES
   ${SPECTSRCDIR}/exp-8.c
   ${SPECTSRCDIR}/psd.c)
   
-set(ANALYZER_LIB_SOURCES 
+set(ANALYZER_LIB_SOURCES
+  ${ANALYZERDIR}/workers/channel.c
+  ${ANALYZERDIR}/workers/wide.c
   ${ANALYZERDIR}/analyzer.c
   ${ANALYZERDIR}/bufpool.c
   ${ANALYZERDIR}/client.c
