@@ -418,7 +418,7 @@ done:
 
 SUBOOL
 suscan_analyzer_send_psd(
-    suscan_analyzer_t *analyzer,
+    suscan_analyzer_t *self,
     const su_channel_detector_t *detector)
 {
   struct suscan_analyzer_psd_msg *msg = NULL;
@@ -426,7 +426,7 @@ suscan_analyzer_send_psd(
 
   if ((msg = suscan_analyzer_psd_msg_new(detector)) == NULL) {
     suscan_analyzer_send_status(
-        analyzer,
+        self,
         SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
         -1,
         "Cannot create message: %s",
@@ -434,15 +434,19 @@ suscan_analyzer_send_psd(
     goto done;
   }
 
-  msg->fc = (suscan_source_get_config(analyzer->source))->freq;
+  /* In wide spectrum mode, frequency is given by curr_freq */
+  msg->fc = self->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL
+      ? (suscan_source_get_config(self->source))->freq
+      : self->curr_freq;
+
   msg->N0 = detector->N0;
 
   if (!suscan_mq_write(
-      analyzer->mq_out,
+      self->mq_out,
       SUSCAN_ANALYZER_MESSAGE_TYPE_PSD,
       msg)) {
     suscan_analyzer_send_status(
-        analyzer,
+        self,
         SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
         -1,
         "Cannot write message: %s",

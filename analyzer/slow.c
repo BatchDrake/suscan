@@ -240,15 +240,19 @@ suscan_analyzer_set_freq_cb(
 
 /****************************** Slow methods **********************************/
 SUBOOL
-suscan_analyzer_set_freq(suscan_analyzer_t *analyzer, SUFREQ freq, SUFREQ lnb)
+suscan_analyzer_set_freq(suscan_analyzer_t *self, SUFREQ freq, SUFREQ lnb)
 {
-  analyzer->freq_req_value = freq;
-  analyzer->lnb_req_value  = lnb;
-  analyzer->freq_req = SU_TRUE;
+  SU_TRYCATCH(
+      self->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  self->freq_req_value = freq;
+  self->lnb_req_value  = lnb;
+  self->freq_req = SU_TRUE;
 
   /* This operation is rather slow. Do it somewhere else. */
   return suscan_worker_push(
-      analyzer->slow_wk,
+      self->slow_wk,
       suscan_analyzer_set_freq_cb,
       NULL);
 }

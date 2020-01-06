@@ -354,8 +354,11 @@ SUBOOL suscan_source_set_gain(
     suscan_source_t *source,
     const char *name,
     SUFLOAT gain);
+
 SUBOOL suscan_source_set_bandwidth(suscan_source_t *source, SUFLOAT bw);
 SUBOOL suscan_source_set_antenna(suscan_source_t *source, const char *name);
+
+SUFREQ suscan_source_get_freq(const suscan_source_t *source);
 
 suscan_source_t *suscan_source_new(suscan_source_config_t *config);
 

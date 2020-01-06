@@ -38,16 +38,29 @@ extern "C" {
 #define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.5
 #define SUSCAN_ANALYZER_FS_MEASURE_INTERVAL   1.0
 
+#define SUSCAN_ANALYZER_MIN_POST_HOP_FFTS     7
+
+enum suscan_analyzer_mode {
+  SUSCAN_ANALYZER_MODE_CHANNEL,
+  SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM
+};
+
 struct suscan_analyzer_params {
+  enum suscan_analyzer_mode mode;
   struct sigutils_channel_detector_params detector_params;
   SUFLOAT  channel_update_int;
   SUFLOAT  psd_update_int;
+  SUFREQ   min_freq;
+  SUFREQ   max_freq;
 };
 
-#define suscan_analyzer_params_INITIALIZER {                                \
+#define suscan_analyzer_params_INITIALIZER {                               \
+  SUSCAN_ANALYZER_MODE_CHANNEL,                 /* mode */                  \
   sigutils_channel_detector_params_INITIALIZER, /* detector_params */       \
   SU_ADDSFX(.1),                                /* channel_update_int */    \
-  SU_ADDSFX(.04)                                /* psd_update_int */        \
+  SU_ADDSFX(.04),                               /* psd_update_int */        \
+  0,                                            /* min_freq */              \
+  0,                                            /* max_freq */              \
 }
 
 typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
@@ -130,6 +143,11 @@ struct suscan_analyzer {
   /* Spectral tuner */
   su_specttuner_t    *stuner;
 
+  /* Wide sweep parameters */
+  SUFREQ curr_freq;
+  SUSCOUNT fft_samples; /* Number of FFT frames */
+  SUSCOUNT fft_min_samples; /* Minimum number of FFT frames before updating */
+
   /* Inspector objects */
   PTR_LIST(suscan_inspector_t, inspector); /* This list owns inspectors */
   suscan_inspsched_t *sched; /* Inspector scheduler */
@@ -162,6 +180,35 @@ suscan_analyzer_get_measured_samp_rate(const suscan_analyzer_t *self)
 
   return self->measured_samp_rate;
 }
+
+/* Hacky way to perform IQ inversion without depending on the FPU */
+SUINLINE void
+suscan_analyzer_do_iq_rev(SUCOMPLEX *buf, SUSCOUNT size)
+{
+  SUSCOUNT i;
+  size <<= 1;
+#ifdef _SU_SINGLE_PRECISION
+  uint32_t *as_ints = (uint32_t *) buf;
+  for (i = 1; i < size; i += 2)
+    as_ints[i] ^= 0x80000000;
+
+#else
+  uint64_t *as_ints = (uint64_t *) buf;
+  for (i = 1; i < size; i += 2)
+    as_ints[i] ^= 0x8000000000000000ull;
+
+#endif
+}
+
+SUBOOL suscan_analyzer_set_buffering_size(
+    suscan_analyzer_t *self,
+    SUSCOUNT size);
+
+SUBOOL
+suscan_analyzer_set_hop_range(
+    suscan_analyzer_t *self,
+    SUFREQ min,
+    SUFREQ max);
 
 SUBOOL suscan_analyzer_set_freq(
     suscan_analyzer_t *analyzer,
