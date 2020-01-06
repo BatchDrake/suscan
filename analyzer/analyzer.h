@@ -79,6 +79,12 @@ struct suscan_analyzer_gain_request {
   SUFLOAT value;
 };
 
+struct suscan_analyzer_sweep_params {
+  SUFREQ min_freq;
+  SUFREQ max_freq;
+  SUSCOUNT fft_min_samples; /* Minimum number of FFT frames before updating */
+};
+
 struct suscan_analyzer {
   struct suscan_analyzer_params params;
   struct suscan_mq mq_in;   /* To-thread messages */
@@ -144,9 +150,11 @@ struct suscan_analyzer {
   su_specttuner_t    *stuner;
 
   /* Wide sweep parameters */
-  SUFREQ curr_freq;
+  SUBOOL sweep_params_requested;
+  struct suscan_analyzer_sweep_params current_sweep_params;
+  struct suscan_analyzer_sweep_params pending_sweep_params;
+  SUFREQ   curr_freq;
   SUSCOUNT fft_samples; /* Number of FFT frames */
-  SUSCOUNT fft_min_samples; /* Minimum number of FFT frames before updating */
 
   /* Inspector objects */
   PTR_LIST(suscan_inspector_t, inspector); /* This list owns inspectors */

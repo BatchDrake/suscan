@@ -898,13 +898,14 @@ suscan_analyzer_new(
 
   /* In wide spectrum mode, additional tests are required */
   if (params->mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
-    new->fft_min_samples =
-        SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
-
     SU_TRYCATCH(
         params->max_freq - params->min_freq >=
           suscan_analyzer_get_samp_rate(new),
         goto fail);
+    new->current_sweep_params.fft_min_samples =
+            SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
+    new->current_sweep_params.max_freq = params->max_freq;
+    new->current_sweep_params.min_freq = params->min_freq;
   }
 
   if (pthread_create(

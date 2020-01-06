@@ -45,10 +45,10 @@ suscan_analyzer_hop(suscan_analyzer_t *self)
 {
   SUFLOAT rnd = (SUFLOAT) rand() / (SUFLOAT) RAND_MAX;
   SUFREQ fs = suscan_analyzer_get_samp_rate(self) / 2;
-  SUFREQ bw = self->params.max_freq - self->params.min_freq;
-  //SUFREQ next = fs * floor(rnd * bw / fs) + self->params.min_freq;
+  SUFREQ bw =
+      self->current_sweep_params.max_freq - self->current_sweep_params.min_freq;
+  SUFREQ next = rnd * bw + self->current_sweep_params.min_freq;
 
-  SUFREQ next = rnd * bw + self->params.min_freq;
   if (suscan_source_set_freq2(
       self->source,
       next,
@@ -66,22 +66,19 @@ suscan_analyzer_set_buffering_size(
     suscan_analyzer_t *self,
     SUSCOUNT size)
 {
-  SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(
       self->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM,
       goto done);
 
-  self->fft_min_samples = size;
-  self->fft_samples = 0;
+  self->pending_sweep_params = self->current_sweep_params;
+  self->pending_sweep_params.fft_min_samples = size;
+  self->sweep_params_requested = SU_TRUE;
 
   ok = SU_TRUE;
 
 done:
-  if (mutex_acquired)
-    (void) suscan_analyzer_unlock_loop(self);
-
   return ok;
 }
 
@@ -102,20 +99,14 @@ suscan_analyzer_set_hop_range(
       max - min >= suscan_analyzer_get_samp_rate(self),
       goto done);
 
-/*  SU_TRYCATCH(suscan_analyzer_lock_loop(self), goto done);
-  mutex_acquired = SU_TRUE;*/
-
-  self->params.min_freq = min;
-  self->params.max_freq = max;
-  self->fft_samples = 0;
+  self->pending_sweep_params = self->current_sweep_params;
+  self->pending_sweep_params.min_freq = min;
+  self->pending_sweep_params.max_freq = max;
+  self->sweep_params_requested = SU_TRUE;
 
   ok = SU_TRUE;
 
 done:
-  if (mutex_acquired)
-    (void) suscan_analyzer_unlock_loop(self);
-
-  printf("Done\n");
   return ok;
 }
 
@@ -137,6 +128,11 @@ suscan_source_wide_wk_cb(
   /* Non real time sources are not allowed. */
   SU_TRYCATCH(suscan_analyzer_is_real_time(self), goto done);
 
+  if (self->sweep_params_requested) {
+    self->current_sweep_params = self->pending_sweep_params;
+    self->sweep_params_requested = SU_FALSE;
+  }
+
   if ((got = suscan_source_read(
       self->source,
       self->read_buf,
@@ -144,10 +140,9 @@ suscan_source_wide_wk_cb(
 
     if (self->iq_rev)
       suscan_analyzer_do_iq_rev(self->read_buf, got);
-
     self->fft_samples += got;
 
-    if (self->fft_samples > self->fft_min_samples) {
+    if (self->fft_samples > self->current_sweep_params.fft_min_samples) {
       /* Feed detector (works in spectrum mode only) */
       SU_TRYCATCH(
           su_channel_detector_feed_bulk(
