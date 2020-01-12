@@ -25,6 +25,9 @@
 #include <sigutils/detect.h>
 #include <pthread.h>
 
+#define _COMPAT_BARRIERS
+#include <compat.h>
+
 #include "worker.h"
 #include "source.h"
 #include "throttle.h"

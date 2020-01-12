@@ -92,6 +92,9 @@ set(RSRC_CONFIG_FILES
   ${RSRCDIR}/palettes.xml)
   
 set(UTIL_HEADERS
+  ${UTILDIR}/compat.h
+  ${UTILDIR}/macos-barriers.h
+  ${UTILDIR}/macos-barriers.imp.h
   ${UTILDIR}/confdb.h
   ${UTILDIR}/cfg.h
   ${UTILDIR}/object.h 
@@ -99,6 +102,7 @@ set(UTIL_HEADERS
   
 set(UTIL_SOURCES
   ${UTILDIR}/cfg.c
+  ${UTILDIR}/compat.c
   ${UTILDIR}/confdb.c
   ${UTILDIR}/deserialize.c 
   ${UTILDIR}/object.c
