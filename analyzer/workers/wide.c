@@ -44,11 +44,56 @@ SUINLINE SUBOOL
 suscan_analyzer_hop(suscan_analyzer_t *self)
 {
   SUFLOAT rnd = (SUFLOAT) rand() / (SUFLOAT) RAND_MAX;
-  SUFREQ fs = suscan_analyzer_get_samp_rate(self) / 2;
+  SUFREQ fs = suscan_analyzer_get_samp_rate(self);
+  SUFREQ part_bw = self->current_sweep_params.partitioning
+      == SUSCAN_ANALYZER_SPECTRUM_PARTITIONING_DISCRETE
+      ? fs / 2
+      : 1;
   SUFREQ bw =
-      self->current_sweep_params.max_freq - self->current_sweep_params.min_freq;
-  SUFREQ next = rnd * bw + self->current_sweep_params.min_freq;
+        self->current_sweep_params.max_freq
+        - self->current_sweep_params.min_freq;
+  SUFREQ next;
 
+  /*
+   * For frequencies below the sample rate, we don't hop.
+   * We simply stay in the same frequency until the user changes
+   * the frequency range. Note that when maximum and minimum frequencies
+   * are exactly the same, the hop bandwidth is actually the sample rate.
+   */
+  if (bw < 1) {
+    next = .5 * (
+        self->current_sweep_params.max_freq
+        + self->current_sweep_params.min_freq);
+
+    if (fabs(self->curr_freq - next) < 1)
+      return SU_TRUE;
+  } else {
+    switch (self->current_sweep_params.strategy) {
+      /*
+       * Stochastic strategy: traverse the spectrum stochastically.
+       * This is the original Monte Carlo approach.
+       */
+      case SUSCAN_ANALYZER_SWEEP_STRATEGY_STOCHASTIC:
+        next = part_bw * SU_FLOOR(rnd * bw / part_bw)
+            + self->current_sweep_params.min_freq;
+        break;
+
+      case SUSCAN_ANALYZER_SWEEP_STRATEGY_PROGRESSIVE:
+        /*
+         * Progressive strategy: traverse the spectrum monotonically, in
+         * steps specified by the partition bandwidth.
+         */
+        next = part_bw * self->part_ndx++
+          + self->current_sweep_params.min_freq;
+        if (next > self->current_sweep_params.max_freq) {
+          next = self->current_sweep_params.min_freq;
+          self->part_ndx = 1;
+        }
+        break;
+    }
+  }
+
+  /* All set. Go ahed and hop */
   if (suscan_source_set_freq2(
       self->source,
       next,
@@ -59,6 +104,48 @@ suscan_analyzer_hop(suscan_analyzer_t *self)
   }
 
   return SU_FALSE;
+}
+
+SUBOOL
+suscan_analyzer_set_sweep_stratrgy(
+    suscan_analyzer_t *self,
+    enum suscan_analyzer_sweep_strategy strategy)
+{
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      self->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM,
+      goto done);
+
+  self->pending_sweep_params = self->current_sweep_params;
+  self->pending_sweep_params.strategy = strategy;
+  self->sweep_params_requested = SU_TRUE;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscan_analyzer_set_spectrum_partitioning(
+    suscan_analyzer_t *self,
+    enum suscan_analyzer_spectrum_partitioning partitioning)
+{
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      self->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM,
+      goto done);
+
+  self->pending_sweep_params = self->current_sweep_params;
+  self->pending_sweep_params.partitioning = partitioning;
+  self->sweep_params_requested = SU_TRUE;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
 
 SUBOOL
@@ -95,9 +182,7 @@ suscan_analyzer_set_hop_range(
       self->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM,
       goto done);
 
-  SU_TRYCATCH(
-      max - min >= suscan_analyzer_get_samp_rate(self),
-      goto done);
+  SU_TRYCATCH(max - min >= 0, goto done);
 
   self->pending_sweep_params = self->current_sweep_params;
   self->pending_sweep_params.min_freq = min;
