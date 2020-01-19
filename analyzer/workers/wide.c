@@ -40,6 +40,9 @@
 #include "mq.h"
 #include "msg.h"
 
+/*
+ * TODO: Add methods to define partition bandwidth
+ */
 SUINLINE SUBOOL
 suscan_analyzer_hop(suscan_analyzer_t *self)
 {
@@ -80,10 +83,10 @@ suscan_analyzer_hop(suscan_analyzer_t *self)
 
       case SUSCAN_ANALYZER_SWEEP_STRATEGY_PROGRESSIVE:
         /*
-         * Progressive strategy: traverse the spectrum monotonically, in
-         * steps specified by the partition bandwidth.
+         * Progressive strategy: traverse the spectrum monotonically,
+         * in fixed steps of fs / 2
          */
-        next = part_bw * self->part_ndx++
+        next = (fs / 2) * self->part_ndx++
           + self->current_sweep_params.min_freq;
         if (next > self->current_sweep_params.max_freq) {
           next = self->current_sweep_params.min_freq;
@@ -117,7 +120,11 @@ suscan_analyzer_set_sweep_stratrgy(
       self->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM,
       goto done);
 
-  self->pending_sweep_params = self->current_sweep_params;
+
+  self->pending_sweep_params =
+        self->sweep_params_requested
+        ? self->pending_sweep_params
+        : self->current_sweep_params;
   self->pending_sweep_params.strategy = strategy;
   self->sweep_params_requested = SU_TRUE;
 
@@ -138,7 +145,10 @@ suscan_analyzer_set_spectrum_partitioning(
       self->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM,
       goto done);
 
-  self->pending_sweep_params = self->current_sweep_params;
+  self->pending_sweep_params =
+      self->sweep_params_requested
+      ? self->pending_sweep_params
+      : self->current_sweep_params;
   self->pending_sweep_params.partitioning = partitioning;
   self->sweep_params_requested = SU_TRUE;
 
@@ -159,7 +169,10 @@ suscan_analyzer_set_buffering_size(
       self->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM,
       goto done);
 
-  self->pending_sweep_params = self->current_sweep_params;
+  self->pending_sweep_params =
+        self->sweep_params_requested
+        ? self->pending_sweep_params
+        : self->current_sweep_params;
   self->pending_sweep_params.fft_min_samples = size;
   self->sweep_params_requested = SU_TRUE;
 
@@ -184,7 +197,10 @@ suscan_analyzer_set_hop_range(
 
   SU_TRYCATCH(max - min >= 0, goto done);
 
-  self->pending_sweep_params = self->current_sweep_params;
+  self->pending_sweep_params =
+        self->sweep_params_requested
+        ? self->pending_sweep_params
+        : self->current_sweep_params;
   self->pending_sweep_params.min_freq = min;
   self->pending_sweep_params.max_freq = max;
   self->sweep_params_requested = SU_TRUE;
