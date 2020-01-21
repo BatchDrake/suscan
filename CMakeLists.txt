@@ -56,10 +56,6 @@ set(SUSCAN_PKGDIR "${CMAKE_INSTALL_PREFIX}" CACHE STRING
        FORCE )
        
 string(REPLACE ";" " " SIGUTILS_SPC_CFLAGS "${SIGUTILS_CFLAGS}")
-string(REPLACE ";" " " SOAPYSDR_SPC_LDFLAGS "${SOAPYSDR_LDFLAGS}")
-
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${SOAPYSDR_SPC_LDFLAGS}")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${SOAPYSDR_SPC_LDFLAGS}")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SIGUTILS_CONFIG_CFLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPKGDATADIR='\"${SUSCAN_PKGDIR}/share/suscan\"'")
@@ -189,6 +185,7 @@ target_include_directories(
   PRIVATE . ${UTILDIR} ${ANALYZERDIR} ${ANALYZERDIR}/inspector ${CODECLIBDIR})
 
 set_target_properties(suscan PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
+set_target_properties(suscan PROPERTIES LINK_FLAGS "${SIGUTILS_SPC_LDFLAGS}")
 
 # Required dependencies
 target_include_directories(suscan SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
@@ -246,6 +243,7 @@ target_include_directories(
 
 # Required dependencies
 set_target_properties(suscan.status PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
+set_target_properties(suscan.status PROPERTIES LINK_FLAGS "${SIGUTILS_SPC_LDFLAGS}")
 
 link_directories(${PROJECT_BINARY_DIR} ${SOAPYSDR_LIBRARY_DIRS})
 
