@@ -1642,6 +1642,7 @@ suscan_source_open_sdr(suscan_source_t *source)
   /* All set: open SoapySDR stream */
   source->chan_array[0] = source->config->channel;
 
+#if SOAPY_SDR_API_VERSION < 0x00080000
   if (SoapySDRDevice_setupStream(
       source->sdr,
       &source->rx_stream,
@@ -1650,6 +1651,15 @@ suscan_source_open_sdr(suscan_source_t *source)
       source->chan_array,
       1,
       NULL) != 0) {
+#else
+  if ((source->rx_stream = SoapySDRDevice_setupStream(
+      source->sdr,
+      SOAPY_SDR_RX,
+      SUSCAN_SOAPY_SAMPFMT,
+      source->chan_array,
+      1,
+      NULL)) == NULL) {
+#endif
     SU_ERROR(
         "Failed to open RX stream on SDR device: %s\n",
         SoapySDRDevice_lastError());

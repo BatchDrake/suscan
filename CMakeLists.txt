@@ -55,7 +55,9 @@ set(SUSCAN_PKGDIR "${CMAKE_INSTALL_PREFIX}" CACHE STRING
        "Set package directory (where initial config and data files are read from)"
        FORCE )
        
-string (REPLACE ";" " " SIGUTILS_SPC_CFLAGS "${SIGUTILS_CFLAGS}")
+string(REPLACE ";" " " SIGUTILS_SPC_CFLAGS "${SIGUTILS_CFLAGS}")
+string(REPLACE ";" " " SIGUTILS_SPC_LDFLAGS "${SIGUTILS_LDFLAGS}")
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SIGUTILS_CONFIG_CFLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPKGDATADIR='\"${SUSCAN_PKGDIR}/share/suscan\"'")
 # The following hack exposes __FILENAME__ to source files as the relative
@@ -184,6 +186,7 @@ target_include_directories(
   PRIVATE . ${UTILDIR} ${ANALYZERDIR} ${ANALYZERDIR}/inspector ${CODECLIBDIR})
 
 set_target_properties(suscan PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
+set_target_properties(suscan PROPERTIES LINK_FLAGS "${SIGUTILS_SPC_LDFLAGS}")
 
 # Required dependencies
 target_include_directories(suscan SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
@@ -241,8 +244,10 @@ target_include_directories(
 
 # Required dependencies
 set_target_properties(suscan.status PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
+set_target_properties(suscan.status PROPERTIES LINK_FLAGS "${SIGUTILS_SPC_LDFLAGS}")
 
-link_directories(suscan.status ${PROJECT_BINARY_DIR})
+link_directories(${PROJECT_BINARY_DIR} ${SOAPYSDR_LIBRARY_DIRS})
+
 target_link_libraries(suscan.status sigutils)
 target_link_libraries(suscan.status suscan)
 target_link_libraries(suscan.status m)
