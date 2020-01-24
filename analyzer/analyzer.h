@@ -79,7 +79,20 @@ struct suscan_analyzer_gain_request {
   SUFLOAT value;
 };
 
+enum suscan_analyzer_sweep_strategy {
+  SUSCAN_ANALYZER_SWEEP_STRATEGY_STOCHASTIC,
+  SUSCAN_ANALYZER_SWEEP_STRATEGY_PROGRESSIVE,
+};
+
+enum suscan_analyzer_spectrum_partitioning {
+  SUSCAN_ANALYZER_SPECTRUM_PARTITIONING_DISCRETE,
+  SUSCAN_ANALYZER_SPECTRUM_PARTITIONING_CONTINUOUS
+};
+
 struct suscan_analyzer_sweep_params {
+  enum suscan_analyzer_sweep_strategy strategy;
+  enum suscan_analyzer_spectrum_partitioning partitioning;
+
   SUFREQ min_freq;
   SUFREQ max_freq;
   SUSCOUNT fft_min_samples; /* Minimum number of FFT frames before updating */
@@ -154,6 +167,7 @@ struct suscan_analyzer {
   struct suscan_analyzer_sweep_params current_sweep_params;
   struct suscan_analyzer_sweep_params pending_sweep_params;
   SUFREQ   curr_freq;
+  SUSCOUNT part_ndx;
   SUSCOUNT fft_samples; /* Number of FFT frames */
 
   /* Inspector objects */
@@ -212,11 +226,18 @@ SUBOOL suscan_analyzer_set_buffering_size(
     suscan_analyzer_t *self,
     SUSCOUNT size);
 
-SUBOOL
-suscan_analyzer_set_hop_range(
+SUBOOL suscan_analyzer_set_hop_range(
     suscan_analyzer_t *self,
     SUFREQ min,
     SUFREQ max);
+
+SUBOOL suscan_analyzer_set_sweep_stratrgy(
+    suscan_analyzer_t *self,
+    enum suscan_analyzer_sweep_strategy strategy);
+
+SUBOOL suscan_analyzer_set_spectrum_partitioning(
+    suscan_analyzer_t *self,
+    enum suscan_analyzer_spectrum_partitioning partitioning);
 
 SUBOOL suscan_analyzer_set_freq(
     suscan_analyzer_t *analyzer,
