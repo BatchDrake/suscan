@@ -91,7 +91,8 @@ install(
 ############################ Suscan library build #############################
 set(RSRC_CONFIG_FILES
   ${RSRCDIR}/autogains.xml
-  ${RSRCDIR}/palettes.xml)
+  ${RSRCDIR}/palettes.xml
+  ${RSRCDIR}/frequency_allocations.xml)
   
 set(UTIL_HEADERS
   ${UTILDIR}/compat.h
