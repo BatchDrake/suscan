@@ -24,6 +24,8 @@
 
 #include "spectsrc.h"
 
+#define SU_CYCLO_GAIN 1e6
+
 void *
 suscan_spectsrc_cyclo_ctor(suscan_spectsrc_t *src)
 {
@@ -45,7 +47,7 @@ suscan_spectsrc_cyclo_preproc(
   for (i = 0; i < size; ++i) {
     diff = buffer[i] * SU_C_CONJ(prev);
     prev = buffer[i];
-    buffer[i] = diff;
+    buffer[i] = SU_CYCLO_GAIN * diff;
   }
 
   *last = prev;
