@@ -170,6 +170,7 @@ SUBOOL suscan_ask_inspector_register(void);
 SUBOOL suscan_fsk_inspector_register(void);
 SUBOOL suscan_psk_inspector_register(void);
 SUBOOL suscan_audio_inspector_register(void);
+SUBOOL suscan_raw_inspector_register(void);
 
 #ifdef __cplusplus
 }

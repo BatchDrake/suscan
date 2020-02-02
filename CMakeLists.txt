@@ -124,7 +124,8 @@ set(INSPECTOR_LIB_SOURCES
   ${INSPECTORDIR}/ask.c
   ${INSPECTORDIR}/audio.c
   ${INSPECTORDIR}/fsk.c
-  ${INSPECTORDIR}/psk.c)
+  ${INSPECTORDIR}/psk.c
+  ${INSPECTORDIR}/raw.c)
 
 set(CODEC_LIB_HEADERS ${CODECLIBDIR}/codec.h)
 

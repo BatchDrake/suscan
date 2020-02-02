@@ -261,6 +261,7 @@ suscan_init_inspectors(void)
   SU_TRYCATCH(suscan_psk_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_fsk_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_audio_inspector_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_raw_inspector_register(), return SU_FALSE);
 
   return SU_TRUE;
 }
