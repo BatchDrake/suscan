@@ -279,7 +279,7 @@ suscan_analyzer_on_channel_data(
   return suscan_inspsched_queue_task(task_info->sched, task_info);
 }
 
-SUINLINE suscan_inspector_t *
+suscan_inspector_t *
 suscan_analyzer_get_inspector(
     const suscan_analyzer_t *analyzer,
     SUHANDLE handle)
@@ -302,13 +302,22 @@ suscan_analyzer_dispose_inspector_handle(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle)
 {
+  struct suscan_inspector_overridable_request *req = NULL;
+
   if (handle < 0 || handle >= analyzer->inspector_count)
     return SU_FALSE;
 
   if (analyzer->inspector_list[handle] == NULL)
     return SU_FALSE;
 
+  SU_TRYCATCH(suscan_analyzer_lock_inspector_list(analyzer), return SU_FALSE);
+  if ((req = suscan_inspector_get_userdata(
+      analyzer->inspector_list[handle])) != NULL)
+    req->dead = SU_TRUE;
+
   analyzer->inspector_list[handle] = NULL;
+
+  suscan_analyzer_unlock_inspector_list(analyzer);
 
   return SU_TRUE;
 }
@@ -384,8 +393,13 @@ suscan_analyzer_open_inspector(
    * Append inspector to analyzer's internal list and get a handle.
    * TODO: Find inspectors in HALTED state, and free them
    */
+
+  suscan_analyzer_lock_inspector_list(analyzer);
+
   if ((hnd = PTR_LIST_APPEND_CHECK(analyzer->inspector, new)) == -1)
     goto fail;
+
+  suscan_analyzer_unlock_inspector_list(analyzer);
 
   msg->handle = hnd;
 

@@ -33,6 +33,7 @@
 #include "throttle.h"
 #include "inspector/inspector.h"
 #include "inspsched.h"
+#include "mq.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -80,6 +81,19 @@ struct suscan_analyzer_baseband_filter {
 struct suscan_analyzer_gain_request {
   char *name;
   SUFLOAT value;
+};
+
+struct suscan_inspector_overridable_request
+{
+  suscan_inspector_t *insp;
+
+  SUBOOL  dead;
+  SUBOOL  freq_request;
+  SUFREQ  new_freq;
+  SUBOOL  bandwidth_request;
+  SUFLOAT new_bandwidth;
+
+  struct suscan_inspector_overridable_request *next;
 };
 
 enum suscan_analyzer_sweep_strategy {
@@ -135,6 +149,15 @@ struct suscan_analyzer {
   SUFREQ freq_req_value;
   SUFREQ lnb_req_value;
 
+  /* XXX: Define list for inspector frequency set */
+  SUBOOL   inspector_freq_req;
+  SUHANDLE inspector_freq_req_handle;
+  SUFREQ   inspector_freq_req_value;
+
+  SUBOOL   inspector_bw_req;
+  SUHANDLE inspector_bw_req_handle;
+  SUFLOAT  inspector_bw_req_value;
+
   /* Bandwidth request */
   SUBOOL  bw_req;
   SUFLOAT bw_req_value;
@@ -175,9 +198,13 @@ struct suscan_analyzer {
 
   /* Inspector objects */
   PTR_LIST(suscan_inspector_t, inspector); /* This list owns inspectors */
+  pthread_mutex_t     inspector_list_mutex; /* Inspector list lock */
+  SUBOOL                inspector_list_init;
   suscan_inspsched_t *sched; /* Inspector scheduler */
   pthread_mutex_t     sched_lock;
   pthread_barrier_t   barrier; /* Sched barrier */
+
+  struct suscan_inspector_overridable_request *insp_overridable;
 
   /* Analyzer thread */
   pthread_t thread;
@@ -277,9 +304,26 @@ suscan_analyzer_t *suscan_analyzer_new(
     suscan_source_config_t *config,
     struct suscan_mq *mq);
 
+struct suscan_inspector_overridable_request *
+suscan_analyzer_acquire_overridable(
+    suscan_analyzer_t *self,
+    SUHANDLE handle);
+
+SUBOOL suscan_analyzer_release_overridable(
+    suscan_analyzer_t *self,
+    struct suscan_inspector_overridable_request *rq);
+
+suscan_inspector_t *suscan_analyzer_get_inspector(
+    const suscan_analyzer_t *analyzer,
+    SUHANDLE handle);
+
 SUBOOL suscan_analyzer_lock_loop(suscan_analyzer_t *analyzer);
 
 void suscan_analyzer_unlock_loop(suscan_analyzer_t *analyzer);
+
+SUBOOL suscan_analyzer_lock_inspector_list(suscan_analyzer_t *analyzer);
+
+void suscan_analyzer_unlock_inspector_list(suscan_analyzer_t *analyzer);
 
 void suscan_analyzer_source_barrier(suscan_analyzer_t *analyzer);
 
@@ -385,6 +429,16 @@ SUBOOL suscan_analyzer_set_inspector_freq_async(
     SUHANDLE handle,
     SUFREQ freq,
     uint32_t req_id);
+
+SUBOOL suscan_analyzer_set_inspector_freq_overridable(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUFREQ freq);
+
+SUBOOL suscan_analyzer_set_inspector_bandwidth_overridable(
+    suscan_analyzer_t *self,
+    SUHANDLE handle,
+    SUFLOAT bw);
 
 SUBOOL suscan_analyzer_set_inspector_watermark_async(
     suscan_analyzer_t *analyzer,

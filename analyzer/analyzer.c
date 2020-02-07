@@ -35,6 +35,92 @@
 #include "mq.h"
 #include "msg.h"
 
+/************************ Overridable request API ****************************/
+SUPRIVATE void
+suscan_inspector_overridable_request_destroy(
+    struct suscan_inspector_overridable_request *self)
+{
+  free(self);
+}
+
+SUPRIVATE struct suscan_inspector_overridable_request *
+suscan_inspector_overridable_request_new(suscan_inspector_t *insp)
+{
+  struct suscan_inspector_overridable_request *new = NULL;
+
+  SU_TRYCATCH(
+      new = calloc(1, sizeof(struct suscan_inspector_overridable_request)),
+      goto done);
+
+  new->insp = insp;
+
+  return new;
+
+done:
+  if (new != NULL)
+    suscan_inspector_overridable_request_destroy(new);
+
+  return NULL;
+}
+
+struct suscan_inspector_overridable_request *
+suscan_analyzer_acquire_overridable(
+    suscan_analyzer_t *self,
+    SUHANDLE handle)
+{
+  struct suscan_inspector_overridable_request *req = NULL;
+  struct suscan_inspector_overridable_request *own_req = NULL;
+  suscan_inspector_t *insp = NULL;
+
+  /*
+   * TODO: Maybe acquire scheduler mutex?
+   */
+
+  SU_TRYCATCH(suscan_analyzer_lock_inspector_list(self), goto done);
+  SU_TRYCATCH(insp = suscan_analyzer_get_inspector(self, handle), goto done);
+  SU_TRYCATCH(insp->state == SUSCAN_ASYNC_STATE_RUNNING, goto done);
+
+  if ((req = suscan_inspector_get_userdata(insp)) == NULL) {
+    /* No userdata. Release mutex, create object and lock again. */
+    suscan_analyzer_unlock_inspector_list(self);
+
+    SU_TRYCATCH(
+        own_req = suscan_inspector_overridable_request_new(insp),
+        goto done);
+
+    SU_TRYCATCH(suscan_analyzer_lock_inspector_list(self), goto done);
+
+    /* Many things may have happened here */
+    SU_TRYCATCH(handle >= 0 && handle < self->inspector_count, goto done);
+    SU_TRYCATCH(insp = suscan_analyzer_get_inspector(self, handle), goto done);
+    SU_TRYCATCH(insp->state == SUSCAN_ASYNC_STATE_RUNNING, goto done);
+
+    req = own_req;
+    own_req = NULL;
+
+    req->next = self->insp_overridable;
+    self->insp_overridable = req;
+
+    suscan_inspector_set_userdata(insp, req);
+  }
+
+done:
+  if (own_req != NULL)
+    suscan_inspector_overridable_request_destroy(own_req);
+
+  return req;
+}
+
+SUBOOL
+suscan_analyzer_release_overridable(
+    suscan_analyzer_t *self,
+    struct suscan_inspector_overridable_request *rq)
+{
+  suscan_analyzer_unlock_inspector_list(self);
+
+  return SU_TRUE;
+}
+
 /************************* Baseband filter API *******************************/
 SUPRIVATE struct suscan_analyzer_baseband_filter *
 suscan_analyzer_baseband_filter_new(
@@ -106,7 +192,17 @@ suscan_analyzer_unlock_loop(suscan_analyzer_t *analyzer)
   (void) pthread_mutex_unlock(&analyzer->loop_mutex);
 }
 
+SUBOOL
+suscan_analyzer_lock_inspector_list(suscan_analyzer_t *analyzer)
+{
+  return pthread_mutex_lock(&analyzer->inspector_list_mutex) != -1;
+}
 
+void
+suscan_analyzer_unlock_inspector_list(suscan_analyzer_t *analyzer)
+{
+  (void) pthread_mutex_unlock(&analyzer->inspector_list_mutex);
+}
 
 /************************* Main analyzer thread *******************************/
 void
@@ -628,7 +724,7 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 {
   uint32_t type;
   unsigned int i;
-
+  struct suscan_inspector_overridable_request *req;
   void *private;
 
   /* Prevent source from entering in timeout loops */
@@ -690,9 +786,22 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   if (analyzer->loop_init)
     pthread_mutex_destroy(&analyzer->loop_mutex);
 
+  if (analyzer->inspector_list_init)
+    pthread_mutex_destroy(&analyzer->inspector_list_mutex);
+
   /* Free spectral tuner */
   if (analyzer->stuner != NULL)
     su_specttuner_destroy(analyzer->stuner);
+
+  /* Free all pending overridable requests */
+  while (analyzer->insp_overridable != NULL) {
+    req = analyzer->insp_overridable->next;
+
+    suscan_inspector_overridable_request_destroy(
+        analyzer->insp_overridable);
+
+    analyzer->insp_overridable = req;
+  }
 
   /* Free read buffer */
   if (analyzer->read_buf != NULL)
@@ -798,7 +907,7 @@ suscan_analyzer_new(
 
   /* Allocate read buffer */
 
-  new->read_size = params->detector_params.window_size;
+  new->read_size = 512; /* params->detector_params.window_size; */
 
   if ((new->read_buf = malloc(
       new->read_size * sizeof(SUCOMPLEX))) == NULL) {
@@ -852,7 +961,7 @@ suscan_analyzer_new(
   new->gain_req_mutex_init = SU_TRUE;
 
   /* Create spectral tuner, with matching read size */
-  st_params.window_size = new->read_size * 4;
+  st_params.window_size = det_params.window_size;
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
 
   /* Create inspector scheduler and barrier */
@@ -874,6 +983,16 @@ suscan_analyzer_new(
    * consumer, analyzer and scheduler worker threads
    */
   SU_TRYCATCH(pthread_mutex_init(&new->sched_lock, NULL) == 0, goto fail);
+
+  /*
+   * This mutex will protect access to the inspector list. It will allow
+   * resolving an inspector handle without blocking an entire callback
+   */
+
+  SU_TRYCATCH(
+      pthread_mutex_init(&new->inspector_list_mutex, NULL) == 0,
+      goto fail);
+  new->inspector_list_init = SU_TRUE;
 
   new->mq_out = mq;
 

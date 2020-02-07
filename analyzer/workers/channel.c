@@ -153,6 +153,68 @@ suscan_analyzer_feed_inspectors(
 }
 
 /******************** Source worker for channel mode *************************/
+SUPRIVATE SUBOOL
+suscan_analyzer_parse_overridable(suscan_analyzer_t *self)
+{
+  struct suscan_inspector_overridable_request *this, *next;
+  SUBOOL ok = SU_FALSE;
+  SUFLOAT f0;
+  SUFLOAT relbw;
+
+  if (self->insp_overridable != NULL) {
+    SU_TRYCATCH(suscan_analyzer_lock_inspector_list(self), goto done);
+
+    while (self->insp_overridable != NULL) {
+      this = self->insp_overridable;
+      next = self->insp_overridable->next;
+
+      if (!this->dead) {
+        /* Acknowledged */
+        suscan_inspector_set_userdata(this->insp, NULL);
+
+        /* Parse this request */
+        if (this->freq_request) {
+          f0 = SU_NORM2ANG_FREQ(
+                SU_ABS2NORM_FREQ(
+                    suscan_analyzer_get_samp_rate(self),
+                    this->new_freq));
+
+          if (f0 < 0)
+            f0 += 2 * PI;
+
+          su_specttuner_set_channel_freq(
+              self->stuner,
+              suscan_inspector_get_channel(this->insp),
+              f0);
+        }
+
+        /* Set bandwidth request */
+        if (this->bandwidth_request) {
+          relbw = SU_NORM2ANG_FREQ(
+                SU_ABS2NORM_FREQ(
+                    suscan_analyzer_get_samp_rate(self),
+                    this->new_bandwidth));
+          su_specttuner_set_channel_bandwidth(
+              self->stuner,
+              suscan_inspector_get_channel(this->insp),
+              relbw);
+          SU_TRYCATCH(
+              suscan_inspector_notify_bandwidth(this->insp, this->new_bandwidth),
+              goto done);
+        }
+      }
+
+      self->insp_overridable = next;
+    }
+    suscan_analyzer_unlock_inspector_list(self);
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
 SUBOOL
 suscan_source_channel_wk_cb(
     struct suscan_mq *mq_out,
@@ -185,6 +247,8 @@ suscan_source_channel_wk_cb(
         pthread_mutex_unlock(&analyzer->throttle_mutex) != -1,
         goto done);
   }
+
+  SU_TRYCATCH(suscan_analyzer_parse_overridable(analyzer), goto done);
 
   /* Ready to read */
   suscan_analyzer_read_start(analyzer);

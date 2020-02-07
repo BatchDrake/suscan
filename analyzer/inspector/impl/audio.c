@@ -207,9 +207,7 @@ suscan_audio_inspector_new_bandwidth(void *private, SUFREQ bw)
   SUFLOAT fs = insp->samp_info.equiv_fs;
 
   /* Initialize oscillator */
-  su_ncqo_set_freq(
-      &insp->lo,
-      SU_ABS2NORM_FREQ(fs, .5 * bw));
+  su_ncqo_set_freq(&insp->lo, SU_ABS2NORM_FREQ(fs, .5 * bw));
 }
 
 /* Called inside inspector mutex */
