@@ -321,7 +321,7 @@ suscan_analyzer_set_inspector_bandwidth_cb(
   suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
 
   if (analyzer->inspector_bw_req) {
-    analyzer->inspector_freq_req = SU_FALSE;
+    analyzer->inspector_bw_req = SU_FALSE;
     (void) suscan_analyzer_set_inspector_bandwidth_slow(
         analyzer,
         analyzer->inspector_bw_req_handle,
