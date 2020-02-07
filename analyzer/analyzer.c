@@ -907,7 +907,7 @@ suscan_analyzer_new(
 
   /* Allocate read buffer */
 
-  new->read_size = 512; /* params->detector_params.window_size; */
+  new->read_size = SUSCAN_ANALYZER_READ_SIZE; /* params->detector_params.window_size; */
 
   if ((new->read_buf = malloc(
       new->read_size * sizeof(SUCOMPLEX))) == NULL) {

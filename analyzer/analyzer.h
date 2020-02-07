@@ -41,7 +41,7 @@ extern "C" {
 
 #define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.5
 #define SUSCAN_ANALYZER_FS_MEASURE_INTERVAL   1.0
-
+#define SUSCAN_ANALYZER_READ_SIZE             512
 #define SUSCAN_ANALYZER_MIN_POST_HOP_FFTS     7
 
 enum suscan_analyzer_mode {
