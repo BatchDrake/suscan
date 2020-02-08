@@ -37,6 +37,7 @@ const char *suscan_confdb_get_local_path(void);
 struct suscan_config_context {
   char *name;
   char *save_file;
+  SUBOOL save;
 
   PTR_LIST(char, path);
 
@@ -50,6 +51,10 @@ typedef struct suscan_config_context suscan_config_context_t;
 
 suscan_config_context_t *suscan_config_context_lookup(const char *name);
 suscan_config_context_t *suscan_config_context_assert(const char *name);
+
+void suscan_config_context_set_save(
+    suscan_config_context_t *ctx,
+    SUBOOL save);
 
 SUBOOL suscan_config_context_add_path(
     suscan_config_context_t *ctx,
