@@ -124,6 +124,8 @@ suscan_config_context_new(const char *name)
   SU_TRYCATCH(new->save_file = strbuild("%s.xml", name), goto fail);
   SU_TRYCATCH(new->list = suscan_object_new(SUSCAN_OBJECT_TYPE_SET), goto fail);
 
+  new->save = SU_TRUE;
+
   return new;
 
 fail:
@@ -304,9 +306,17 @@ done:
   return ok;
 }
 
+void
+suscan_config_context_set_save(
+    suscan_config_context_t *ctx,
+    SUBOOL save)
+{
+  ctx->save = save;
+}
+
 /*
  * TODO: This code is not robust. Save to a temporary file and
- * then move it to the right destionation.
+ * then move it to the right destination.
  */
 
 SUPRIVATE SUBOOL
@@ -318,8 +328,10 @@ suscan_config_context_save(suscan_config_context_t *context)
   suscan_object_t *set = NULL;
   size_t size;
   void *data = NULL;
-
   SUBOOL ok = SU_FALSE;
+
+  if (!context->save)
+    return SU_TRUE;
 
   if (context->on_save != NULL)
     SU_TRYCATCH((context->on_save)(context, context->userdata), goto done);
