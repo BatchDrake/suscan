@@ -411,6 +411,21 @@ suscan_source_device_get_count(void)
   return device_count;
 }
 
+
+SUPRIVATE const suscan_source_device_t *
+suscan_source_device_find_first_sdr(void)
+{
+  unsigned int i;
+
+  for (i = 0; i < device_count; ++i)
+    if (device_list[i] != NULL && device_list[i] != null_device)
+      if (device_list[i]->available &&
+          strcmp(device_list[i]->driver, "audio") != 0)
+        return device_list[i];
+
+  return null_device;
+}
+
 #ifdef SUSCAN_DEBUG_KWARGS
 SUPRIVATE void
 debug_kwargs(const SoapySDRKwargs *a)
@@ -2098,17 +2113,31 @@ fail:
 
 /*************************** API initialization ******************************/
 SUPRIVATE SUBOOL
-suscan_source_assert_default(void)
+suscan_source_add_default(void)
 {
   suscan_source_config_t *new = NULL;
 
   SU_TRYCATCH(
       new = suscan_source_config_new(
-          SUSCAN_SOURCE_TYPE_FILE,
+          SUSCAN_SOURCE_TYPE_SDR,
           SUSCAN_SOURCE_FORMAT_AUTO),
       goto fail);
 
-  SU_TRYCATCH(suscan_source_config_set_label(new, "Default source"), goto fail);
+  SU_TRYCATCH(
+      suscan_source_config_set_label(new, SUSCAN_SOURCE_DEFAULT_NAME),
+      goto fail);
+
+  suscan_source_config_set_freq(new, SUSCAN_SOURCE_DEFAULT_FREQ);
+
+  suscan_source_config_set_samp_rate(new, SUSCAN_SOURCE_DEFAULT_SAMP_RATE);
+
+  suscan_source_config_set_bandwidth(new, SUSCAN_SOURCE_DEFAULT_BANDWIDTH);
+
+  SU_TRYCATCH(
+      suscan_source_config_set_device(
+          new,
+          suscan_source_device_find_first_sdr()),
+      goto fail);
 
   suscan_source_config_set_dc_remove(new, SU_TRUE);
 
@@ -2198,7 +2227,7 @@ suscan_load_sources(void)
   }
 
   if (config_count == 0)
-    SU_TRYCATCH(suscan_source_assert_default(), goto fail);
+    SU_TRYCATCH(suscan_source_add_default(), goto fail);
 
   return SU_TRUE;
 

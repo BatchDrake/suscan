@@ -34,6 +34,11 @@ extern "C" {
 
 #define SUSCAN_SOURCE_DEFAULT_BUFSIZ 1024
 
+#define SUSCAN_SOURCE_DEFAULT_NAME      "Default source"
+#define SUSCAN_SOURCE_DEFAULT_FREQ      433920000 /* 433 ISM */
+#define SUSCAN_SOURCE_DEFAULT_SAMP_RATE 1000000
+#define SUSCAN_SOURCE_DEFAULT_BANDWIDTH SUSCAN_SOURCE_DEFAULT_SAMP_RATE
+
 /************************** Source config API ********************************/
 struct suscan_source_gain_desc {
   char *name;
