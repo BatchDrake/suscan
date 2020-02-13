@@ -552,9 +552,7 @@ suscan_analyzer_init_detector_params(
   *params = self->params.detector_params;
 
   /* Populate members with source information */
-  params->mode = self->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL
-      ? SU_CHANNEL_DETECTOR_MODE_DISCOVERY
-      : SU_CHANNEL_DETECTOR_MODE_SPECTRUM;
+  params->mode = SU_CHANNEL_DETECTOR_MODE_SPECTRUM;
 
   params->samp_rate = suscan_analyzer_get_samp_rate(self);
 
@@ -930,8 +928,8 @@ suscan_analyzer_new(
   /* Periodic updates */
   new->interval_channels = params->channel_update_int;
   new->interval_psd      = params->psd_update_int;
-  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_psd);
-  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_channels);
+  clock_gettime(CLOCK_MONOTONIC_COARSE, &new->last_psd);
+  clock_gettime(CLOCK_MONOTONIC_COARSE, &new->last_channels);
 
   /* Create channel detector */
   (void) pthread_mutex_init(&new->loop_mutex, NULL); /* Always succeeds */

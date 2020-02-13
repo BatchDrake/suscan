@@ -43,13 +43,13 @@
 SUINLINE void
 suscan_analyzer_read_start(suscan_analyzer_t *analyzer)
 {
-  clock_gettime(CLOCK_MONOTONIC_RAW, &analyzer->read_start);
+  clock_gettime(CLOCK_MONOTONIC_COARSE, &analyzer->read_start);
 }
 
 SUINLINE void
 suscan_analyzer_process_start(suscan_analyzer_t *analyzer)
 {
-  clock_gettime(CLOCK_MONOTONIC_RAW, &analyzer->process_start);
+  clock_gettime(CLOCK_MONOTONIC_COARSE, &analyzer->process_start);
 }
 
 SUINLINE void
@@ -58,7 +58,7 @@ suscan_analyzer_process_end(suscan_analyzer_t *analyzer)
   struct timespec sub;
   uint64_t total, cpu;
 
-  clock_gettime(CLOCK_MONOTONIC_RAW, &analyzer->process_end);
+  clock_gettime(CLOCK_MONOTONIC_COARSE, &analyzer->process_end);
 
   if (analyzer->read_start.tv_sec > 0) {
     timespecsub(&analyzer->process_end, &analyzer->read_start, &sub);
@@ -279,39 +279,31 @@ suscan_source_channel_wk_cb(
             got),
         goto done);
 
-    /* Feed channel detector! */
-    SU_TRYCATCH(
-        su_channel_detector_feed_bulk(
-            analyzer->detector,
-            analyzer->read_buf,
-            got) == got,
-        goto done);
-
-    /* Check channel update */
-    if (analyzer->interval_channels > 0) {
-      timespecsub(&analyzer->read_start, &analyzer->last_channels, &sub);
-      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
-
-      if (seconds >= analyzer->interval_channels) {
-        SU_TRYCATCH(
-            suscan_analyzer_send_detector_channels(
-                analyzer,
-                analyzer->detector),
-            goto done);
-        analyzer->last_channels = analyzer->read_start;
-      }
-    }
-
-    if (analyzer->interval_psd > 0) {
-      timespecsub(&analyzer->read_start, &analyzer->last_psd, &sub);
-      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
-
-      if (seconds >= analyzer->interval_psd) {
+    if (analyzer->det_feed) {
+      /* Feed channel detector! */
+      SU_TRYCATCH(
+          su_channel_detector_feed_bulk(
+              analyzer->detector,
+              analyzer->read_buf,
+              got) == got,
+          goto done);
+      analyzer->det_count += got;
+      if (analyzer->det_count > analyzer->params.detector_params.window_size) {
         SU_TRYCATCH(
             suscan_analyzer_send_psd(analyzer, analyzer->detector),
             goto done);
         analyzer->last_psd = analyzer->read_start;
+        analyzer->det_count = 0;
+        analyzer->det_feed = SU_FALSE;
       }
+    }
+
+    if (analyzer->interval_psd > 0 && !analyzer->det_feed) {
+      timespecsub(&analyzer->read_start, &analyzer->last_psd, &sub);
+      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
+
+      if (seconds >= analyzer->interval_psd)
+        analyzer->det_feed = SU_TRUE;
     }
 
     if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {

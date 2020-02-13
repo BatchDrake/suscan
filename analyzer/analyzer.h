@@ -139,6 +139,8 @@ struct suscan_analyzer {
   /* Periodic updates */
   SUFLOAT  interval_channels;
   SUFLOAT  interval_psd;
+  SUBOOL   det_feed;
+  SUSCOUNT det_count;
 
   /* This mutex shall protect hot-config requests */
   /* XXX: This is cumbersome. Create a hotconf object to handle these things */
