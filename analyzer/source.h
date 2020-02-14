@@ -39,6 +39,9 @@ extern "C" {
 #define SUSCAN_SOURCE_DEFAULT_SAMP_RATE 1000000
 #define SUSCAN_SOURCE_DEFAULT_BANDWIDTH SUSCAN_SOURCE_DEFAULT_SAMP_RATE
 
+#define SUSCAN_SOURCE_ANTIALIAS_REL_SIZE    5
+#define SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE 512
+
 /************************** Source config API ********************************/
 struct suscan_source_gain_desc {
   char *name;
@@ -343,6 +346,15 @@ struct suscan_source {
 
   /* To prevent source from looping forever */
   SUBOOL force_eos;
+
+  /* Downsampling members */
+  SUFLOAT *antialias_alloc;
+  const SUFLOAT *antialias;
+  SUCOMPLEX accums[SUSCAN_SOURCE_ANTIALIAS_REL_SIZE];
+  SUCOMPLEX *decim_buf;
+  int ptrs[SUSCAN_SOURCE_ANTIALIAS_REL_SIZE];
+  int decim;
+  int decim_length;
 };
 
 typedef struct suscan_source suscan_source_t;
@@ -383,7 +395,7 @@ SUINLINE SUFLOAT
 suscan_source_get_samp_rate(const suscan_source_t *src)
 {
   if (src->capturing)
-    return src->samp_rate;
+    return src->samp_rate / src->decim;
   else
     return src->config->samp_rate;
 }

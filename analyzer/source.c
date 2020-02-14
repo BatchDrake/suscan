@@ -27,6 +27,7 @@
 #define SU_LOG_DOMAIN "source"
 #include <confdb.h>
 #include "source.h"
+#include <sigutils/taps.h>
 
 #ifdef _SU_SINGLE_PRECISION
 #  define sf_read sf_read_float
@@ -1459,8 +1460,109 @@ suscan_source_destroy(suscan_source_t *source)
   if (source->config != NULL)
     suscan_source_config_destroy(source->config);
 
+  if (source->antialias_alloc != NULL)
+    free(source->antialias_alloc);
+
+  if (source->decim_buf != NULL)
+    free(source->decim_buf);
+
   free(source);
 }
+
+/*********************** Decimator configuration *****************************/
+SUPRIVATE SUBOOL
+suscan_source_configure_decimation(
+    suscan_source_t *self,
+    int decim)
+{
+  int i;
+  SUFLOAT *antialias;
+
+  /* Decim is M: Compute an antialias filter of M * SUSCAN_SOURCE_POLYPHASE_BANK_SIZE */
+
+  SU_TRYCATCH(decim > 0, return SU_FALSE);
+
+  self->decim = decim;
+  self->decim_length = decim * SUSCAN_SOURCE_ANTIALIAS_REL_SIZE;
+
+  /* Pointers are initialized in 0, -decim, -2 * decim, -3 * decim... */
+
+  for (i = 0; i < SUSCAN_SOURCE_ANTIALIAS_REL_SIZE; ++i)
+    self->ptrs[i] = -i * decim;
+
+  /*
+   * 1 filter:  [DECIM]
+   * 2 filters: [NULLS][DECIM][DECIM]
+   * 3 filters: [NULLS][NULLS][DECIM][DECIM][DECIM]
+   */
+  SU_TRYCATCH(
+      self->antialias_alloc = calloc(
+          2 * SUSCAN_SOURCE_ANTIALIAS_REL_SIZE - 1,
+          decim * sizeof(SUFLOAT)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      self->decim_buf = malloc(
+          SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE * sizeof(SUCOMPLEX)),
+      return SU_FALSE);
+
+  antialias = self->antialias_alloc
+      + (SUSCAN_SOURCE_ANTIALIAS_REL_SIZE - 1) * decim;
+  self->antialias = antialias;
+
+  /*
+   * Decim 1: Filter cutoff: 1
+   * Decim 2: Filter cutoff: .5
+   * Decim 3: Filter cutoff: .3333...
+   */
+  su_taps_brickwall_lp_init(
+      antialias,
+      1 / (SUFLOAT) decim,
+      self->decim_length);
+
+  return SU_TRUE;
+}
+
+#define ACCUMULATE(val) \
+  self->accums[val] += data[i] * (self->antialias[self->ptrs[val]++])
+#define IF_DONE_PRODUCE_SAMPLE(val) \
+    if (self->ptrs[val] == self->decim_length) { \
+      self->decim_buf[samples++] = self->accums[val]; \
+      self->accums[val] = self->ptrs[val] = 0; \
+      if (samples >= SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE) \
+        break; \
+    }
+
+SUPRIVATE SUSCOUNT
+suscan_source_feed_decimator(
+    suscan_source_t *self,
+    const SUCOMPLEX *data,
+    SUSCOUNT len)
+{
+  SUSCOUNT samples = 0;
+  SUSCOUNT i;
+
+  /* Loop unrolling. I'm sorry. */
+
+  for (i = 0; i < len; ++i) {
+    ACCUMULATE(0);
+    ACCUMULATE(1);
+    ACCUMULATE(2);
+    ACCUMULATE(3);
+    ACCUMULATE(4);
+
+    IF_DONE_PRODUCE_SAMPLE(0)
+    else IF_DONE_PRODUCE_SAMPLE(1)
+    else IF_DONE_PRODUCE_SAMPLE(2)
+    else IF_DONE_PRODUCE_SAMPLE(3)
+    else IF_DONE_PRODUCE_SAMPLE(4)
+  }
+
+  return samples;
+}
+
+#undef ACCUMULATE
+#undef IF_DONE_PRODUCE_SAMPLE
 
 SUPRIVATE SUBOOL
 suscan_source_open_file(suscan_source_t *source)
@@ -1774,6 +1876,8 @@ suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
 SUSDIFF
 suscan_source_read(suscan_source_t *source, SUCOMPLEX *buffer, SUSCOUNT max)
 {
+  SUSDIFF got;
+  SUSCOUNT result;
   SU_TRYCATCH(source->capturing, return SU_FALSE);
 
   if (source->read == NULL) {
@@ -1781,7 +1885,20 @@ suscan_source_read(suscan_source_t *source, SUCOMPLEX *buffer, SUSCOUNT max)
     return -1;
   }
 
-  return (source->read) (source, buffer, max);
+  if (source->decim > 1) {
+    if (max > SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE)
+      max = SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE;
+
+    do {
+      if ((got = (source->read) (source, buffer, max)) < 1)
+        return got;
+      result = suscan_source_feed_decimator(source, buffer, got);
+    } while (result == 0);
+
+    memcpy(buffer, source->decim_buf, result * sizeof(SUCOMPLEX));
+
+    return result;
+  } else return (source->read) (source, buffer, max);
 }
 
 SUBOOL
@@ -2085,6 +2202,13 @@ suscan_source_new(suscan_source_config_t *config)
   SU_TRYCATCH(suscan_source_config_check(config), goto fail);
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_source_t)), goto fail);
   SU_TRYCATCH(new->config = suscan_source_config_clone(config), goto fail);
+
+  new->decim = 1;
+
+  if (config->average > 1)
+    SU_TRYCATCH(
+        suscan_source_configure_decimation(new, config->average),
+        goto fail);
 
   switch (new->config->type) {
     case SUSCAN_SOURCE_TYPE_FILE:

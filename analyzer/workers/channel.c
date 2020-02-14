@@ -288,11 +288,12 @@ suscan_source_channel_wk_cb(
               got) == got,
           goto done);
       analyzer->det_count += got;
-      if (analyzer->det_count >= analyzer->params.detector_params.window_size) {
+      if (analyzer->det_count >=
+          su_channel_detector_get_window_size(analyzer->detector)) {
         SU_TRYCATCH(
             suscan_analyzer_send_psd(analyzer, analyzer->detector),
             goto done);
-        /* XXX: Reset detector pointer to prevent phase noise */
+        su_channel_detector_rewind(analyzer->detector);
         analyzer->last_psd = analyzer->read_start;
         analyzer->det_count = 0;
         analyzer->det_feed = SU_FALSE;
