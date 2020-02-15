@@ -44,6 +44,7 @@ extern "C" {
 
 /************************** Source config API ********************************/
 struct suscan_source_gain_desc {
+  int epoch;
   char *name;
   SUFLOAT min;
   SUFLOAT max;
@@ -52,6 +53,7 @@ struct suscan_source_gain_desc {
 };
 
 struct suscan_source_device_info {
+  /* Borrowed list */
   PTR_LIST_CONST(struct suscan_source_gain_desc, gain_desc);
   PTR_LIST_CONST(char, antenna);
   SUFREQ freq_min;
@@ -76,6 +78,7 @@ struct suscan_source_device {
   SoapySDRKwargs *args;
   int index;
   SUBOOL available;
+  int epoch;
 
   PTR_LIST(struct suscan_source_gain_desc, gain_desc);
   PTR_LIST(char, antenna);

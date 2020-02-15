@@ -114,8 +114,10 @@ suscan_source_device_lookup_gain_desc(
 {
   unsigned int i;
 
+  /* We only provide visibility to current gains. */
   for (i = 0; i < dev->gain_desc_count; ++i)
-    if (strcmp(dev->gain_desc_list[i]->name, name) == 0)
+    if (strcmp(dev->gain_desc_list[i]->name, name) == 0
+        && dev->gain_desc_list[i]->epoch == dev->epoch)
       return dev->gain_desc_list[i];
 
   return NULL;
@@ -154,7 +156,11 @@ suscan_source_device_destroy(suscan_source_device_t *dev)
 void
 suscan_source_device_info_finalize(struct suscan_source_device_info *info)
 {
-  /* NO-OP. Keeping method in case we add dynamic members in the future */
+  if (info->gain_desc_list != NULL)
+    free(info->gain_desc_list);
+
+  info->gain_desc_list = NULL;
+  info->gain_desc_count = 0;
 }
 
 SUPRIVATE void
@@ -164,16 +170,8 @@ suscan_source_reset_devices(void)
 
   for (i = 0; i < device_count; ++i)
     if (device_list[i] != NULL) {
+      ++device_list[i]->epoch;
       device_list[i]->available = SU_FALSE;
-
-      for (j = 0; j < device_list[i]->gain_desc_count; ++j)
-        suscan_source_gain_desc_destroy(device_list[i]->gain_desc_list[j]);
-      device_list[i]->gain_desc_count = 0;
-
-      if (device_list[i]->gain_desc_list != NULL) {
-        free(device_list[i]->gain_desc_list);
-        device_list[i]->gain_desc_list = NULL;
-      }
 
       for (j = 0; j < device_list[i]->antenna_count; ++j)
         free(device_list[i]->antenna_list[j]);
@@ -201,11 +199,51 @@ suscan_source_device_build_desc(const char *driver, const char *label)
   return strbuild("%s (%s)", driver, label);
 }
 
+SUPRIVATE struct suscan_source_gain_desc *
+suscan_source_device_assert_gain(
+    suscan_source_device_t *dev,
+    const char *name,
+    SUFLOAT min,
+    SUFLOAT max,
+    unsigned int step)
+{
+  unsigned int i;
+  struct suscan_source_gain_desc *desc = NULL, *result = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  for (i = 0; i < dev->gain_desc_count; ++i) {
+    if (strcmp(dev->gain_desc_list[i]->name, name) == 0) {
+      result = dev->gain_desc_list[i];
+      result->min = min;
+      result->max = max;
+      break;
+    }
+  }
+
+  if (result == NULL) {
+    SU_TRYCATCH(
+        desc = suscan_source_gain_desc_new(name, min, max),
+        goto done);
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(dev->gain_desc, desc) != -1, goto done);
+    result = desc;
+    desc = NULL;
+  }
+
+  result->step = step;
+  result->epoch = dev->epoch;
+
+done:
+  if (desc != NULL)
+    suscan_source_gain_desc_destroy(desc);
+
+  return result;
+}
+
 SUPRIVATE SUBOOL
 suscan_source_device_populate_info(suscan_source_device_t *dev)
 {
   SoapySDRDevice *sdev = NULL;
-  struct suscan_source_gain_desc *desc = NULL;
+
   SoapySDRRange *freqRanges;
   SoapySDRRange range;
   SUFREQ freq_min = INFINITY;
@@ -216,6 +254,7 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
   size_t antenna_count = 0;
   size_t gain_count = 0;
   size_t range_count;
+  struct suscan_source_gain_desc *desc;
   unsigned int i;
 
   SUBOOL ok = SU_FALSE;
@@ -271,23 +310,21 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
           SOAPY_SDR_RX,
           0,
           gain_list[i]);
+
       SU_TRYCATCH(
-          desc = suscan_source_gain_desc_new(
+          desc = suscan_source_device_assert_gain(
+              dev,
               gain_list[i],
               range.minimum,
-              range.maximum),
+              range.maximum,
+              1), /* This may change in the future */
           goto done);
 
-      /* This may change in the future */
-      desc->step = 1;
       desc->def = SoapySDRDevice_getGainElement(
           sdev,
           SOAPY_SDR_RX,
           0,
           gain_list[i]);
-
-      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(dev->gain_desc, desc) != -1, goto done);
-      desc = NULL;
     }
   }
 
@@ -307,9 +344,6 @@ done:
   /*if (freqRanges != NULL)
     free(freqRanges); */
 
-  if (desc != NULL)
-    suscan_source_gain_desc_destroy(desc);
-
   if (sdev != NULL)
     SoapySDRDevice_unmake(sdev);
 
@@ -323,15 +357,31 @@ suscan_source_device_get_info(
     unsigned int channel,
     struct suscan_source_device_info *info)
 {
+  int i;
+
+  info->gain_desc_list = NULL;
+  info->gain_desc_count = 0;
+
   if (!suscan_source_device_is_populated(dev)) {
     SU_TRYCATCH(
         suscan_source_device_populate_info((suscan_source_device_t *) dev),
-        return SU_FALSE);
+        goto fail);
 
   }
 
-  info->gain_desc_list = (const struct suscan_source_gain_desc **) dev->gain_desc_list;
-  info->gain_desc_count = dev->gain_desc_count;
+  /*
+   * Populate gain desc info. This is performed by checking the epoch. If
+   * this gain has not been seen in the current device discovery, just omit it.
+   */
+  for (i = 0; i < dev->gain_desc_count; ++i) {
+    if (dev->gain_desc_list[i]->epoch == dev->epoch) {
+      SU_TRYCATCH(
+          PTR_LIST_APPEND_CHECK(
+              info->gain_desc,
+              dev->gain_desc_list[i]) != -1,
+          goto fail);
+    }
+  }
 
   info->antenna_list = (const char **) dev->antenna_list;
   info->antenna_count = dev->antenna_count;
@@ -340,6 +390,9 @@ suscan_source_device_get_info(
   info->freq_max = dev->freq_max;
 
   return SU_TRUE;
+
+fail:
+  return SU_FALSE;
 }
 
 SUPRIVATE suscan_source_device_t *
