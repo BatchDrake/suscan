@@ -43,13 +43,21 @@
 SUINLINE void
 suscan_analyzer_read_start(suscan_analyzer_t *analyzer)
 {
+#ifdef __linux__
   clock_gettime(CLOCK_MONOTONIC_COARSE, &analyzer->read_start);
+#else
+  clock_gettime(CLOCK_MONOTONIC, &analyzer->read_start);
+#endif
 }
 
 SUINLINE void
 suscan_analyzer_process_start(suscan_analyzer_t *analyzer)
 {
+#ifdef __linux__
   clock_gettime(CLOCK_MONOTONIC_COARSE, &analyzer->process_start);
+#else
+  clock_gettime(CLOCK_MONOTONIC, &analyzer->process_start);
+#endif
 }
 
 SUINLINE void
@@ -58,7 +66,11 @@ suscan_analyzer_process_end(suscan_analyzer_t *analyzer)
   struct timespec sub;
   uint64_t total, cpu;
 
+#ifdef __linux__
   clock_gettime(CLOCK_MONOTONIC_COARSE, &analyzer->process_end);
+#else
+  clock_gettime(CLOCK_MONOTONIC, &analyzer->process_end);
+#endif
 
   if (analyzer->read_start.tv_sec > 0) {
     timespecsub(&analyzer->process_end, &analyzer->read_start, &sub);

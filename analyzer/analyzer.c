@@ -928,8 +928,15 @@ suscan_analyzer_new(
   /* Periodic updates */
   new->interval_channels = params->channel_update_int;
   new->interval_psd      = params->psd_update_int;
+
+#ifdef __linux__
   clock_gettime(CLOCK_MONOTONIC_COARSE, &new->last_psd);
   clock_gettime(CLOCK_MONOTONIC_COARSE, &new->last_channels);
+#else
+  clock_gettime(CLOCK_MONOTONIC, &new->last_psd);
+  clock_gettime(CLOCK_MONOTONIC, &new->last_channels);
+#endif
+
 
   /* Create channel detector */
   (void) pthread_mutex_init(&new->loop_mutex, NULL); /* Always succeeds */
