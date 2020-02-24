@@ -1002,6 +1002,16 @@ suscan_analyzer_new(
   new->mq_out = mq;
 
   SU_TRYCATCH(suscan_source_start_capture(new->source), goto fail);
+
+  if (new->read_size < new->source->mtu) {
+    new->read_size = new->source->mtu;
+    SUCOMPLEX *temp;
+    SU_TRYCATCH(
+        temp = realloc(new->read_buf, new->read_size * sizeof(SUCOMPLEX)),
+        goto fail);
+    new->read_buf = temp;
+  }
+
   new->effective_samp_rate = suscan_analyzer_get_samp_rate(new);
 
   /*

@@ -142,6 +142,9 @@ suscan_source_device_destroy(suscan_source_device_t *dev)
   if (dev->gain_desc_list != NULL)
     free(dev->gain_desc_list);
 
+  if (dev->samp_rate_list != NULL)
+    free(dev->samp_rate_list);
+
   if (dev->desc != NULL)
     free(dev->desc);
 
@@ -175,11 +178,17 @@ suscan_source_reset_devices(void)
 
       for (j = 0; j < device_list[i]->antenna_count; ++j)
         free(device_list[i]->antenna_list[j]);
-      device_list[i]->antenna_count = 0;
 
+      device_list[i]->antenna_count = 0;
       if (device_list[i]->antenna_list != NULL) {
         free(device_list[i]->antenna_list);
         device_list[i]->antenna_list = NULL;
+      }
+
+      device_list[i]->samp_rate_count = 0;
+      if (device_list[i]->samp_rate_list != NULL) {
+        free(device_list[i]->samp_rate_list);
+        device_list[i]->samp_rate_list = NULL;
       }
     }
 }
@@ -243,7 +252,6 @@ SUPRIVATE SUBOOL
 suscan_source_device_populate_info(suscan_source_device_t *dev)
 {
   SoapySDRDevice *sdev = NULL;
-
   SoapySDRRange *freqRanges;
   SoapySDRRange range;
   SUFREQ freq_min = INFINITY;
@@ -251,9 +259,11 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
   char **antenna_list = NULL;
   char **gain_list = NULL;
   char *dup = NULL;
+  double *samp_rate_list = NULL;
   size_t antenna_count = 0;
   size_t gain_count = 0;
   size_t range_count;
+  size_t samp_rate_count;
   struct suscan_source_gain_desc *desc;
   unsigned int i;
 
@@ -326,6 +336,28 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
           0,
           gain_list[i]);
     }
+
+    /* Get rates */
+    SU_TRYCATCH(
+        samp_rate_list = SoapySDRDevice_listSampleRates(
+            sdev,
+            SOAPY_SDR_RX,
+            0,
+            &samp_rate_count),
+        goto done);
+
+    SU_TRYCATCH(samp_rate_count > 0, goto done);
+
+    SU_TRYCATCH(
+        dev->samp_rate_list = malloc(samp_rate_count * sizeof(double)),
+        goto done);
+
+    memcpy(
+        dev->samp_rate_list,
+        samp_rate_list,
+        samp_rate_count * sizeof(double));
+    dev->samp_rate_count = samp_rate_count;
+    free(samp_rate_list);
   }
 
   ok = SU_TRUE;
@@ -385,6 +417,9 @@ suscan_source_device_get_info(
 
   info->antenna_list = (const char **) dev->antenna_list;
   info->antenna_count = dev->antenna_count;
+
+  info->samp_rate_list = (const double *) dev->samp_rate_list;
+  info->samp_rate_count = dev->samp_rate_count;
 
   info->freq_min = dev->freq_min;
   info->freq_max = dev->freq_max;
@@ -1685,26 +1720,23 @@ suscan_source_set_sample_rate_near(suscan_source_t *source)
   SUFLOAT dist = INFINITY;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(
-      rates = SoapySDRDevice_listSampleRates(
-          source->sdr,
-          SOAPY_SDR_RX,
-          0,
-          &len),
-      goto done);
-
-  SU_TRYCATCH(len > 0, goto done);
-
   /*
    * Unfortunately, SoapySDR's documentation does not ensure this list is
    * ordered in any way, so we have to look for the closest rate in the
    * entire list.
    */
-  for (i = 0; i < len; ++i)
+
+  if (source->config->device == NULL
+      || source->config->device->samp_rate_count == 0) {
+    closest_rate = source->config->samp_rate;
+  } else {
+    rates = source->config->device->samp_rate_list;
+    for (i = 0; i < source->config->device->samp_rate_count; ++i)
     if (SU_ABS(rates[i] - source->config->samp_rate) < dist) {
       dist = SU_ABS(rates[i] - source->config->samp_rate);
       closest_rate = rates[i];
     }
+  }
 
   if (SoapySDRDevice_setSampleRate(
       source->sdr,
@@ -1720,9 +1752,6 @@ suscan_source_set_sample_rate_near(suscan_source_t *source)
   ok = SU_TRUE;
 
 done:
-  if (rates != NULL)
-    free(rates);
-
   return ok;
 }
 
@@ -1836,6 +1865,10 @@ suscan_source_open_sdr(suscan_source_t *source)
     return SU_FALSE;
   }
 
+  source->mtu = SoapySDRDevice_getStreamMTU(
+      source->sdr,
+      source->rx_stream);
+
   source->samp_rate = SoapySDRDevice_getSampleRate(
       source->sdr,
       SOAPY_SDR_RX,
@@ -1905,7 +1938,7 @@ suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
           max,
           &flags,
           &timeNs,
-          0); /* TODO: set timeOut */
+          SUSCAN_SOURCE_DEFAULT_READ_TIMEOUT); /* Setting this to 0 caused extreme CPU usage in MacOS */
 
     if (result == SOAPY_SDR_TIMEOUT
         || result == SOAPY_SDR_OVERFLOW

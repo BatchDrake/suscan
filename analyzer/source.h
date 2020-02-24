@@ -38,7 +38,7 @@ extern "C" {
 #define SUSCAN_SOURCE_DEFAULT_FREQ      433920000 /* 433 ISM */
 #define SUSCAN_SOURCE_DEFAULT_SAMP_RATE 1000000
 #define SUSCAN_SOURCE_DEFAULT_BANDWIDTH SUSCAN_SOURCE_DEFAULT_SAMP_RATE
-
+#define SUSCAN_SOURCE_DEFAULT_READ_TIMEOUT 100000 /* 100 ms */
 #define SUSCAN_SOURCE_ANTIALIAS_REL_SIZE    5
 #define SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE 512
 
@@ -56,6 +56,8 @@ struct suscan_source_device_info {
   /* Borrowed list */
   PTR_LIST_CONST(struct suscan_source_gain_desc, gain_desc);
   PTR_LIST_CONST(char, antenna);
+  const double *samp_rate_list;
+  int samp_rate_count;
   SUFREQ freq_min;
   SUFREQ freq_max;
 };
@@ -66,6 +68,8 @@ struct suscan_source_device_info {
   0, /* gain_count */                           \
   NULL, /* antenna_list */                      \
   0, /* antenna_count */                        \
+  NULL, /* samp_rate_list */                    \
+  0, /* samp_rate_count */                      \
   0, /* freq_min */                             \
   0, /* freq_max */                             \
 }
@@ -82,6 +86,9 @@ struct suscan_source_device {
 
   PTR_LIST(struct suscan_source_gain_desc, gain_desc);
   PTR_LIST(char, antenna);
+  double *samp_rate_list;
+  unsigned int samp_rate_count;
+
   SUFREQ freq_min;
   SUFREQ freq_max;
 };
@@ -346,6 +353,7 @@ struct suscan_source {
   SoapySDRStream *rx_stream;
   size_t chan_array[1];
   SUFLOAT samp_rate; /* Actual sample rate */
+  size_t mtu;
 
   /* To prevent source from looping forever */
   SUBOOL force_eos;
