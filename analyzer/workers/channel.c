@@ -236,6 +236,8 @@ suscan_source_channel_wk_cb(
   suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
   SUSDIFF got;
   SUSCOUNT read_size;
+  SUSCOUNT psd_win_size =
+      su_channel_detector_get_window_size(analyzer->detector);
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
   unsigned int i;
@@ -291,7 +293,7 @@ suscan_source_channel_wk_cb(
             got),
         goto done);
 
-    if (analyzer->det_feed) {
+    if (analyzer->det_num_psd > 0) {
       /* Feed channel detector! */
       SU_TRYCATCH(
           su_channel_detector_feed_bulk(
@@ -300,24 +302,23 @@ suscan_source_channel_wk_cb(
               got) == got,
           goto done);
       analyzer->det_count += got;
-      if (analyzer->det_count >=
-          su_channel_detector_get_window_size(analyzer->detector)) {
+      if (analyzer->det_count >= psd_win_size) {
         SU_TRYCATCH(
             suscan_analyzer_send_psd(analyzer, analyzer->detector),
             goto done);
         su_channel_detector_rewind(analyzer->detector);
         analyzer->last_psd = analyzer->read_start;
         analyzer->det_count = 0;
-        analyzer->det_feed = SU_FALSE;
+        --analyzer->det_num_psd;
       }
     }
 
-    if (analyzer->interval_psd > 0 && !analyzer->det_feed) {
+    if (analyzer->interval_psd > 0 && analyzer->det_num_psd == 0) {
       timespecsub(&analyzer->read_start, &analyzer->last_psd, &sub);
       seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
 
       if (seconds >= analyzer->interval_psd)
-        analyzer->det_feed = SU_TRUE;
+        analyzer->det_num_psd = SU_ROUND(seconds / analyzer->interval_psd);
     }
 
     if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {

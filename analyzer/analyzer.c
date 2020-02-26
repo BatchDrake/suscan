@@ -443,7 +443,17 @@ suscan_analyzer_thread(void *data)
               goto done);
 
           self->interval_channels = new_params->channel_update_int;
-          self->interval_psd      = new_params->psd_update_int;
+
+          if (SU_ABS(self->interval_psd - new_params->psd_update_int) > 1e-6) {
+            self->interval_psd = new_params->psd_update_int;
+            self->det_num_psd = 0;
+#ifdef __linux__
+            clock_gettime(CLOCK_MONOTONIC_COARSE, &self->last_psd);
+#else
+            clock_gettime(CLOCK_MONOTONIC, &self->last_psd);
+#endif /* __linux__ */
+          }
+
           /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
 
           SU_TRYCATCH(
