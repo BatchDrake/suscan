@@ -531,6 +531,7 @@ suscan_analyzer_parse_inspector_msg(
               &msg->channel,
               msg),
           goto done);
+      msg->channel.ft = suscan_source_get_freq(analyzer->source);
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
