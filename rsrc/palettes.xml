@@ -2,6 +2,3088 @@
 
 <suscan:serialization xmlns:suscan="http://actinid.org/suscan" name="root">
   <suscan:object class="palette">
+    <suscan:field name="name"><![CDATA[Turbo (Gqrx)]]></suscan:field>
+    <suscan:object_set name="stops">
+      <suscan:object>
+	<suscan:field name="position" value="0" />
+	<suscan:field name="red" value="0.188235" />
+	<suscan:field name="green" value="0.0705882" />
+	<suscan:field name="blue" value="0.231373" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="1" />
+	<suscan:field name="red" value="0.196078" />
+	<suscan:field name="green" value="0.0823529" />
+	<suscan:field name="blue" value="0.262745" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="2" />
+	<suscan:field name="red" value="0.2" />
+	<suscan:field name="green" value="0.0941176" />
+	<suscan:field name="blue" value="0.290196" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="3" />
+	<suscan:field name="red" value="0.203922" />
+	<suscan:field name="green" value="0.105882" />
+	<suscan:field name="blue" value="0.317647" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="4" />
+	<suscan:field name="red" value="0.207843" />
+	<suscan:field name="green" value="0.117647" />
+	<suscan:field name="blue" value="0.345098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="5" />
+	<suscan:field name="red" value="0.211765" />
+	<suscan:field name="green" value="0.129412" />
+	<suscan:field name="blue" value="0.372549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="6" />
+	<suscan:field name="red" value="0.215686" />
+	<suscan:field name="green" value="0.141176" />
+	<suscan:field name="blue" value="0.4" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="7" />
+	<suscan:field name="red" value="0.219608" />
+	<suscan:field name="green" value="0.152941" />
+	<suscan:field name="blue" value="0.427451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="8" />
+	<suscan:field name="red" value="0.223529" />
+	<suscan:field name="green" value="0.164706" />
+	<suscan:field name="blue" value="0.45098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="9" />
+	<suscan:field name="red" value="0.227451" />
+	<suscan:field name="green" value="0.176471" />
+	<suscan:field name="blue" value="0.47451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="10" />
+	<suscan:field name="red" value="0.231373" />
+	<suscan:field name="green" value="0.184314" />
+	<suscan:field name="blue" value="0.501961" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="11" />
+	<suscan:field name="red" value="0.235294" />
+	<suscan:field name="green" value="0.196078" />
+	<suscan:field name="blue" value="0.52549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="12" />
+	<suscan:field name="red" value="0.239216" />
+	<suscan:field name="green" value="0.207843" />
+	<suscan:field name="blue" value="0.545098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="13" />
+	<suscan:field name="red" value="0.243137" />
+	<suscan:field name="green" value="0.219608" />
+	<suscan:field name="blue" value="0.568627" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="14" />
+	<suscan:field name="red" value="0.247059" />
+	<suscan:field name="green" value="0.231373" />
+	<suscan:field name="blue" value="0.592157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="15" />
+	<suscan:field name="red" value="0.247059" />
+	<suscan:field name="green" value="0.243137" />
+	<suscan:field name="blue" value="0.611765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="16" />
+	<suscan:field name="red" value="0.25098" />
+	<suscan:field name="green" value="0.25098" />
+	<suscan:field name="blue" value="0.635294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="17" />
+	<suscan:field name="red" value="0.254902" />
+	<suscan:field name="green" value="0.262745" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="18" />
+	<suscan:field name="red" value="0.254902" />
+	<suscan:field name="green" value="0.27451" />
+	<suscan:field name="blue" value="0.67451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="19" />
+	<suscan:field name="red" value="0.258824" />
+	<suscan:field name="green" value="0.286275" />
+	<suscan:field name="blue" value="0.694118" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="20" />
+	<suscan:field name="red" value="0.258824" />
+	<suscan:field name="green" value="0.294118" />
+	<suscan:field name="blue" value="0.709804" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="21" />
+	<suscan:field name="red" value="0.262745" />
+	<suscan:field name="green" value="0.305882" />
+	<suscan:field name="blue" value="0.729412" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="22" />
+	<suscan:field name="red" value="0.266667" />
+	<suscan:field name="green" value="0.317647" />
+	<suscan:field name="blue" value="0.74902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="23" />
+	<suscan:field name="red" value="0.266667" />
+	<suscan:field name="green" value="0.329412" />
+	<suscan:field name="blue" value="0.764706" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="24" />
+	<suscan:field name="red" value="0.266667" />
+	<suscan:field name="green" value="0.337255" />
+	<suscan:field name="blue" value="0.780392" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="25" />
+	<suscan:field name="red" value="0.270588" />
+	<suscan:field name="green" value="0.34902" />
+	<suscan:field name="blue" value="0.796078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="26" />
+	<suscan:field name="red" value="0.270588" />
+	<suscan:field name="green" value="0.360784" />
+	<suscan:field name="blue" value="0.811765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="27" />
+	<suscan:field name="red" value="0.270588" />
+	<suscan:field name="green" value="0.368627" />
+	<suscan:field name="blue" value="0.827451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="28" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.380392" />
+	<suscan:field name="blue" value="0.839216" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="29" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.392157" />
+	<suscan:field name="blue" value="0.854902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="30" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.4" />
+	<suscan:field name="blue" value="0.866667" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="31" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.411765" />
+	<suscan:field name="blue" value="0.878431" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="32" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.419608" />
+	<suscan:field name="blue" value="0.890196" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="33" />
+	<suscan:field name="red" value="0.278431" />
+	<suscan:field name="green" value="0.431373" />
+	<suscan:field name="blue" value="0.901961" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="34" />
+	<suscan:field name="red" value="0.278431" />
+	<suscan:field name="green" value="0.443137" />
+	<suscan:field name="blue" value="0.913725" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="35" />
+	<suscan:field name="red" value="0.278431" />
+	<suscan:field name="green" value="0.45098" />
+	<suscan:field name="blue" value="0.921569" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="36" />
+	<suscan:field name="red" value="0.278431" />
+	<suscan:field name="green" value="0.462745" />
+	<suscan:field name="blue" value="0.933333" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="37" />
+	<suscan:field name="red" value="0.278431" />
+	<suscan:field name="green" value="0.470588" />
+	<suscan:field name="blue" value="0.941176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="38" />
+	<suscan:field name="red" value="0.278431" />
+	<suscan:field name="green" value="0.482353" />
+	<suscan:field name="blue" value="0.94902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="39" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.490196" />
+	<suscan:field name="blue" value="0.956863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="40" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.501961" />
+	<suscan:field name="blue" value="0.964706" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="41" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.509804" />
+	<suscan:field name="blue" value="0.972549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="42" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.521569" />
+	<suscan:field name="blue" value="0.980392" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="43" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.529412" />
+	<suscan:field name="blue" value="0.984314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="44" />
+	<suscan:field name="red" value="0.270588" />
+	<suscan:field name="green" value="0.541176" />
+	<suscan:field name="blue" value="0.988235" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="45" />
+	<suscan:field name="red" value="0.270588" />
+	<suscan:field name="green" value="0.54902" />
+	<suscan:field name="blue" value="0.992157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="46" />
+	<suscan:field name="red" value="0.266667" />
+	<suscan:field name="green" value="0.560784" />
+	<suscan:field name="blue" value="0.996078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="47" />
+	<suscan:field name="red" value="0.262745" />
+	<suscan:field name="green" value="0.568627" />
+	<suscan:field name="blue" value="0.996078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="48" />
+	<suscan:field name="red" value="0.258824" />
+	<suscan:field name="green" value="0.580392" />
+	<suscan:field name="blue" value="1" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="49" />
+	<suscan:field name="red" value="0.254902" />
+	<suscan:field name="green" value="0.588235" />
+	<suscan:field name="blue" value="1" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="50" />
+	<suscan:field name="red" value="0.25098" />
+	<suscan:field name="green" value="0.6" />
+	<suscan:field name="blue" value="1" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="51" />
+	<suscan:field name="red" value="0.243137" />
+	<suscan:field name="green" value="0.607843" />
+	<suscan:field name="blue" value="0.996078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="52" />
+	<suscan:field name="red" value="0.239216" />
+	<suscan:field name="green" value="0.619608" />
+	<suscan:field name="blue" value="0.996078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="53" />
+	<suscan:field name="red" value="0.231373" />
+	<suscan:field name="green" value="0.627451" />
+	<suscan:field name="blue" value="0.992157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="54" />
+	<suscan:field name="red" value="0.227451" />
+	<suscan:field name="green" value="0.639216" />
+	<suscan:field name="blue" value="0.988235" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="55" />
+	<suscan:field name="red" value="0.219608" />
+	<suscan:field name="green" value="0.647059" />
+	<suscan:field name="blue" value="0.984314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="56" />
+	<suscan:field name="red" value="0.215686" />
+	<suscan:field name="green" value="0.658824" />
+	<suscan:field name="blue" value="0.980392" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="57" />
+	<suscan:field name="red" value="0.207843" />
+	<suscan:field name="green" value="0.670588" />
+	<suscan:field name="blue" value="0.972549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="58" />
+	<suscan:field name="red" value="0.2" />
+	<suscan:field name="green" value="0.678431" />
+	<suscan:field name="blue" value="0.968627" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="59" />
+	<suscan:field name="red" value="0.192157" />
+	<suscan:field name="green" value="0.686275" />
+	<suscan:field name="blue" value="0.960784" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="60" />
+	<suscan:field name="red" value="0.184314" />
+	<suscan:field name="green" value="0.698039" />
+	<suscan:field name="blue" value="0.956863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="61" />
+	<suscan:field name="red" value="0.180392" />
+	<suscan:field name="green" value="0.705882" />
+	<suscan:field name="blue" value="0.94902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="62" />
+	<suscan:field name="red" value="0.172549" />
+	<suscan:field name="green" value="0.717647" />
+	<suscan:field name="blue" value="0.941176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="63" />
+	<suscan:field name="red" value="0.164706" />
+	<suscan:field name="green" value="0.72549" />
+	<suscan:field name="blue" value="0.933333" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="64" />
+	<suscan:field name="red" value="0.156863" />
+	<suscan:field name="green" value="0.737255" />
+	<suscan:field name="blue" value="0.921569" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="65" />
+	<suscan:field name="red" value="0.152941" />
+	<suscan:field name="green" value="0.745098" />
+	<suscan:field name="blue" value="0.913725" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="66" />
+	<suscan:field name="red" value="0.145098" />
+	<suscan:field name="green" value="0.752941" />
+	<suscan:field name="blue" value="0.905882" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="67" />
+	<suscan:field name="red" value="0.137255" />
+	<suscan:field name="green" value="0.764706" />
+	<suscan:field name="blue" value="0.894118" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="68" />
+	<suscan:field name="red" value="0.133333" />
+	<suscan:field name="green" value="0.772549" />
+	<suscan:field name="blue" value="0.886275" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="69" />
+	<suscan:field name="red" value="0.12549" />
+	<suscan:field name="green" value="0.780392" />
+	<suscan:field name="blue" value="0.87451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="70" />
+	<suscan:field name="red" value="0.121569" />
+	<suscan:field name="green" value="0.788235" />
+	<suscan:field name="blue" value="0.866667" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="71" />
+	<suscan:field name="red" value="0.117647" />
+	<suscan:field name="green" value="0.796078" />
+	<suscan:field name="blue" value="0.854902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="72" />
+	<suscan:field name="red" value="0.109804" />
+	<suscan:field name="green" value="0.803922" />
+	<suscan:field name="blue" value="0.847059" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="73" />
+	<suscan:field name="red" value="0.105882" />
+	<suscan:field name="green" value="0.815686" />
+	<suscan:field name="blue" value="0.835294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="74" />
+	<suscan:field name="red" value="0.101961" />
+	<suscan:field name="green" value="0.823529" />
+	<suscan:field name="blue" value="0.823529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="75" />
+	<suscan:field name="red" value="0.101961" />
+	<suscan:field name="green" value="0.831373" />
+	<suscan:field name="blue" value="0.815686" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="76" />
+	<suscan:field name="red" value="0.0980392" />
+	<suscan:field name="green" value="0.835294" />
+	<suscan:field name="blue" value="0.803922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="77" />
+	<suscan:field name="red" value="0.0941176" />
+	<suscan:field name="green" value="0.843137" />
+	<suscan:field name="blue" value="0.792157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="78" />
+	<suscan:field name="red" value="0.0941176" />
+	<suscan:field name="green" value="0.85098" />
+	<suscan:field name="blue" value="0.784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="79" />
+	<suscan:field name="red" value="0.0941176" />
+	<suscan:field name="green" value="0.858824" />
+	<suscan:field name="blue" value="0.772549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="80" />
+	<suscan:field name="red" value="0.0941176" />
+	<suscan:field name="green" value="0.866667" />
+	<suscan:field name="blue" value="0.760784" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="81" />
+	<suscan:field name="red" value="0.0941176" />
+	<suscan:field name="green" value="0.870588" />
+	<suscan:field name="blue" value="0.752941" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="82" />
+	<suscan:field name="red" value="0.0941176" />
+	<suscan:field name="green" value="0.878431" />
+	<suscan:field name="blue" value="0.741176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="83" />
+	<suscan:field name="red" value="0.0980392" />
+	<suscan:field name="green" value="0.886275" />
+	<suscan:field name="blue" value="0.733333" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="84" />
+	<suscan:field name="red" value="0.0980392" />
+	<suscan:field name="green" value="0.890196" />
+	<suscan:field name="blue" value="0.72549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="85" />
+	<suscan:field name="red" value="0.101961" />
+	<suscan:field name="green" value="0.894118" />
+	<suscan:field name="blue" value="0.713725" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="86" />
+	<suscan:field name="red" value="0.109804" />
+	<suscan:field name="green" value="0.901961" />
+	<suscan:field name="blue" value="0.705882" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="87" />
+	<suscan:field name="red" value="0.113725" />
+	<suscan:field name="green" value="0.905882" />
+	<suscan:field name="blue" value="0.698039" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="88" />
+	<suscan:field name="red" value="0.121569" />
+	<suscan:field name="green" value="0.913725" />
+	<suscan:field name="blue" value="0.686275" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="89" />
+	<suscan:field name="red" value="0.12549" />
+	<suscan:field name="green" value="0.917647" />
+	<suscan:field name="blue" value="0.67451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="90" />
+	<suscan:field name="red" value="0.133333" />
+	<suscan:field name="green" value="0.921569" />
+	<suscan:field name="blue" value="0.666667" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="91" />
+	<suscan:field name="red" value="0.145098" />
+	<suscan:field name="green" value="0.92549" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="92" />
+	<suscan:field name="red" value="0.152941" />
+	<suscan:field name="green" value="0.933333" />
+	<suscan:field name="blue" value="0.643137" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="93" />
+	<suscan:field name="red" value="0.164706" />
+	<suscan:field name="green" value="0.937255" />
+	<suscan:field name="blue" value="0.631373" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="94" />
+	<suscan:field name="red" value="0.172549" />
+	<suscan:field name="green" value="0.941176" />
+	<suscan:field name="blue" value="0.619608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="95" />
+	<suscan:field name="red" value="0.184314" />
+	<suscan:field name="green" value="0.945098" />
+	<suscan:field name="blue" value="0.607843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="96" />
+	<suscan:field name="red" value="0.196078" />
+	<suscan:field name="green" value="0.94902" />
+	<suscan:field name="blue" value="0.596078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="97" />
+	<suscan:field name="red" value="0.207843" />
+	<suscan:field name="green" value="0.952941" />
+	<suscan:field name="blue" value="0.580392" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="98" />
+	<suscan:field name="red" value="0.219608" />
+	<suscan:field name="green" value="0.956863" />
+	<suscan:field name="blue" value="0.568627" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="99" />
+	<suscan:field name="red" value="0.235294" />
+	<suscan:field name="green" value="0.960784" />
+	<suscan:field name="blue" value="0.556863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="100" />
+	<suscan:field name="red" value="0.247059" />
+	<suscan:field name="green" value="0.964706" />
+	<suscan:field name="blue" value="0.541176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="101" />
+	<suscan:field name="red" value="0.262745" />
+	<suscan:field name="green" value="0.968627" />
+	<suscan:field name="blue" value="0.529412" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="102" />
+	<suscan:field name="red" value="0.27451" />
+	<suscan:field name="green" value="0.972549" />
+	<suscan:field name="blue" value="0.517647" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="103" />
+	<suscan:field name="red" value="0.290196" />
+	<suscan:field name="green" value="0.972549" />
+	<suscan:field name="blue" value="0.501961" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="104" />
+	<suscan:field name="red" value="0.305882" />
+	<suscan:field name="green" value="0.976471" />
+	<suscan:field name="blue" value="0.490196" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="105" />
+	<suscan:field name="red" value="0.321569" />
+	<suscan:field name="green" value="0.980392" />
+	<suscan:field name="blue" value="0.478431" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="106" />
+	<suscan:field name="red" value="0.333333" />
+	<suscan:field name="green" value="0.980392" />
+	<suscan:field name="blue" value="0.462745" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="107" />
+	<suscan:field name="red" value="0.34902" />
+	<suscan:field name="green" value="0.984314" />
+	<suscan:field name="blue" value="0.45098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="108" />
+	<suscan:field name="red" value="0.364706" />
+	<suscan:field name="green" value="0.988235" />
+	<suscan:field name="blue" value="0.435294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="109" />
+	<suscan:field name="red" value="0.380392" />
+	<suscan:field name="green" value="0.988235" />
+	<suscan:field name="blue" value="0.423529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="110" />
+	<suscan:field name="red" value="0.396078" />
+	<suscan:field name="green" value="0.992157" />
+	<suscan:field name="blue" value="0.411765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="111" />
+	<suscan:field name="red" value="0.411765" />
+	<suscan:field name="green" value="0.992157" />
+	<suscan:field name="blue" value="0.4" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="112" />
+	<suscan:field name="red" value="0.427451" />
+	<suscan:field name="green" value="0.996078" />
+	<suscan:field name="blue" value="0.384314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="113" />
+	<suscan:field name="red" value="0.443137" />
+	<suscan:field name="green" value="0.996078" />
+	<suscan:field name="blue" value="0.372549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="114" />
+	<suscan:field name="red" value="0.458824" />
+	<suscan:field name="green" value="0.996078" />
+	<suscan:field name="blue" value="0.360784" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="115" />
+	<suscan:field name="red" value="0.47451" />
+	<suscan:field name="green" value="0.996078" />
+	<suscan:field name="blue" value="0.34902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="116" />
+	<suscan:field name="red" value="0.490196" />
+	<suscan:field name="green" value="1" />
+	<suscan:field name="blue" value="0.337255" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="117" />
+	<suscan:field name="red" value="0.501961" />
+	<suscan:field name="green" value="1" />
+	<suscan:field name="blue" value="0.32549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="118" />
+	<suscan:field name="red" value="0.517647" />
+	<suscan:field name="green" value="1" />
+	<suscan:field name="blue" value="0.317647" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="119" />
+	<suscan:field name="red" value="0.533333" />
+	<suscan:field name="green" value="1" />
+	<suscan:field name="blue" value="0.305882" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="120" />
+	<suscan:field name="red" value="0.545098" />
+	<suscan:field name="green" value="1" />
+	<suscan:field name="blue" value="0.294118" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="121" />
+	<suscan:field name="red" value="0.560784" />
+	<suscan:field name="green" value="1" />
+	<suscan:field name="blue" value="0.286275" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="122" />
+	<suscan:field name="red" value="0.572549" />
+	<suscan:field name="green" value="1" />
+	<suscan:field name="blue" value="0.278431" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="123" />
+	<suscan:field name="red" value="0.588235" />
+	<suscan:field name="green" value="0.996078" />
+	<suscan:field name="blue" value="0.266667" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="124" />
+	<suscan:field name="red" value="0.6" />
+	<suscan:field name="green" value="0.996078" />
+	<suscan:field name="blue" value="0.258824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="125" />
+	<suscan:field name="red" value="0.611765" />
+	<suscan:field name="green" value="0.996078" />
+	<suscan:field name="blue" value="0.25098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="126" />
+	<suscan:field name="red" value="0.623529" />
+	<suscan:field name="green" value="0.992157" />
+	<suscan:field name="blue" value="0.247059" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="127" />
+	<suscan:field name="red" value="0.631373" />
+	<suscan:field name="green" value="0.992157" />
+	<suscan:field name="blue" value="0.239216" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="128" />
+	<suscan:field name="red" value="0.643137" />
+	<suscan:field name="green" value="0.988235" />
+	<suscan:field name="blue" value="0.235294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="129" />
+	<suscan:field name="red" value="0.654902" />
+	<suscan:field name="green" value="0.988235" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="130" />
+	<suscan:field name="red" value="0.662745" />
+	<suscan:field name="green" value="0.984314" />
+	<suscan:field name="blue" value="0.223529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="131" />
+	<suscan:field name="red" value="0.67451" />
+	<suscan:field name="green" value="0.984314" />
+	<suscan:field name="blue" value="0.219608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="132" />
+	<suscan:field name="red" value="0.686275" />
+	<suscan:field name="green" value="0.980392" />
+	<suscan:field name="blue" value="0.215686" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="133" />
+	<suscan:field name="red" value="0.694118" />
+	<suscan:field name="green" value="0.976471" />
+	<suscan:field name="blue" value="0.211765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="134" />
+	<suscan:field name="red" value="0.705882" />
+	<suscan:field name="green" value="0.972549" />
+	<suscan:field name="blue" value="0.211765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="135" />
+	<suscan:field name="red" value="0.717647" />
+	<suscan:field name="green" value="0.968627" />
+	<suscan:field name="blue" value="0.207843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="136" />
+	<suscan:field name="red" value="0.72549" />
+	<suscan:field name="green" value="0.964706" />
+	<suscan:field name="blue" value="0.207843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="137" />
+	<suscan:field name="red" value="0.737255" />
+	<suscan:field name="green" value="0.960784" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="138" />
+	<suscan:field name="red" value="0.745098" />
+	<suscan:field name="green" value="0.956863" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="139" />
+	<suscan:field name="red" value="0.756863" />
+	<suscan:field name="green" value="0.952941" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="140" />
+	<suscan:field name="red" value="0.764706" />
+	<suscan:field name="green" value="0.945098" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="141" />
+	<suscan:field name="red" value="0.776471" />
+	<suscan:field name="green" value="0.941176" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="142" />
+	<suscan:field name="red" value="0.784314" />
+	<suscan:field name="green" value="0.937255" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="143" />
+	<suscan:field name="red" value="0.796078" />
+	<suscan:field name="green" value="0.929412" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="144" />
+	<suscan:field name="red" value="0.803922" />
+	<suscan:field name="green" value="0.92549" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="145" />
+	<suscan:field name="red" value="0.815686" />
+	<suscan:field name="green" value="0.917647" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="146" />
+	<suscan:field name="red" value="0.823529" />
+	<suscan:field name="green" value="0.913725" />
+	<suscan:field name="blue" value="0.207843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="147" />
+	<suscan:field name="red" value="0.831373" />
+	<suscan:field name="green" value="0.905882" />
+	<suscan:field name="blue" value="0.207843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="148" />
+	<suscan:field name="red" value="0.843137" />
+	<suscan:field name="green" value="0.898039" />
+	<suscan:field name="blue" value="0.207843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="149" />
+	<suscan:field name="red" value="0.85098" />
+	<suscan:field name="green" value="0.894118" />
+	<suscan:field name="blue" value="0.211765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="150" />
+	<suscan:field name="red" value="0.858824" />
+	<suscan:field name="green" value="0.886275" />
+	<suscan:field name="blue" value="0.211765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="151" />
+	<suscan:field name="red" value="0.866667" />
+	<suscan:field name="green" value="0.878431" />
+	<suscan:field name="blue" value="0.215686" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="152" />
+	<suscan:field name="red" value="0.87451" />
+	<suscan:field name="green" value="0.87451" />
+	<suscan:field name="blue" value="0.215686" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="153" />
+	<suscan:field name="red" value="0.882353" />
+	<suscan:field name="green" value="0.866667" />
+	<suscan:field name="blue" value="0.215686" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="154" />
+	<suscan:field name="red" value="0.890196" />
+	<suscan:field name="green" value="0.858824" />
+	<suscan:field name="blue" value="0.219608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="155" />
+	<suscan:field name="red" value="0.898039" />
+	<suscan:field name="green" value="0.85098" />
+	<suscan:field name="blue" value="0.219608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="156" />
+	<suscan:field name="red" value="0.905882" />
+	<suscan:field name="green" value="0.843137" />
+	<suscan:field name="blue" value="0.223529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="157" />
+	<suscan:field name="red" value="0.913725" />
+	<suscan:field name="green" value="0.835294" />
+	<suscan:field name="blue" value="0.223529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="158" />
+	<suscan:field name="red" value="0.921569" />
+	<suscan:field name="green" value="0.827451" />
+	<suscan:field name="blue" value="0.223529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="159" />
+	<suscan:field name="red" value="0.92549" />
+	<suscan:field name="green" value="0.819608" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="160" />
+	<suscan:field name="red" value="0.933333" />
+	<suscan:field name="green" value="0.811765" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="161" />
+	<suscan:field name="red" value="0.937255" />
+	<suscan:field name="green" value="0.803922" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="162" />
+	<suscan:field name="red" value="0.945098" />
+	<suscan:field name="green" value="0.796078" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="163" />
+	<suscan:field name="red" value="0.94902" />
+	<suscan:field name="green" value="0.788235" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="164" />
+	<suscan:field name="red" value="0.956863" />
+	<suscan:field name="green" value="0.780392" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="165" />
+	<suscan:field name="red" value="0.960784" />
+	<suscan:field name="green" value="0.772549" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="166" />
+	<suscan:field name="red" value="0.964706" />
+	<suscan:field name="green" value="0.764706" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="167" />
+	<suscan:field name="red" value="0.968627" />
+	<suscan:field name="green" value="0.756863" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="168" />
+	<suscan:field name="red" value="0.972549" />
+	<suscan:field name="green" value="0.745098" />
+	<suscan:field name="blue" value="0.223529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="169" />
+	<suscan:field name="red" value="0.976471" />
+	<suscan:field name="green" value="0.737255" />
+	<suscan:field name="blue" value="0.223529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="170" />
+	<suscan:field name="red" value="0.980392" />
+	<suscan:field name="green" value="0.729412" />
+	<suscan:field name="blue" value="0.223529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="171" />
+	<suscan:field name="red" value="0.984314" />
+	<suscan:field name="green" value="0.721569" />
+	<suscan:field name="blue" value="0.219608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="172" />
+	<suscan:field name="red" value="0.984314" />
+	<suscan:field name="green" value="0.713725" />
+	<suscan:field name="blue" value="0.215686" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="173" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.701961" />
+	<suscan:field name="blue" value="0.211765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="174" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.694118" />
+	<suscan:field name="blue" value="0.211765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="175" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.682353" />
+	<suscan:field name="blue" value="0.207843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="176" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.67451" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="177" />
+	<suscan:field name="red" value="0.996078" />
+	<suscan:field name="green" value="0.662745" />
+	<suscan:field name="blue" value="0.2" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="178" />
+	<suscan:field name="red" value="0.996078" />
+	<suscan:field name="green" value="0.654902" />
+	<suscan:field name="blue" value="0.196078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="179" />
+	<suscan:field name="red" value="0.996078" />
+	<suscan:field name="green" value="0.643137" />
+	<suscan:field name="blue" value="0.192157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="180" />
+	<suscan:field name="red" value="0.996078" />
+	<suscan:field name="green" value="0.631373" />
+	<suscan:field name="blue" value="0.188235" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="181" />
+	<suscan:field name="red" value="0.996078" />
+	<suscan:field name="green" value="0.619608" />
+	<suscan:field name="blue" value="0.184314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="182" />
+	<suscan:field name="red" value="0.996078" />
+	<suscan:field name="green" value="0.607843" />
+	<suscan:field name="blue" value="0.176471" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="183" />
+	<suscan:field name="red" value="0.996078" />
+	<suscan:field name="green" value="0.6" />
+	<suscan:field name="blue" value="0.172549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="184" />
+	<suscan:field name="red" value="0.996078" />
+	<suscan:field name="green" value="0.588235" />
+	<suscan:field name="blue" value="0.168627" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="185" />
+	<suscan:field name="red" value="0.996078" />
+	<suscan:field name="green" value="0.576471" />
+	<suscan:field name="blue" value="0.164706" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="186" />
+	<suscan:field name="red" value="0.996078" />
+	<suscan:field name="green" value="0.564706" />
+	<suscan:field name="blue" value="0.160784" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="187" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.552941" />
+	<suscan:field name="blue" value="0.152941" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="188" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.541176" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="189" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.529412" />
+	<suscan:field name="blue" value="0.145098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="190" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.517647" />
+	<suscan:field name="blue" value="0.137255" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="191" />
+	<suscan:field name="red" value="0.984314" />
+	<suscan:field name="green" value="0.505882" />
+	<suscan:field name="blue" value="0.133333" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="192" />
+	<suscan:field name="red" value="0.984314" />
+	<suscan:field name="green" value="0.494118" />
+	<suscan:field name="blue" value="0.129412" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="193" />
+	<suscan:field name="red" value="0.980392" />
+	<suscan:field name="green" value="0.482353" />
+	<suscan:field name="blue" value="0.121569" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="194" />
+	<suscan:field name="red" value="0.976471" />
+	<suscan:field name="green" value="0.470588" />
+	<suscan:field name="blue" value="0.117647" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="195" />
+	<suscan:field name="red" value="0.976471" />
+	<suscan:field name="green" value="0.458824" />
+	<suscan:field name="blue" value="0.113725" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="196" />
+	<suscan:field name="red" value="0.972549" />
+	<suscan:field name="green" value="0.447059" />
+	<suscan:field name="blue" value="0.109804" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="197" />
+	<suscan:field name="red" value="0.968627" />
+	<suscan:field name="green" value="0.435294" />
+	<suscan:field name="blue" value="0.101961" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="198" />
+	<suscan:field name="red" value="0.964706" />
+	<suscan:field name="green" value="0.423529" />
+	<suscan:field name="blue" value="0.0980392" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="199" />
+	<suscan:field name="red" value="0.960784" />
+	<suscan:field name="green" value="0.411765" />
+	<suscan:field name="blue" value="0.0941176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="200" />
+	<suscan:field name="red" value="0.956863" />
+	<suscan:field name="green" value="0.4" />
+	<suscan:field name="blue" value="0.0901961" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="201" />
+	<suscan:field name="red" value="0.952941" />
+	<suscan:field name="green" value="0.388235" />
+	<suscan:field name="blue" value="0.0823529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="202" />
+	<suscan:field name="red" value="0.94902" />
+	<suscan:field name="green" value="0.376471" />
+	<suscan:field name="blue" value="0.0784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="203" />
+	<suscan:field name="red" value="0.945098" />
+	<suscan:field name="green" value="0.364706" />
+	<suscan:field name="blue" value="0.0745098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="204" />
+	<suscan:field name="red" value="0.941176" />
+	<suscan:field name="green" value="0.356863" />
+	<suscan:field name="blue" value="0.0705882" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="205" />
+	<suscan:field name="red" value="0.937255" />
+	<suscan:field name="green" value="0.345098" />
+	<suscan:field name="blue" value="0.0666667" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="206" />
+	<suscan:field name="red" value="0.929412" />
+	<suscan:field name="green" value="0.333333" />
+	<suscan:field name="blue" value="0.0627451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="207" />
+	<suscan:field name="red" value="0.92549" />
+	<suscan:field name="green" value="0.32549" />
+	<suscan:field name="blue" value="0.0588235" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="208" />
+	<suscan:field name="red" value="0.921569" />
+	<suscan:field name="green" value="0.313725" />
+	<suscan:field name="blue" value="0.054902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="209" />
+	<suscan:field name="red" value="0.917647" />
+	<suscan:field name="green" value="0.305882" />
+	<suscan:field name="blue" value="0.0509804" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="210" />
+	<suscan:field name="red" value="0.909804" />
+	<suscan:field name="green" value="0.294118" />
+	<suscan:field name="blue" value="0.0470588" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="211" />
+	<suscan:field name="red" value="0.905882" />
+	<suscan:field name="green" value="0.286275" />
+	<suscan:field name="blue" value="0.0470588" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="212" />
+	<suscan:field name="red" value="0.898039" />
+	<suscan:field name="green" value="0.278431" />
+	<suscan:field name="blue" value="0.0431373" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="213" />
+	<suscan:field name="red" value="0.894118" />
+	<suscan:field name="green" value="0.270588" />
+	<suscan:field name="blue" value="0.0392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="214" />
+	<suscan:field name="red" value="0.886275" />
+	<suscan:field name="green" value="0.262745" />
+	<suscan:field name="blue" value="0.0392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="215" />
+	<suscan:field name="red" value="0.882353" />
+	<suscan:field name="green" value="0.254902" />
+	<suscan:field name="blue" value="0.0352941" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="216" />
+	<suscan:field name="red" value="0.87451" />
+	<suscan:field name="green" value="0.247059" />
+	<suscan:field name="blue" value="0.0313725" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="217" />
+	<suscan:field name="red" value="0.866667" />
+	<suscan:field name="green" value="0.239216" />
+	<suscan:field name="blue" value="0.0313725" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="218" />
+	<suscan:field name="red" value="0.862745" />
+	<suscan:field name="green" value="0.231373" />
+	<suscan:field name="blue" value="0.027451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="219" />
+	<suscan:field name="red" value="0.854902" />
+	<suscan:field name="green" value="0.223529" />
+	<suscan:field name="blue" value="0.027451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="220" />
+	<suscan:field name="red" value="0.847059" />
+	<suscan:field name="green" value="0.215686" />
+	<suscan:field name="blue" value="0.0235294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="221" />
+	<suscan:field name="red" value="0.839216" />
+	<suscan:field name="green" value="0.207843" />
+	<suscan:field name="blue" value="0.0235294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="222" />
+	<suscan:field name="red" value="0.831373" />
+	<suscan:field name="green" value="0.2" />
+	<suscan:field name="blue" value="0.0196078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="223" />
+	<suscan:field name="red" value="0.823529" />
+	<suscan:field name="green" value="0.192157" />
+	<suscan:field name="blue" value="0.0196078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="224" />
+	<suscan:field name="red" value="0.815686" />
+	<suscan:field name="green" value="0.184314" />
+	<suscan:field name="blue" value="0.0196078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="225" />
+	<suscan:field name="red" value="0.807843" />
+	<suscan:field name="green" value="0.176471" />
+	<suscan:field name="blue" value="0.0156863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="226" />
+	<suscan:field name="red" value="0.8" />
+	<suscan:field name="green" value="0.168627" />
+	<suscan:field name="blue" value="0.0156863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="227" />
+	<suscan:field name="red" value="0.792157" />
+	<suscan:field name="green" value="0.164706" />
+	<suscan:field name="blue" value="0.0156863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="228" />
+	<suscan:field name="red" value="0.784314" />
+	<suscan:field name="green" value="0.156863" />
+	<suscan:field name="blue" value="0.0117647" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="229" />
+	<suscan:field name="red" value="0.772549" />
+	<suscan:field name="green" value="0.14902" />
+	<suscan:field name="blue" value="0.0117647" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="230" />
+	<suscan:field name="red" value="0.764706" />
+	<suscan:field name="green" value="0.145098" />
+	<suscan:field name="blue" value="0.0117647" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="231" />
+	<suscan:field name="red" value="0.756863" />
+	<suscan:field name="green" value="0.137255" />
+	<suscan:field name="blue" value="0.00784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="232" />
+	<suscan:field name="red" value="0.745098" />
+	<suscan:field name="green" value="0.129412" />
+	<suscan:field name="blue" value="0.00784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="233" />
+	<suscan:field name="red" value="0.737255" />
+	<suscan:field name="green" value="0.12549" />
+	<suscan:field name="blue" value="0.00784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="234" />
+	<suscan:field name="red" value="0.72549" />
+	<suscan:field name="green" value="0.117647" />
+	<suscan:field name="blue" value="0.00784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="235" />
+	<suscan:field name="red" value="0.717647" />
+	<suscan:field name="green" value="0.113725" />
+	<suscan:field name="blue" value="0.00784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="236" />
+	<suscan:field name="red" value="0.705882" />
+	<suscan:field name="green" value="0.105882" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="237" />
+	<suscan:field name="red" value="0.698039" />
+	<suscan:field name="green" value="0.101961" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="238" />
+	<suscan:field name="red" value="0.686275" />
+	<suscan:field name="green" value="0.0941176" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="239" />
+	<suscan:field name="red" value="0.67451" />
+	<suscan:field name="green" value="0.0901961" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="240" />
+	<suscan:field name="red" value="0.662745" />
+	<suscan:field name="green" value="0.0862745" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="241" />
+	<suscan:field name="red" value="0.654902" />
+	<suscan:field name="green" value="0.0784314" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="242" />
+	<suscan:field name="red" value="0.643137" />
+	<suscan:field name="green" value="0.0745098" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="243" />
+	<suscan:field name="red" value="0.631373" />
+	<suscan:field name="green" value="0.0705882" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="244" />
+	<suscan:field name="red" value="0.619608" />
+	<suscan:field name="green" value="0.0627451" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="245" />
+	<suscan:field name="red" value="0.607843" />
+	<suscan:field name="green" value="0.0588235" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="246" />
+	<suscan:field name="red" value="0.596078" />
+	<suscan:field name="green" value="0.054902" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="247" />
+	<suscan:field name="red" value="0.584314" />
+	<suscan:field name="green" value="0.0509804" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="248" />
+	<suscan:field name="red" value="0.572549" />
+	<suscan:field name="green" value="0.0431373" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="249" />
+	<suscan:field name="red" value="0.556863" />
+	<suscan:field name="green" value="0.0392157" />
+	<suscan:field name="blue" value="0.00392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="250" />
+	<suscan:field name="red" value="0.545098" />
+	<suscan:field name="green" value="0.0352941" />
+	<suscan:field name="blue" value="0.00784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="251" />
+	<suscan:field name="red" value="0.533333" />
+	<suscan:field name="green" value="0.0313725" />
+	<suscan:field name="blue" value="0.00784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="252" />
+	<suscan:field name="red" value="0.521569" />
+	<suscan:field name="green" value="0.027451" />
+	<suscan:field name="blue" value="0.00784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="253" />
+	<suscan:field name="red" value="0.505882" />
+	<suscan:field name="green" value="0.0235294" />
+	<suscan:field name="blue" value="0.00784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="254" />
+	<suscan:field name="red" value="0.494118" />
+	<suscan:field name="green" value="0.0196078" />
+	<suscan:field name="blue" value="0.00784314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="255" />
+	<suscan:field name="red" value="0.478431" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.0117647" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
+    <suscan:field name="name"><![CDATA[Plasma (Gqrx)]]></suscan:field>
+    <suscan:object_set name="stops">
+      <suscan:object>
+	<suscan:field name="position" value="0" />
+	<suscan:field name="red" value="0.0470588" />
+	<suscan:field name="green" value="0.027451" />
+	<suscan:field name="blue" value="0.52549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="1" />
+	<suscan:field name="red" value="0.0627451" />
+	<suscan:field name="green" value="0.027451" />
+	<suscan:field name="blue" value="0.529412" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="2" />
+	<suscan:field name="red" value="0.0745098" />
+	<suscan:field name="green" value="0.0235294" />
+	<suscan:field name="blue" value="0.537255" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="3" />
+	<suscan:field name="red" value="0.0823529" />
+	<suscan:field name="green" value="0.0235294" />
+	<suscan:field name="blue" value="0.541176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="4" />
+	<suscan:field name="red" value="0.0941176" />
+	<suscan:field name="green" value="0.0235294" />
+	<suscan:field name="blue" value="0.545098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="5" />
+	<suscan:field name="red" value="0.105882" />
+	<suscan:field name="green" value="0.0235294" />
+	<suscan:field name="blue" value="0.54902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="6" />
+	<suscan:field name="red" value="0.113725" />
+	<suscan:field name="green" value="0.0235294" />
+	<suscan:field name="blue" value="0.552941" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="7" />
+	<suscan:field name="red" value="0.121569" />
+	<suscan:field name="green" value="0.0196078" />
+	<suscan:field name="blue" value="0.556863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="8" />
+	<suscan:field name="red" value="0.129412" />
+	<suscan:field name="green" value="0.0196078" />
+	<suscan:field name="blue" value="0.560784" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="9" />
+	<suscan:field name="red" value="0.137255" />
+	<suscan:field name="green" value="0.0196078" />
+	<suscan:field name="blue" value="0.564706" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="10" />
+	<suscan:field name="red" value="0.145098" />
+	<suscan:field name="green" value="0.0196078" />
+	<suscan:field name="blue" value="0.568627" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="11" />
+	<suscan:field name="red" value="0.152941" />
+	<suscan:field name="green" value="0.0196078" />
+	<suscan:field name="blue" value="0.572549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="12" />
+	<suscan:field name="red" value="0.160784" />
+	<suscan:field name="green" value="0.0196078" />
+	<suscan:field name="blue" value="0.576471" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="13" />
+	<suscan:field name="red" value="0.168627" />
+	<suscan:field name="green" value="0.0196078" />
+	<suscan:field name="blue" value="0.580392" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="14" />
+	<suscan:field name="red" value="0.176471" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.580392" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="15" />
+	<suscan:field name="red" value="0.184314" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.584314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="16" />
+	<suscan:field name="red" value="0.192157" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.588235" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="17" />
+	<suscan:field name="red" value="0.2" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.592157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="18" />
+	<suscan:field name="red" value="0.203922" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.596078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="19" />
+	<suscan:field name="red" value="0.211765" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.596078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="20" />
+	<suscan:field name="red" value="0.219608" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.6" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="21" />
+	<suscan:field name="red" value="0.227451" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.603922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="22" />
+	<suscan:field name="red" value="0.231373" />
+	<suscan:field name="green" value="0.0117647" />
+	<suscan:field name="blue" value="0.603922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="23" />
+	<suscan:field name="red" value="0.239216" />
+	<suscan:field name="green" value="0.0117647" />
+	<suscan:field name="blue" value="0.607843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="24" />
+	<suscan:field name="red" value="0.247059" />
+	<suscan:field name="green" value="0.0117647" />
+	<suscan:field name="blue" value="0.611765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="25" />
+	<suscan:field name="red" value="0.25098" />
+	<suscan:field name="green" value="0.0117647" />
+	<suscan:field name="blue" value="0.611765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="26" />
+	<suscan:field name="red" value="0.258824" />
+	<suscan:field name="green" value="0.0117647" />
+	<suscan:field name="blue" value="0.615686" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="27" />
+	<suscan:field name="red" value="0.266667" />
+	<suscan:field name="green" value="0.0117647" />
+	<suscan:field name="blue" value="0.619608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="28" />
+	<suscan:field name="red" value="0.270588" />
+	<suscan:field name="green" value="0.0117647" />
+	<suscan:field name="blue" value="0.619608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="29" />
+	<suscan:field name="red" value="0.278431" />
+	<suscan:field name="green" value="0.00784314" />
+	<suscan:field name="blue" value="0.623529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="30" />
+	<suscan:field name="red" value="0.286275" />
+	<suscan:field name="green" value="0.00784314" />
+	<suscan:field name="blue" value="0.623529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="31" />
+	<suscan:field name="red" value="0.290196" />
+	<suscan:field name="green" value="0.00784314" />
+	<suscan:field name="blue" value="0.627451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="32" />
+	<suscan:field name="red" value="0.298039" />
+	<suscan:field name="green" value="0.00784314" />
+	<suscan:field name="blue" value="0.631373" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="33" />
+	<suscan:field name="red" value="0.305882" />
+	<suscan:field name="green" value="0.00784314" />
+	<suscan:field name="blue" value="0.631373" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="34" />
+	<suscan:field name="red" value="0.309804" />
+	<suscan:field name="green" value="0.00784314" />
+	<suscan:field name="blue" value="0.635294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="35" />
+	<suscan:field name="red" value="0.317647" />
+	<suscan:field name="green" value="0.00392157" />
+	<suscan:field name="blue" value="0.635294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="36" />
+	<suscan:field name="red" value="0.321569" />
+	<suscan:field name="green" value="0.00392157" />
+	<suscan:field name="blue" value="0.639216" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="37" />
+	<suscan:field name="red" value="0.329412" />
+	<suscan:field name="green" value="0.00392157" />
+	<suscan:field name="blue" value="0.639216" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="38" />
+	<suscan:field name="red" value="0.337255" />
+	<suscan:field name="green" value="0.00392157" />
+	<suscan:field name="blue" value="0.639216" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="39" />
+	<suscan:field name="red" value="0.341176" />
+	<suscan:field name="green" value="0.00392157" />
+	<suscan:field name="blue" value="0.643137" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="40" />
+	<suscan:field name="red" value="0.34902" />
+	<suscan:field name="green" value="0.00392157" />
+	<suscan:field name="blue" value="0.643137" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="41" />
+	<suscan:field name="red" value="0.352941" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.647059" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="42" />
+	<suscan:field name="red" value="0.360784" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.647059" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="43" />
+	<suscan:field name="red" value="0.368627" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.647059" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="44" />
+	<suscan:field name="red" value="0.372549" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.65098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="45" />
+	<suscan:field name="red" value="0.380392" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.65098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="46" />
+	<suscan:field name="red" value="0.384314" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.65098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="47" />
+	<suscan:field name="red" value="0.392157" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="48" />
+	<suscan:field name="red" value="0.396078" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="49" />
+	<suscan:field name="red" value="0.403922" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="50" />
+	<suscan:field name="red" value="0.407843" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="51" />
+	<suscan:field name="red" value="0.415686" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="52" />
+	<suscan:field name="red" value="0.423529" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="53" />
+	<suscan:field name="red" value="0.427451" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="54" />
+	<suscan:field name="red" value="0.435294" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="55" />
+	<suscan:field name="red" value="0.439216" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="56" />
+	<suscan:field name="red" value="0.447059" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="57" />
+	<suscan:field name="red" value="0.45098" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="58" />
+	<suscan:field name="red" value="0.458824" />
+	<suscan:field name="green" value="0" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="59" />
+	<suscan:field name="red" value="0.462745" />
+	<suscan:field name="green" value="0.00392157" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="60" />
+	<suscan:field name="red" value="0.470588" />
+	<suscan:field name="green" value="0.00392157" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="61" />
+	<suscan:field name="red" value="0.47451" />
+	<suscan:field name="green" value="0.00392157" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="62" />
+	<suscan:field name="red" value="0.482353" />
+	<suscan:field name="green" value="0.00784314" />
+	<suscan:field name="blue" value="0.658824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="63" />
+	<suscan:field name="red" value="0.486275" />
+	<suscan:field name="green" value="0.00784314" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="64" />
+	<suscan:field name="red" value="0.494118" />
+	<suscan:field name="green" value="0.0117647" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="65" />
+	<suscan:field name="red" value="0.498039" />
+	<suscan:field name="green" value="0.0117647" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="66" />
+	<suscan:field name="red" value="0.505882" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="67" />
+	<suscan:field name="red" value="0.509804" />
+	<suscan:field name="green" value="0.0156863" />
+	<suscan:field name="blue" value="0.654902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="68" />
+	<suscan:field name="red" value="0.517647" />
+	<suscan:field name="green" value="0.0196078" />
+	<suscan:field name="blue" value="0.65098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="69" />
+	<suscan:field name="red" value="0.521569" />
+	<suscan:field name="green" value="0.0235294" />
+	<suscan:field name="blue" value="0.65098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="70" />
+	<suscan:field name="red" value="0.52549" />
+	<suscan:field name="green" value="0.027451" />
+	<suscan:field name="blue" value="0.65098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="71" />
+	<suscan:field name="red" value="0.533333" />
+	<suscan:field name="green" value="0.027451" />
+	<suscan:field name="blue" value="0.647059" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="72" />
+	<suscan:field name="red" value="0.537255" />
+	<suscan:field name="green" value="0.0313725" />
+	<suscan:field name="blue" value="0.647059" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="73" />
+	<suscan:field name="red" value="0.545098" />
+	<suscan:field name="green" value="0.0352941" />
+	<suscan:field name="blue" value="0.643137" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="74" />
+	<suscan:field name="red" value="0.54902" />
+	<suscan:field name="green" value="0.0392157" />
+	<suscan:field name="blue" value="0.643137" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="75" />
+	<suscan:field name="red" value="0.556863" />
+	<suscan:field name="green" value="0.0470588" />
+	<suscan:field name="blue" value="0.643137" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="76" />
+	<suscan:field name="red" value="0.560784" />
+	<suscan:field name="green" value="0.0509804" />
+	<suscan:field name="blue" value="0.639216" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="77" />
+	<suscan:field name="red" value="0.564706" />
+	<suscan:field name="green" value="0.054902" />
+	<suscan:field name="blue" value="0.639216" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="78" />
+	<suscan:field name="red" value="0.572549" />
+	<suscan:field name="green" value="0.0588235" />
+	<suscan:field name="blue" value="0.635294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="79" />
+	<suscan:field name="red" value="0.576471" />
+	<suscan:field name="green" value="0.0627451" />
+	<suscan:field name="blue" value="0.631373" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="80" />
+	<suscan:field name="red" value="0.584314" />
+	<suscan:field name="green" value="0.0666667" />
+	<suscan:field name="blue" value="0.631373" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="81" />
+	<suscan:field name="red" value="0.588235" />
+	<suscan:field name="green" value="0.0705882" />
+	<suscan:field name="blue" value="0.627451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="82" />
+	<suscan:field name="red" value="0.592157" />
+	<suscan:field name="green" value="0.0745098" />
+	<suscan:field name="blue" value="0.627451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="83" />
+	<suscan:field name="red" value="0.6" />
+	<suscan:field name="green" value="0.0784314" />
+	<suscan:field name="blue" value="0.623529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="84" />
+	<suscan:field name="red" value="0.603922" />
+	<suscan:field name="green" value="0.0823529" />
+	<suscan:field name="blue" value="0.619608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="85" />
+	<suscan:field name="red" value="0.607843" />
+	<suscan:field name="green" value="0.0901961" />
+	<suscan:field name="blue" value="0.619608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="86" />
+	<suscan:field name="red" value="0.615686" />
+	<suscan:field name="green" value="0.0941176" />
+	<suscan:field name="blue" value="0.615686" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="87" />
+	<suscan:field name="red" value="0.619608" />
+	<suscan:field name="green" value="0.0980392" />
+	<suscan:field name="blue" value="0.611765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="88" />
+	<suscan:field name="red" value="0.623529" />
+	<suscan:field name="green" value="0.101961" />
+	<suscan:field name="blue" value="0.607843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="89" />
+	<suscan:field name="red" value="0.627451" />
+	<suscan:field name="green" value="0.105882" />
+	<suscan:field name="blue" value="0.607843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="90" />
+	<suscan:field name="red" value="0.635294" />
+	<suscan:field name="green" value="0.109804" />
+	<suscan:field name="blue" value="0.603922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="91" />
+	<suscan:field name="red" value="0.639216" />
+	<suscan:field name="green" value="0.113725" />
+	<suscan:field name="blue" value="0.6" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="92" />
+	<suscan:field name="red" value="0.643137" />
+	<suscan:field name="green" value="0.117647" />
+	<suscan:field name="blue" value="0.596078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="93" />
+	<suscan:field name="red" value="0.647059" />
+	<suscan:field name="green" value="0.121569" />
+	<suscan:field name="blue" value="0.592157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="94" />
+	<suscan:field name="red" value="0.654902" />
+	<suscan:field name="green" value="0.129412" />
+	<suscan:field name="blue" value="0.592157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="95" />
+	<suscan:field name="red" value="0.658824" />
+	<suscan:field name="green" value="0.133333" />
+	<suscan:field name="blue" value="0.588235" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="96" />
+	<suscan:field name="red" value="0.662745" />
+	<suscan:field name="green" value="0.137255" />
+	<suscan:field name="blue" value="0.584314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="97" />
+	<suscan:field name="red" value="0.666667" />
+	<suscan:field name="green" value="0.141176" />
+	<suscan:field name="blue" value="0.580392" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="98" />
+	<suscan:field name="red" value="0.67451" />
+	<suscan:field name="green" value="0.145098" />
+	<suscan:field name="blue" value="0.576471" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="99" />
+	<suscan:field name="red" value="0.678431" />
+	<suscan:field name="green" value="0.14902" />
+	<suscan:field name="blue" value="0.572549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="100" />
+	<suscan:field name="red" value="0.682353" />
+	<suscan:field name="green" value="0.152941" />
+	<suscan:field name="blue" value="0.568627" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="101" />
+	<suscan:field name="red" value="0.686275" />
+	<suscan:field name="green" value="0.156863" />
+	<suscan:field name="blue" value="0.564706" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="102" />
+	<suscan:field name="red" value="0.690196" />
+	<suscan:field name="green" value="0.164706" />
+	<suscan:field name="blue" value="0.560784" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="103" />
+	<suscan:field name="red" value="0.694118" />
+	<suscan:field name="green" value="0.168627" />
+	<suscan:field name="blue" value="0.560784" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="104" />
+	<suscan:field name="red" value="0.698039" />
+	<suscan:field name="green" value="0.172549" />
+	<suscan:field name="blue" value="0.556863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="105" />
+	<suscan:field name="red" value="0.705882" />
+	<suscan:field name="green" value="0.176471" />
+	<suscan:field name="blue" value="0.552941" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="106" />
+	<suscan:field name="red" value="0.709804" />
+	<suscan:field name="green" value="0.180392" />
+	<suscan:field name="blue" value="0.54902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="107" />
+	<suscan:field name="red" value="0.713725" />
+	<suscan:field name="green" value="0.184314" />
+	<suscan:field name="blue" value="0.545098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="108" />
+	<suscan:field name="red" value="0.717647" />
+	<suscan:field name="green" value="0.188235" />
+	<suscan:field name="blue" value="0.541176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="109" />
+	<suscan:field name="red" value="0.721569" />
+	<suscan:field name="green" value="0.196078" />
+	<suscan:field name="blue" value="0.537255" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="110" />
+	<suscan:field name="red" value="0.72549" />
+	<suscan:field name="green" value="0.2" />
+	<suscan:field name="blue" value="0.533333" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="111" />
+	<suscan:field name="red" value="0.729412" />
+	<suscan:field name="green" value="0.203922" />
+	<suscan:field name="blue" value="0.529412" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="112" />
+	<suscan:field name="red" value="0.733333" />
+	<suscan:field name="green" value="0.207843" />
+	<suscan:field name="blue" value="0.52549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="113" />
+	<suscan:field name="red" value="0.737255" />
+	<suscan:field name="green" value="0.211765" />
+	<suscan:field name="blue" value="0.521569" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="114" />
+	<suscan:field name="red" value="0.741176" />
+	<suscan:field name="green" value="0.215686" />
+	<suscan:field name="blue" value="0.517647" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="115" />
+	<suscan:field name="red" value="0.745098" />
+	<suscan:field name="green" value="0.219608" />
+	<suscan:field name="blue" value="0.513725" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="116" />
+	<suscan:field name="red" value="0.74902" />
+	<suscan:field name="green" value="0.223529" />
+	<suscan:field name="blue" value="0.509804" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="117" />
+	<suscan:field name="red" value="0.752941" />
+	<suscan:field name="green" value="0.231373" />
+	<suscan:field name="blue" value="0.505882" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="118" />
+	<suscan:field name="red" value="0.756863" />
+	<suscan:field name="green" value="0.235294" />
+	<suscan:field name="blue" value="0.501961" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="119" />
+	<suscan:field name="red" value="0.760784" />
+	<suscan:field name="green" value="0.239216" />
+	<suscan:field name="blue" value="0.501961" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="120" />
+	<suscan:field name="red" value="0.764706" />
+	<suscan:field name="green" value="0.243137" />
+	<suscan:field name="blue" value="0.498039" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="121" />
+	<suscan:field name="red" value="0.768627" />
+	<suscan:field name="green" value="0.247059" />
+	<suscan:field name="blue" value="0.494118" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="122" />
+	<suscan:field name="red" value="0.772549" />
+	<suscan:field name="green" value="0.25098" />
+	<suscan:field name="blue" value="0.490196" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="123" />
+	<suscan:field name="red" value="0.776471" />
+	<suscan:field name="green" value="0.254902" />
+	<suscan:field name="blue" value="0.486275" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="124" />
+	<suscan:field name="red" value="0.780392" />
+	<suscan:field name="green" value="0.258824" />
+	<suscan:field name="blue" value="0.482353" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="125" />
+	<suscan:field name="red" value="0.784314" />
+	<suscan:field name="green" value="0.266667" />
+	<suscan:field name="blue" value="0.478431" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="126" />
+	<suscan:field name="red" value="0.788235" />
+	<suscan:field name="green" value="0.270588" />
+	<suscan:field name="blue" value="0.47451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="127" />
+	<suscan:field name="red" value="0.792157" />
+	<suscan:field name="green" value="0.27451" />
+	<suscan:field name="blue" value="0.470588" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="128" />
+	<suscan:field name="red" value="0.796078" />
+	<suscan:field name="green" value="0.278431" />
+	<suscan:field name="blue" value="0.466667" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="129" />
+	<suscan:field name="red" value="0.8" />
+	<suscan:field name="green" value="0.282353" />
+	<suscan:field name="blue" value="0.462745" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="130" />
+	<suscan:field name="red" value="0.803922" />
+	<suscan:field name="green" value="0.286275" />
+	<suscan:field name="blue" value="0.458824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="131" />
+	<suscan:field name="red" value="0.807843" />
+	<suscan:field name="green" value="0.290196" />
+	<suscan:field name="blue" value="0.458824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="132" />
+	<suscan:field name="red" value="0.811765" />
+	<suscan:field name="green" value="0.294118" />
+	<suscan:field name="blue" value="0.454902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="133" />
+	<suscan:field name="red" value="0.815686" />
+	<suscan:field name="green" value="0.301961" />
+	<suscan:field name="blue" value="0.45098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="134" />
+	<suscan:field name="red" value="0.819608" />
+	<suscan:field name="green" value="0.305882" />
+	<suscan:field name="blue" value="0.447059" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="135" />
+	<suscan:field name="red" value="0.819608" />
+	<suscan:field name="green" value="0.309804" />
+	<suscan:field name="blue" value="0.443137" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="136" />
+	<suscan:field name="red" value="0.823529" />
+	<suscan:field name="green" value="0.313725" />
+	<suscan:field name="blue" value="0.439216" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="137" />
+	<suscan:field name="red" value="0.827451" />
+	<suscan:field name="green" value="0.317647" />
+	<suscan:field name="blue" value="0.435294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="138" />
+	<suscan:field name="red" value="0.831373" />
+	<suscan:field name="green" value="0.321569" />
+	<suscan:field name="blue" value="0.431373" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="139" />
+	<suscan:field name="red" value="0.835294" />
+	<suscan:field name="green" value="0.32549" />
+	<suscan:field name="blue" value="0.427451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="140" />
+	<suscan:field name="red" value="0.839216" />
+	<suscan:field name="green" value="0.333333" />
+	<suscan:field name="blue" value="0.427451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="141" />
+	<suscan:field name="red" value="0.843137" />
+	<suscan:field name="green" value="0.337255" />
+	<suscan:field name="blue" value="0.423529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="142" />
+	<suscan:field name="red" value="0.843137" />
+	<suscan:field name="green" value="0.341176" />
+	<suscan:field name="blue" value="0.419608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="143" />
+	<suscan:field name="red" value="0.847059" />
+	<suscan:field name="green" value="0.345098" />
+	<suscan:field name="blue" value="0.415686" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="144" />
+	<suscan:field name="red" value="0.85098" />
+	<suscan:field name="green" value="0.34902" />
+	<suscan:field name="blue" value="0.411765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="145" />
+	<suscan:field name="red" value="0.854902" />
+	<suscan:field name="green" value="0.352941" />
+	<suscan:field name="blue" value="0.407843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="146" />
+	<suscan:field name="red" value="0.858824" />
+	<suscan:field name="green" value="0.356863" />
+	<suscan:field name="blue" value="0.403922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="147" />
+	<suscan:field name="red" value="0.862745" />
+	<suscan:field name="green" value="0.364706" />
+	<suscan:field name="blue" value="0.4" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="148" />
+	<suscan:field name="red" value="0.862745" />
+	<suscan:field name="green" value="0.368627" />
+	<suscan:field name="blue" value="0.4" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="149" />
+	<suscan:field name="red" value="0.866667" />
+	<suscan:field name="green" value="0.372549" />
+	<suscan:field name="blue" value="0.396078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="150" />
+	<suscan:field name="red" value="0.870588" />
+	<suscan:field name="green" value="0.376471" />
+	<suscan:field name="blue" value="0.392157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="151" />
+	<suscan:field name="red" value="0.87451" />
+	<suscan:field name="green" value="0.380392" />
+	<suscan:field name="blue" value="0.388235" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="152" />
+	<suscan:field name="red" value="0.87451" />
+	<suscan:field name="green" value="0.384314" />
+	<suscan:field name="blue" value="0.384314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="153" />
+	<suscan:field name="red" value="0.878431" />
+	<suscan:field name="green" value="0.392157" />
+	<suscan:field name="blue" value="0.380392" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="154" />
+	<suscan:field name="red" value="0.882353" />
+	<suscan:field name="green" value="0.396078" />
+	<suscan:field name="blue" value="0.376471" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="155" />
+	<suscan:field name="red" value="0.886275" />
+	<suscan:field name="green" value="0.4" />
+	<suscan:field name="blue" value="0.376471" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="156" />
+	<suscan:field name="red" value="0.890196" />
+	<suscan:field name="green" value="0.403922" />
+	<suscan:field name="blue" value="0.372549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="157" />
+	<suscan:field name="red" value="0.890196" />
+	<suscan:field name="green" value="0.407843" />
+	<suscan:field name="blue" value="0.368627" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="158" />
+	<suscan:field name="red" value="0.894118" />
+	<suscan:field name="green" value="0.415686" />
+	<suscan:field name="blue" value="0.364706" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="159" />
+	<suscan:field name="red" value="0.898039" />
+	<suscan:field name="green" value="0.419608" />
+	<suscan:field name="blue" value="0.360784" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="160" />
+	<suscan:field name="red" value="0.898039" />
+	<suscan:field name="green" value="0.423529" />
+	<suscan:field name="blue" value="0.356863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="161" />
+	<suscan:field name="red" value="0.901961" />
+	<suscan:field name="green" value="0.427451" />
+	<suscan:field name="blue" value="0.352941" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="162" />
+	<suscan:field name="red" value="0.905882" />
+	<suscan:field name="green" value="0.431373" />
+	<suscan:field name="blue" value="0.352941" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="163" />
+	<suscan:field name="red" value="0.909804" />
+	<suscan:field name="green" value="0.439216" />
+	<suscan:field name="blue" value="0.34902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="164" />
+	<suscan:field name="red" value="0.909804" />
+	<suscan:field name="green" value="0.443137" />
+	<suscan:field name="blue" value="0.345098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="165" />
+	<suscan:field name="red" value="0.913725" />
+	<suscan:field name="green" value="0.447059" />
+	<suscan:field name="blue" value="0.341176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="166" />
+	<suscan:field name="red" value="0.917647" />
+	<suscan:field name="green" value="0.45098" />
+	<suscan:field name="blue" value="0.337255" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="167" />
+	<suscan:field name="red" value="0.917647" />
+	<suscan:field name="green" value="0.454902" />
+	<suscan:field name="blue" value="0.333333" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="168" />
+	<suscan:field name="red" value="0.921569" />
+	<suscan:field name="green" value="0.462745" />
+	<suscan:field name="blue" value="0.329412" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="169" />
+	<suscan:field name="red" value="0.92549" />
+	<suscan:field name="green" value="0.466667" />
+	<suscan:field name="blue" value="0.329412" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="170" />
+	<suscan:field name="red" value="0.92549" />
+	<suscan:field name="green" value="0.470588" />
+	<suscan:field name="blue" value="0.32549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="171" />
+	<suscan:field name="red" value="0.929412" />
+	<suscan:field name="green" value="0.47451" />
+	<suscan:field name="blue" value="0.321569" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="172" />
+	<suscan:field name="red" value="0.929412" />
+	<suscan:field name="green" value="0.482353" />
+	<suscan:field name="blue" value="0.317647" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="173" />
+	<suscan:field name="red" value="0.933333" />
+	<suscan:field name="green" value="0.486275" />
+	<suscan:field name="blue" value="0.313725" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="174" />
+	<suscan:field name="red" value="0.937255" />
+	<suscan:field name="green" value="0.490196" />
+	<suscan:field name="blue" value="0.309804" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="175" />
+	<suscan:field name="red" value="0.937255" />
+	<suscan:field name="green" value="0.494118" />
+	<suscan:field name="blue" value="0.305882" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="176" />
+	<suscan:field name="red" value="0.941176" />
+	<suscan:field name="green" value="0.501961" />
+	<suscan:field name="blue" value="0.301961" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="177" />
+	<suscan:field name="red" value="0.941176" />
+	<suscan:field name="green" value="0.505882" />
+	<suscan:field name="blue" value="0.301961" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="178" />
+	<suscan:field name="red" value="0.945098" />
+	<suscan:field name="green" value="0.509804" />
+	<suscan:field name="blue" value="0.298039" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="179" />
+	<suscan:field name="red" value="0.94902" />
+	<suscan:field name="green" value="0.517647" />
+	<suscan:field name="blue" value="0.294118" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="180" />
+	<suscan:field name="red" value="0.94902" />
+	<suscan:field name="green" value="0.521569" />
+	<suscan:field name="blue" value="0.290196" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="181" />
+	<suscan:field name="red" value="0.952941" />
+	<suscan:field name="green" value="0.52549" />
+	<suscan:field name="blue" value="0.286275" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="182" />
+	<suscan:field name="red" value="0.952941" />
+	<suscan:field name="green" value="0.529412" />
+	<suscan:field name="blue" value="0.282353" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="183" />
+	<suscan:field name="red" value="0.956863" />
+	<suscan:field name="green" value="0.537255" />
+	<suscan:field name="blue" value="0.278431" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="184" />
+	<suscan:field name="red" value="0.956863" />
+	<suscan:field name="green" value="0.541176" />
+	<suscan:field name="blue" value="0.278431" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="185" />
+	<suscan:field name="red" value="0.960784" />
+	<suscan:field name="green" value="0.545098" />
+	<suscan:field name="blue" value="0.27451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="186" />
+	<suscan:field name="red" value="0.960784" />
+	<suscan:field name="green" value="0.552941" />
+	<suscan:field name="blue" value="0.270588" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="187" />
+	<suscan:field name="red" value="0.964706" />
+	<suscan:field name="green" value="0.556863" />
+	<suscan:field name="blue" value="0.266667" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="188" />
+	<suscan:field name="red" value="0.964706" />
+	<suscan:field name="green" value="0.560784" />
+	<suscan:field name="blue" value="0.262745" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="189" />
+	<suscan:field name="red" value="0.964706" />
+	<suscan:field name="green" value="0.568627" />
+	<suscan:field name="blue" value="0.258824" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="190" />
+	<suscan:field name="red" value="0.968627" />
+	<suscan:field name="green" value="0.572549" />
+	<suscan:field name="blue" value="0.254902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="191" />
+	<suscan:field name="red" value="0.968627" />
+	<suscan:field name="green" value="0.576471" />
+	<suscan:field name="blue" value="0.254902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="192" />
+	<suscan:field name="red" value="0.972549" />
+	<suscan:field name="green" value="0.584314" />
+	<suscan:field name="blue" value="0.25098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="193" />
+	<suscan:field name="red" value="0.972549" />
+	<suscan:field name="green" value="0.588235" />
+	<suscan:field name="blue" value="0.247059" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="194" />
+	<suscan:field name="red" value="0.972549" />
+	<suscan:field name="green" value="0.596078" />
+	<suscan:field name="blue" value="0.243137" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="195" />
+	<suscan:field name="red" value="0.976471" />
+	<suscan:field name="green" value="0.6" />
+	<suscan:field name="blue" value="0.239216" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="196" />
+	<suscan:field name="red" value="0.976471" />
+	<suscan:field name="green" value="0.603922" />
+	<suscan:field name="blue" value="0.235294" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="197" />
+	<suscan:field name="red" value="0.980392" />
+	<suscan:field name="green" value="0.611765" />
+	<suscan:field name="blue" value="0.231373" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="198" />
+	<suscan:field name="red" value="0.980392" />
+	<suscan:field name="green" value="0.615686" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="199" />
+	<suscan:field name="red" value="0.980392" />
+	<suscan:field name="green" value="0.623529" />
+	<suscan:field name="blue" value="0.227451" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="200" />
+	<suscan:field name="red" value="0.980392" />
+	<suscan:field name="green" value="0.627451" />
+	<suscan:field name="blue" value="0.223529" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="201" />
+	<suscan:field name="red" value="0.984314" />
+	<suscan:field name="green" value="0.635294" />
+	<suscan:field name="blue" value="0.219608" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="202" />
+	<suscan:field name="red" value="0.984314" />
+	<suscan:field name="green" value="0.639216" />
+	<suscan:field name="blue" value="0.215686" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="203" />
+	<suscan:field name="red" value="0.984314" />
+	<suscan:field name="green" value="0.643137" />
+	<suscan:field name="blue" value="0.211765" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="204" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.65098" />
+	<suscan:field name="blue" value="0.207843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="205" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.654902" />
+	<suscan:field name="blue" value="0.207843" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="206" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.662745" />
+	<suscan:field name="blue" value="0.203922" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="207" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.666667" />
+	<suscan:field name="blue" value="0.2" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="208" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.67451" />
+	<suscan:field name="blue" value="0.196078" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="209" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.678431" />
+	<suscan:field name="blue" value="0.192157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="210" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.686275" />
+	<suscan:field name="blue" value="0.192157" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="211" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.690196" />
+	<suscan:field name="blue" value="0.188235" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="212" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.698039" />
+	<suscan:field name="blue" value="0.184314" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="213" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.701961" />
+	<suscan:field name="blue" value="0.180392" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="214" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.709804" />
+	<suscan:field name="blue" value="0.176471" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="215" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.713725" />
+	<suscan:field name="blue" value="0.176471" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="216" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.721569" />
+	<suscan:field name="blue" value="0.172549" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="217" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.72549" />
+	<suscan:field name="blue" value="0.168627" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="218" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.733333" />
+	<suscan:field name="blue" value="0.168627" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="219" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.737255" />
+	<suscan:field name="blue" value="0.164706" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="220" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.745098" />
+	<suscan:field name="blue" value="0.160784" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="221" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.752941" />
+	<suscan:field name="blue" value="0.160784" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="222" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.756863" />
+	<suscan:field name="blue" value="0.156863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="223" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.764706" />
+	<suscan:field name="blue" value="0.156863" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="224" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.768627" />
+	<suscan:field name="blue" value="0.152941" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="225" />
+	<suscan:field name="red" value="0.992157" />
+	<suscan:field name="green" value="0.776471" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="226" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.780392" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="227" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.788235" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="228" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.796078" />
+	<suscan:field name="blue" value="0.145098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="229" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.8" />
+	<suscan:field name="blue" value="0.145098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="230" />
+	<suscan:field name="red" value="0.988235" />
+	<suscan:field name="green" value="0.807843" />
+	<suscan:field name="blue" value="0.145098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="231" />
+	<suscan:field name="red" value="0.984314" />
+	<suscan:field name="green" value="0.815686" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="232" />
+	<suscan:field name="red" value="0.984314" />
+	<suscan:field name="green" value="0.819608" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="233" />
+	<suscan:field name="red" value="0.984314" />
+	<suscan:field name="green" value="0.827451" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="234" />
+	<suscan:field name="red" value="0.980392" />
+	<suscan:field name="green" value="0.835294" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="235" />
+	<suscan:field name="red" value="0.980392" />
+	<suscan:field name="green" value="0.839216" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="236" />
+	<suscan:field name="red" value="0.980392" />
+	<suscan:field name="green" value="0.847059" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="237" />
+	<suscan:field name="red" value="0.976471" />
+	<suscan:field name="green" value="0.85098" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="238" />
+	<suscan:field name="red" value="0.976471" />
+	<suscan:field name="green" value="0.858824" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="239" />
+	<suscan:field name="red" value="0.972549" />
+	<suscan:field name="green" value="0.866667" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="240" />
+	<suscan:field name="red" value="0.972549" />
+	<suscan:field name="green" value="0.87451" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="241" />
+	<suscan:field name="red" value="0.968627" />
+	<suscan:field name="green" value="0.878431" />
+	<suscan:field name="blue" value="0.141176" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="242" />
+	<suscan:field name="red" value="0.968627" />
+	<suscan:field name="green" value="0.886275" />
+	<suscan:field name="blue" value="0.145098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="243" />
+	<suscan:field name="red" value="0.964706" />
+	<suscan:field name="green" value="0.894118" />
+	<suscan:field name="blue" value="0.145098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="244" />
+	<suscan:field name="red" value="0.964706" />
+	<suscan:field name="green" value="0.898039" />
+	<suscan:field name="blue" value="0.145098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="245" />
+	<suscan:field name="red" value="0.960784" />
+	<suscan:field name="green" value="0.905882" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="246" />
+	<suscan:field name="red" value="0.960784" />
+	<suscan:field name="green" value="0.913725" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="247" />
+	<suscan:field name="red" value="0.956863" />
+	<suscan:field name="green" value="0.917647" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="248" />
+	<suscan:field name="red" value="0.952941" />
+	<suscan:field name="green" value="0.92549" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="249" />
+	<suscan:field name="red" value="0.952941" />
+	<suscan:field name="green" value="0.933333" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="250" />
+	<suscan:field name="red" value="0.94902" />
+	<suscan:field name="green" value="0.941176" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="251" />
+	<suscan:field name="red" value="0.94902" />
+	<suscan:field name="green" value="0.945098" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="252" />
+	<suscan:field name="red" value="0.945098" />
+	<suscan:field name="green" value="0.952941" />
+	<suscan:field name="blue" value="0.14902" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="253" />
+	<suscan:field name="red" value="0.941176" />
+	<suscan:field name="green" value="0.960784" />
+	<suscan:field name="blue" value="0.145098" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="254" />
+	<suscan:field name="red" value="0.941176" />
+	<suscan:field name="green" value="0.964706" />
+	<suscan:field name="blue" value="0.137255" />
+      </suscan:object>
+      <suscan:object>
+	<suscan:field name="position" value="255" />
+	<suscan:field name="red" value="0.937255" />
+	<suscan:field name="green" value="0.972549" />
+	<suscan:field name="blue" value="0.129412" />
+      </suscan:object>
+    </suscan:object_set>
+  </suscan:object>
+  <suscan:object class="palette">
     <suscan:field name="name"><![CDATA[Red & Lime]]></suscan:field>
     <suscan:object_set name="stops">
       <suscan:object>

@@ -27,6 +27,7 @@
 #define SU_LOG_DOMAIN "source"
 #include <confdb.h>
 #include "source.h"
+#include <sigutils/taps.h>
 
 #ifdef _SU_SINGLE_PRECISION
 #  define sf_read sf_read_float
@@ -113,8 +114,10 @@ suscan_source_device_lookup_gain_desc(
 {
   unsigned int i;
 
+  /* We only provide visibility to current gains. */
   for (i = 0; i < dev->gain_desc_count; ++i)
-    if (strcmp(dev->gain_desc_list[i]->name, name) == 0)
+    if (strcmp(dev->gain_desc_list[i]->name, name) == 0
+        && dev->gain_desc_list[i]->epoch == dev->epoch)
       return dev->gain_desc_list[i];
 
   return NULL;
@@ -139,6 +142,9 @@ suscan_source_device_destroy(suscan_source_device_t *dev)
   if (dev->gain_desc_list != NULL)
     free(dev->gain_desc_list);
 
+  if (dev->samp_rate_list != NULL)
+    free(dev->samp_rate_list);
+
   if (dev->desc != NULL)
     free(dev->desc);
 
@@ -153,7 +159,11 @@ suscan_source_device_destroy(suscan_source_device_t *dev)
 void
 suscan_source_device_info_finalize(struct suscan_source_device_info *info)
 {
-  /* NO-OP. Keeping method in case we add dynamic members in the future */
+  if (info->gain_desc_list != NULL)
+    free(info->gain_desc_list);
+
+  info->gain_desc_list = NULL;
+  info->gain_desc_count = 0;
 }
 
 SUPRIVATE void
@@ -163,24 +173,22 @@ suscan_source_reset_devices(void)
 
   for (i = 0; i < device_count; ++i)
     if (device_list[i] != NULL) {
+      ++device_list[i]->epoch;
       device_list[i]->available = SU_FALSE;
-
-      for (j = 0; j < device_list[i]->gain_desc_count; ++j)
-        suscan_source_gain_desc_destroy(device_list[i]->gain_desc_list[j]);
-      device_list[i]->gain_desc_count = 0;
-
-      if (device_list[i]->gain_desc_list != NULL) {
-        free(device_list[i]->gain_desc_list);
-        device_list[i]->gain_desc_list = NULL;
-      }
 
       for (j = 0; j < device_list[i]->antenna_count; ++j)
         free(device_list[i]->antenna_list[j]);
-      device_list[i]->antenna_count = 0;
 
+      device_list[i]->antenna_count = 0;
       if (device_list[i]->antenna_list != NULL) {
         free(device_list[i]->antenna_list);
         device_list[i]->antenna_list = NULL;
+      }
+
+      device_list[i]->samp_rate_count = 0;
+      if (device_list[i]->samp_rate_list != NULL) {
+        free(device_list[i]->samp_rate_list);
+        device_list[i]->samp_rate_list = NULL;
       }
     }
 }
@@ -200,11 +208,50 @@ suscan_source_device_build_desc(const char *driver, const char *label)
   return strbuild("%s (%s)", driver, label);
 }
 
+SUPRIVATE struct suscan_source_gain_desc *
+suscan_source_device_assert_gain(
+    suscan_source_device_t *dev,
+    const char *name,
+    SUFLOAT min,
+    SUFLOAT max,
+    unsigned int step)
+{
+  unsigned int i;
+  struct suscan_source_gain_desc *desc = NULL, *result = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  for (i = 0; i < dev->gain_desc_count; ++i) {
+    if (strcmp(dev->gain_desc_list[i]->name, name) == 0) {
+      result = dev->gain_desc_list[i];
+      result->min = min;
+      result->max = max;
+      break;
+    }
+  }
+
+  if (result == NULL) {
+    SU_TRYCATCH(
+        desc = suscan_source_gain_desc_new(name, min, max),
+        goto done);
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(dev->gain_desc, desc) != -1, goto done);
+    result = desc;
+    desc = NULL;
+  }
+
+  result->step = step;
+  result->epoch = dev->epoch;
+
+done:
+  if (desc != NULL)
+    suscan_source_gain_desc_destroy(desc);
+
+  return result;
+}
+
 SUPRIVATE SUBOOL
 suscan_source_device_populate_info(suscan_source_device_t *dev)
 {
   SoapySDRDevice *sdev = NULL;
-  struct suscan_source_gain_desc *desc = NULL;
   SoapySDRRange *freqRanges;
   SoapySDRRange range;
   SUFREQ freq_min = INFINITY;
@@ -212,9 +259,12 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
   char **antenna_list = NULL;
   char **gain_list = NULL;
   char *dup = NULL;
+  double *samp_rate_list = NULL;
   size_t antenna_count = 0;
   size_t gain_count = 0;
   size_t range_count;
+  size_t samp_rate_count;
+  struct suscan_source_gain_desc *desc;
   unsigned int i;
 
   SUBOOL ok = SU_FALSE;
@@ -270,24 +320,44 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
           SOAPY_SDR_RX,
           0,
           gain_list[i]);
+
       SU_TRYCATCH(
-          desc = suscan_source_gain_desc_new(
+          desc = suscan_source_device_assert_gain(
+              dev,
               gain_list[i],
               range.minimum,
-              range.maximum),
+              range.maximum,
+              1), /* This may change in the future */
           goto done);
 
-      /* This may change in the future */
-      desc->step = 1;
       desc->def = SoapySDRDevice_getGainElement(
           sdev,
           SOAPY_SDR_RX,
           0,
           gain_list[i]);
-
-      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(dev->gain_desc, desc) != -1, goto done);
-      desc = NULL;
     }
+
+    /* Get rates */
+    SU_TRYCATCH(
+        samp_rate_list = SoapySDRDevice_listSampleRates(
+            sdev,
+            SOAPY_SDR_RX,
+            0,
+            &samp_rate_count),
+        goto done);
+
+    SU_TRYCATCH(samp_rate_count > 0, goto done);
+
+    SU_TRYCATCH(
+        dev->samp_rate_list = malloc(samp_rate_count * sizeof(double)),
+        goto done);
+
+    memcpy(
+        dev->samp_rate_list,
+        samp_rate_list,
+        samp_rate_count * sizeof(double));
+    dev->samp_rate_count = samp_rate_count;
+    free(samp_rate_list);
   }
 
   ok = SU_TRUE;
@@ -306,9 +376,6 @@ done:
   /*if (freqRanges != NULL)
     free(freqRanges); */
 
-  if (desc != NULL)
-    suscan_source_gain_desc_destroy(desc);
-
   if (sdev != NULL)
     SoapySDRDevice_unmake(sdev);
 
@@ -322,23 +389,45 @@ suscan_source_device_get_info(
     unsigned int channel,
     struct suscan_source_device_info *info)
 {
+  int i;
+
+  info->gain_desc_list = NULL;
+  info->gain_desc_count = 0;
+
   if (!suscan_source_device_is_populated(dev)) {
     SU_TRYCATCH(
         suscan_source_device_populate_info((suscan_source_device_t *) dev),
-        return SU_FALSE);
+        goto fail);
 
   }
 
-  info->gain_desc_list = (const struct suscan_source_gain_desc **) dev->gain_desc_list;
-  info->gain_desc_count = dev->gain_desc_count;
+  /*
+   * Populate gain desc info. This is performed by checking the epoch. If
+   * this gain has not been seen in the current device discovery, just omit it.
+   */
+  for (i = 0; i < dev->gain_desc_count; ++i) {
+    if (dev->gain_desc_list[i]->epoch == dev->epoch) {
+      SU_TRYCATCH(
+          PTR_LIST_APPEND_CHECK(
+              info->gain_desc,
+              dev->gain_desc_list[i]) != -1,
+          goto fail);
+    }
+  }
 
   info->antenna_list = (const char **) dev->antenna_list;
   info->antenna_count = dev->antenna_count;
+
+  info->samp_rate_list = (const double *) dev->samp_rate_list;
+  info->samp_rate_count = dev->samp_rate_count;
 
   info->freq_min = dev->freq_min;
   info->freq_max = dev->freq_max;
 
   return SU_TRUE;
+
+fail:
+  return SU_FALSE;
 }
 
 SUPRIVATE suscan_source_device_t *
@@ -1459,8 +1548,109 @@ suscan_source_destroy(suscan_source_t *source)
   if (source->config != NULL)
     suscan_source_config_destroy(source->config);
 
+  if (source->antialias_alloc != NULL)
+    free(source->antialias_alloc);
+
+  if (source->decim_buf != NULL)
+    free(source->decim_buf);
+
   free(source);
 }
+
+/*********************** Decimator configuration *****************************/
+SUPRIVATE SUBOOL
+suscan_source_configure_decimation(
+    suscan_source_t *self,
+    int decim)
+{
+  int i;
+  SUFLOAT *antialias;
+
+  /* Decim is M: Compute an antialias filter of M * SUSCAN_SOURCE_POLYPHASE_BANK_SIZE */
+
+  SU_TRYCATCH(decim > 0, return SU_FALSE);
+
+  self->decim = decim;
+  self->decim_length = decim * SUSCAN_SOURCE_ANTIALIAS_REL_SIZE;
+
+  /* Pointers are initialized in 0, -decim, -2 * decim, -3 * decim... */
+
+  for (i = 0; i < SUSCAN_SOURCE_ANTIALIAS_REL_SIZE; ++i)
+    self->ptrs[i] = -i * decim;
+
+  /*
+   * 1 filter:  [DECIM]
+   * 2 filters: [NULLS][DECIM][DECIM]
+   * 3 filters: [NULLS][NULLS][DECIM][DECIM][DECIM]
+   */
+  SU_TRYCATCH(
+      self->antialias_alloc = calloc(
+          2 * SUSCAN_SOURCE_ANTIALIAS_REL_SIZE - 1,
+          decim * sizeof(SUFLOAT)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      self->decim_buf = malloc(
+          SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE * sizeof(SUCOMPLEX)),
+      return SU_FALSE);
+
+  antialias = self->antialias_alloc
+      + (SUSCAN_SOURCE_ANTIALIAS_REL_SIZE - 1) * decim;
+  self->antialias = antialias;
+
+  /*
+   * Decim 1: Filter cutoff: 1
+   * Decim 2: Filter cutoff: .5
+   * Decim 3: Filter cutoff: .3333...
+   */
+  su_taps_brickwall_lp_init(
+      antialias,
+      1 / (SUFLOAT) decim,
+      self->decim_length);
+
+  return SU_TRUE;
+}
+
+#define ACCUMULATE(val) \
+  self->accums[val] += data[i] * (self->antialias[self->ptrs[val]++])
+#define IF_DONE_PRODUCE_SAMPLE(val) \
+    if (self->ptrs[val] == self->decim_length) { \
+      self->decim_buf[samples++] = self->accums[val]; \
+      self->accums[val] = self->ptrs[val] = 0; \
+      if (samples >= SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE) \
+        break; \
+    }
+
+SUPRIVATE SUSCOUNT
+suscan_source_feed_decimator(
+    suscan_source_t *self,
+    const SUCOMPLEX *data,
+    SUSCOUNT len)
+{
+  SUSCOUNT samples = 0;
+  SUSCOUNT i;
+
+  /* Loop unrolling. I'm sorry. */
+
+  for (i = 0; i < len; ++i) {
+    ACCUMULATE(0);
+    ACCUMULATE(1);
+    ACCUMULATE(2);
+    ACCUMULATE(3);
+    ACCUMULATE(4);
+
+    IF_DONE_PRODUCE_SAMPLE(0)
+    else IF_DONE_PRODUCE_SAMPLE(1)
+    else IF_DONE_PRODUCE_SAMPLE(2)
+    else IF_DONE_PRODUCE_SAMPLE(3)
+    else IF_DONE_PRODUCE_SAMPLE(4)
+  }
+
+  return samples;
+}
+
+#undef ACCUMULATE
+#undef IF_DONE_PRODUCE_SAMPLE
 
 SUPRIVATE SUBOOL
 suscan_source_open_file(suscan_source_t *source)
@@ -1530,26 +1720,23 @@ suscan_source_set_sample_rate_near(suscan_source_t *source)
   SUFLOAT dist = INFINITY;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(
-      rates = SoapySDRDevice_listSampleRates(
-          source->sdr,
-          SOAPY_SDR_RX,
-          0,
-          &len),
-      goto done);
-
-  SU_TRYCATCH(len > 0, goto done);
-
   /*
    * Unfortunately, SoapySDR's documentation does not ensure this list is
    * ordered in any way, so we have to look for the closest rate in the
    * entire list.
    */
-  for (i = 0; i < len; ++i)
+
+  if (source->config->device == NULL
+      || source->config->device->samp_rate_count == 0) {
+    closest_rate = source->config->samp_rate;
+  } else {
+    rates = source->config->device->samp_rate_list;
+    for (i = 0; i < source->config->device->samp_rate_count; ++i)
     if (SU_ABS(rates[i] - source->config->samp_rate) < dist) {
       dist = SU_ABS(rates[i] - source->config->samp_rate);
       closest_rate = rates[i];
     }
+  }
 
   if (SoapySDRDevice_setSampleRate(
       source->sdr,
@@ -1565,9 +1752,6 @@ suscan_source_set_sample_rate_near(suscan_source_t *source)
   ok = SU_TRUE;
 
 done:
-  if (rates != NULL)
-    free(rates);
-
   return ok;
 }
 
@@ -1681,6 +1865,10 @@ suscan_source_open_sdr(suscan_source_t *source)
     return SU_FALSE;
   }
 
+  source->mtu = SoapySDRDevice_getStreamMTU(
+      source->sdr,
+      source->rx_stream);
+
   source->samp_rate = SoapySDRDevice_getSampleRate(
       source->sdr,
       SOAPY_SDR_RX,
@@ -1750,7 +1938,7 @@ suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
           max,
           &flags,
           &timeNs,
-          0); /* TODO: set timeOut */
+          SUSCAN_SOURCE_DEFAULT_READ_TIMEOUT); /* Setting this to 0 caused extreme CPU usage in MacOS */
 
     if (result == SOAPY_SDR_TIMEOUT
         || result == SOAPY_SDR_OVERFLOW
@@ -1774,6 +1962,8 @@ suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
 SUSDIFF
 suscan_source_read(suscan_source_t *source, SUCOMPLEX *buffer, SUSCOUNT max)
 {
+  SUSDIFF got;
+  SUSCOUNT result;
   SU_TRYCATCH(source->capturing, return SU_FALSE);
 
   if (source->read == NULL) {
@@ -1781,7 +1971,20 @@ suscan_source_read(suscan_source_t *source, SUCOMPLEX *buffer, SUSCOUNT max)
     return -1;
   }
 
-  return (source->read) (source, buffer, max);
+  if (source->decim > 1) {
+    if (max > SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE)
+      max = SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE;
+
+    do {
+      if ((got = (source->read) (source, buffer, max)) < 1)
+        return got;
+      result = suscan_source_feed_decimator(source, buffer, got);
+    } while (result == 0);
+
+    memcpy(buffer, source->decim_buf, result * sizeof(SUCOMPLEX));
+
+    return result;
+  } else return (source->read) (source, buffer, max);
 }
 
 SUBOOL
@@ -2085,6 +2288,13 @@ suscan_source_new(suscan_source_config_t *config)
   SU_TRYCATCH(suscan_source_config_check(config), goto fail);
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_source_t)), goto fail);
   SU_TRYCATCH(new->config = suscan_source_config_clone(config), goto fail);
+
+  new->decim = 1;
+
+  if (config->average > 1)
+    SU_TRYCATCH(
+        suscan_source_configure_decimation(new, config->average),
+        goto fail);
 
   switch (new->config->type) {
     case SUSCAN_SOURCE_TYPE_FILE:

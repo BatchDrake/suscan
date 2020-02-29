@@ -443,7 +443,17 @@ suscan_analyzer_thread(void *data)
               goto done);
 
           self->interval_channels = new_params->channel_update_int;
-          self->interval_psd      = new_params->psd_update_int;
+
+          if (SU_ABS(self->interval_psd - new_params->psd_update_int) > 1e-6) {
+            self->interval_psd = new_params->psd_update_int;
+            self->det_num_psd = 0;
+#ifdef __linux__
+            clock_gettime(CLOCK_MONOTONIC_COARSE, &self->last_psd);
+#else
+            clock_gettime(CLOCK_MONOTONIC, &self->last_psd);
+#endif /* __linux__ */
+          }
+
           /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
 
           SU_TRYCATCH(
@@ -552,9 +562,7 @@ suscan_analyzer_init_detector_params(
   *params = self->params.detector_params;
 
   /* Populate members with source information */
-  params->mode = self->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL
-      ? SU_CHANNEL_DETECTOR_MODE_DISCOVERY
-      : SU_CHANNEL_DETECTOR_MODE_SPECTRUM;
+  params->mode = SU_CHANNEL_DETECTOR_MODE_SPECTRUM;
 
   params->samp_rate = suscan_analyzer_get_samp_rate(self);
 
@@ -930,8 +938,15 @@ suscan_analyzer_new(
   /* Periodic updates */
   new->interval_channels = params->channel_update_int;
   new->interval_psd      = params->psd_update_int;
-  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_psd);
-  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_channels);
+
+#ifdef __linux__
+  clock_gettime(CLOCK_MONOTONIC_COARSE, &new->last_psd);
+  clock_gettime(CLOCK_MONOTONIC_COARSE, &new->last_channels);
+#else
+  clock_gettime(CLOCK_MONOTONIC, &new->last_psd);
+  clock_gettime(CLOCK_MONOTONIC, &new->last_channels);
+#endif
+
 
   /* Create channel detector */
   (void) pthread_mutex_init(&new->loop_mutex, NULL); /* Always succeeds */
@@ -997,6 +1012,16 @@ suscan_analyzer_new(
   new->mq_out = mq;
 
   SU_TRYCATCH(suscan_source_start_capture(new->source), goto fail);
+
+  if (new->read_size < new->source->mtu) {
+    new->read_size = new->source->mtu;
+    SUCOMPLEX *temp;
+    SU_TRYCATCH(
+        temp = realloc(new->read_buf, new->read_size * sizeof(SUCOMPLEX)),
+        goto fail);
+    new->read_buf = temp;
+  }
+
   new->effective_samp_rate = suscan_analyzer_get_samp_rate(new);
 
   /*

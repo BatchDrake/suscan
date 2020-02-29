@@ -103,6 +103,8 @@ suscan_psk_inspector_params_initialize(
   params->br.br_ctrl    = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
   params->br.br_alpha   = SU_PREFERED_CLOCK_ALPHA;
   params->br.br_beta    = SU_PREFERED_CLOCK_BETA;
+  params->br.baud       = SU_NORM2ABS_BAUD(sinfo->equiv_fs, .5 * sinfo->bw);
+;
 
   params->fc.fc_ctrl    = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
   params->fc.fc_loopbw  = sinfo->equiv_fs / 200; /* Experimental result */
@@ -204,7 +206,12 @@ suscan_psk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
   SU_TRYCATCH(su_equalizer_init(&new->eq, &eq_params), goto fail);
 
   /* Initialize sampler */
-  SU_TRYCATCH(su_sampler_init(&new->sampler, tau), goto fail);
+  SU_TRYCATCH(
+      su_sampler_init(&new->sampler,
+          new->cur_params.br.br_running
+          ?  SU_ABS2NORM_BAUD(sinfo->equiv_fs, new->cur_params.br.baud)
+          : 0),
+      goto fail);
 
   return new;
 
@@ -256,7 +263,9 @@ suscan_psk_inspector_parse_config(void *private, const suscan_config_t *config)
 {
   struct suscan_psk_inspector *insp = (struct suscan_psk_inspector *) private;
 
-  suscan_psk_inspector_params_initialize(&insp->req_params, &insp->samp_info);
+  suscan_psk_inspector_params_initialize(
+      &insp->req_params,
+      &insp->samp_info);
 
   SU_TRYCATCH(
       suscan_inspector_gc_params_parse(&insp->req_params.gc, config),
