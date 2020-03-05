@@ -637,8 +637,6 @@ suscan_source_detect_devices(void)
 
   suscan_source_reset_devices();
 
-  SU_TRYCATCH(suscan_source_register_null_device(), goto done);
-
   SU_TRYCATCH(
       soapy_dev_list = SoapySDRDevice_enumerate(NULL, &soapy_dev_len),
       goto done);
@@ -1169,8 +1167,12 @@ suscan_source_config_new(
   
   SU_TRYCATCH(new->soapy_args = calloc(1, sizeof(SoapySDRKwargs)), goto fail);
 
+  SU_TRYCATCH(suscan_source_get_null_device() != NULL, goto fail);
+
   SU_TRYCATCH(
-      suscan_source_config_set_device(new, suscan_source_get_null_device()),
+      suscan_source_config_set_device(
+          new,
+          suscan_source_get_null_device()),
       goto fail);
 
   return new;
@@ -2451,6 +2453,7 @@ fail:
 SUBOOL
 suscan_init_sources(void)
 {
+  SU_TRYCATCH(suscan_source_register_null_device(), return SU_FALSE);
   SU_TRYCATCH(suscan_confdb_use("sources"), return SU_FALSE);
   SU_TRYCATCH(suscan_source_detect_devices(), return SU_FALSE);
   SU_TRYCATCH(suscan_load_sources(), return SU_FALSE);

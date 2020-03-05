@@ -298,6 +298,25 @@ suscan_analyzer_get_inspector(
 }
 
 SUPRIVATE SUBOOL
+suscan_analyzer_mark_inspector_as_dead(
+    suscan_analyzer_t *self,
+    suscan_inspector_t *insp)
+{
+  struct suscan_inspector_overridable_request *req = NULL;
+
+  SU_TRYCATCH(
+      suscan_analyzer_lock_inspector_list(self),
+      return SU_FALSE);
+
+  if ((req = suscan_inspector_get_userdata(insp)) != NULL)
+    req->dead = SU_TRUE;
+
+  suscan_analyzer_unlock_inspector_list(self);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
 suscan_analyzer_dispose_inspector_handle(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle)
@@ -311,9 +330,6 @@ suscan_analyzer_dispose_inspector_handle(
     return SU_FALSE;
 
   SU_TRYCATCH(suscan_analyzer_lock_inspector_list(analyzer), return SU_FALSE);
-  if ((req = suscan_inspector_get_userdata(
-      analyzer->inspector_list[handle])) != NULL)
-    req->dead = SU_TRUE;
 
   analyzer->inspector_list[handle] = NULL;
 
@@ -685,8 +701,13 @@ suscan_analyzer_parse_inspector_msg(
         } else {
           /*
            * Inspector is still running. Mark it as halting, so it will not
-           * come back to the worker queue.
+           * come back to the worker queue. Also, mark overridable request
+           * as dead, so we prevent dealing with the inspector while it is
+           * being removed.
            */
+          SU_TRYCATCH(
+              suscan_analyzer_mark_inspector_as_dead(analyzer, insp),
+              goto done);
           insp->state = SUSCAN_ASYNC_STATE_HALTING;
         }
 
