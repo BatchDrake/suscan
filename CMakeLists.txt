@@ -20,7 +20,8 @@
 #
   
 cmake_minimum_required(VERSION 3.5.1)
-project(suscan VERSION 0.1 LANGUAGES C)
+set(SUSCAN_VERSION 0.1)
+project(suscan VERSION "${SUSCAN_VERSION}" LANGUAGES C)
 include(FindPkgConfig)
 
 # Find requirements
@@ -305,4 +306,18 @@ if(VOLK_FOUND)
 endif()
 
 install(TARGETS suscan.status DESTINATION bin)
+
+set(CPACK_GENERATOR "DEB")
+set(CPACK_PACKAGE_NAME "libsuscan")
+set(CPACK_PACKAGE_VERSION "${SUSCAN_VERSION}.0-1")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Gonzalo José Carracedo Carballal <BatchDrake@gmail.com>")
+set(CPACK_PACKAGE_DESCRIPTION "Asynchronous and realtime signal processing library")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Suscan implements a realtime signal analyzer that enables different SIGINT operations, spectrum scanning and demodulation.")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://batchdrake.github.io/SigDigger/")
+set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_HOST_SYSTEM_PROCESSOR}")
+set(CPACK_RESOURCE_FILE_README "${PROJECT_SOURCE_DIR}/README.md")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.14), libsndfile1 (>= 1.0), libvolk1.4 (>= 1.4), libfftw3-3 (>= 3.3), libsigutils (>= 0.1), libxml2 (>= 2.9), libsoapysdr0.7 (>= 0.7)")
+set(CPACK_DEBIAN_PACKAGE_SECTION "science")
+
+include(CPack)
 
