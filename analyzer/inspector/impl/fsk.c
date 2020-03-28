@@ -107,7 +107,7 @@ suscan_fsk_inspector_params_initialize(
 
   params->fsk.bits_per_tone = 1;
   params->fsk.quad_demod    = SU_FALSE;
-  params->fsk.phase         = PI;
+  params->fsk.phase         = 0;
 }
 
 SUPRIVATE void
