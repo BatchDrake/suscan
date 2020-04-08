@@ -261,6 +261,9 @@ suscan_audio_inspector_commit_config(void *private)
             SUSCAN_AUDIO_INSPECTOR_BRICKWALL_LEN,
             SU_ABS2NORM_FREQ(fs, insp->req_params.audio.cutoff));
         break;
+
+      default:
+        break;
     }
 
     if (!filt_initialized) {
@@ -339,6 +342,9 @@ suscan_audio_inspector_feed(
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB:
         lo = su_ncqo_read(&self->lo);
         output = det_x * SU_C_CONJ(lo);
+        break;
+
+      default:
         break;
     }
 

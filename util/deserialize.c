@@ -52,7 +52,7 @@ suscan_object_populate_from_xmlNode(suscan_object_t *object, xmlNode *node)
 
   for (this = node->children; this != NULL; this = this->next) {
     if (this->type == XML_ELEMENT_NODE) {
-      if ((type = suscan_object_xmltag_to_type(this->name)) == -1) {
+      if ((type = suscan_object_xmltag_to_type((const char *) this->name)) == -1) {
         SU_ERROR("Unrecognized tag name `%s'\n", this->name);
         goto fail;
       }
@@ -60,13 +60,13 @@ suscan_object_populate_from_xmlNode(suscan_object_t *object, xmlNode *node)
       /* Create object */
       SU_TRYCATCH(new = suscan_object_new(type), goto fail);
 
-      if ((attrib = xmlGetProp(this, "name")) != NULL) {
+      if ((attrib = (char *) xmlGetProp(this, (const xmlChar *) "name")) != NULL) {
         SU_TRYCATCH(suscan_object_set_name(new, attrib), goto fail);
         xmlFree(attrib);
         attrib = NULL;
       }
 
-      if ((attrib = xmlGetProp(this, "class")) != NULL) {
+      if ((attrib = (char *) xmlGetProp(this, (const xmlChar *) "class")) != NULL) {
         SU_TRYCATCH(suscan_object_set_class(new, attrib), goto fail);
         xmlFree(attrib);
         attrib = NULL;
@@ -87,8 +87,8 @@ suscan_object_populate_from_xmlNode(suscan_object_t *object, xmlNode *node)
       /* Populate new object */
       if (type == SUSCAN_OBJECT_TYPE_FIELD) {
         /* Try to find value from member and contents */
-        if ((attrib = xmlGetProp(this, "value")) == NULL)
-          attrib = xmlNodeGetContent(this);
+        if ((attrib = (char *) xmlGetProp(this, (const xmlChar *) "value")) == NULL)
+          attrib = (char *) xmlNodeGetContent(this);
 
         if (attrib != NULL) {
           SU_TRYCATCH(suscan_object_set_value(new, attrib), goto fail);
@@ -140,7 +140,7 @@ suscan_object_from_xml(const char *url, const void *data, size_t size)
     goto done;
   }
 
-  if (strcmp(root->name, "serialization") != 0) {
+  if (strcmp((const char *) root->name, "serialization") != 0) {
     SU_ERROR("Unexpected root tag `%s' in `%s'\n", root->name, url);
     goto done;
   }

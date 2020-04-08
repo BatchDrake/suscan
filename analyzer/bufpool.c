@@ -78,7 +78,7 @@ suscan_buffer_alloc(unsigned int length)
   if (header == NULL) {
     SU_TRYCATCH(
         header = malloc(
-            sizeof(struct suscan_buffer_header) + sizeof(SUCOMPLEX) << i),
+          sizeof(struct suscan_buffer_header) + (sizeof(SUCOMPLEX) << i)),
         return NULL);
   }
 

@@ -1734,10 +1734,10 @@ suscan_source_set_sample_rate_near(suscan_source_t *source)
   } else {
     rates = source->config->device->samp_rate_list;
     for (i = 0; i < source->config->device->samp_rate_count; ++i)
-    if (SU_ABS(rates[i] - source->config->samp_rate) < dist) {
-      dist = SU_ABS(rates[i] - source->config->samp_rate);
-      closest_rate = rates[i];
-    }
+      if (SU_ABS(SU_ASFLOAT(rates[i] - source->config->samp_rate)) < dist) {
+        dist = SU_ABS(SU_ASFLOAT(rates[i] - source->config->samp_rate));
+        closest_rate = rates[i];
+      }
   }
 
   if (SoapySDRDevice_setSampleRate(
