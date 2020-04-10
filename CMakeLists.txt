@@ -208,6 +208,11 @@ set_target_properties(suscan PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 set_target_properties(suscan PROPERTIES LINK_FLAGS "${SIGUTILS_SPC_LDFLAGS}")
 
 # Required dependencies
+if(APPLE)
+  # Required to retrieve bundle path
+  target_link_libraries(suscan "-framework CoreFoundation")
+endif()
+
 target_link_libraries(suscan m ${SIGUTILS_LIBRARIES})
 
 target_include_directories(suscan SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
