@@ -238,7 +238,139 @@ suscan_analyzer_set_freq_cb(
   return SU_FALSE;
 }
 
+SUBOOL
+suscan_analyzer_set_inspector_freq_slow(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUFREQ freq)
+{
+  SUBOOL ok = SU_FALSE;
+  struct suscan_inspector_overridable_request *req;
+
+  SU_TRYCATCH(
+      req = suscan_analyzer_acquire_overridable(analyzer, handle),
+      goto done);
+
+  req->freq_request = SU_TRUE;
+  req->new_freq = freq;
+
+  SU_TRYCATCH(
+      suscan_analyzer_release_overridable(analyzer, req),
+      goto done);
+
+  ok = SU_TRUE;
+
+done:
+
+  return ok;
+}
+
+SUBOOL
+suscan_analyzer_set_inspector_bandwidth_slow(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUFLOAT bw)
+{
+  SUBOOL ok = SU_FALSE;
+  struct suscan_inspector_overridable_request *req;
+
+  SU_TRYCATCH(
+      req = suscan_analyzer_acquire_overridable(analyzer, handle),
+      goto done);
+
+  req->bandwidth_request = SU_TRUE;
+  req->new_bandwidth = bw;
+
+  SU_TRYCATCH(
+      suscan_analyzer_release_overridable(analyzer, req),
+      goto done);
+
+  ok = SU_TRUE;
+
+done:
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_set_inspector_freq_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
+
+  if (analyzer->inspector_freq_req) {
+    analyzer->inspector_freq_req = SU_FALSE;
+    (void) suscan_analyzer_set_inspector_freq_slow(
+        analyzer,
+        analyzer->inspector_freq_req_handle,
+        analyzer->inspector_freq_req_value);
+  }
+
+  return SU_FALSE;
+}
+
+
+SUPRIVATE SUBOOL
+suscan_analyzer_set_inspector_bandwidth_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
+
+  if (analyzer->inspector_bw_req) {
+    analyzer->inspector_bw_req = SU_FALSE;
+    (void) suscan_analyzer_set_inspector_bandwidth_slow(
+        analyzer,
+        analyzer->inspector_bw_req_handle,
+        analyzer->inspector_bw_req_value);
+  }
+
+  return SU_FALSE;
+}
 /****************************** Slow methods **********************************/
+SUBOOL
+suscan_analyzer_set_inspector_freq_overridable(
+    suscan_analyzer_t *self,
+    SUHANDLE handle,
+    SUFREQ freq)
+{
+  SU_TRYCATCH(
+      self->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  self->inspector_freq_req_handle = handle;
+  self->inspector_freq_req_value  = freq;
+  self->inspector_freq_req        = SU_TRUE;
+
+  return suscan_worker_push(
+      self->slow_wk,
+      suscan_analyzer_set_inspector_freq_cb,
+      NULL);
+}
+
+SUBOOL
+suscan_analyzer_set_inspector_bandwidth_overridable(
+    suscan_analyzer_t *self,
+    SUHANDLE handle,
+    SUFLOAT bw)
+{
+  SU_TRYCATCH(
+      self->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  self->inspector_bw_req_handle = handle;
+  self->inspector_bw_req_value  = bw;
+  self->inspector_bw_req        = SU_TRUE;
+
+  return suscan_worker_push(
+      self->slow_wk,
+      suscan_analyzer_set_inspector_bandwidth_cb,
+      NULL);
+}
+
 SUBOOL
 suscan_analyzer_set_freq(suscan_analyzer_t *self, SUFREQ freq, SUFREQ lnb)
 {

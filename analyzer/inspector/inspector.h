@@ -52,6 +52,7 @@ struct suscan_inspector {
   /* Specific inspector interface being used */
   const struct suscan_inspector_interface *iface;
   void *privdata;
+  void *userdata;
 
   struct suscan_inspector_sampling_info samp_info; /* Sampling information */
 
@@ -77,6 +78,18 @@ struct suscan_inspector {
 };
 
 typedef struct suscan_inspector suscan_inspector_t;
+
+SUINLINE void
+suscan_inspector_set_userdata(suscan_inspector_t *insp, void *userdata)
+{
+  insp->userdata = userdata;
+}
+
+SUINLINE void *
+suscan_inspector_get_userdata(const suscan_inspector_t *insp)
+{
+  return insp->userdata;
+}
 
 SUINLINE SUBOOL
 suscan_inspector_set_msg_watermark(suscan_inspector_t *insp, SUSCOUNT wm)
@@ -170,6 +183,7 @@ SUBOOL suscan_ask_inspector_register(void);
 SUBOOL suscan_fsk_inspector_register(void);
 SUBOOL suscan_psk_inspector_register(void);
 SUBOOL suscan_audio_inspector_register(void);
+SUBOOL suscan_raw_inspector_register(void);
 
 #ifdef __cplusplus
 }

@@ -207,9 +207,7 @@ suscan_audio_inspector_new_bandwidth(void *private, SUFREQ bw)
   SUFLOAT fs = insp->samp_info.equiv_fs;
 
   /* Initialize oscillator */
-  su_ncqo_set_freq(
-      &insp->lo,
-      SU_ABS2NORM_FREQ(fs, .5 * bw));
+  su_ncqo_set_freq(&insp->lo, SU_ABS2NORM_FREQ(fs, .5 * bw));
 }
 
 /* Called inside inspector mutex */
@@ -262,6 +260,9 @@ suscan_audio_inspector_commit_config(void *private)
             &filt,
             SUSCAN_AUDIO_INSPECTOR_BRICKWALL_LEN,
             SU_ABS2NORM_FREQ(fs, insp->req_params.audio.cutoff));
+        break;
+
+      default:
         break;
     }
 
@@ -341,6 +342,9 @@ suscan_audio_inspector_feed(
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB:
         lo = su_ncqo_read(&self->lo);
         output = det_x * SU_C_CONJ(lo);
+        break;
+
+      default:
         break;
     }
 

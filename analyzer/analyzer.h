@@ -25,11 +25,15 @@
 #include <sigutils/detect.h>
 #include <pthread.h>
 
+#define _COMPAT_BARRIERS
+#include <compat.h>
+
 #include "worker.h"
 #include "source.h"
 #include "throttle.h"
 #include "inspector/inspector.h"
 #include "inspsched.h"
+#include "mq.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,7 +41,7 @@ extern "C" {
 
 #define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.5
 #define SUSCAN_ANALYZER_FS_MEASURE_INTERVAL   1.0
-
+#define SUSCAN_ANALYZER_READ_SIZE             512
 #define SUSCAN_ANALYZER_MIN_POST_HOP_FFTS     7
 
 enum suscan_analyzer_mode {
@@ -79,7 +83,33 @@ struct suscan_analyzer_gain_request {
   SUFLOAT value;
 };
 
+struct suscan_inspector_overridable_request
+{
+  suscan_inspector_t *insp;
+
+  SUBOOL  dead;
+  SUBOOL  freq_request;
+  SUFREQ  new_freq;
+  SUBOOL  bandwidth_request;
+  SUFLOAT new_bandwidth;
+
+  struct suscan_inspector_overridable_request *next;
+};
+
+enum suscan_analyzer_sweep_strategy {
+  SUSCAN_ANALYZER_SWEEP_STRATEGY_STOCHASTIC,
+  SUSCAN_ANALYZER_SWEEP_STRATEGY_PROGRESSIVE,
+};
+
+enum suscan_analyzer_spectrum_partitioning {
+  SUSCAN_ANALYZER_SPECTRUM_PARTITIONING_DISCRETE,
+  SUSCAN_ANALYZER_SPECTRUM_PARTITIONING_CONTINUOUS
+};
+
 struct suscan_analyzer_sweep_params {
+  enum suscan_analyzer_sweep_strategy strategy;
+  enum suscan_analyzer_spectrum_partitioning partitioning;
+
   SUFREQ min_freq;
   SUFREQ max_freq;
   SUSCOUNT fft_min_samples; /* Minimum number of FFT frames before updating */
@@ -109,6 +139,8 @@ struct suscan_analyzer {
   /* Periodic updates */
   SUFLOAT  interval_channels;
   SUFLOAT  interval_psd;
+  SUSCOUNT det_count;
+  SUSCOUNT det_num_psd;
 
   /* This mutex shall protect hot-config requests */
   /* XXX: This is cumbersome. Create a hotconf object to handle these things */
@@ -118,6 +150,15 @@ struct suscan_analyzer {
   SUBOOL freq_req;
   SUFREQ freq_req_value;
   SUFREQ lnb_req_value;
+
+  /* XXX: Define list for inspector frequency set */
+  SUBOOL   inspector_freq_req;
+  SUHANDLE inspector_freq_req_handle;
+  SUFREQ   inspector_freq_req_value;
+
+  SUBOOL   inspector_bw_req;
+  SUHANDLE inspector_bw_req_handle;
+  SUFLOAT  inspector_bw_req_value;
 
   /* Bandwidth request */
   SUBOOL  bw_req;
@@ -154,13 +195,18 @@ struct suscan_analyzer {
   struct suscan_analyzer_sweep_params current_sweep_params;
   struct suscan_analyzer_sweep_params pending_sweep_params;
   SUFREQ   curr_freq;
+  SUSCOUNT part_ndx;
   SUSCOUNT fft_samples; /* Number of FFT frames */
 
   /* Inspector objects */
   PTR_LIST(suscan_inspector_t, inspector); /* This list owns inspectors */
+  pthread_mutex_t     inspector_list_mutex; /* Inspector list lock */
+  SUBOOL                inspector_list_init;
   suscan_inspsched_t *sched; /* Inspector scheduler */
   pthread_mutex_t     sched_lock;
   pthread_barrier_t   barrier; /* Sched barrier */
+
+  struct suscan_inspector_overridable_request *insp_overridable;
 
   /* Analyzer thread */
   pthread_t thread;
@@ -212,11 +258,18 @@ SUBOOL suscan_analyzer_set_buffering_size(
     suscan_analyzer_t *self,
     SUSCOUNT size);
 
-SUBOOL
-suscan_analyzer_set_hop_range(
+SUBOOL suscan_analyzer_set_hop_range(
     suscan_analyzer_t *self,
     SUFREQ min,
     SUFREQ max);
+
+SUBOOL suscan_analyzer_set_sweep_stratrgy(
+    suscan_analyzer_t *self,
+    enum suscan_analyzer_sweep_strategy strategy);
+
+SUBOOL suscan_analyzer_set_spectrum_partitioning(
+    suscan_analyzer_t *self,
+    enum suscan_analyzer_spectrum_partitioning partitioning);
 
 SUBOOL suscan_analyzer_set_freq(
     suscan_analyzer_t *analyzer,
@@ -253,9 +306,26 @@ suscan_analyzer_t *suscan_analyzer_new(
     suscan_source_config_t *config,
     struct suscan_mq *mq);
 
+struct suscan_inspector_overridable_request *
+suscan_analyzer_acquire_overridable(
+    suscan_analyzer_t *self,
+    SUHANDLE handle);
+
+SUBOOL suscan_analyzer_release_overridable(
+    suscan_analyzer_t *self,
+    struct suscan_inspector_overridable_request *rq);
+
+suscan_inspector_t *suscan_analyzer_get_inspector(
+    const suscan_analyzer_t *analyzer,
+    SUHANDLE handle);
+
 SUBOOL suscan_analyzer_lock_loop(suscan_analyzer_t *analyzer);
 
 void suscan_analyzer_unlock_loop(suscan_analyzer_t *analyzer);
+
+SUBOOL suscan_analyzer_lock_inspector_list(suscan_analyzer_t *analyzer);
+
+void suscan_analyzer_unlock_inspector_list(suscan_analyzer_t *analyzer);
 
 void suscan_analyzer_source_barrier(suscan_analyzer_t *analyzer);
 
@@ -361,6 +431,16 @@ SUBOOL suscan_analyzer_set_inspector_freq_async(
     SUHANDLE handle,
     SUFREQ freq,
     uint32_t req_id);
+
+SUBOOL suscan_analyzer_set_inspector_freq_overridable(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUFREQ freq);
+
+SUBOOL suscan_analyzer_set_inspector_bandwidth_overridable(
+    suscan_analyzer_t *self,
+    SUHANDLE handle,
+    SUFLOAT bw);
 
 SUBOOL suscan_analyzer_set_inspector_watermark_async(
     suscan_analyzer_t *analyzer,

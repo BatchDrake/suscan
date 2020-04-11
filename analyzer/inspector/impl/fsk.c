@@ -89,7 +89,8 @@ suscan_fsk_inspector_mf_span(SUSCOUNT span)
 
 SUPRIVATE void
 suscan_fsk_inspector_params_initialize(
-    struct suscan_fsk_inspector_params *params)
+    struct suscan_fsk_inspector_params *params,
+    const struct suscan_inspector_sampling_info *sinfo)
 {
   memset(params, 0, sizeof (struct suscan_fsk_inspector_params));
 
@@ -99,13 +100,14 @@ suscan_fsk_inspector_params_initialize(
   params->br.br_ctrl  = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
   params->br.br_alpha = SU_PREFERED_CLOCK_ALPHA;
   params->br.br_beta  = SU_PREFERED_CLOCK_BETA;
+  params->br.baud     = SU_NORM2ABS_BAUD(sinfo->equiv_fs, .5 * sinfo->bw);
 
   params->mf.mf_conf  = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
   params->mf.mf_rolloff = SUSCAN_FSK_INSPECTOR_DEFAULT_ROLL_OFF;
 
   params->fsk.bits_per_tone = 1;
   params->fsk.quad_demod    = SU_FALSE;
-  params->fsk.phase         = PI;
+  params->fsk.phase         = 0;
 }
 
 SUPRIVATE void
@@ -135,7 +137,7 @@ suscan_fsk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
 
   new->samp_info = *sinfo;
 
-  suscan_fsk_inspector_params_initialize(&new->cur_params);
+  suscan_fsk_inspector_params_initialize(&new->cur_params, sinfo);
 
   bw = sinfo->bw;
   tau = 1. /  bw; /* Approximate samples per symbol */
@@ -150,7 +152,12 @@ suscan_fsk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
       goto fail);
 
   /* Fixed baudrate sampler */
-  SU_TRYCATCH(su_sampler_init(&new->sampler, tau), goto fail);
+  SU_TRYCATCH(
+      su_sampler_init(&new->sampler,
+          new->cur_params.br.br_running
+          ?  SU_ABS2NORM_BAUD(sinfo->equiv_fs, new->cur_params.br.baud)
+          : 0),
+      goto fail);
 
   /* Initialize local oscillator */
   su_ncqo_init(&new->lo, 0);
@@ -231,7 +238,9 @@ suscan_fsk_inspector_parse_config(void *private, const suscan_config_t *config)
 {
   struct suscan_fsk_inspector *insp = (struct suscan_fsk_inspector *) private;
 
-  suscan_fsk_inspector_params_initialize(&insp->req_params);
+  suscan_fsk_inspector_params_initialize(
+      &insp->req_params,
+      &insp->samp_info);
 
   SU_TRYCATCH(
       suscan_inspector_gc_params_parse(&insp->req_params.gc, config),

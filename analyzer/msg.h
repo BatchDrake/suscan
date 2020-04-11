@@ -67,7 +67,7 @@ struct suscan_analyzer_throttle_msg {
 
 /* Channel spectrum message */
 struct suscan_analyzer_psd_msg {
-  uint64_t fc;
+  int64_t fc;
   uint32_t inspector_id;
   SUFLOAT  samp_rate;
   SUSCOUNT psd_size;
