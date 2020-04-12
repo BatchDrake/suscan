@@ -25,8 +25,10 @@
 #include <libgen.h>
 
 #define SU_LOG_DOMAIN "source"
+
 #include <confdb.h>
 #include "source.h"
+#include "compat.h"
 #include <sigutils/taps.h>
 
 #ifdef _SU_SINGLE_PRECISION
@@ -52,6 +54,7 @@ PTR_LIST(SUPRIVATE struct suscan_source_gain_desc, hidden_gain);
 
 /* Null device */
 SUPRIVATE suscan_source_device_t *null_device;
+SUPRIVATE const char *soapysdr_module_path = NULL;
 
 /******************************* Source devices ******************************/
 SUPRIVATE void
@@ -636,6 +639,13 @@ suscan_source_detect_devices(void)
   SUBOOL ok = SU_FALSE;
 
   suscan_source_reset_devices();
+
+  if (soapysdr_module_path == NULL)
+    soapysdr_module_path = suscan_bundle_get_soapysdr_module_path();
+
+  if (soapysdr_module_path != NULL) {
+    setenv("SOAPY_SDR_PLUGIN_PATH", soapysdr_module_path, SU_TRUE);
+  }
 
   SU_TRYCATCH(
       soapy_dev_list = SoapySDRDevice_enumerate(NULL, &soapy_dev_len),

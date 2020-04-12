@@ -29,5 +29,8 @@
 #    endif /* __APPLE__ */
 #  endif /* _COMPAT_BARRIERS */
 
+const char *suscan_bundle_get_confdb_path(void);
+const char *suscan_bundle_get_soapysdr_module_path(void);
+
 #endif /* _COMPAT_H */
 

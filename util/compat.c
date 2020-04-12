@@ -20,8 +20,24 @@
 
 #define _COMPAT_BARRIERS
 
+#include <stdlib.h>
 #include "compat.h"
 
 #if defined(__APPLE__)
 #  include "macos-barriers.imp.h"
+#  include "macos-bundle.imp.h"
+#else
+const char *
+suscan_bundle_get_confdb_path(void)
+{
+  return NULL; /* No bundle path in the default OS */
+}
+
+const char *
+suscan_bundle_get_soapysdr_module_path(void)
+{
+  return NULL; /* No default SoapySDR root in the default OS */
+}
+
 #endif /* defined(__APPLE__) */
+

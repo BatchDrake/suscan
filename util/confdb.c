@@ -26,51 +26,16 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#ifdef __APPLE__
-#  include <CoreFoundation/CoreFoundation.h>
-#endif /* __APPLE__ */
-
 #define SU_LOG_DOMAIN "confdb"
 
 #include <sigutils/log.h>
 #include "confdb.h"
+#include "compat.h"
 
 PTR_LIST(SUPRIVATE suscan_config_context_t, context);
 
 SUPRIVATE const char *confdb_system_path;
 SUPRIVATE const char *confdb_user_path;
-
-#ifdef __APPLE__
-const char *
-suscan_confdb_get_bundle_path(void)
-{
-  CFBundleRef main_bundle = NULL;
-  CFURLRef dir_url = NULL;
-  CFStringRef dir_path = NULL;
-  CFStringEncoding encmethod;
-  const char *path = NULL;
-  
-  if ((main_bundle = CFBundleGetMainBundle()) != NULL) {
-    SU_TRYCATCH(
-        dir_url = CFBundleCopyResourceURL(
-                  main_bundle,
-                  CFSTR("suscan/config"),
-                  NULL, /* resourceType */
-                  NULL /* dirName */),
-        goto done);
-    
-    SU_TRYCATCH(
-        dir_path = CFURLCopyFileSystemPath(dir_url, kCFURLPOSIXPathStyle),
-        goto done);
-    
-    encmethod = CFStringGetSystemEncoding();
-    path = CFStringGetCStringPtr(dir_path, encmethod);
-  }
-  
-done:
-  return path;
-}
-#endif /* __APPLE__ */
 
 const char *
 suscan_confdb_get_system_path(void)
@@ -81,14 +46,15 @@ suscan_confdb_get_system_path(void)
     if ((path = getenv("SUSCAN_CONFIG_PATH")) != NULL) {
       confdb_system_path = path;
     } else {
-      confdb_system_path = PKGDATADIR "/config";
-      
-      /* For MacOS there are better alternatives */
-#ifdef __APPLE__
-      path = suscan_confdb_get_bundle_path();
+      /*
+       * In some distributions, config files are retrieved from an
+       * application bundle (like MacOS).
+       */
+      path = suscan_bundle_get_confdb_path();
       if (path != NULL)
         confdb_system_path = path;
-#endif /* __APPLE__ */
+      else
+        confdb_system_path = PKGDATADIR "/config";
     }
   }
 
