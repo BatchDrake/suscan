@@ -28,7 +28,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 SUPRIVATE const char *
-suscan_bundle_get_resource_path(const char *relpath)
+suscan_bundle_get_resource_path(CFStringRef relpath)
 {
   CFBundleRef main_bundle = NULL;
   CFURLRef dir_url = NULL;
@@ -40,7 +40,7 @@ suscan_bundle_get_resource_path(const char *relpath)
     SU_TRYCATCH(
         dir_url = CFBundleCopyResourceURL(
                   main_bundle,
-                  CFSTR(relpath),
+                  relpath,
                   NULL, /* resourceType */
                   NULL /* dirName */),
         goto done);
@@ -62,11 +62,11 @@ const char *
 suscan_bundle_get_soapysdr_module_path(void)
 {
   return suscan_bundle_get_resource_path(
-      "../Framework/SoapySDR/modules" SOAPY_SDR_ABI_VERSION);
+            CFSTR("../Framework/SoapySDR/modules" SOAPY_SDR_ABI_VERSION));
 }
 
 const char *
 suscan_bundle_get_confdb_path(void)
 {
-  return suscan_bundle_get_resource_path("suscan/config");
+  return suscan_bundle_get_resource_path(CFSTR("suscan/config"));
 }
