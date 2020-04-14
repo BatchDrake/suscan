@@ -1804,7 +1804,7 @@ suscan_source_open_sdr(suscan_source_t *source)
       source->sdr,
       SOAPY_SDR_RX,
       source->config->channel,
-      source->config->freq + source->config->lnb_freq,
+      source->config->freq - source->config->lnb_freq,
       NULL) != 0) {
     SU_ERROR(
         "Failed to set SDR frequency: %s\n",
@@ -2196,7 +2196,7 @@ suscan_source_set_freq(suscan_source_t *source, SUFREQ freq)
       source->sdr,
       SOAPY_SDR_RX,
       source->config->channel,
-      source->config->freq + source->config->lnb_freq,
+      source->config->freq - source->config->lnb_freq,
       NULL) != 0) {
     SU_ERROR(
         "Failed to set SDR frequency: %s\n",
@@ -2224,7 +2224,7 @@ suscan_source_set_lnb_freq(suscan_source_t *source, SUFREQ freq)
       source->sdr,
       SOAPY_SDR_RX,
       source->config->channel,
-      source->config->freq + source->config->lnb_freq,
+      source->config->freq - source->config->lnb_freq,
       NULL) != 0) {
     SU_ERROR(
         "Failed to set SDR frequency: %s\n",
@@ -2253,7 +2253,7 @@ suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb)
       source->sdr,
       SOAPY_SDR_RX,
       source->config->channel,
-      source->config->freq + source->config->lnb_freq,
+      source->config->freq - source->config->lnb_freq,
       NULL) != 0) {
     SU_ERROR(
         "Failed to set SDR frequency: %s\n",
@@ -2271,7 +2271,7 @@ suscan_source_get_freq(const suscan_source_t *source)
     return suscan_source_config_get_freq(source->config);
 
   return SoapySDRDevice_getFrequency(source->sdr, SOAPY_SDR_RX, 0)
-      - suscan_source_config_get_lnb_freq(source->config);
+      + suscan_source_config_get_lnb_freq(source->config);
 }
 
 SUPRIVATE SUBOOL
