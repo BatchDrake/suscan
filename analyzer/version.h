@@ -23,6 +23,10 @@
 
 #include <sigutils/version.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 /*
  * Suscan API uses semantic versioning (see https://semver.org/).
  *
@@ -61,6 +65,10 @@ const char  *suscan_pkgversion(void);
 void suscan_abi_check(unsigned int);
 
 #define SUSCAN_ABI_CHECK() suscan_abi_check(SUSCAN_ABI_VERSION)
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _SUSCAN_VERSION */
 
