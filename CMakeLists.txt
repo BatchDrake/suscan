@@ -20,7 +20,22 @@
 #
   
 cmake_minimum_required(VERSION 3.5.1)
-project(suscan VERSION 0.1 LANGUAGES C)
+
+set(SUSCAN_VERSION_MAJOR 0)
+set(SUSCAN_VERSION_MINOR 1)
+set(SUSCAN_VERSION_PATCH 1)
+
+set(SUSCAN_ABI_VERSION   1)
+
+set(
+  SUSCAN_VERSION
+  ${SUSCAN_VERSION_MAJOR}.${SUSCAN_VERSION_MINOR}.${SUSCAN_VERSION_PATCH})
+
+project(
+  suscan
+  VERSION ${SUSCAN_VERSION}
+  LANGUAGES C)
+
 include(FindPkgConfig)
 
 # Find requirements
@@ -42,6 +57,7 @@ set(INSPECTORDIR ${ANALYZERDIR}/inspector/impl)
 set(SPECTSRCDIR  ${ANALYZERDIR}/spectsrcs)
 set(UTILDIR      util)
 set(RSRCDIR      rsrc)
+set(VERSIONDIR   analyzer)
 
 # Compiler flags
 if(NOT CMAKE_BUILD_TYPE)
@@ -64,6 +80,17 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPKGDATADIR='\"${SUSCAN_PKGDIR}/share/susca
 # path of each source file.
 set(CMAKE_C_FLAGS
 "${CMAKE_C_FLAGS} -D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")
+
+#
+# If you are building suscan for your own software distribution, you may want
+# to set PKGVERSION to some descriptive string.
+#
+
+if (DEFINED PKGVERSION)
+  set(
+    CMAKE_C_FLAGS
+    "${CMAKE_C_FLAGS} -DSUSCAN_PKGVERSION='\"${PKGVERSION}\"'")
+endif()
 
 set(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG} -O0 -ggdb")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -ffast-math -s -DNDEBUG")
@@ -111,6 +138,10 @@ set(UTIL_SOURCES
   ${UTILDIR}/object.c
   ${UTILDIR}/serialize.c
   ${UTILDIR}/util.c)
+
+set(VERSION_HEADERS ${VERSIONDIR}/version.h)
+
+set(VERSION_SOURCES ${VERSIONDIR}/version.c)
 
 set(INSPECTOR_LIB_HEADERS
   ${ANALYZERDIR}/inspector/inspector.h
@@ -197,15 +228,19 @@ add_library(
   ${CODEC_LIB_HEADERS}
   ${CODEC_LIB_SOURCES}
   ${ANALYZER_LIB_HEADERS}
-  ${ANALYZER_LIB_SOURCES})
+  ${ANALYZER_LIB_SOURCES}
+  ${VERSION_SOURCES})
   
 # Private header directories
 target_include_directories(
   suscan 
   PRIVATE . ${UTILDIR} ${ANALYZERDIR} ${ANALYZERDIR}/inspector ${CODECLIBDIR})
 
-set_target_properties(suscan PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
-set_target_properties(suscan PROPERTIES LINK_FLAGS "${SIGUTILS_SPC_LDFLAGS}")
+set_property(TARGET suscan PROPERTY VERSION   ${SUSCAN_VERSION})
+set_property(TARGET suscan PROPERTY SOVERSION ${SUSCAN_ABI})
+
+set_property(TARGET suscan PROPERTY COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
+set_property(TARGET suscan PROPERTY LINK_FLAGS    "${SIGUTILS_SPC_LDFLAGS}")
 
 # Required dependencies
 if(APPLE)
@@ -253,7 +288,11 @@ install(
 install(
   FILES ${UTIL_HEADERS} 
   DESTINATION include/suscan/util)
-    
+
+install(
+  FILES ${VERSION_HEADERS}
+  DESTINATION include/suscan/analyzer)
+
 install(
   FILES ${RSRC_CONFIG_FILES}
   DESTINATION share/suscan/config)
