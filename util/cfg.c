@@ -20,6 +20,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #define SU_LOG_DOMAIN "params"
 
@@ -526,7 +527,7 @@ suscan_string_to_config(const suscan_config_desc_t *desc, const char *string)
         break;
 
       case SUSCAN_FIELD_TYPE_INTEGER:
-        if (sscanf(val, "%lli", &int_val) < 1) {
+        if (sscanf(val, "%"SCNi64, &int_val) < 1) {
           SU_ERROR("Invalid value for parameter `%s': `%s'\n", key, val);
           goto done;
         }
@@ -769,7 +770,7 @@ suscan_object_to_config(suscan_config_t *config, const suscan_object_t *object)
           break;
 
         case SUSCAN_FIELD_TYPE_INTEGER:
-          if (sscanf(val, "%lli", &int_val) < 1) {
+          if (sscanf(val, "%"SCNi64, &int_val) < 1) {
             SU_ERROR("Invalid value for parameter `%s': `%s'\n", key, val);
             goto done;
           }
