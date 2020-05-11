@@ -1294,8 +1294,8 @@ suscan_source_config_helper_format_to_str(enum suscan_source_format type)
     case SUSCAN_SOURCE_FORMAT_AUTO:
       return "AUTO";
 
-    case SUSCAN_SOURCE_FORMAT_RAW:
-      return "RAW";
+    case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
+      return "RAW_FLOAT32";
 
     case SUSCAN_SOURCE_FORMAT_WAV:
       return "WAV";
@@ -1311,7 +1311,9 @@ suscan_source_type_config_helper_str_to_format(const char *format)
     if (strcasecmp(format, "AUTO") == 0)
       return SUSCAN_SOURCE_FORMAT_AUTO;
     else if (strcasecmp(format, "RAW") == 0)
-      return SUSCAN_SOURCE_FORMAT_RAW;
+      return SUSCAN_SOURCE_FORMAT_RAW_FLOAT32; /* backward compat */
+    else if (strcasecmp(format, "RAW_FLOAT32") == 0)
+      return SUSCAN_SOURCE_FORMAT_RAW_FLOAT32;
     else if (strcasecmp(format, "WAV") == 0)
       return SUSCAN_SOURCE_FORMAT_WAV;
   }
@@ -1717,7 +1719,7 @@ suscan_source_open_file(suscan_source_t *source)
       }
       /* No, not an error. There is no break here. */
 
-    case SUSCAN_SOURCE_FORMAT_RAW:
+    case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
       if (!suscan_source_open_file_raw(source))
           return SU_FALSE;
       break;

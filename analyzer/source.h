@@ -156,7 +156,7 @@ enum suscan_source_type {
 
 enum suscan_source_format {
   SUSCAN_SOURCE_FORMAT_AUTO,
-  SUSCAN_SOURCE_FORMAT_RAW,
+  SUSCAN_SOURCE_FORMAT_RAW_FLOAT32,
   SUSCAN_SOURCE_FORMAT_WAV
 };
 
