@@ -36,7 +36,7 @@ suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate)
   memset(throttle, 0, sizeof(suscan_throttle_t));
   throttle->samp_rate = samp_rate;
 
-  clock_gettime(CLOCK_MONOTONIC_RAW, &throttle->t0);
+  clock_gettime(CLOCK_MONOTONIC, &throttle->t0);
 
   /*
    * In some circumstances, if both calls to clock_gettime happen
@@ -61,7 +61,7 @@ suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
   if (h > 0) {
     do {
       retry = SU_FALSE;
-      clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+      clock_gettime(CLOCK_MONOTONIC, &tn);
 
       timespecsub(&tn, &throttle->t0, &sub);
 
