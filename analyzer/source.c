@@ -1665,6 +1665,26 @@ suscan_source_feed_decimator(
 #undef IF_DONE_PRODUCE_SAMPLE
 
 SUPRIVATE SUBOOL
+suscan_source_open_file_raw(suscan_source_t *source)
+{
+  source->sf_info.format = SF_FORMAT_RAW | SF_FORMAT_FLOAT | SF_ENDIAN_LITTLE;
+  source->sf_info.channels = 2;
+  source->sf_info.samplerate = source->config->samp_rate;
+  if ((source->sf = sf_open(
+      source->config->path,
+      SFM_READ,
+      &source->sf_info)) == NULL) {
+    source->config->samp_rate = source->sf_info.samplerate;
+    SU_ERROR(
+        "Failed to open %s as raw file: %s\n",
+        source->config->path,
+        sf_strerror(NULL));
+    return SU_FALSE;
+  }
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
 suscan_source_open_file(suscan_source_t *source)
 {
   if (source->config->path == NULL) {
@@ -1698,21 +1718,8 @@ suscan_source_open_file(suscan_source_t *source)
       /* No, not an error. There is no break here. */
 
     case SUSCAN_SOURCE_FORMAT_RAW:
-      source->sf_info.format = SF_FORMAT_RAW | SF_FORMAT_FLOAT | SF_ENDIAN_LITTLE;
-      source->sf_info.channels = 2;
-      source->sf_info.samplerate = source->config->samp_rate;
-      if ((source->sf = sf_open(
-          source->config->path,
-          SFM_READ,
-          &source->sf_info)) == NULL) {
-        source->config->samp_rate = source->sf_info.samplerate;
-        SU_ERROR(
-            "Failed to open %s as raw file: %s\n",
-            source->config->path,
-            sf_strerror(NULL));
-        return SU_FALSE;
-      }
-
+      if (!suscan_source_open_file_raw(source))
+          return SU_FALSE;
       break;
   }
 
