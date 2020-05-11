@@ -107,7 +107,7 @@ suscan_inspector_spectrum_loop(
     while (samp_count > 0) {
       fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
       if (fed < samp_count) {
-        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        clock_gettime(CLOCK_MONOTONIC, &now);
         timespecsub(&now, &insp->last_spectrum, &sub);
         seconds = sub.tv_sec + 1e-9 * sub.tv_nsec;
         if (seconds >= insp->interval_spectrum) {
@@ -181,7 +181,7 @@ suscan_inspector_estimator_loop(
 
   /* Check esimator state and update clients */
   if (insp->interval_estimator > 0) {
-    clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+    clock_gettime(CLOCK_MONOTONIC, &now);
     timespecsub(&now, &insp->last_estimator, &sub);
     seconds = sub.tv_sec + 1e-9 * sub.tv_nsec;
     if (seconds >= insp->interval_estimator) {

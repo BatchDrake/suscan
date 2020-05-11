@@ -218,8 +218,8 @@ suscan_inspector_new(
   new->interval_spectrum  = .1;
 
   /* Initialize clocks */
-  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_estimator);
-  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_spectrum);
+  clock_gettime(CLOCK_MONOTONIC, &new->last_estimator);
+  clock_gettime(CLOCK_MONOTONIC, &new->last_spectrum);
 
   /* All set to call specific inspector */
   new->iface = iface;
