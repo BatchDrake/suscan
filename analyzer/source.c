@@ -1294,8 +1294,11 @@ suscan_source_config_helper_format_to_str(enum suscan_source_format type)
     case SUSCAN_SOURCE_FORMAT_AUTO:
       return "AUTO";
 
-    case SUSCAN_SOURCE_FORMAT_RAW:
-      return "RAW";
+    case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
+      return "RAW_FLOAT32";
+
+    case SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8:
+      return "RAW_UNSIGNED8";
 
     case SUSCAN_SOURCE_FORMAT_WAV:
       return "WAV";
@@ -1311,7 +1314,11 @@ suscan_source_type_config_helper_str_to_format(const char *format)
     if (strcasecmp(format, "AUTO") == 0)
       return SUSCAN_SOURCE_FORMAT_AUTO;
     else if (strcasecmp(format, "RAW") == 0)
-      return SUSCAN_SOURCE_FORMAT_RAW;
+      return SUSCAN_SOURCE_FORMAT_RAW_FLOAT32; /* backward compat */
+    else if (strcasecmp(format, "RAW_FLOAT32") == 0)
+      return SUSCAN_SOURCE_FORMAT_RAW_FLOAT32;
+    else if (strcasecmp(format, "RAW_UNSIGNED8") == 0)
+      return SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8;
     else if (strcasecmp(format, "WAV") == 0)
       return SUSCAN_SOURCE_FORMAT_WAV;
   }
@@ -1665,6 +1672,26 @@ suscan_source_feed_decimator(
 #undef IF_DONE_PRODUCE_SAMPLE
 
 SUPRIVATE SUBOOL
+suscan_source_open_file_raw(suscan_source_t *source, int sf_format)
+{
+  source->sf_info.format = SF_FORMAT_RAW | sf_format | SF_ENDIAN_LITTLE;
+  source->sf_info.channels = 2;
+  source->sf_info.samplerate = source->config->samp_rate;
+  if ((source->sf = sf_open(
+      source->config->path,
+      SFM_READ,
+      &source->sf_info)) == NULL) {
+    source->config->samp_rate = source->sf_info.samplerate;
+    SU_ERROR(
+        "Failed to open %s as raw file: %s\n",
+        source->config->path,
+        sf_strerror(NULL));
+    return SU_FALSE;
+  }
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
 suscan_source_open_file(suscan_source_t *source)
 {
   if (source->config->path == NULL) {
@@ -1697,22 +1724,14 @@ suscan_source_open_file(suscan_source_t *source)
       }
       /* No, not an error. There is no break here. */
 
-    case SUSCAN_SOURCE_FORMAT_RAW:
-      source->sf_info.format = SF_FORMAT_RAW | SF_FORMAT_FLOAT | SF_ENDIAN_LITTLE;
-      source->sf_info.channels = 2;
-      source->sf_info.samplerate = source->config->samp_rate;
-      if ((source->sf = sf_open(
-          source->config->path,
-          SFM_READ,
-          &source->sf_info)) == NULL) {
-        source->config->samp_rate = source->sf_info.samplerate;
-        SU_ERROR(
-            "Failed to open %s as raw file: %s\n",
-            source->config->path,
-            sf_strerror(NULL));
-        return SU_FALSE;
-      }
+    case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
+      if (!suscan_source_open_file_raw(source, SF_FORMAT_FLOAT))
+          return SU_FALSE;
+      break;
 
+    case SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8:
+      if (!suscan_source_open_file_raw(source, SF_FORMAT_PCM_U8))
+          return SU_FALSE;
       break;
   }
 
