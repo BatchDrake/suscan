@@ -133,7 +133,7 @@ struct suscan_analyzer {
   SUSCOUNT effective_samp_rate; /* Used for GUI */
   SUFLOAT  measured_samp_rate; /* Used for statistics */
   SUSCOUNT measured_samp_count;
-  struct timespec last_measure;
+  uint64_t last_measure;
   SUBOOL   iq_rev;
 
   /* Periodic updates */
@@ -173,11 +173,11 @@ struct suscan_analyzer {
 
   /* Usage statistics (CPU, etc) */
   SUFLOAT cpu_usage;
-  struct timespec read_start;
-  struct timespec process_start;
-  struct timespec process_end;
-  struct timespec last_psd;
-  struct timespec last_channels;
+  uint64_t read_start;
+  uint64_t process_start;
+  uint64_t process_end;
+  uint64_t last_psd;
+  uint64_t last_channels;
 
   /* Source worker objects */
   su_channel_detector_t *detector; /* Channel detector */

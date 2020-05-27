@@ -59,8 +59,8 @@ struct suscan_inspector {
   /* Spectrum and estimator state */
   SUFLOAT  interval_estimator;
   SUFLOAT  interval_spectrum;
-  struct timespec last_estimator;
-  struct timespec last_spectrum;
+  uint64_t last_estimator;
+  uint64_t last_spectrum;
 
   uint32_t spectsrc_index;
 

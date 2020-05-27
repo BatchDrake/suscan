@@ -35,6 +35,7 @@
 #include <sigutils/detect.h>
 
 #include "analyzer.h"
+#include "realtime.h"
 
 #include "mq.h"
 #include "msg.h"
@@ -43,41 +44,25 @@
 SUINLINE void
 suscan_analyzer_read_start(suscan_analyzer_t *analyzer)
 {
-#ifdef __linux__
-  clock_gettime(CLOCK_MONOTONIC_COARSE, &analyzer->read_start);
-#else
-  clock_gettime(CLOCK_MONOTONIC, &analyzer->read_start);
-#endif
+  analyzer->read_start = suscan_gettime_coarse();
 }
 
 SUINLINE void
 suscan_analyzer_process_start(suscan_analyzer_t *analyzer)
 {
-#ifdef __linux__
-  clock_gettime(CLOCK_MONOTONIC_COARSE, &analyzer->process_start);
-#else
-  clock_gettime(CLOCK_MONOTONIC, &analyzer->process_start);
-#endif
+  analyzer->process_start = suscan_gettime_coarse();
 }
 
 SUINLINE void
 suscan_analyzer_process_end(suscan_analyzer_t *analyzer)
 {
-  struct timespec sub;
   uint64_t total, cpu;
 
-#ifdef __linux__
-  clock_gettime(CLOCK_MONOTONIC_COARSE, &analyzer->process_end);
-#else
-  clock_gettime(CLOCK_MONOTONIC, &analyzer->process_end);
-#endif
+  analyzer->process_end = suscan_gettime_coarse();
 
-  if (analyzer->read_start.tv_sec > 0) {
-    timespecsub(&analyzer->process_end, &analyzer->read_start, &sub);
-    total = sub.tv_sec * 1000000000 + sub.tv_nsec;
-
-    timespecsub(&analyzer->process_end, &analyzer->process_start, &sub);
-    cpu = sub.tv_sec * 1000000000 + sub.tv_nsec;
+  if (analyzer->read_start != 0) {
+    total = analyzer->process_end - analyzer->read_start;
+    cpu = analyzer->process_end - analyzer->process_start;
 
     /* Update CPU usage */
     if (total == 0)
@@ -240,7 +225,6 @@ suscan_source_channel_wk_cb(
       su_channel_detector_get_window_size(analyzer->detector);
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
-  struct timespec sub;
   SUFLOAT seconds;
 
   SU_TRYCATCH(suscan_analyzer_lock_loop(analyzer), goto done);
@@ -313,16 +297,14 @@ suscan_source_channel_wk_cb(
     }
 
     if (analyzer->interval_psd > 0 && analyzer->det_num_psd == 0) {
-      timespecsub(&analyzer->read_start, &analyzer->last_psd, &sub);
-      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
+      seconds = (analyzer->read_start - analyzer->last_psd) * 1e-9;
 
       if (seconds >= analyzer->interval_psd)
         analyzer->det_num_psd = SU_ROUND(seconds / analyzer->interval_psd);
     }
 
     if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {
-      timespecsub(&analyzer->read_start, &analyzer->last_measure, &sub);
-      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
+      seconds = (analyzer->read_start - analyzer->last_measure) * 1e-9;
 
       if (seconds >= SUSCAN_ANALYZER_FS_MEASURE_INTERVAL) {
         analyzer->measured_samp_rate =
