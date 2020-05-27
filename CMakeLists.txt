@@ -168,6 +168,7 @@ set(CODEC_LIB_SOURCES
   ${CODECDIR}/diff.c)
 
 set(ANALYZER_LIB_HEADERS
+  ${ANALYZERDIR}/realtime.h
   ${ANALYZERDIR}/msg.h
   ${ANALYZERDIR}/inspsched.h
   ${ANALYZERDIR}/spectsrc.h
