@@ -62,7 +62,6 @@ main(int argc, char *argv[], char *envp[])
   struct timeval tv;
   int exit_code = EXIT_FAILURE;
   char *msgs;
-  unsigned int i;
   int c;
   int index;
 

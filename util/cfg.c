@@ -114,7 +114,7 @@ suscan_config_desc_add_field(
     const char *name,
     const char *desc)
 {
-  struct suscan_field *field;
+  struct suscan_field *field = NULL;
   char *name_dup = NULL;
   char *desc_dup = NULL;
 
@@ -595,11 +595,9 @@ done:
 char *
 suscan_config_to_string(const suscan_config_t *config)
 {
-  char *result = NULL;
   grow_buf_t gbuf = grow_buf_INITIALIZER;
   const struct suscan_field *field = NULL;
   const struct suscan_field_value *value = NULL;
-  char *terminator;
   char num_buffer[32];
   unsigned int i;
 

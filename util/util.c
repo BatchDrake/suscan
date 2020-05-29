@@ -62,7 +62,6 @@ char *
 vstrbuild(const char *fmt, va_list ap)
 {
   char *out;
-  void *p;
   int size, zeroindex;
   int last;
   va_list copy;
@@ -454,7 +453,7 @@ free_al (arg_list_t* al)
 static arg_list_t * 
 __split_command (const char *line, char *separators, int fixed_sep_size)
 {
-  int p, i;
+  int i;
 
   int split_flag;
   int escape_flag;
@@ -598,7 +597,6 @@ ltrim (const char *str)
 char *
 rtrim (const char *str)
 {
-  int i;
   char *copy;
   char *tail;
   
@@ -617,7 +615,6 @@ rtrim (const char *str)
 char *
 trim (const char *str)
 {
-  int i;
   char *copy;
   char *tail;
 

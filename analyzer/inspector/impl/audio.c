@@ -263,6 +263,7 @@ suscan_audio_inspector_commit_config(void *private)
         break;
 
       default:
+        filt_initialized = SU_FALSE;
         break;
     }
 
@@ -292,7 +293,6 @@ suscan_audio_inspector_feed(
 {
   SUCOMPLEX last, det_x, output;
   SUSCOUNT i;
-  SUFLOAT alpha;
   SUCOMPLEX lo;
   struct suscan_audio_inspector *self =
       (struct suscan_audio_inspector *) private;

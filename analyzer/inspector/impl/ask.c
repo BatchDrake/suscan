@@ -344,15 +344,11 @@ suscan_ask_inspector_feed(
     SUSCOUNT count)
 {
   SUSCOUNT i;
-  SUSCOUNT osize = 0;
-  SUFLOAT alpha;
   SUCOMPLEX const_gain;
   SUCOMPLEX det_x;
   SUCOMPLEX output;
   SUBOOL new_sample = SU_FALSE;
   SUCOMPLEX last = 0;
-  unsigned int counts = 0;
-  struct timeval tv, otv, sub;
 
   struct suscan_ask_inspector *ask_insp =
       (struct suscan_ask_inspector *) private;
