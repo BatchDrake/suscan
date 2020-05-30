@@ -2436,7 +2436,6 @@ suscan_load_sources(void)
   suscan_source_config_t *cfg = NULL;
   const suscan_object_t *list = NULL;
   const suscan_object_t *cfgobj = NULL;
-  const SoapySDRKwargs *args = NULL;
   unsigned int i, count;
   const char *tmp;
 
@@ -2458,7 +2457,6 @@ suscan_load_sources(void)
           SU_WARNING("Could not parse configuration #%d from config\n", i);
         } else {
           SU_TRYCATCH(suscan_source_config_register(cfg), goto fail);
-          args = cfg->soapy_args;
           cfg = NULL;
         }
       }

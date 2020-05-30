@@ -26,7 +26,6 @@
 #include <sigutils/agc.h>
 #include <sigutils/pll.h>
 #include <sigutils/clock.h>
-#include <sigutils/equalizer.h>
 
 #include "inspector/interface.h"
 #include "inspector/params.h"
@@ -128,8 +127,6 @@ SUPRIVATE struct suscan_fsk_inspector *
 suscan_fsk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
 {
   struct suscan_fsk_inspector *new = NULL;
-  struct sigutils_equalizer_params eq_params =
-      sigutils_equalizer_params_INITIALIZER;
   struct su_agc_params agc_params = su_agc_params_INITIALIZER;
   SUFLOAT bw, tau;
 
@@ -186,11 +183,6 @@ suscan_fsk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
           tau,
           new->cur_params.mf.mf_rolloff),
       goto fail);
-
-
-  /* Initialize equalizer */
-  eq_params.mu = SUSCAN_FSK_INSPECTOR_DEFAULT_EQ_MU;
-  eq_params.length = SUSCAN_FSK_INSPECTOR_DEFAULT_EQ_LENGTH;
 
   return new;
 
