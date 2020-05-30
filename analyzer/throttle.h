@@ -40,23 +40,6 @@ struct suscan_throttle {
 
 typedef struct suscan_throttle suscan_throttle_t;
 
-#ifndef timespecsub
-SUINLINE void
-timespecsub(
-    struct timespec *a,
-    struct timespec *b,
-    struct timespec *sub)
-{
-  sub->tv_sec = a->tv_sec - b->tv_sec;
-  sub->tv_nsec = a->tv_nsec - b->tv_nsec;
-
-  if (sub->tv_nsec < 0) {
-    sub->tv_nsec += 1000000000;
-    --sub->tv_sec;
-  }
-}
-#endif
-
 void suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate);
 
 SUSCOUNT suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h);
