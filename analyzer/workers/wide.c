@@ -188,7 +188,6 @@ suscan_analyzer_set_hop_range(
     SUFREQ min,
     SUFREQ max)
 {
-  SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(
@@ -221,7 +220,6 @@ suscan_source_wide_wk_cb(
   SUSDIFF got;
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
-  struct timespec sub;
 
   SU_TRYCATCH(suscan_analyzer_lock_loop(self), goto done);
   mutex_acquired = SU_TRUE;

@@ -321,8 +321,6 @@ suscan_analyzer_dispose_inspector_handle(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle)
 {
-  struct suscan_inspector_overridable_request *req = NULL;
-
   if (handle < 0 || handle >= analyzer->inspector_count)
     return SU_FALSE;
 
@@ -531,12 +529,8 @@ suscan_analyzer_parse_inspector_msg(
     struct suscan_analyzer_inspector_msg *msg)
 {
   suscan_inspector_t *insp = NULL;
-  unsigned int i;
-  SUHANDLE handle = -1;
-  SUFLOAT f0, new_bw;
   SUBOOL ok = SU_FALSE;
   SUBOOL mutex_acquired = SU_FALSE;
-  SUBOOL update_baud;
 
   switch (msg->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:

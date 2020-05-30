@@ -252,7 +252,6 @@ suscan_config_context_scan(suscan_config_context_t *context)
   void *mmap_base = (void *) -1;
   suscan_object_t *set = NULL;
   struct stat sbuf;
-  size_t size;
 
   SUBOOL ok = SU_FALSE;
 
@@ -339,7 +338,6 @@ suscan_config_context_save(suscan_config_context_t *context)
   char *path = NULL;
   unsigned int i;
   int fd = -1;
-  suscan_object_t *set = NULL;
   size_t size;
   void *data = NULL;
   SUBOOL ok = SU_FALSE;

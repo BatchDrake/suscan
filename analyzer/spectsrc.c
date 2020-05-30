@@ -111,7 +111,6 @@ suscan_spectsrc_new(
     enum sigutils_channel_detector_window window_type)
 {
   suscan_spectsrc_t *new = NULL;
-  unsigned int i;
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_spectsrc_t)), goto fail);
 

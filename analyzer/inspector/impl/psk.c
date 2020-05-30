@@ -301,7 +301,6 @@ suscan_psk_inspector_commit_config(void *private)
   SUFLOAT actual_baud;
   SUFLOAT sym_period;
   su_costas_t costas;
-  enum sigutils_costas_kind kind;
 
   su_iir_filt_t mf = su_iir_filt_INITIALIZER;
   struct suscan_psk_inspector *insp = (struct suscan_psk_inspector *) private;
@@ -401,8 +400,6 @@ suscan_psk_inspector_feed(
     SUSCOUNT count)
 {
   SUSCOUNT i;
-  SUSCOUNT osize = 0;
-  SUFLOAT alpha;
   SUCOMPLEX det_x;
   SUCOMPLEX output;
   SUBOOL new_sample = SU_FALSE;

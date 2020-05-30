@@ -140,7 +140,6 @@ suscan_analyzer_set_antenna_cb(
   suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
   SUBOOL mutex_acquired = SU_FALSE;
   char *req = NULL;
-  unsigned int i;
 
   /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
   SU_TRYCATCH(pthread_mutex_lock(&analyzer->hotconf_mutex) != -1, goto fail);

@@ -221,7 +221,6 @@ suscan_source_device_assert_gain(
 {
   unsigned int i;
   struct suscan_source_gain_desc *desc = NULL, *result = NULL;
-  SUBOOL ok = SU_FALSE;
 
   for (i = 0; i < dev->gain_desc_count; ++i) {
     if (strcmp(dev->gain_desc_list[i]->name, name) == 0) {
@@ -1745,7 +1744,6 @@ SUPRIVATE SUBOOL
 suscan_source_set_sample_rate_near(suscan_source_t *source)
 {
   double *rates = NULL;
-  size_t len;
   unsigned int i;
   SUFLOAT closest_rate = 0;
   SUFLOAT dist = INFINITY;

@@ -240,7 +240,6 @@ suscan_source_channel_wk_cb(
       su_channel_detector_get_window_size(analyzer->detector);
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
-  unsigned int i;
   struct timespec sub;
   SUFLOAT seconds;
 

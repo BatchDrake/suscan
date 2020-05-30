@@ -49,8 +49,6 @@ void
 suscan_fingerprint_report_destroy(
     struct suscan_fingerprint_report *report)
 {
-  unsigned int i;
-
   if (report->results != NULL)
     free(report->results);
 
@@ -118,7 +116,6 @@ suscan_close_all_channels(
     struct suscan_fingerprint_report *report)
 {
   unsigned int i;
-  SUHANDLE handle;
 
   for (i = 0; i < report->result_count; ++i)
     if (report->results[i].br_handle >= 0)
@@ -133,7 +130,6 @@ suscan_get_all_baudrates(
     struct suscan_fingerprint_report *report)
 {
   unsigned int i;
-  SUHANDLE handle;
 
   for (i = 0; i < report->result_count; ++i) {
     /* TODO: Implement */
@@ -184,8 +180,6 @@ suscan_perform_fingerprint(struct suscan_source_config *config)
   const struct suscan_analyzer_status_msg  *st_msg;
   struct suscan_fingerprint_report *report = NULL;
   unsigned int chskip = SUSCAN_CHLIST_SKIP_CHANNELS;
-  unsigned int i;
-  unsigned int n = 0;
   SUBOOL running = SU_TRUE;
   SUBOOL ok = SU_FALSE;
 

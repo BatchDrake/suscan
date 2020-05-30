@@ -152,7 +152,7 @@ suscan_analyzer_register_baseband_filter(
     suscan_analyzer_baseband_filter_func_t func,
     void *privdata)
 {
-  struct suscan_analyzer_baseband_filter *new;
+  struct suscan_analyzer_baseband_filter *new = NULL;
 
   SU_TRYCATCH(
       self->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
@@ -316,7 +316,6 @@ SUPRIVATE void *
 suscan_analyzer_thread(void *data)
 {
   suscan_analyzer_t *self = (suscan_analyzer_t *) data;
-  su_channel_detector_t *new_detector = NULL;
   struct sigutils_channel_detector_params new_det_params;
   const struct suscan_analyzer_params *new_params;
   const struct suscan_analyzer_throttle_msg *throttle;
@@ -730,10 +729,8 @@ done:
 void
 suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 {
-  uint32_t type;
   unsigned int i;
   struct suscan_inspector_overridable_request *req;
-  void *private;
 
   /* Prevent source from entering in timeout loops */
   if (analyzer->source != NULL)
@@ -900,8 +897,6 @@ suscan_analyzer_new(
   struct sigutils_specttuner_params st_params =
       sigutils_specttuner_params_INITIALIZER;
   struct sigutils_channel_detector_params det_params;
-  unsigned int worker_count;
-  unsigned int i;
 
 #ifdef DEBUG_ANALYZER_PARAMS
   suscan_analyzer_params_debug(params);

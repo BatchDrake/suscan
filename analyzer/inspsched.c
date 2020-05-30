@@ -37,7 +37,6 @@ suscan_inpsched_task_cb(
   suscan_inspsched_t *sched = (suscan_inspsched_t *) wk_private;
   struct suscan_inspector_task_info *task_info =
       (struct suscan_inspector_task_info *) cb_private;
-  unsigned int i;
 
   /*
    * We just process the incoming data. If we broke something,
@@ -243,7 +242,7 @@ suscan_inspsched_t *
 suscan_inspsched_new(suscan_analyzer_t *analyzer)
 {
   suscan_inspsched_t *new = NULL;
-  suscan_worker_t *worker;
+  suscan_worker_t *worker = NULL;
 
   unsigned int i, count;
 

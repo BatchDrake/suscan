@@ -74,7 +74,7 @@ set(SUSCAN_PKGDIR "${CMAKE_INSTALL_PREFIX}" CACHE STRING
 string(REPLACE ";" " " SIGUTILS_SPC_CFLAGS "${SIGUTILS_CFLAGS}")
 string(REPLACE ";" " " SIGUTILS_SPC_LDFLAGS "${SIGUTILS_LDFLAGS}")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SIGUTILS_CONFIG_CFLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall ${SIGUTILS_CONFIG_CFLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPKGDATADIR='\"${SUSCAN_PKGDIR}/share/suscan\"'")
 # The following hack exposes __FILENAME__ to source files as the relative
 # path of each source file.

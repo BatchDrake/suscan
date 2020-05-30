@@ -320,8 +320,6 @@ suscan_fsk_inspector_feed(
     SUSCOUNT count)
 {
   SUSCOUNT i;
-  SUSCOUNT osize = 0;
-  SUFLOAT alpha;
   SUCOMPLEX const_gain;
   SUCOMPLEX det_x;
   SUCOMPLEX output;
