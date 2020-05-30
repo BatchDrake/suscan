@@ -291,7 +291,7 @@ suscan_audio_inspector_feed(
     const SUCOMPLEX *x,
     SUSCOUNT count)
 {
-  SUCOMPLEX last, det_x, output;
+  SUCOMPLEX last, det_x, output = 0;
   SUSCOUNT i;
   SUCOMPLEX lo;
   struct suscan_audio_inspector *self =

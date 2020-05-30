@@ -336,7 +336,7 @@ suscan_ask_inspector_feed(
     SUSCOUNT count)
 {
   SUSCOUNT i;
-  SUCOMPLEX const_gain;
+  SUCOMPLEX const_gain = 0;
   SUCOMPLEX det_x;
   SUCOMPLEX output;
   SUBOOL new_sample = SU_FALSE;

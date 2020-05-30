@@ -55,7 +55,9 @@ suscan_analyzer_hop(suscan_analyzer_t *self)
   SUFREQ bw =
         self->current_sweep_params.max_freq
         - self->current_sweep_params.min_freq;
-  SUFREQ next;
+  SUFREQ next = .5 * (
+      self->current_sweep_params.max_freq
+      + self->current_sweep_params.min_freq);
 
   /*
    * For frequencies below the sample rate, we don't hop.
@@ -64,10 +66,6 @@ suscan_analyzer_hop(suscan_analyzer_t *self)
    * are exactly the same, the hop bandwidth is actually the sample rate.
    */
   if (bw < 1) {
-    next = .5 * (
-        self->current_sweep_params.max_freq
-        + self->current_sweep_params.min_freq);
-
     if (fabs(self->curr_freq - next) < 1)
       return SU_TRUE;
   } else {
