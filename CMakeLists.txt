@@ -57,6 +57,7 @@ set(INSPECTORDIR ${ANALYZERDIR}/inspector/impl)
 set(SPECTSRCDIR  ${ANALYZERDIR}/spectsrcs)
 set(UTILDIR      util)
 set(RSRCDIR      rsrc)
+set(CLIDIR       cli)
 set(VERSIONDIR   analyzer)
 
 # Compiler flags
@@ -145,6 +146,12 @@ set(UTIL_SOURCES
   ${UTILDIR}/rbtree.c
   ${UTILDIR}/serialize.c
   ${UTILDIR}/util.c)
+
+set(CLI_HEADERS
+  ${CLIDIR}/cli.h)
+
+set(CLI_SOURCES
+  ${CLIDIR}/cli.c)
 
 set(VERSION_HEADERS ${VERSIONDIR}/version.h)
 
