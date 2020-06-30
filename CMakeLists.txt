@@ -126,19 +126,23 @@ set(RSRC_CONFIG_FILES
   
 set(UTIL_HEADERS
   ${UTILDIR}/compat.h
+  ${UTILDIR}/hashlist.h
   ${UTILDIR}/macos-barriers.h
   ${UTILDIR}/macos-barriers.imp.h
   ${UTILDIR}/confdb.h
   ${UTILDIR}/cfg.h
   ${UTILDIR}/object.h 
+  ${UTILDIR}/rbtree.h
   ${UTILDIR}/util.h)
   
 set(UTIL_SOURCES
   ${UTILDIR}/cfg.c
   ${UTILDIR}/compat.c
   ${UTILDIR}/confdb.c
-  ${UTILDIR}/deserialize.c 
+  ${UTILDIR}/deserialize.c
+  ${UTILDIR}/hashlist.c
   ${UTILDIR}/object.c
+  ${UTILDIR}/rbtree.c
   ${UTILDIR}/serialize.c
   ${UTILDIR}/util.c)
 
