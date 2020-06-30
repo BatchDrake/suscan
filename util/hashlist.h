@@ -39,7 +39,6 @@ void hashlist_set_dtor(hashlist_t *, void (*) (const char *, void *, void *));
 
 SUBOOL hashlist_contains(const hashlist_t *, const char *);
 void  *hashlist_get(const hashlist_t *, const char *);
-SUBOOL hashlist_remove(hashlist_t *);
 void hashlist_destroy(hashlist_t *);
 
 #endif /* _UTIL_HASHLIST_H */
