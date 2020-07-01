@@ -21,4 +21,186 @@
 #define SU_LOG_DOMAIN "cli"
 
 #include <sigutils/log.h>
+#include <string.h>
 #include "cli.h"
+
+PTR_LIST(struct suscli_command, command);
+
+SUPRIVATE void
+suscli_command_destroy(struct suscli_command *cmd)
+{
+  if (cmd->name != NULL)
+    free(cmd->name);
+
+  if (cmd->description != NULL)
+    free(cmd->description);
+
+  free(cmd);
+}
+
+SUPRIVATE struct suscli_command *
+suscli_command_new(
+    const char *name,
+    const char *descr,
+    SUBOOL (*callback) (const hashlist_t *))
+{
+  struct suscli_command *new = NULL;
+
+  SU_TRYCATCH(new = calloc(1, sizeof(struct suscli_command)), goto fail);
+
+  SU_TRYCATCH(new->name = strdup(name), goto fail);
+  SU_TRYCATCH(new->description = strdup(descr), goto fail);
+  new->callback = callback;
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscli_command_destroy(new);
+
+  return NULL;
+}
+
+SUBOOL
+suscli_command_register(
+    const char *name,
+    const char *description,
+    SUBOOL (*callback) (const hashlist_t *))
+{
+  struct suscli_command *new = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(new = suscli_command_new(name, description, callback), goto fail);
+
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(command, new) != -1, goto fail);
+
+  ok = SU_TRUE;
+
+fail:
+  if (!ok && new != NULL)
+    suscli_command_destroy(new);
+
+  return ok;
+}
+
+const struct suscli_command *
+suscli_command_lookup(const char *name)
+{
+  int i;
+
+  for (i = 0; i < command_count; ++i)
+    if (strcmp(command_list[i]->name, name) == 0)
+      return command_list[i];
+
+  return NULL;
+}
+
+SUPRIVATE void
+suscli_params_dtor(const char *key, void *data, void *userdata)
+{
+  free(data);
+}
+
+SUPRIVATE hashlist_t *
+suscli_parse_params(const char **argv)
+{
+  hashlist_t *new = NULL;
+  hashlist_t *result = NULL;
+  char *copy = NULL;
+  char *val = NULL;
+  char *eq = NULL;
+
+  SU_TRYCATCH(new = hashlist_new(), goto fail);
+  hashlist_set_dtor(new, suscli_params_dtor);
+
+  while (*argv != NULL) {
+    SU_TRYCATCH(copy = strdup(*argv++), goto fail);
+
+    if ((eq = strchr(copy, '=')) != NULL)
+      *eq++ = '\0';
+
+    SU_TRYCATCH(val = strdup(eq != NULL ? eq : "1"), goto fail);
+
+    SU_TRYCATCH(hashlist_set(new, copy, val), goto fail);
+
+    val = NULL;
+    free(copy);
+
+    copy = NULL;
+  }
+
+  result = new;
+  new = NULL;
+
+fail:
+  if (copy != NULL)
+    free(copy);
+
+  if (val != NULL)
+    free(val);
+
+  if (new != NULL)
+    hashlist_destroy(new);
+
+  return result;
+}
+
+SUBOOL
+suscli_run_command(const char *name, const char **argv)
+{
+  const struct suscli_command *cmd;
+  hashlist_t *params = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  if ((cmd = suscli_command_lookup(name)) == NULL)
+    goto fail;
+
+  SU_TRYCATCH(params = suscli_parse_params(argv), goto fail);
+
+  ok = (cmd->callback) (params);
+
+fail:
+  if (params != NULL)
+    hashlist_destroy(params);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscli_init_cb(const hashlist_t *params)
+{
+  int i;
+
+  fprintf(
+      stderr,
+      "Command list:\n");
+
+  for (i = 0; i < command_count; ++i) {
+    fprintf(
+        stderr,
+        "  %-10s%s\n",
+        command_list[i]->name,
+        command_list[i]->description);
+  }
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscli_init(void)
+{
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      suscli_command_register(
+          "list",
+          "List all available commands",
+          suscli_init_cb) != -1,
+      goto fail);
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+

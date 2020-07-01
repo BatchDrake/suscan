@@ -52,6 +52,7 @@ hashlist_entry_new(const char *key, void *value)
       goto fail);
 
   SU_TRYCATCH(new->key = strdup(key), goto fail);
+  new->value = value;
 
   return new;
 
@@ -204,6 +205,8 @@ hashlist_set(hashlist_t *self, const char *key, void *val)
 
   if ((list = hashlist_find_entry_list(self, hash)) != NULL) {
     if ((entry = hashlist_entry_find(list, key)) != NULL) {
+      if (self->dtor != NULL)
+        (self->dtor) (key, entry->value, self->userdata);
       entry->value = val;
       return SU_TRUE;
     }
@@ -216,7 +219,9 @@ hashlist_set(hashlist_t *self, const char *key, void *val)
     new->next = list->next;
     list->next = new;
   } else {
-    SU_TRYCATCH(rbtree_insert(self->rbtree, (int64_t) hash, new), goto fail);
+    SU_TRYCATCH(
+        rbtree_insert(self->rbtree, (int64_t) hash, new) != -1,
+        goto fail);
   }
 
   return SU_TRUE;

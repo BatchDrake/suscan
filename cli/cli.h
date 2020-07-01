@@ -39,4 +39,6 @@ const struct suscli_command *suscli_command_lookup(const char *);
 
 SUBOOL suscli_run_command(const char *name, const char **argv);
 
+SUBOOL suscli_init(void);
+
 #endif /* _SUSCLI_CLI_H */

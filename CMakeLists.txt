@@ -364,3 +364,56 @@ endif()
 
 install(TARGETS suscan.status DESTINATION bin)
 
+######################### Suscan Command Line tool ############################
+set(SUSCLI_HEADERS
+  ${SRCDIR}/suscan.h
+  ${CLI_HEADERS}
+  ${CLI_SOURCES})
+  
+set(SUSCLI_SOURCES   
+  ${SRCDIR}/lib.c
+  ${SRCDIR}/suscli.c
+  ${SUSCLI_HEADERS}
+  ${SUSCLI_SOURCES})
+  
+add_executable(
+  suscli
+  ${SUSCLI_HEADERS} 
+  ${SUSCLI_SOURCES})
+
+# Private header directories
+target_include_directories(
+  suscli
+  PRIVATE . ${UTILDIR} ${CODECLIB_DIR} ${SRCDIR} ${CLIDIR})
+
+# Required dependencies
+set_target_properties(suscli PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
+set_target_properties(suscli PROPERTIES LINK_FLAGS "${SIGUTILS_SPC_LDFLAGS}")
+
+link_directories(${PROJECT_BINARY_DIR} ${SOAPYSDR_LIBRARY_DIRS})
+
+target_link_libraries(suscli sigutils)
+target_link_libraries(suscli suscan)
+target_link_libraries(suscli m)
+
+target_include_directories(suscli SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
+target_link_libraries(suscli ${SNDFILE_LIBRARIES})
+
+target_include_directories(suscli SYSTEM PUBLIC ${FFTW3_INCLUDE_DIRS})
+target_link_libraries(suscli ${FFTW3_LIBRARIES})
+
+target_include_directories(suscli SYSTEM PUBLIC ${SOAPYSDR_INCLUDE_DIRS})
+target_link_libraries(suscli ${SOAPYSDR_LIBRARIES})
+
+target_include_directories(suscli SYSTEM PUBLIC ${XML2_INCLUDE_DIRS})
+target_link_libraries(suscli ${XML2_LIBRARIES})
+
+target_link_libraries(suscli ${CMAKE_THREAD_LIBS_INIT})
+
+# Optional dependencies
+if(VOLK_FOUND)
+  target_include_directories(suscli SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
+  target_link_libraries(suscli ${VOLK_LIBRARIES})
+endif()
+
+install(TARGETS suscli DESTINATION bin)
