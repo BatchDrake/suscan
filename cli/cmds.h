@@ -18,35 +18,12 @@
 
 */
 
-#ifndef _SUSCLI_CLI_H
-#define _SUSCLI_CLI_H
+#ifndef _CLI_CMDS_H
+#define _CLI_CMDS_H
 
 #include <sigutils/sigutils.h>
 #include <util/hashlist.h>
 
-#define SUSCLI_COMMAND_REQ_CODECS     1
-#define SUSCLI_COMMAND_REQ_SOURCES    2
-#define SUSCLI_COMMAND_REQ_ESTIMATORS 4
-#define SUSCLI_COMMAND_REQ_SPECTSRCS  8
-#define SUSCLI_COMMAND_REQ_INSPECTORS 16
+SUBOOL suscli_profiles_cb(const hashlist_t *params);
 
-struct suscli_command {
-  char *name;
-  char *description;
-  uint32_t flags;
-  SUBOOL (*callback) (const hashlist_t *);
-};
-
-SUBOOL suscli_command_register(
-    const char *,
-    const char *,
-    uint32_t flags,
-    SUBOOL (*callback) (const hashlist_t *));
-
-const struct suscli_command *suscli_command_lookup(const char *);
-
-SUBOOL suscli_run_command(const char *name, const char **argv);
-
-SUBOOL suscli_init(void);
-
-#endif /* _SUSCLI_CLI_H */
+#endif /* _CLI_CMDS_H */

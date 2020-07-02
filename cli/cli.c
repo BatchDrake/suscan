@@ -21,10 +21,15 @@
 #define SU_LOG_DOMAIN "cli"
 
 #include <sigutils/log.h>
+#include <analyzer/analyzer.h>
+#include <codec/codec.h>
 #include <string.h>
-#include "cli.h"
+
+#include <cli/cli.h>
+#include <cli/cmds.h>
 
 PTR_LIST(struct suscli_command, command);
+SUPRIVATE uint32_t init_mask = 0;
 
 SUPRIVATE void
 suscli_command_destroy(struct suscli_command *cmd)
@@ -42,6 +47,7 @@ SUPRIVATE struct suscli_command *
 suscli_command_new(
     const char *name,
     const char *descr,
+    uint32_t flags,
     SUBOOL (*callback) (const hashlist_t *))
 {
   struct suscli_command *new = NULL;
@@ -50,6 +56,7 @@ suscli_command_new(
 
   SU_TRYCATCH(new->name = strdup(name), goto fail);
   SU_TRYCATCH(new->description = strdup(descr), goto fail);
+  new->flags = flags;
   new->callback = callback;
 
   return new;
@@ -65,12 +72,15 @@ SUBOOL
 suscli_command_register(
     const char *name,
     const char *description,
+    uint32_t flags,
     SUBOOL (*callback) (const hashlist_t *))
 {
   struct suscli_command *new = NULL;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(new = suscli_command_new(name, description, callback), goto fail);
+  SU_TRYCATCH(
+      new = suscli_command_new(name, description, flags, callback),
+      goto fail);
 
   SU_TRYCATCH(PTR_LIST_APPEND_CHECK(command, new) != -1, goto fail);
 
@@ -145,6 +155,12 @@ fail:
   return result;
 }
 
+#define SUSCLI_ASSERT_INIT(flag, command)      \
+if ((init_mask & flag) ^ (cmd->flags &flag)) { \
+  SU_TRYCATCH(command, goto fail);             \
+  init_mask |= flag;                           \
+}
+
 SUBOOL
 suscli_run_command(const char *name, const char **argv)
 {
@@ -152,8 +168,29 @@ suscli_run_command(const char *name, const char **argv)
   hashlist_t *params = NULL;
   SUBOOL ok = SU_FALSE;
 
-  if ((cmd = suscli_command_lookup(name)) == NULL)
+  if ((cmd = suscli_command_lookup(name)) == NULL) {
+    fprintf(stderr, "%s: command does not exist\n", name);
     goto fail;
+  }
+  SUSCLI_ASSERT_INIT(
+      SUSCLI_COMMAND_REQ_CODECS,
+      suscan_codec_class_register_builtin());
+
+  SUSCLI_ASSERT_INIT(
+      SUSCLI_COMMAND_REQ_SOURCES,
+      suscan_init_sources());
+
+  SUSCLI_ASSERT_INIT(
+      SUSCLI_COMMAND_REQ_ESTIMATORS,
+      suscan_init_estimators());
+
+  SUSCLI_ASSERT_INIT(
+      SUSCLI_COMMAND_REQ_SPECTSRCS,
+      suscan_init_spectsrcs());
+
+  SUSCLI_ASSERT_INIT(
+      SUSCLI_COMMAND_REQ_ESTIMATORS,
+      suscan_init_inspectors());
 
   SU_TRYCATCH(params = suscli_parse_params(argv), goto fail);
 
@@ -195,7 +232,17 @@ suscli_init(void)
       suscli_command_register(
           "list",
           "List all available commands",
+          0,
           suscli_init_cb) != -1,
+      goto fail);
+
+
+  SU_TRYCATCH(
+      suscli_command_register(
+          "profiles",
+          "List profiles",
+          SUSCLI_COMMAND_REQ_SOURCES,
+          suscli_profiles_cb) != -1,
       goto fail);
 
   ok = SU_TRUE;

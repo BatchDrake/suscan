@@ -148,10 +148,12 @@ set(UTIL_SOURCES
   ${UTILDIR}/util.c)
 
 set(CLI_HEADERS
-  ${CLIDIR}/cli.h)
+  ${CLIDIR}/cli.h
+  ${CLIDIR}/cmds.h)
 
 set(CLI_SOURCES
-  ${CLIDIR}/cli.c)
+  ${CLIDIR}/cli.c
+  ${CLIDIR}/cmd/profiles.c)
 
 set(VERSION_HEADERS ${VERSIONDIR}/version.h)
 
