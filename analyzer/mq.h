@@ -27,6 +27,7 @@ extern "C" {
 
 #include <pthread.h>
 #include <sigutils/sigutils.h>
+#include <sys/time.h>
 
 #define SUSCAN_MQ_USE_POOL
 
@@ -53,10 +54,30 @@ struct suscan_mq {
 /*************************** Message queue API *******************************/
 SUBOOL suscan_mq_init(struct suscan_mq *mq);
 void   suscan_mq_finalize(struct suscan_mq *mq);
+
 void  *suscan_mq_read(struct suscan_mq *mq, uint32_t *type);
+void  *suscan_mq_read_timeout(
+    struct suscan_mq *mq,
+    uint32_t *type,
+    const struct timeval *timeout);
+
 void  *suscan_mq_read_w_type(struct suscan_mq *mq, uint32_t type);
+void  *suscan_mq_read_w_type_timeout(
+    struct suscan_mq *mq,
+    uint32_t type,
+    const struct timeval *timeout);
+
 struct suscan_msg *suscan_mq_read_msg(struct suscan_mq *mq);
+struct suscan_msg *suscan_mq_read_msg_timeout(
+    struct suscan_mq *mq,
+    const struct timeval *timeout);
+
 struct suscan_msg *suscan_mq_read_msg_w_type(struct suscan_mq *mq, uint32_t type);
+struct suscan_msg *suscan_mq_read_msg_w_type_timeout(
+    struct suscan_mq *mq,
+    uint32_t type,
+    const struct timeval *timeout);
+
 SUBOOL suscan_mq_poll(struct suscan_mq *mq, uint32_t *type, void **privdata);
 SUBOOL suscan_mq_poll_w_type(struct suscan_mq *mq, uint32_t type, void **privdata);
 struct suscan_msg *suscan_mq_poll_msg(struct suscan_mq *mq);

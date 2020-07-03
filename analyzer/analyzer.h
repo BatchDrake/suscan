@@ -290,8 +290,18 @@ SUBOOL suscan_analyzer_set_agc(suscan_analyzer_t *analyzer, SUBOOL val);
 void suscan_analyzer_destroy_slow_worker_data(suscan_analyzer_t *);
 
 void *suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type);
+void *suscan_analyzer_read_timeout(
+    suscan_analyzer_t *analyzer,
+    uint32_t *type,
+    const struct timeval *timeout);
+
 struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg(
     suscan_analyzer_t *analyzer);
+struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg_timeout(
+    suscan_analyzer_t *analyzer,
+    const struct timeval *timeout);
+
+
 SUBOOL suscan_analyzer_write(
     suscan_analyzer_t *analyzer,
     uint32_t type,
