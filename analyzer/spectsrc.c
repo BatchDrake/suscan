@@ -27,6 +27,8 @@
 
 PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc_class);
 
+SUPRIVATE SUBOOL spectsrcs_init = SU_FALSE;
+
 const struct suscan_spectsrc_class *
 suscan_spectsrc_class_lookup(const char *name)
 {
@@ -245,6 +247,12 @@ suscan_spectsrc_destroy(suscan_spectsrc_t *spectsrc)
 }
 
 SUBOOL
+suscan_spectsrcs_initialized(void)
+{
+  return spectsrcs_init;
+}
+
+SUBOOL
 suscan_init_spectsrcs(void)
 {
   SU_TRYCATCH(suscan_spectsrc_psd_register(), return SU_FALSE);
@@ -256,6 +264,8 @@ suscan_init_spectsrcs(void)
   SU_TRYCATCH(suscan_spectsrc_exp_2_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_spectsrc_exp_4_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_spectsrc_exp_8_register(), return SU_FALSE);
+
+  spectsrcs_init = SU_TRUE;
 
   return SU_TRUE;
 }

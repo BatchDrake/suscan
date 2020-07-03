@@ -69,6 +69,9 @@ suscan_inspector_interface_add_spectsrc(
 {
   const struct suscan_spectsrc_class *class;
 
+  if (!suscan_spectsrcs_initialized())
+    return SU_FALSE;
+
   SU_TRYCATCH(class = suscan_spectsrc_class_lookup(name), return SU_FALSE);
 
   SU_TRYCATCH(
@@ -84,6 +87,9 @@ suscan_inspector_interface_add_estimator(
     const char *name)
 {
   const struct suscan_estimator_class *class;
+
+  if (!suscan_estimators_initialized())
+    return SU_FALSE;
 
   SU_TRYCATCH(class = suscan_estimator_class_lookup(name), return SU_FALSE);
 

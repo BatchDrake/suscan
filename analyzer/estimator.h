@@ -90,6 +90,8 @@ SUBOOL suscan_estimator_nonlinear_register(void);
 
 SUBOOL suscan_init_estimators(void);
 
+SUBOOL suscan_estimators_initialized(void);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

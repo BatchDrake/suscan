@@ -25,6 +25,7 @@
 #include "estimator.h"
 
 PTR_LIST_CONST(struct suscan_estimator_class, estimator_class);
+SUPRIVATE SUBOOL estimators_init = SU_FALSE;
 
 const struct suscan_estimator_class *
 suscan_estimator_class_lookup(const char *name)
@@ -105,10 +106,18 @@ suscan_estimator_destroy(suscan_estimator_t *estimator)
 }
 
 SUBOOL
+suscan_estimators_initialized(void)
+{
+  return estimators_init;
+}
+
+SUBOOL
 suscan_init_estimators(void)
 {
   SU_TRYCATCH(suscan_estimator_fac_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_estimator_nonlinear_register(), return SU_FALSE);
+
+  estimators_init = SU_TRUE;
 
   return SU_TRUE;
 }

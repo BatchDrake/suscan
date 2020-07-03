@@ -404,34 +404,15 @@ suscan_fsk_inspector_register(void)
   SU_TRYCATCH(suscan_config_desc_add_br_params(iface.cfgdesc), return SU_FALSE);
 
   /* Add estimator */
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_estimator(&iface, "baud-nonlinear"),
-      return SU_FALSE);
+  (void) suscan_inspector_interface_add_estimator(&iface, "baud-nonlinear");
 
   /* Add applicable spectrum sources */
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "psd"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "cyclo"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "fmcyclo"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "fmspect"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "timediff"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "abstimediff"),
-      return SU_FALSE);
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "psd");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "cyclo");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "fmcyclo");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "fmspect");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "timediff");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "abstimediff");
 
   /* Register inspector interface */
   SU_TRYCATCH(suscan_inspector_interface_register(&iface), return SU_FALSE);

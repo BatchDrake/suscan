@@ -104,6 +104,8 @@ SUBOOL suscan_spectsrc_exp_8_register(void);
 
 SUBOOL suscan_init_spectsrcs(void);
 
+SUBOOL suscan_spectsrcs_initialized(void);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
