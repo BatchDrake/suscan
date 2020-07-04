@@ -1,0 +1,227 @@
+/*
+
+  Copyright (C) 2020 Gonzalo José Carracedo Carballal
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Lesser General Public License as
+  published by the Free Software Foundation, either version 3 of the
+  License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this program.  If not, see
+  <http://www.gnu.org/licenses/>
+
+*/
+
+#define _SU_LOG_DOMAIN "chanloop"
+
+#include <sigutils/log.h>
+#include <analyzer/msg.h>
+#include "chanloop.h"
+
+#define SUSCAN_CHANLOOP_PSD_STARTUP_INTERVAL 1e-6
+#define SUSCAN_CHANLOOP_MSG_TIMEOUT_MS       5000
+#define SUSCAN_CHANLOOP_REQ_ID               0xc1009ll
+
+suscli_chanloop_t *
+suscli_chanloop_open(
+    const struct suscli_chanloop_params *params,
+    suscan_source_config_t *cfg)
+{
+  struct suscan_analyzer_inspector_msg *msg;
+  void *rawmsg;
+  uint32_t type;
+  struct timeval timeout;
+  SUSCOUNT true_samp_rate;
+  SUFREQ   bandwidth;
+  SUFREQ   lofreq;
+  SUBOOL   have_inspector = SU_FALSE;
+
+  struct sigutils_channel ch = sigutils_channel_INITIALIZER;
+
+  suscli_chanloop_t *new = NULL;
+  struct suscan_analyzer_params analyzer_params =
+      suscan_analyzer_params_INITIALIZER;
+
+  SU_TRYCATCH(params->on_data != NULL, goto fail);
+
+  SU_TRYCATCH(params->relbw > 0,  goto fail);
+  SU_TRYCATCH(params->relbw <= 1, goto fail);
+
+  SU_TRYCATCH(params->rello - .5 * params->relbw > -.5,  goto fail);
+  SU_TRYCATCH(params->rello + .5 * params->relbw < +.5, goto fail);
+
+  /* Neither PSD nor channel detector */
+  analyzer_params.channel_update_int = 0;
+  analyzer_params.psd_update_int     = 0;
+
+  SU_TRYCATCH(new = calloc(1, sizeof(suscli_chanloop_t)), goto fail);
+
+  new->params = *params;
+
+  /* First step: open analyzer, get true sample rate */
+  SU_TRYCATCH(suscan_mq_init(&new->mq), goto fail);
+  SU_TRYCATCH(
+      new->analyzer = suscan_analyzer_new(
+          &analyzer_params,
+          cfg,
+          &new->mq),
+      goto fail);
+
+  true_samp_rate = suscan_analyzer_get_samp_rate(new->analyzer);
+
+  /* Second step: deduce bandwidth/lo from sample rate and relative bw/lo */
+  bandwidth = true_samp_rate * params->relbw;
+  lofreq    = true_samp_rate * params->rello;
+
+  /* Third step: open inspector and wait for its creation */
+  ch.ft   = 0;
+  ch.fc   = lofreq;
+  ch.f_lo = lofreq - .5 * bandwidth;
+  ch.f_hi = lofreq + .5 * bandwidth;
+
+  timeout.tv_sec  = SUSCAN_CHANLOOP_MSG_TIMEOUT_MS / 1000;
+  timeout.tv_usec = (SUSCAN_CHANLOOP_MSG_TIMEOUT_MS % 1000) * 1000;
+
+  while (!have_inspector && (rawmsg = suscan_analyzer_read_timeout(
+      new->analyzer,
+      &type,
+      &timeout)) != NULL) {
+    switch (type) {
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
+        SU_TRYCATCH(
+            suscan_analyzer_open_ex_async(
+                new->analyzer,
+                "raw",
+                &ch,
+                SU_TRUE, /* Precise centering */
+                SUSCAN_CHANLOOP_REQ_ID),
+            goto fail);
+
+        break;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
+        suscan_analyzer_dispose_message(type, rawmsg);
+        goto fail;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
+        msg = rawmsg;
+        if (msg->kind ==  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
+          printf("Inspector opened!\n");
+          printf("  Inspector ID: 0x%08x\n", msg->inspector_id);
+          printf("  Request ID:   0x%08x\n", msg->req_id);
+          printf("  Handle:       0x%08x\n", msg->handle);
+          printf("  EquivFS:      %g sps\n", msg->equiv_fs);
+          printf("  BW:           %g Hz\n",  msg->bandwidth);
+          printf("  LO:           %g Hz\n",  msg->lo);
+
+          new->equiv_fs = msg->equiv_fs;
+          SU_TRYCATCH(new->inspcfg = suscan_config_dup(msg->config), goto fail);
+          have_inspector = SU_TRUE;
+
+          /* Set parameters */
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    suscan_analyzer_dispose_message(type, rawmsg);
+  }
+
+  if (!have_inspector) {
+    SU_ERROR("Timeout while waiting for inspector creation\n");
+    goto fail;
+  }
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscli_chanloop_destroy(new);
+
+  return NULL;
+}
+
+SUBOOL
+suscli_chanloop_work(suscli_chanloop_t *self)
+{
+  struct suscan_analyzer_sample_batch_msg *msg;
+  void *rawmsg;
+  uint32_t type;
+  struct timeval timeout;
+  SUBOOL ok = SU_FALSE;
+
+  timeout.tv_sec  = SUSCAN_CHANLOOP_MSG_TIMEOUT_MS / 1000;
+  timeout.tv_usec = (SUSCAN_CHANLOOP_MSG_TIMEOUT_MS % 1000) * 1000;
+
+  while ((rawmsg = suscan_analyzer_read_timeout(
+        self->analyzer,
+        &type,
+        &timeout)) != NULL) {
+      switch (type) {
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
+          suscan_analyzer_dispose_message(type, rawmsg);
+          ok = SU_TRUE;
+          goto fail;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR:
+          suscan_analyzer_dispose_message(type, rawmsg);
+          goto fail;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
+          msg = rawmsg;
+
+          /* There is only one inspector opened. No need to check the handle. */
+          if (!(self->params.on_data) (
+              self->analyzer,
+              msg->samples,
+              msg->sample_count,
+              self->params.userdata)) {
+            suscan_analyzer_dispose_message(type, rawmsg);
+            ok = SU_TRUE;
+            goto fail;
+          }
+
+          break;
+
+        default:
+          break;
+      }
+
+      suscan_analyzer_dispose_message(type, rawmsg);
+    }
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+
+SUBOOL
+suscli_chanloop_cancel(suscli_chanloop_t *self)
+{
+  suscan_analyzer_force_eos(self->analyzer);
+
+  return SU_FALSE;
+}
+
+void
+suscli_chanloop_destroy(suscli_chanloop_t *self)
+{
+  suscan_mq_finalize(&self->mq);
+
+  if (self->inspcfg != NULL)
+    suscan_config_destroy(self->inspcfg);
+
+  if (self->analyzer != NULL)
+    suscan_analyzer_destroy(self->analyzer);
+
+  free(self);
+}

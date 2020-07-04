@@ -747,6 +747,16 @@ done:
   return ok;
 }
 
+SUBOOL
+suscan_analyzer_force_eos(suscan_analyzer_t *self)
+{
+  if (self->source == NULL)
+    return SU_FALSE;
+
+  suscan_source_force_eos(self->source);
+
+  return SU_TRUE;
+}
 void
 suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 {

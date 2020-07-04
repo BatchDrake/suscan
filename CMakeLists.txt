@@ -46,6 +46,7 @@ pkg_check_modules(FFTW3    REQUIRED fftw3f>=3.0)
 pkg_check_modules(SOAPYSDR REQUIRED SoapySDR>=0.5.0)
 pkg_check_modules(XML2     REQUIRED libxml-2.0>=2.9.0)
 pkg_check_modules(VOLK              volk>=1.0)
+pkg_check_modules(PORTAUDIO         portaudio-2.0>=19)
 
 # Source location
 set(SRCDIR       src)
@@ -146,14 +147,6 @@ set(UTIL_SOURCES
   ${UTILDIR}/rbtree.c
   ${UTILDIR}/serialize.c
   ${UTILDIR}/util.c)
-
-set(CLI_HEADERS
-  ${CLIDIR}/cli.h
-  ${CLIDIR}/cmds.h)
-
-set(CLI_SOURCES
-  ${CLIDIR}/cli.c
-  ${CLIDIR}/cmd/profiles.c)
 
 set(VERSION_HEADERS ${VERSIONDIR}/version.h)
 
@@ -368,16 +361,22 @@ install(TARGETS suscan.status DESTINATION bin)
 
 ######################### Suscan Command Line tool ############################
 set(SUSCLI_HEADERS
-  ${SRCDIR}/suscan.h
-  ${CLI_HEADERS}
-  ${CLI_SOURCES})
-  
-set(SUSCLI_SOURCES   
+  ${CLIDIR}/audio.h
+  ${CLIDIR}/chanloop.h
+  ${CLIDIR}/cli.h
+  ${CLIDIR}/cmds.h
+  ${SRCDIR}/suscan.h)
+
+set(SUSCLI_SOURCES
+  ${CLIDIR}/audio.c
+  ${CLIDIR}/chanloop.c
+  ${CLIDIR}/cli.c
+  ${CLIDIR}/cmd/profiles.c
+  ${CLIDIR}/cmd/rms.c
+  ${CLIDIR}/cmd/rmstone.c
   ${SRCDIR}/lib.c
-  ${SRCDIR}/suscli.c
-  ${SUSCLI_HEADERS}
-  ${SUSCLI_SOURCES})
-  
+  ${SRCDIR}/suscli.c)
+
 add_executable(
   suscli
   ${SUSCLI_HEADERS} 
@@ -387,6 +386,12 @@ add_executable(
 target_include_directories(
   suscli
   PRIVATE . ${UTILDIR} ${CODECLIB_DIR} ${SRCDIR} ${CLIDIR})
+
+if(PORTAUDIO_FOUND)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_PORTAUDIO=1")
+  target_include_directories(suscli SYSTEM PUBLIC ${PORTAUDIO_INCLUDE_DIRS})
+  target_link_libraries(suscli ${PORTAUDIO_LIBRARIES})
+endif()
 
 # Required dependencies
 set_target_properties(suscli PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")

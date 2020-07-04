@@ -189,7 +189,7 @@ suscli_run_command(const char *name, const char **argv)
       suscan_init_spectsrcs());
 
   SUSCLI_ASSERT_INIT(
-      SUSCLI_COMMAND_REQ_ESTIMATORS,
+      SUSCLI_COMMAND_REQ_INSPECTORS,
       suscan_init_inspectors());
 
   SU_TRYCATCH(params = suscli_parse_params(argv), goto fail);
@@ -243,6 +243,22 @@ suscli_init(void)
           "List profiles",
           SUSCLI_COMMAND_REQ_SOURCES,
           suscli_profiles_cb) != -1,
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_command_register(
+          "rms",
+          "Root mean square of signal",
+          SUSCLI_COMMAND_REQ_SOURCES | SUSCLI_COMMAND_REQ_INSPECTORS,
+          suscli_rms_cb) != -1,
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_command_register(
+          "rmstone",
+          "Play audible tone according to signal power",
+          SUSCLI_COMMAND_REQ_SOURCES | SUSCLI_COMMAND_REQ_INSPECTORS,
+          suscli_rmstone_cb) != -1,
       goto fail);
 
   ok = SU_TRUE;

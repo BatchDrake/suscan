@@ -308,6 +308,7 @@ SUBOOL suscan_analyzer_write(
     void *priv);
 void suscan_analyzer_consume_mq(struct suscan_mq *mq);
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);
+SUBOOL suscan_analyzer_force_eos(suscan_analyzer_t *self);
 void suscan_analyzer_destroy(suscan_analyzer_t *analyzer);
 void suscan_analyzer_req_halt(suscan_analyzer_t *analyzer);
 SUBOOL suscan_analyzer_halt_worker(suscan_worker_t *worker);
