@@ -45,6 +45,30 @@ SUBOOL suscli_command_register(
 
 const struct suscli_command *suscli_command_lookup(const char *);
 
+SUBOOL suscli_param_read_int(
+    const hashlist_t *params,
+    const char *key,
+    int *out,
+    int dfl);
+
+SUBOOL suscli_param_read_float(
+    const hashlist_t *params,
+    const char *key,
+    SUFLOAT *out,
+    SUFLOAT dfl);
+
+SUBOOL suscli_param_read_string(
+    const hashlist_t *params,
+    const char *key,
+    const char **out,
+    const char *dfl);
+
+SUBOOL suscli_param_read_bool(
+    const hashlist_t *params,
+    const char *key,
+    SUBOOL *out,
+    SUBOOL dfl);
+
 SUBOOL suscli_run_command(const char *name, const char **argv);
 
 SUBOOL suscli_init(void);

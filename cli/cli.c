@@ -43,6 +43,108 @@ suscli_command_destroy(struct suscli_command *cmd)
   free(cmd);
 }
 
+SUBOOL
+suscli_param_read_int(
+    const hashlist_t *params,
+    const char *key,
+    int *out,
+    int dfl)
+{
+  const char *value;
+  SUBOOL ok = SU_FALSE;
+
+  if ((value = hashlist_get(params, key)) != NULL)
+    if (sscanf(value, "%i", &dfl) < 1) {
+      SU_ERROR("Parameter `%s' is not an integer.\n", key);
+      goto fail;
+    }
+
+  *out = dfl;
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+
+SUBOOL
+suscli_param_read_float(
+    const hashlist_t *params,
+    const char *key,
+    SUFLOAT *out,
+    SUFLOAT dfl)
+{
+  const char *value;
+  SUBOOL ok = SU_FALSE;
+
+  if ((value = hashlist_get(params, key)) != NULL)
+    if (sscanf(value, "%g", &dfl) < 1) {
+      SU_ERROR("Parameter `%s' is not a real number.\n", key);
+      goto fail;
+    }
+
+  *out = dfl;
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+
+SUBOOL
+suscli_param_read_string(
+    const hashlist_t *params,
+    const char *key,
+    const char **out,
+    const char *dfl)
+{
+  const char *value;
+  SUBOOL ok = SU_FALSE;
+
+  if ((value = hashlist_get(params, key)) != NULL)
+    dfl = value;
+
+  *out = dfl;
+
+  ok = SU_TRUE;
+
+  return ok;
+}
+
+SUBOOL
+suscli_param_read_bool(
+    const hashlist_t *params,
+    const char *key,
+    SUBOOL *out,
+    SUBOOL dfl)
+{
+  const char *value;
+  SUBOOL ok = SU_FALSE;
+
+  if ((value = hashlist_get(params, key)) != NULL) {
+    if (strcasecmp(value, "true") == 0
+        || strcasecmp(value, "yes") == 0
+        || strcasecmp(value, "1") == 0) {
+      dfl = SU_TRUE;
+    } else if (strcasecmp(value, "false") == 0
+        || strcasecmp(value, "no") == 0
+        || strcasecmp(value, "0") == 0) {
+      dfl = SU_FALSE;
+    } else {
+      SU_ERROR("Parameter `%s' is not a boolean value.\n", key);
+      goto fail;
+    }
+  }
+
+  *out = dfl;
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+
+
 SUPRIVATE struct suscli_command *
 suscli_command_new(
     const char *name,
@@ -56,6 +158,7 @@ suscli_command_new(
 
   SU_TRYCATCH(new->name = strdup(name), goto fail);
   SU_TRYCATCH(new->description = strdup(descr), goto fail);
+
   new->flags = flags;
   new->callback = callback;
 

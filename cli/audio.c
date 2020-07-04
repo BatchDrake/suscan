@@ -230,6 +230,11 @@ void
 suscli_audio_player_destroy(suscli_audio_player_t *self)
 {
   if (self->worker != NULL) {
+    while (self->worker->state == SUSCAN_WORKER_STATE_RUNNING) {
+      suscan_worker_req_halt(self->worker);
+      suscan_mq_wait(&self->mq);
+    }
+
     suscan_worker_destroy(self->worker);
     if (self->params.stop != NULL)
       (self->params.stop) (self, self->params.userdata);

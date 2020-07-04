@@ -31,43 +31,186 @@
 #include <cli/chanloop.h>
 #include <cli/audio.h>
 
-#define SAMPLES         150000
-#define UPDATES_PER_MSG 10
-#define AUDIO_TONE_MIN_HZ 880.
-#define AUDIO_TONE_MAX_HZ (2 * AUDIO_TONE_MIN_HZ)
-#define AUDIO_TONE_MIN_DB -60.
-#define AUDIO_TONE_MAX_DB -50.
+#define SUSCLI_DEFAULT_RMS_INTERVAL_MS  50
+#define SUSCLI_DEFAULT_DISP_INTERVAL_MS 500
+#define SUSCLI_DEFAULT_VOLUME           12.5
+#define SUSCLI_DEFAULT_SCALE            0.5 /* In dBs */
+
+#define AUDIO_TONE_MIN_HZ 220
+#define AUDIO_TONE_MAX_HZ (16 * AUDIO_TONE_MIN_HZ)
+#define AUDIO_TONE_MIN_DB -70.
+#define AUDIO_TONE_MAX_DB -10.
 
 #define AUDIO_TONE_DB_RANGE (AUDIO_TONE_MAX_DB - AUDIO_TONE_MIN_DB)
 #define AUDIO_TONE_HZ_RANGE (AUDIO_TONE_MAX_HZ - AUDIO_TONE_MIN_HZ)
 
 PTR_LIST(SUPRIVATE suscan_source_config_t, rms_config);
 
-struct rmstone_state {
-  int samples;
+enum suscli_rmstone_mode {
+  SUSCLI_RMSTONE_MODE_TONE,
+  SUSCLI_RMSTONE_MODE_TWO_TONES,
+  SUSCLI_RMSTONE_MODE_BEEPER
+};
+
+struct suscli_rmstone_params {
+  suscan_source_config_t *profile;
+  const char *mode;
+  SUFLOAT db_min;
+  SUFLOAT db_max;
+  SUFLOAT freq_min;
+  SUFLOAT freq_max;
+  SUFLOAT rms_interval;
+  SUFLOAT disp_interval;
+  SUFLOAT scale;
+  SUFLOAT volume;
+
+  /* Precalculated terms */
+  SUFLOAT k;
+};
+
+struct suscli_rmstone_state {
+  struct suscli_rmstone_params params;
+  unsigned int update_ctr;
+  unsigned int disp_ctr;
+
   SUFLOAT c;
   SUFLOAT sum;
   SUBOOL  failed;
+
   SUFLOAT prev_db;
   SUFLOAT curr_db;
+
+  SUFLOAT prev_pwr;
+  SUFLOAT curr_pwr;
+
   SUBOOL  rms_changed;
-  unsigned int updates;
+
+  SUBOOL  capturing;
+
+  unsigned int samp_per_update;
+  unsigned int samp_per_disp;
+
   unsigned int samp_rate;
   su_ncqo_t afo;
   suscli_audio_player_t *player;
 };
 
+SUPRIVATE suscan_source_config_t *
+suscli_rmstone_params_lookup_profile(const char *name)
+{
+  int i;
+
+  for (i = 0; i < rms_config_count; ++i)
+    if (suscan_source_config_get_label(rms_config_list[i]) != NULL
+        && strcasecmp(
+            suscan_source_config_get_label(rms_config_list[i]),
+            name) == 0)
+      return rms_config_list[i];
+
+  return NULL;
+}
+
 SUPRIVATE void
-rmstone_state_finalize(struct rmstone_state *self)
+suscli_rmstone_params_debug(const struct suscli_rmstone_params *self)
+{
+  fprintf(stderr, "Tone generator parameter summary:\n");
+  fprintf(stderr, "  Profile: %s\n", suscan_source_config_get_label(self->profile));
+  fprintf(stderr, "  Mode: %s\n", self->mode);
+  fprintf(stderr, "  Dynamic range: %g dB - %g dB (%g dB)\n", self->db_min, self->db_max, self->db_max - self->db_min);
+  fprintf(stderr, "  Audio frequency range: %g Hz - %g Hz", self->freq_min, self->freq_max);
+  fprintf(stderr, "  RMS update interval: %g ms\n", self->rms_interval);
+  fprintf(stderr, "  Display interval: %g ms\n", self->disp_interval);
+  fprintf(stderr, "  Tone scale: %g dB\n", self->scale);
+  fprintf(stderr, "  Volume: %g%%\n", self->volume);
+  fprintf(stderr, "  K: %g\n", self->k);
+}
+
+SUPRIVATE SUBOOL
+suscli_rmstone_params_parse(
+    struct suscli_rmstone_params *self,
+    const hashlist_t *p)
+{
+  suscan_source_config_t *profile;
+  const char *profile_name;
+  int profile_id = rms_config_count;
+  SUBOOL ok = SU_FALSE;
+
+  if (suscli_param_read_int(p, "profile", &profile_id, profile_id)) {
+    if (profile_id > 0 || profile_id <= rms_config_count) {
+      profile = rms_config_list[profile_id - 1];
+    } else {
+      SU_ERROR("Profile index `%d' out ouf bounds.\n", profile_id);
+      goto fail;
+    }
+  } else {
+    SU_TRYCATCH(
+        suscli_param_read_string(
+            p,
+            "profile",
+            &profile_name,
+            NULL),
+        goto fail);
+    if (profile_name == NULL) {
+      profile = rms_config_list[profile_id - 1];
+    } else {
+      if ((profile = suscli_rmstone_params_lookup_profile(profile_name)) == NULL) {
+        SU_ERROR("Profile `%d' does not exist.\n", profile_name);
+        goto fail;
+      }
+    }
+  }
+
+  self->profile = profile;
+
+  SU_TRYCATCH(
+      suscli_param_read_string(p, "mode", &self->mode, "tone"),
+      goto fail);
+  SU_TRYCATCH(
+      suscli_param_read_float(p, "db_min", &self->db_min, AUDIO_TONE_MIN_DB),
+      goto fail);
+  SU_TRYCATCH(
+      suscli_param_read_float(p, "db_max", &self->db_max, AUDIO_TONE_MAX_DB),
+      goto fail);
+  SU_TRYCATCH(
+      suscli_param_read_float(p, "freq_min", &self->freq_min, AUDIO_TONE_MIN_HZ),
+      goto fail);
+  SU_TRYCATCH(
+      suscli_param_read_float(p, "freq_max", &self->freq_max, AUDIO_TONE_MAX_HZ),
+      goto fail);
+  SU_TRYCATCH(
+      suscli_param_read_float(p, "rms_interval", &self->rms_interval, SUSCLI_DEFAULT_RMS_INTERVAL_MS),
+      goto fail);
+  SU_TRYCATCH(
+      suscli_param_read_float(p, "disp_interval", &self->disp_interval, SUSCLI_DEFAULT_DISP_INTERVAL_MS),
+      goto fail);
+  SU_TRYCATCH(
+      suscli_param_read_float(p, "scale", &self->scale, SUSCLI_DEFAULT_SCALE),
+      goto fail);
+  SU_TRYCATCH(
+      suscli_param_read_float(p, "volume", &self->volume, SUSCLI_DEFAULT_VOLUME),
+      goto fail);
+
+  self->k = SU_LOG(self->freq_max / self->freq_min);
+
+  suscli_rmstone_params_debug(self);
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+
+SUPRIVATE void
+suscli_rmstone_state_finalize(struct suscli_rmstone_state *self)
 {
   if (self->player != NULL)
     suscli_audio_player_destroy(self->player);
 
-  memset(self, 0, sizeof (struct rmstone_state));
+  memset(self, 0, sizeof (struct suscli_rmstone_state));
 }
 
 SUPRIVATE void
-rmstone_state_mark_failed(struct rmstone_state *self)
+suscli_rmstone_state_mark_failed(struct suscli_rmstone_state *self)
 {
   self->failed = SU_TRUE;
 }
@@ -75,7 +218,7 @@ rmstone_state_mark_failed(struct rmstone_state *self)
 SUPRIVATE SUBOOL
 suscli_rmstone_audio_start_cb(suscli_audio_player_t *self, void *userdata)
 {
-  struct rmstone_state *state = (struct rmstone_state *) userdata;
+  struct suscli_rmstone_state *state = (struct suscli_rmstone_state *) userdata;
   SUBOOL ok = SU_FALSE;
 
   state->samp_rate = suscli_audio_player_samp_rate(self);
@@ -98,27 +241,42 @@ suscli_rmstone_audio_play_cb(
     size_t len,
     void *userdata)
 {
-  struct rmstone_state *state = (struct rmstone_state *) userdata;
+  struct suscli_rmstone_state *state = (struct suscli_rmstone_state *) userdata;
   int i;
   SUFLOAT freq;
+  SUFLOAT normalized;
+  SUFLOAT db;
   SUBOOL ok = SU_FALSE;
 
-  for (i = 0; i < len; ++i) {
-    if (state->failed) {
-      SU_ERROR("Aborting audio playback due errors\n");
-      goto fail;
-    }
+  if (state->capturing) {
+    for (i = 0; i < len; ++i) {
+      if (state->failed) {
+        SU_ERROR("Aborting audio playback due errors\n");
+        goto fail;
+      }
 
-    /* TODO: lock */
-    if (state->rms_changed) {
-      state->rms_changed = SU_FALSE;
-      freq  = (state->curr_db - AUDIO_TONE_MIN_DB) / AUDIO_TONE_DB_RANGE
-              * AUDIO_TONE_HZ_RANGE + AUDIO_TONE_MIN_HZ;
-      state->prev_db     = state->curr_db;
-      su_ncqo_set_freq(&state->afo, SU_ABS2NORM_FREQ(state->samp_rate, freq));
-    }
+      /* TODO: lock */
+      if (state->rms_changed) {
+        state->rms_changed = SU_FALSE;
+        db = state->curr_db;
 
-    buffer[i] = (1. / 16.) * SU_C_REAL(su_ncqo_read_i(&state->afo));
+        if (state->params.scale > 0)
+            db = state->params.scale * SU_FLOOR(db / state->params.scale);
+
+        normalized = (db - state->params.db_min) /
+            (state->params.db_max - state->params.db_min);
+        freq = AUDIO_TONE_MIN_HZ * SU_C_EXP(state->params.k * normalized);
+
+
+        state->prev_db     = state->curr_db;
+        su_ncqo_set_freq(&state->afo, SU_ABS2NORM_FREQ(state->samp_rate, freq));
+      }
+
+      buffer[i] =
+          1e-2 * state->params.volume * SU_C_REAL(su_ncqo_read_i(&state->afo));
+    }
+  } else {
+    memset(buffer, 0, sizeof(SUFLOAT) * len);
   }
 
   ok = SU_TRUE;
@@ -136,34 +294,39 @@ suscli_rmstone_audio_stop_cb(suscli_audio_player_t *self, void *userdata)
 SUPRIVATE void
 suscli_rmstone_audio_error_cb(suscli_audio_player_t *self, void *userdata)
 {
-  struct rmstone_state *state = (struct rmstone_state *) userdata;
+  struct suscli_rmstone_state *state = (struct suscli_rmstone_state *) userdata;
 
-  rmstone_state_mark_failed(state);
+  suscli_rmstone_state_mark_failed(state);
 }
 
 
 SUPRIVATE SUBOOL
-rmstone_state_init(struct rmstone_state *state)
+suscli_rmstone_state_init(
+    struct suscli_rmstone_state *state, const hashlist_t *params)
 {
   SUBOOL ok = SU_FALSE;
-  struct suscli_audio_player_params params =
+  struct suscli_audio_player_params audio_params =
       suscli_audio_player_params_INITIALIZER;
 
-  memset(state, 0, sizeof(struct rmstone_state));
+  memset(state, 0, sizeof(struct suscli_rmstone_state));
 
-  params.userdata = state;
-  params.start    = suscli_rmstone_audio_start_cb;
-  params.play     = suscli_rmstone_audio_play_cb;
-  params.stop     = suscli_rmstone_audio_stop_cb;
-  params.error    = suscli_rmstone_audio_error_cb;
+  SU_TRYCATCH(suscli_rmstone_params_parse(&state->params, params), goto fail);
 
-  SU_TRYCATCH(state->player = suscli_audio_player_new(&params), goto fail);
+  audio_params.userdata = state;
+  audio_params.start    = suscli_rmstone_audio_start_cb;
+  audio_params.play     = suscli_rmstone_audio_play_cb;
+  audio_params.stop     = suscli_rmstone_audio_stop_cb;
+  audio_params.error    = suscli_rmstone_audio_error_cb;
+
+  SU_TRYCATCH(
+      state->player = suscli_audio_player_new(&audio_params),
+      goto fail);
 
   ok = SU_TRUE;
 
 fail:
   if (!ok)
-    rmstone_state_finalize(state);
+    suscli_rmstone_state_finalize(state);
 
   return ok;
 }
@@ -184,7 +347,7 @@ suscli_rmstone_on_data_cb(
 {
   int i;
   SUFLOAT y, tmp;
-  struct rmstone_state *state = (struct rmstone_state *) userdata;
+  struct suscli_rmstone_state *state = (struct suscli_rmstone_state *) userdata;
 
   for (i = 0; i < size && !state->failed; ++i) {
     y = SU_C_REAL(data[i] * SU_C_CONJ(data[i]));
@@ -192,17 +355,16 @@ suscli_rmstone_on_data_cb(
     state->c = (tmp - state->sum) - y;
     state->sum = tmp;
 
-    if (++state->samples >= SAMPLES) {
-      if (++state->updates > UPDATES_PER_MSG) {
-        state->updates = 0;
-        printf("RMS = %.3f dB\r", SU_POWER_DB(state->sum / state->samples));
-        fflush(stdout);
-      }
-
-      state->curr_db = SU_POWER_DB(state->sum / state->samples);
-
-      state->c = state->sum = state->samples = 0;
+    if (++state->update_ctr >= state->samp_per_update) {
+      state->curr_db = SU_POWER_DB(state->sum / state->update_ctr);
+      state->c = state->sum = state->update_ctr = 0;
       state->rms_changed = SU_TRUE;
+    }
+
+    if (++state->disp_ctr >= state->samp_per_disp) {
+      state->disp_ctr = 0;
+      printf("RMS = %.3f dB\r", state->curr_db);
+      fflush(stdout);
     }
   }
 
@@ -220,21 +382,28 @@ suscli_rmstone_cb(const hashlist_t *params)
   suscli_chanloop_t *chanloop = NULL;
   struct suscli_chanloop_params chanloop_params =
       suscli_chanloop_params_INITIALIZER;
-  struct rmstone_state state;
+  struct suscli_rmstone_state state;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(rmstone_state_init(&state), goto fail);
+  SU_TRYCATCH(suscan_source_config_walk(walk_all_sources, 0), goto fail);
+  SU_TRYCATCH(suscli_rmstone_state_init(&state, params), goto fail);
 
   chanloop_params.on_data  = suscli_rmstone_on_data_cb;
   chanloop_params.userdata = &state;
 
-  SU_TRYCATCH(suscan_source_config_walk(walk_all_sources, 0), goto fail);
-
   SU_TRYCATCH(
       chanloop = suscli_chanloop_open(
           &chanloop_params,
-          rms_config_list[3]),
+          state.params.profile),
       goto fail);
+
+  state.samp_per_update
+    = 1e-3 * state.params.rms_interval * suscli_chanloop_get_equiv_fs(chanloop);
+  state.samp_per_disp
+      = 1e-3 * state.params.disp_interval * suscli_chanloop_get_equiv_fs(chanloop);
+  state.capturing = SU_TRUE;
+
+  printf("Timebase: %d, %d\n", state.samp_per_update, state.samp_per_disp);
 
   SU_TRYCATCH(suscli_chanloop_work(chanloop), goto fail);
 
@@ -242,12 +411,12 @@ suscli_rmstone_cb(const hashlist_t *params)
 
 fail:
   if (!ok)
-    rmstone_state_mark_failed(&state);
+    suscli_rmstone_state_mark_failed(&state);
 
   if (chanloop != NULL)
     suscli_chanloop_destroy(chanloop);
 
-  rmstone_state_finalize(&state);
+  suscli_rmstone_state_finalize(&state);
 
   return ok;
 }
