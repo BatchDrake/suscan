@@ -35,6 +35,7 @@ SUPRIVATE SUBOOL suscli_audio_play(void *, const SUFLOAT *, size_t);
 /*************************** PortAudio implementation *************************/
 #ifdef HAVE_PORTAUDIO
 #  define HAVE_AUDIO
+#  define PORTAUDIO_MAX_UNDERRUNS 20
 SUPRIVATE SUBOOL pa_initialized = SU_FALSE;
 
 SUPRIVATE void
@@ -107,10 +108,14 @@ SUPRIVATE SUBOOL
 suscli_audio_play(void *stream, const SUFLOAT *buffer, size_t len)
 {
   PaError err;
+  int i = 0;
 
-  err = Pa_WriteStream(stream, buffer, len);
-  if (err == paOutputUnderflowed)
+  do {
     err = Pa_WriteStream(stream, buffer, len);
+  } while (err == paOutputUnderflowed && i++ < PORTAUDIO_MAX_UNDERRUNS);
+
+  if (err != paNoError)
+    SU_ERROR("Portaudio error: %s\n", Pa_GetErrorText(err));
 
   return err == paNoError;
 }

@@ -28,7 +28,7 @@
 #include <cli/cli.h>
 #include <cli/cmds.h>
 
-PTR_LIST(struct suscli_command, command);
+PTR_LIST(SUPRIVATE struct suscli_command, command);
 SUPRIVATE uint32_t init_mask = 0;
 
 SUPRIVATE void

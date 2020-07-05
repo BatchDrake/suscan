@@ -22,6 +22,7 @@
 #define _SUSCLI_CLI_H
 
 #include <sigutils/sigutils.h>
+#include <analyzer/source.h>
 #include <util/hashlist.h>
 
 #define SUSCLI_COMMAND_REQ_CODECS     1
@@ -70,6 +71,8 @@ SUBOOL suscli_param_read_bool(
     SUBOOL dfl);
 
 SUBOOL suscli_run_command(const char *name, const char **argv);
+
+suscan_source_config_t *suscli_resolve_profile(const char *spec);
 
 SUBOOL suscli_init(void);
 
