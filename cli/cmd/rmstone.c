@@ -80,8 +80,8 @@ struct suscli_rmstone_state {
   unsigned int samp_per_update;
   unsigned int samp_per_disp;
 
-  unsigned int samp_per_short_beep;
-  unsigned int samp_per_long_beep;
+  int samp_per_short_beep;
+  int samp_per_long_beep;
 
   unsigned int beep_ctr;
   unsigned int update_ctr;
@@ -96,6 +96,7 @@ struct suscli_rmstone_state {
 
   SUFLOAT freq1;
   SUFLOAT freq2;
+  SUBOOL  second_cycle;
 
   /* Used for beeper */
   int samp_per_beep_cycle;
@@ -193,35 +194,37 @@ suscli_rmstone_audio_play_cb(
             state->freq1 = state->params.freq_max;
             state->freq2 = 0;
 
-            if (state->beep_ctr >= state->samp_per_beep_cycle)
-              state->beep_ctr = state->samp_per_beep_cycle - 1;
             break;
         }
 
         state->prev_db = state->curr_db;
       }
 
+      if (!state->second_cycle) {
       /* First (short) subcycle has ended. Switch to freq2 */
-      if (++state->beep_ctr == state->samp_per_short_beep || freq_changed) {
-          su_ncqo_set_freq(
-              &state->afo,
-              SU_ABS2NORM_FREQ(
-                  state->samp_rate,
-                  state->freq2));
-          freq_changed = SU_FALSE;
+        if ((state->beep_ctr >= state->samp_per_short_beep) || freq_changed) {
+            su_ncqo_set_freq(
+                &state->afo,
+                SU_ABS2NORM_FREQ(
+                    state->samp_rate,
+                    state->freq2));
+            freq_changed = SU_FALSE;
+            state->second_cycle = SU_TRUE;
+        }
       }
 
       buffer[i] =
           1e-2 * state->params.volume * SU_C_REAL(su_ncqo_read_i(&state->afo));
 
       /* Full cycle has ended back to freq1 */
-      if (state->beep_ctr == state->samp_per_beep_cycle) {
+      if (++state->beep_ctr >= state->samp_per_beep_cycle) {
         su_ncqo_set_freq(
             &state->afo,
             SU_ABS2NORM_FREQ(
                 state->samp_rate,
                 state->freq1));
         state->beep_ctr = 0;
+        state->second_cycle = SU_FALSE;
       }
     }
   } else {
