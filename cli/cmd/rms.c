@@ -18,7 +18,7 @@
 
 */
 
-#define SU_LOG_DOMAIN "cli-rmstone"
+#define SU_LOG_DOMAIN "cli-rms"
 
 #include <sigutils/log.h>
 #include <sigutils/sampling.h>
@@ -47,17 +47,16 @@
 #define AUDIO_TONE_DB_RANGE (AUDIO_TONE_MAX_DB - AUDIO_TONE_MIN_DB)
 #define AUDIO_TONE_HZ_RANGE (AUDIO_TONE_MAX_HZ - AUDIO_TONE_MIN_HZ)
 
-PTR_LIST(SUPRIVATE suscan_source_config_t, rms_config);
-
-enum suscli_rmstone_mode {
+enum suscli_rms_mode {
   SUSCLI_RMSTONE_MODE_TONE,
   SUSCLI_RMSTONE_MODE_TWO_TONES,
   SUSCLI_RMSTONE_MODE_BEEPER
 };
 
-struct suscli_rmstone_params {
+struct suscli_rms_params {
   suscan_source_config_t *profile;
-  enum suscli_rmstone_mode mode;
+  enum suscli_rms_mode mode;
+  SUBOOL  audio;
   SUFLOAT db_min;
   SUFLOAT db_max;
   SUFLOAT freq_min;
@@ -70,12 +69,12 @@ struct suscli_rmstone_params {
   SUFLOAT beep_short;
 
   /* Precalculated terms */
-  enum suscli_rmstone_mode mode_enum;
+  enum suscli_rms_mode mode_enum;
   SUFLOAT k;
 };
 
-struct suscli_rmstone_state {
-  struct suscli_rmstone_params params;
+struct suscli_rms_state {
+  struct suscli_rms_params params;
 
   unsigned int samp_per_update;
   unsigned int samp_per_disp;
@@ -110,14 +109,14 @@ struct suscli_rmstone_state {
   suscli_audio_player_t *player;
 };
 
-SUPRIVATE void suscli_rmstone_state_mark_failed(
-    struct suscli_rmstone_state *self);
+SUPRIVATE void suscli_rms_state_mark_failed(
+    struct suscli_rms_state *self);
 
 /***************************** Audio callbacks ********************************/
 SUPRIVATE SUBOOL
-suscli_rmstone_audio_start_cb(suscli_audio_player_t *self, void *userdata)
+suscli_rms_audio_start_cb(suscli_audio_player_t *self, void *userdata)
 {
-  struct suscli_rmstone_state *state = (struct suscli_rmstone_state *) userdata;
+  struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
   SUBOOL ok = SU_FALSE;
 
   state->samp_rate = suscli_audio_player_samp_rate(self);
@@ -134,13 +133,13 @@ suscli_rmstone_audio_start_cb(suscli_audio_player_t *self, void *userdata)
 }
 
 SUPRIVATE SUBOOL
-suscli_rmstone_audio_play_cb(
+suscli_rms_audio_play_cb(
     suscli_audio_player_t *self,
     SUFLOAT *buffer,
     size_t len,
     void *userdata)
 {
-  struct suscli_rmstone_state *state = (struct suscli_rmstone_state *) userdata;
+  struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
   int i;
   SUFLOAT normalized;
   SUBOOL  freq_changed = SU_FALSE;
@@ -238,42 +237,27 @@ fail:
 }
 
 SUPRIVATE void
-suscli_rmstone_audio_stop_cb(suscli_audio_player_t *self, void *userdata)
+suscli_rms_audio_stop_cb(suscli_audio_player_t *self, void *userdata)
 {
   /* No-op */
 }
 
 SUPRIVATE void
-suscli_rmstone_audio_error_cb(suscli_audio_player_t *self, void *userdata)
+suscli_rms_audio_error_cb(suscli_audio_player_t *self, void *userdata)
 {
-  struct suscli_rmstone_state *state = (struct suscli_rmstone_state *) userdata;
+  struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
 
-  suscli_rmstone_state_mark_failed(state);
+  suscli_rms_state_mark_failed(state);
 }
 
 /******************************* Parameter parsing ***************************/
 
-SUPRIVATE suscan_source_config_t *
-suscli_rmstone_params_lookup_profile(const char *name)
-{
-  int i;
-
-  for (i = 0; i < rms_config_count; ++i)
-    if (suscan_source_config_get_label(rms_config_list[i]) != NULL
-        && strcasecmp(
-            suscan_source_config_get_label(rms_config_list[i]),
-            name) == 0)
-      return rms_config_list[i];
-
-  return NULL;
-}
-
 SUPRIVATE SUBOOL
-suscli_rmstone_param_read_mode(
+suscli_rms_param_read_mode(
     const hashlist_t *params,
     const char *key,
-    enum suscli_rmstone_mode *out,
-    enum suscli_rmstone_mode dfl)
+    enum suscli_rms_mode *out,
+    enum suscli_rms_mode dfl)
 {
   const char *value;
   SUBOOL ok = SU_FALSE;
@@ -302,7 +286,7 @@ fail:
 }
 
 SUPRIVATE const char *
-suscli_rmstone_mode_to_string(enum suscli_rmstone_mode mode)
+suscli_rms_mode_to_string(enum suscli_rms_mode mode)
 {
   switch (mode) {
     case SUSCLI_RMSTONE_MODE_TONE:
@@ -317,7 +301,7 @@ suscli_rmstone_mode_to_string(enum suscli_rmstone_mode mode)
 }
 
 SUPRIVATE void
-suscli_rmstone_params_debug(const struct suscli_rmstone_params *self)
+suscli_rms_params_debug(const struct suscli_rms_params *self)
 {
   fprintf(stderr, "Tone generator parameter summary:\n");
   fprintf(
@@ -325,83 +309,81 @@ suscli_rmstone_params_debug(const struct suscli_rmstone_params *self)
       "  Profile: %s\n",
       suscan_source_config_get_label(self->profile));
   fprintf(
-      stderr,
-      "  Mode: %s\n",
-      suscli_rmstone_mode_to_string(self->mode));
+        stderr,
+        "  RMS update interval: %g ms\n",
+        self->rms_interval);
+    fprintf(
+        stderr,
+        "  Display interval: %g ms\n",
+        self->disp_interval);
   fprintf(
       stderr,
-      "  Dynamic range: %g dB - %g dB (%g dB)\n",
-      self->db_min, self->db_max, self->db_max - self->db_min);
-  fprintf(
-      stderr,
-      "  Audio frequency range: %g Hz - %g Hz",
-      self->freq_min, self->freq_max);
-  fprintf(
-      stderr,
-      "  RMS update interval: %g ms\n",
-      self->rms_interval);
-  fprintf(
-      stderr,
-      "  Display interval: %g ms\n",
-      self->disp_interval);
-  fprintf(
-      stderr,
-      "  Tone scale: %g dB\n",
-      self->scale);
-  fprintf(
-      stderr,
-      "  Beep timing: %g ms - %g ms\n",
-      self->beep_short,
-      self->beep_long);
-  fprintf(
-      stderr,
-      "  Volume: %g%%\n",
-      self->volume);
-  fprintf(
-      stderr,
-      "  K: %g\n",
-      self->k);
+      "  Audio: %s\n",
+      self->audio ? "ON" : "OFF");
+
+  if (self->audio) {
+    fprintf(
+          stderr,
+          "  Audio mode: %s\n",
+          suscli_rms_mode_to_string(self->mode));
+    fprintf(
+          stderr,
+          "  Audio frequency range: %g Hz - %g Hz",
+          self->freq_min, self->freq_max);
+    fprintf(
+        stderr,
+        "  Dynamic range: %g dB - %g dB (%g dB)\n",
+        self->db_min, self->db_max, self->db_max - self->db_min);
+    fprintf(
+          stderr,
+          "  Tone scale: %g dB\n",
+          self->scale);
+      fprintf(
+          stderr,
+          "  Beep timing: %g ms - %g ms\n",
+          self->beep_short,
+          self->beep_long);
+      fprintf(
+          stderr,
+          "  Volume: %g%%\n",
+          self->volume);
+      fprintf(
+          stderr,
+          "  K: %g\n",
+          self->k);
+  }
+
 }
 
 SUPRIVATE SUBOOL
-suscli_rmstone_params_parse(
-    struct suscli_rmstone_params *self,
+suscli_rms_params_parse(
+    struct suscli_rms_params *self,
     const hashlist_t *p)
 {
-  suscan_source_config_t *profile;
-  const char *profile_name;
-  int profile_id = rms_config_count;
   SUBOOL ok = SU_FALSE;
 
-  if (suscli_param_read_int(p, "profile", &profile_id, profile_id)) {
-    if (profile_id > 0 || profile_id <= rms_config_count) {
-      profile = rms_config_list[profile_id - 1];
-    } else {
-      SU_ERROR("Profile index `%d' out ouf bounds.\n", profile_id);
-      goto fail;
-    }
-  } else {
-    SU_TRYCATCH(
-        suscli_param_read_string(
+  SU_TRYCATCH(
+        suscli_param_read_profile(
             p,
             "profile",
-            &profile_name,
-            NULL),
+            &self->profile),
         goto fail);
-    if (profile_name == NULL) {
-      profile = rms_config_list[profile_id - 1];
-    } else {
-      if ((profile = suscli_rmstone_params_lookup_profile(profile_name)) == NULL) {
-        SU_ERROR("Profile `%d' does not exist.\n", profile_name);
-        goto fail;
-      }
-    }
+
+  if (self->profile == NULL) {
+    SU_ERROR("Suscan is unable to load any valid profile\n");
+    goto fail;
   }
 
-  self->profile = profile;
+  SU_TRYCATCH(
+      suscli_param_read_float(
+          p,
+          "audio",
+          &self->audio,
+          SU_FALSE),
+      goto fail);
 
   SU_TRYCATCH(
-      suscli_rmstone_param_read_mode(
+      suscli_rms_param_read_mode(
           p,
           "mode",
           &self->mode,
@@ -490,7 +472,7 @@ suscli_rmstone_params_parse(
 
   self->k = SU_LOG(self->freq_max / self->freq_min);
 
-  suscli_rmstone_params_debug(self);
+  suscli_rms_params_debug(self);
 
   ok = SU_TRUE;
 
@@ -500,59 +482,57 @@ fail:
 
 /****************************** State handling *******************************/
 SUPRIVATE void
-suscli_rmstone_state_finalize(struct suscli_rmstone_state *self)
+suscli_rms_state_finalize(struct suscli_rms_state *self)
 {
   if (self->player != NULL)
     suscli_audio_player_destroy(self->player);
 
-  memset(self, 0, sizeof (struct suscli_rmstone_state));
+  memset(self, 0, sizeof (struct suscli_rms_state));
 }
 
 SUPRIVATE void
-suscli_rmstone_state_mark_failed(struct suscli_rmstone_state *self)
+suscli_rms_state_mark_failed(struct suscli_rms_state *self)
 {
   self->failed = SU_TRUE;
 }
 
 SUPRIVATE SUBOOL
-suscli_rmstone_state_init(
-    struct suscli_rmstone_state *state, const hashlist_t *params)
+suscli_rms_state_init(
+    struct suscli_rms_state *state,
+    const hashlist_t *params)
 {
   SUBOOL ok = SU_FALSE;
   struct suscli_audio_player_params audio_params =
       suscli_audio_player_params_INITIALIZER;
 
-  memset(state, 0, sizeof(struct suscli_rmstone_state));
+  memset(state, 0, sizeof(struct suscli_rms_state));
 
-  SU_TRYCATCH(suscli_rmstone_params_parse(&state->params, params), goto fail);
+  SU_TRYCATCH(suscli_rms_params_parse(&state->params, params), goto fail);
 
-  audio_params.userdata = state;
-  audio_params.start    = suscli_rmstone_audio_start_cb;
-  audio_params.play     = suscli_rmstone_audio_play_cb;
-  audio_params.stop     = suscli_rmstone_audio_stop_cb;
-  audio_params.error    = suscli_rmstone_audio_error_cb;
+  /* User requested audio play */
+  if (state->params.audio) {
+    audio_params.userdata = state;
+    audio_params.start    = suscli_rms_audio_start_cb;
+    audio_params.play     = suscli_rms_audio_play_cb;
+    audio_params.stop     = suscli_rms_audio_stop_cb;
+    audio_params.error    = suscli_rms_audio_error_cb;
 
-  SU_TRYCATCH(
-      state->player = suscli_audio_player_new(&audio_params),
-      goto fail);
+    SU_TRYCATCH(
+        state->player = suscli_audio_player_new(&audio_params),
+        goto fail);
+  }
 
   ok = SU_TRUE;
 
 fail:
   if (!ok)
-    suscli_rmstone_state_finalize(state);
+    suscli_rms_state_finalize(state);
 
   return ok;
 }
 /****************************** Capture ***************************************/
 SUPRIVATE SUBOOL
-walk_all_sources(suscan_source_config_t *config, void *privdata)
-{
-  return PTR_LIST_APPEND_CHECK(rms_config, config) != -1;
-}
-
-SUPRIVATE SUBOOL
-suscli_rmstone_on_data_cb(
+suscli_rms_on_data_cb(
     suscan_analyzer_t *self,
     const SUCOMPLEX *data,
     size_t size,
@@ -560,7 +540,7 @@ suscli_rmstone_on_data_cb(
 {
   int i;
   SUFLOAT y, tmp;
-  struct suscli_rmstone_state *state = (struct suscli_rmstone_state *) userdata;
+  struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
 
   for (i = 0; i < size && !state->failed; ++i) {
     y = SU_C_REAL(data[i] * SU_C_CONJ(data[i]));
@@ -590,18 +570,17 @@ suscli_rmstone_on_data_cb(
 }
 
 SUBOOL
-suscli_rmstone_cb(const hashlist_t *params)
+suscli_rms_cb(const hashlist_t *params)
 {
   suscli_chanloop_t *chanloop = NULL;
   struct suscli_chanloop_params chanloop_params =
       suscli_chanloop_params_INITIALIZER;
-  struct suscli_rmstone_state state;
+  struct suscli_rms_state state;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(suscan_source_config_walk(walk_all_sources, 0), goto fail);
-  SU_TRYCATCH(suscli_rmstone_state_init(&state, params), goto fail);
+  SU_TRYCATCH(suscli_rms_state_init(&state, params), goto fail);
 
-  chanloop_params.on_data  = suscli_rmstone_on_data_cb;
+  chanloop_params.on_data  = suscli_rms_on_data_cb;
   chanloop_params.userdata = &state;
 
   SU_TRYCATCH(
@@ -630,12 +609,12 @@ suscli_rmstone_cb(const hashlist_t *params)
 
 fail:
   if (!ok)
-    suscli_rmstone_state_mark_failed(&state);
+    suscli_rms_state_mark_failed(&state);
 
   if (chanloop != NULL)
     suscli_chanloop_destroy(chanloop);
 
-  suscli_rmstone_state_finalize(&state);
+  suscli_rms_state_finalize(&state);
 
   return ok;
 }
