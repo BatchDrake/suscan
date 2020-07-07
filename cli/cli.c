@@ -28,8 +28,46 @@
 #include <cli/cli.h>
 #include <cli/cmds.h>
 
-PTR_LIST(SUPRIVATE struct suscli_command, command);
+PTR_LIST_PRIVATE(struct suscli_command, command);
+PTR_LIST_PRIVATE(suscan_source_config_t, cli_config);
+
 SUPRIVATE uint32_t init_mask = 0;
+
+suscan_source_config_t *
+suscli_get_source(unsigned int id)
+{
+  if (id <= 0 || id > cli_config_count)
+    return NULL;
+
+  return cli_config_list[id - 1];
+}
+
+unsigned int
+suscli_get_source_count(void)
+{
+  return cli_config_count;
+}
+
+SUPRIVATE SUBOOL
+suscli_walk_all_sources(suscan_source_config_t *config, void *privdata)
+{
+  return PTR_LIST_APPEND_CHECK(cli_config, config) != -1;
+}
+
+SUPRIVATE suscan_source_config_t *
+suscli_lookup_profile(const char *name)
+{
+  int i;
+
+  for (i = 0; i < cli_config_count; ++i)
+    if (suscan_source_config_get_label(cli_config_list[i]) != NULL
+        && strcasecmp(
+            suscan_source_config_get_label(cli_config_list[i]),
+            name) == 0)
+      return cli_config_list[i];
+
+  return NULL;
+}
 
 SUPRIVATE void
 suscli_command_destroy(struct suscli_command *cmd)
@@ -67,6 +105,46 @@ fail:
   return ok;
 }
 
+SUBOOL
+suscli_param_read_profile(
+    const hashlist_t *p,
+    const char *key,
+    suscan_source_config_t **out)
+{
+  int profile_id = cli_config_count;
+  suscan_source_config_t *profile = NULL;
+  const char *profile_name;
+
+  if (suscli_param_read_int(p, key, &profile_id, profile_id)) {
+    if (profile_id > 0 && profile_id <= cli_config_count) {
+      profile = cli_config_list[profile_id - 1];
+    } else {
+      SU_ERROR("Profile index `%d' out ouf bounds.\n", profile_id);
+      return SU_FALSE;
+    }
+  } else {
+    SU_TRYCATCH(
+        suscli_param_read_string(
+            p,
+            "profile",
+            &profile_name,
+            NULL),
+        return SU_FALSE);
+    if (profile_name == NULL) {
+      profile = cli_config_list[profile_id - 1];
+    } else {
+      if ((profile = suscli_lookup_profile(profile_name)) == NULL) {
+        SU_ERROR("Profile `%d' does not exist.\n", profile_name);
+        return SU_FALSE;
+      }
+    }
+  }
+
+  *out = profile;
+
+  return SU_TRUE;
+
+}
 SUBOOL
 suscli_param_read_float(
     const hashlist_t *params,
@@ -124,10 +202,12 @@ suscli_param_read_bool(
   if ((value = hashlist_get(params, key)) != NULL) {
     if (strcasecmp(value, "true") == 0
         || strcasecmp(value, "yes") == 0
+        || strcasecmp(value, "on") == 0
         || strcasecmp(value, "1") == 0) {
       dfl = SU_TRUE;
     } else if (strcasecmp(value, "false") == 0
         || strcasecmp(value, "no") == 0
+        || strcasecmp(value, "off") == 0
         || strcasecmp(value, "0") == 0) {
       dfl = SU_FALSE;
     } else {
@@ -281,7 +361,10 @@ suscli_run_command(const char *name, const char **argv)
 
   SUSCLI_ASSERT_INIT(
       SUSCLI_COMMAND_REQ_SOURCES,
-      suscan_init_sources());
+      suscan_init_sources()
+      && suscan_source_config_walk(
+          suscli_walk_all_sources,
+          0));
 
   SUSCLI_ASSERT_INIT(
       SUSCLI_COMMAND_REQ_ESTIMATORS,
@@ -351,17 +434,17 @@ suscli_init(void)
   SU_TRYCATCH(
       suscli_command_register(
           "rms",
-          "Root mean square of signal",
+          "Perform different kinds of power measurements",
           SUSCLI_COMMAND_REQ_SOURCES | SUSCLI_COMMAND_REQ_INSPECTORS,
           suscli_rms_cb) != -1,
       goto fail);
 
   SU_TRYCATCH(
       suscli_command_register(
-          "rmstone",
-          "Play audible tone according to signal power",
-          SUSCLI_COMMAND_REQ_SOURCES | SUSCLI_COMMAND_REQ_INSPECTORS,
-          suscli_rmstone_cb) != -1,
+          "profinfo",
+          "Display profile information",
+          SUSCLI_COMMAND_REQ_SOURCES,
+          suscli_profinfo_cb) != -1,
       goto fail);
 
   ok = SU_TRUE;

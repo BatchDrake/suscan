@@ -112,13 +112,13 @@ suscli_chanloop_open(
       case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
         msg = rawmsg;
         if (msg->kind ==  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
-          printf("Inspector opened!\n");
-          printf("  Inspector ID: 0x%08x\n", msg->inspector_id);
-          printf("  Request ID:   0x%08x\n", msg->req_id);
-          printf("  Handle:       0x%08x\n", msg->handle);
-          printf("  EquivFS:      %g sps\n", msg->equiv_fs);
-          printf("  BW:           %g Hz\n",  msg->bandwidth);
-          printf("  LO:           %g Hz\n",  msg->lo);
+          fprintf(stderr, "Inspector opened!\n");
+          fprintf(stderr, "  Inspector ID: 0x%08x\n", msg->inspector_id);
+          fprintf(stderr, "  Request ID:   0x%08x\n", msg->req_id);
+          fprintf(stderr, "  Handle:       0x%08x\n", msg->handle);
+          fprintf(stderr, "  EquivFS:      %g sps\n", msg->equiv_fs);
+          fprintf(stderr, "  BW:           %g Hz\n",  msg->bandwidth);
+          fprintf(stderr, "  LO:           %g Hz\n",  msg->lo);
 
           new->equiv_fs = msg->equiv_fs;
           SU_TRYCATCH(new->inspcfg = suscan_config_dup(msg->config), goto fail);

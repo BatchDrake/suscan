@@ -134,8 +134,7 @@ set(UTIL_HEADERS
   ${UTILDIR}/confdb.h
   ${UTILDIR}/cfg.h
   ${UTILDIR}/object.h 
-  ${UTILDIR}/rbtree.h
-  ${UTILDIR}/util.h)
+  ${UTILDIR}/rbtree.h)
   
 set(UTIL_SOURCES
   ${UTILDIR}/cfg.c
@@ -145,8 +144,7 @@ set(UTIL_SOURCES
   ${UTILDIR}/hashlist.c
   ${UTILDIR}/object.c
   ${UTILDIR}/rbtree.c
-  ${UTILDIR}/serialize.c
-  ${UTILDIR}/util.c)
+  ${UTILDIR}/serialize.c)
 
 set(VERSION_HEADERS ${VERSIONDIR}/version.h)
 
@@ -373,7 +371,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/cli.c
   ${CLIDIR}/cmd/profiles.c
   ${CLIDIR}/cmd/rms.c
-  ${CLIDIR}/cmd/rmstone.c
+  ${CLIDIR}/cmd/profinfo.c
   ${SRCDIR}/lib.c
   ${SRCDIR}/suscli.c)
 

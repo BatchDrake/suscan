@@ -38,6 +38,10 @@ struct suscli_command {
   SUBOOL (*callback) (const hashlist_t *);
 };
 
+suscan_source_config_t *suscli_get_source(unsigned int id);
+
+unsigned int suscli_get_source_count(void);
+
 SUBOOL suscli_command_register(
     const char *,
     const char *,
@@ -69,6 +73,11 @@ SUBOOL suscli_param_read_bool(
     const char *key,
     SUBOOL *out,
     SUBOOL dfl);
+
+SUBOOL suscli_param_read_profile(
+    const hashlist_t *p,
+    const char *key,
+    suscan_source_config_t **out);
 
 SUBOOL suscli_run_command(const char *name, const char **argv);
 

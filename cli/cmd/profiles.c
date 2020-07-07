@@ -27,35 +27,18 @@
 #include <cli/cli.h>
 #include <cli/cmds.h>
 
-struct walk_state {
-  int counter;
-};
-
-#define walk_state_INITIALIZER { 0 }
-
-SUPRIVATE SUBOOL
-walk_all_sources(suscan_source_config_t *config, void *privdata)
-{
-  struct walk_state *state = (struct walk_state *) privdata;
-
-  printf(
-      "[%3d] \"%s\"\n",
-      ++state->counter,
-      suscan_source_config_get_label(config));
-
-  return SU_TRUE;
-}
-
 SUBOOL
 suscli_profiles_cb(const hashlist_t *params)
 {
-  struct walk_state state = walk_state_INITIALIZER;
-  SUBOOL ok = SU_FALSE;
+  unsigned int i;
 
-  SU_TRYCATCH(suscan_source_config_walk(walk_all_sources, &state), goto fail);
+  for (i = 1; i <= suscli_get_source_count(); ++i) {
+    printf(
+          "[%3d] \"%s\"\n",
+          i,
+          suscan_source_config_get_label(
+              suscli_get_source(i)));
+  }
 
-  ok = SU_TRUE;
-
-fail:
-  return ok;
+  return SU_TRUE;
 }
