@@ -80,7 +80,7 @@ suscli_profinfo_cb(const hashlist_t *params)
         "Channel:     %u\n",
         suscan_source_config_get_channel(profile));
     printf(
-        "Bandwidth:   %lg Hz\n",
+        "Bandwidth:   %.0lf Hz\n",
         suscan_source_config_get_bandwidth(profile));
     printf(
         "Antenna:     %s\n",
@@ -88,7 +88,7 @@ suscli_profinfo_cb(const hashlist_t *params)
         ? "(none)"
         : suscan_source_config_get_antenna(profile));
     printf(
-        "I/Q Balance:  %s\n",
+        "I/Q Balance: %s\n",
         suscan_source_config_get_iq_balance(profile) ? "yes" : "no");
 
     printf("Gains:\n");

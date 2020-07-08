@@ -162,13 +162,13 @@ suscli_audio_playback_cb(
 
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(
-      (player->params.play) (
+  if (!(player->params.play) (
           player,
           player->buffer,
           player->bufsiz,
-          player->params.userdata),
-      goto fail);
+          player->params.userdata)) {
+    goto fail;
+  }
 
   SU_TRYCATCH(
       suscli_audio_play(player->stream, player->buffer, player->bufsiz),

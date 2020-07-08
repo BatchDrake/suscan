@@ -22,6 +22,7 @@
 
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>
+#include <util/confdb.h>
 #include <codec/codec.h>
 #include <string.h>
 
@@ -29,6 +30,7 @@
 #include <cli/cmds.h>
 
 PTR_LIST_PRIVATE(struct suscli_command, command);
+suscan_source_config_t *ui_config;
 PTR_LIST_PRIVATE(suscan_source_config_t, cli_config);
 
 SUPRIVATE uint32_t init_mask = 0;
@@ -58,6 +60,9 @@ SUPRIVATE suscan_source_config_t *
 suscli_lookup_profile(const char *name)
 {
   int i;
+
+  if (name == NULL)
+    return ui_config;
 
   for (i = 0; i < cli_config_count; ++i)
     if (suscan_source_config_get_label(cli_config_list[i]) != NULL
@@ -111,12 +116,14 @@ suscli_param_read_profile(
     const char *key,
     suscan_source_config_t **out)
 {
-  int profile_id = cli_config_count;
+  int profile_id = 0;
   suscan_source_config_t *profile = NULL;
   const char *profile_name;
 
   if (suscli_param_read_int(p, key, &profile_id, profile_id)) {
-    if (profile_id > 0 && profile_id <= cli_config_count) {
+    if (profile_id == 0) {
+      profile = ui_config;
+    } else if (profile_id > 0 && profile_id <= cli_config_count) {
       profile = cli_config_list[profile_id - 1];
     } else {
       SU_ERROR("Profile index `%d' out ouf bounds.\n", profile_id);
@@ -130,13 +137,9 @@ suscli_param_read_profile(
             &profile_name,
             NULL),
         return SU_FALSE);
-    if (profile_name == NULL) {
-      profile = cli_config_list[profile_id - 1];
-    } else {
-      if ((profile = suscli_lookup_profile(profile_name)) == NULL) {
+    if ((profile = suscli_lookup_profile(profile_name)) == NULL) {
         SU_ERROR("Profile `%d' does not exist.\n", profile_name);
         return SU_FALSE;
-      }
     }
   }
 
@@ -344,6 +347,67 @@ if ((init_mask & flag) ^ (cmd->flags &flag)) { \
   init_mask |= flag;                           \
 }
 
+SUPRIVATE SUBOOL
+suscli_init_ui_source(void)
+{
+  suscan_config_context_t *ctx = NULL;
+  suscan_source_config_t *cfg = NULL;
+  const suscan_object_t *list = NULL;
+  const suscan_object_t *qtuiobj = NULL;
+  const suscan_object_t *cfgobj = NULL;
+  unsigned int i, count;
+  const char *tmp;
+
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(suscan_confdb_use("uiconfig"), goto fail);
+
+  SU_TRYCATCH(
+      ctx = suscan_config_context_assert("uiconfig"),
+      goto fail);
+
+  /*
+   * suscan_config_context_set_on_save(ctx, suscan_sources_on_save, NULL);
+   */
+
+  list = suscan_config_context_get_list(ctx);
+
+  count = suscan_object_set_get_count(list);
+
+  /* For each object in config */
+  for (i = 0; i < count; ++i) {
+    if ((qtuiobj = suscan_object_set_get(list, i)) != NULL) {
+      if ((tmp = suscan_object_get_class(qtuiobj)) != NULL
+          && strcmp(tmp, "qtui") == 0) {
+
+        /* For each QT UI config */
+        if ((cfgobj = suscan_object_get_field(qtuiobj, "source")) != NULL
+            && (tmp = suscan_object_get_class(cfgobj)) != NULL
+            && strcmp(tmp, "source_config") == 0) {
+          if ((cfg = suscan_source_config_from_object(cfgobj)) == NULL) {
+            SU_WARNING("Could not parse UI source config #%d from config\n", i);
+          } else {
+            SU_TRYCATCH(
+                suscan_source_config_set_label(cfg, "UI profile"),
+                goto fail);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (cfg == NULL)
+    SU_TRYCATCH(cfg = suscan_source_config_new_default(), goto fail);
+
+  ui_config = cfg;
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+
 SUBOOL
 suscli_run_command(const char *name, const char **argv)
 {
@@ -362,6 +426,7 @@ suscli_run_command(const char *name, const char **argv)
   SUSCLI_ASSERT_INIT(
       SUSCLI_COMMAND_REQ_SOURCES,
       suscan_init_sources()
+      && suscli_init_ui_source()
       && suscan_source_config_walk(
           suscli_walk_all_sources,
           0));

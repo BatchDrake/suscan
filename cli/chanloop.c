@@ -64,6 +64,9 @@ suscli_chanloop_open(
 
   new->params = *params;
 
+  if (new->params.type == NULL)
+    new->params.type = "raw";
+
   /* First step: open analyzer, get true sample rate */
   SU_TRYCATCH(suscan_mq_init(&new->mq), goto fail);
   SU_TRYCATCH(
@@ -215,13 +218,13 @@ suscli_chanloop_cancel(suscli_chanloop_t *self)
 void
 suscli_chanloop_destroy(suscli_chanloop_t *self)
 {
-  suscan_mq_finalize(&self->mq);
+  if (self->analyzer != NULL)
+    suscan_analyzer_destroy(self->analyzer);
 
   if (self->inspcfg != NULL)
     suscan_config_destroy(self->inspcfg);
 
-  if (self->analyzer != NULL)
-    suscan_analyzer_destroy(self->analyzer);
+  suscan_mq_finalize(&self->mq);
 
   free(self);
 }

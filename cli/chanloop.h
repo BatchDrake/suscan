@@ -26,14 +26,18 @@
 struct suscli_chanloop_params {
   SUFLOAT relbw;
   SUFLOAT rello;
+  const char *type;
   void *userdata;
   SUBOOL (*on_data) (suscan_analyzer_t *, const SUCOMPLEX *, size_t, void *);
+  SUBOOL (*on_open) (suscan_analyzer_t *, const SUCOMPLEX *, size_t, void *);
+
 };
 
 #define suscli_chanloop_params_INITIALIZER      \
 {                                               \
   .25,  /* relbw */                             \
   .25,  /* rello */                             \
+  NULL, /* type */                              \
   NULL, /* userdata */                          \
   NULL, /* on_data */                           \
 }
@@ -55,6 +59,8 @@ suscli_chanloop_t *suscli_chanloop_open(
 SUBOOL suscli_chanloop_work(suscli_chanloop_t *self);
 
 SUBOOL suscli_chanloop_cancel(suscli_chanloop_t *self);
+
+SUBOOL suscli_chanloop_set_rate(suscli_chanloop_t *self, SUFLOAT);
 
 void suscli_chanloop_destroy(suscli_chanloop_t *self);
 

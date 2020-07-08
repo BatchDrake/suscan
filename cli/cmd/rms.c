@@ -88,7 +88,7 @@ struct suscli_rms_state {
 
   SUFLOAT c;
   SUFLOAT sum;
-  SUBOOL  failed;
+  SUBOOL  halting;
 
   SUFLOAT prev_db;
   SUFLOAT curr_db;
@@ -109,7 +109,7 @@ struct suscli_rms_state {
   suscli_audio_player_t *player;
 };
 
-SUPRIVATE void suscli_rms_state_mark_failed(
+SUPRIVATE void suscli_rms_state_mark_halting(
     struct suscli_rms_state *self);
 
 /***************************** Audio callbacks ********************************/
@@ -148,8 +148,9 @@ suscli_rms_audio_play_cb(
 
   if (state->capturing) {
     for (i = 0; i < len; ++i) {
-      if (state->failed) {
-        SU_ERROR("Aborting audio playback due errors.\n");
+      if (state->halting) {
+        SU_INFO("Stopping audio.\n");
+        ok = SU_FALSE;
         goto fail;
       }
 
@@ -247,7 +248,7 @@ suscli_rms_audio_error_cb(suscli_audio_player_t *self, void *userdata)
 {
   struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
 
-  suscli_rms_state_mark_failed(state);
+  suscli_rms_state_mark_halting(state);
 }
 
 /******************************* Parameter parsing ***************************/
@@ -375,7 +376,7 @@ suscli_rms_params_parse(
   }
 
   SU_TRYCATCH(
-      suscli_param_read_float(
+      suscli_param_read_bool(
           p,
           "audio",
           &self->audio,
@@ -491,9 +492,9 @@ suscli_rms_state_finalize(struct suscli_rms_state *self)
 }
 
 SUPRIVATE void
-suscli_rms_state_mark_failed(struct suscli_rms_state *self)
+suscli_rms_state_mark_halting(struct suscli_rms_state *self)
 {
-  self->failed = SU_TRUE;
+  self->halting = SU_TRUE;
 }
 
 SUPRIVATE SUBOOL
@@ -542,7 +543,7 @@ suscli_rms_on_data_cb(
   SUFLOAT y, tmp;
   struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
 
-  for (i = 0; i < size && !state->failed; ++i) {
+  for (i = 0; i < size && !state->halting; ++i) {
     y = SU_C_REAL(data[i] * SU_C_CONJ(data[i]));
     tmp = state->sum + y;
     state->c = (tmp - state->sum) - y;
@@ -561,8 +562,8 @@ suscli_rms_on_data_cb(
     }
   }
 
-  if (state->failed) {
-    SU_ERROR("Stopping capture due to errors\n");
+  if (state->halting) {
+    SU_ERROR("Stopping capture.\n");
     return SU_FALSE;
   }
 
@@ -608,8 +609,7 @@ suscli_rms_cb(const hashlist_t *params)
   ok = SU_TRUE;
 
 fail:
-  if (!ok)
-    suscli_rms_state_mark_failed(&state);
+  suscli_rms_state_mark_halting(&state);
 
   if (chanloop != NULL)
     suscli_chanloop_destroy(chanloop);
