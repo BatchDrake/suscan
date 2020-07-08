@@ -375,7 +375,7 @@ suscli_rms_params_parse(
   }
 
   SU_TRYCATCH(
-      suscli_param_read_float(
+      suscli_param_read_bool(
           p,
           "audio",
           &self->audio,
