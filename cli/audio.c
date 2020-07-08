@@ -23,8 +23,6 @@
 #include <sigutils/log.h>
 #include <cli/audio.h>
 
-#include <portaudio.h>
-
 #define SUSCLI_AUDIO_BUFFER_SIZE         512
 #define SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE 44100
 
@@ -34,8 +32,10 @@ SUPRIVATE SUBOOL suscli_audio_play(void *, const SUFLOAT *, size_t);
 
 /*************************** PortAudio implementation *************************/
 #ifdef HAVE_PORTAUDIO
+#  include <portaudio.h>
 #  define HAVE_AUDIO
 #  define PORTAUDIO_MAX_UNDERRUNS 20
+
 SUPRIVATE SUBOOL pa_initialized = SU_FALSE;
 
 SUPRIVATE void
