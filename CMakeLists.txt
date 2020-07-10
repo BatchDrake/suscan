@@ -363,6 +363,7 @@ set(SUSCLI_HEADERS
   ${CLIDIR}/chanloop.h
   ${CLIDIR}/cli.h
   ${CLIDIR}/cmds.h
+  ${CLIDIR}/datasaver.h
   ${SRCDIR}/suscan.h)
 
 set(SUSCLI_SOURCES
@@ -372,6 +373,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/cmd/profiles.c
   ${CLIDIR}/cmd/rms.c
   ${CLIDIR}/cmd/profinfo.c
+  ${CLIDIR}/datasaver.c
   ${SRCDIR}/lib.c
   ${SRCDIR}/suscli.c)
 
