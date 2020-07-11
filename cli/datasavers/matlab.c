@@ -100,10 +100,11 @@ suscli_matlab_datasaver_write_cb(
     SU_TRYCATCH(
         fprintf(
             fp,
-            "  %ld,%.6lf,%.9le;\n",
+            "  %ld,%.6lf,%.9e,%g;\n",
             samples[i].timestamp.tv_sec,
             samples[i].timestamp.tv_usec * 1e-6,
-            samples[i].value) > 0,
+            samples[i].value,
+            SU_POWER_DB_RAW(samples[i].value)) > 0,
         return SU_FALSE);
   }
 

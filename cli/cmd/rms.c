@@ -30,6 +30,9 @@
 #include <cli/cmds.h>
 #include <cli/chanloop.h>
 #include <cli/audio.h>
+#include <cli/datasaver.h>
+
+#include <signal.h>
 
 #define SUSCLI_DEFAULT_RMS_INTERVAL_MS  50
 #define SUSCLI_DEFAULT_DISP_INTERVAL_MS 500
@@ -68,6 +71,15 @@ struct suscli_rms_params {
   SUFLOAT beep_long;
   SUFLOAT beep_short;
 
+  /* TCP forwarder */
+  SUBOOL       tcp_enabled;
+  const char *tcp_host;
+  int         tcp_port;
+
+  /* MATLAB forwarder */
+  SUBOOL matlab_enabled;
+  const char *matlab_path;
+
   /* Precalculated terms */
   enum suscli_rms_mode mode_enum;
   SUFLOAT k;
@@ -98,16 +110,19 @@ struct suscli_rms_state {
   SUBOOL  second_cycle;
 
   /* Used for beeper */
-  int samp_per_beep_cycle;
-
+  int    samp_per_beep_cycle;
   SUBOOL  rms_changed;
-
   SUBOOL  capturing;
-
   unsigned int samp_rate;
   su_ncqo_t afo;
   suscli_audio_player_t *player;
+
+  /* Datasavers */
+  suscli_datasaver_t *tcpds;
+  suscli_datasaver_t *matlabds;
 };
+
+SUPRIVATE struct suscli_rms_state *g_state;
 
 SUPRIVATE void suscli_rms_state_mark_halting(
     struct suscli_rms_state *self);
@@ -471,6 +486,46 @@ suscli_rms_params_parse(
           SUSCLI_DEFAULT_VOLUME),
       goto fail);
 
+  SU_TRYCATCH(
+      suscli_param_read_bool(
+          p,
+          "tcp",
+          &self->tcp_enabled,
+          SU_FALSE),
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_param_read_string(
+          p,
+          "tcp-host",
+          &self->tcp_host,
+          NULL),
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_param_read_int(
+          p,
+          "tcp-port",
+          &self->tcp_port,
+          0),
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_param_read_bool(
+          p,
+          "matlab",
+          &self->matlab_enabled,
+          SU_FALSE),
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_param_read_string(
+          p,
+          "matlab-path",
+          &self->matlab_path,
+          NULL),
+      goto fail);
+
   self->k = SU_LOG(self->freq_max / self->freq_min);
 
   suscli_rms_params_debug(self);
@@ -487,6 +542,12 @@ suscli_rms_state_finalize(struct suscli_rms_state *self)
 {
   if (self->player != NULL)
     suscli_audio_player_destroy(self->player);
+
+  if (self->matlabds != NULL)
+    suscli_datasaver_destroy(self->matlabds);
+
+  if (self->tcpds != NULL)
+    suscli_datasaver_destroy(self->tcpds);
 
   memset(self, 0, sizeof (struct suscli_rms_state));
 }
@@ -505,10 +566,14 @@ suscli_rms_state_init(
   SUBOOL ok = SU_FALSE;
   struct suscli_audio_player_params audio_params =
       suscli_audio_player_params_INITIALIZER;
+  struct suscli_datasaver_params ds_params;
+  hashlist_t *dshash = NULL;
+  char portstr[20];
 
   memset(state, 0, sizeof(struct suscli_rms_state));
 
   SU_TRYCATCH(suscli_rms_params_parse(&state->params, params), goto fail);
+  SU_TRYCATCH(dshash = hashlist_new(), goto fail);
 
   /* User requested audio play */
   if (state->params.audio) {
@@ -523,9 +588,41 @@ suscli_rms_state_init(
         goto fail);
   }
 
+  /* User requested MATLAB forwarder */
+  if (state->params.matlab_enabled) {
+    SU_TRYCATCH(
+        hashlist_set(dshash, "path", (void *) state->params.matlab_path),
+        goto fail);
+
+    suscli_datasaver_params_init_matlab(&ds_params, dshash);
+    SU_TRYCATCH(
+        state->matlabds = suscli_datasaver_new(&ds_params),
+        goto fail);
+  }
+
+  /* User requested TCP forwarder */
+  if (state->params.tcp_enabled) {
+    snprintf(portstr, sizeof(portstr), "%d", state->params.tcp_port);
+    SU_TRYCATCH(
+        hashlist_set(dshash, "host", (void *) state->params.tcp_host),
+        goto fail);
+    SU_TRYCATCH(
+        hashlist_set(dshash, "port", portstr),
+        goto fail);
+
+    suscli_datasaver_params_init_tcp(&ds_params, dshash);
+
+    SU_TRYCATCH(
+        state->tcpds = suscli_datasaver_new(&ds_params),
+        goto fail);
+  }
+
   ok = SU_TRUE;
 
 fail:
+  if (dshash != NULL)
+    hashlist_destroy(dshash);
+
   if (!ok)
     suscli_rms_state_finalize(state);
 
@@ -541,7 +638,9 @@ suscli_rms_on_data_cb(
 {
   int i;
   SUFLOAT y, tmp;
+  SUFLOAT measure;
   struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
+  struct timeval tv;
 
   for (i = 0; i < size && !state->halting; ++i) {
     y = SU_C_REAL(data[i] * SU_C_CONJ(data[i]));
@@ -550,14 +649,29 @@ suscli_rms_on_data_cb(
     state->sum = tmp;
 
     if (++state->update_ctr >= state->samp_per_update) {
+      measure = state->sum / state->update_ctr;
       state->curr_db = SU_POWER_DB(state->sum / state->update_ctr);
       state->c = state->sum = state->update_ctr = 0;
       state->rms_changed = SU_TRUE;
+
+      /* Feed datasavers */
+      if (state->tcpds)
+        if (!suscli_datasaver_write(state->tcpds, measure))
+          suscli_rms_state_mark_halting(state);
+
+      if (state->matlabds)
+        if (!suscli_datasaver_write(state->matlabds, measure))
+          suscli_rms_state_mark_halting(state);
     }
 
     if (++state->disp_ctr >= state->samp_per_disp) {
       state->disp_ctr = 0;
-      printf("RMS = %.3f dB\r", state->curr_db);
+      gettimeofday(&tv, NULL);
+      printf(
+          "\033[2K[%ld.%06ld] RMS = %.3f dB\r",
+          tv.tv_sec,
+          tv.tv_usec,
+          state->curr_db);
       fflush(stdout);
     }
   }
@@ -570,6 +684,16 @@ suscli_rms_on_data_cb(
   return SU_TRUE;
 }
 
+void
+suscli_rms_interrupt_handler(int sig)
+{
+  if (g_state != NULL) {
+    fprintf(stderr, "Ctrl+C hit, stopping capture...\n");
+    suscli_rms_state_mark_halting(g_state);
+    g_state = NULL;
+  }
+}
+
 SUBOOL
 suscli_rms_cb(const hashlist_t *params)
 {
@@ -580,6 +704,9 @@ suscli_rms_cb(const hashlist_t *params)
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(suscli_rms_state_init(&state, params), goto fail);
+
+  g_state = &state;
+  signal(SIGINT, suscli_rms_interrupt_handler);
 
   chanloop_params.on_data  = suscli_rms_on_data_cb;
   chanloop_params.userdata = &state;

@@ -73,7 +73,7 @@ fail:
 SUPRIVATE FILE *
 suscli_tcp_fopen(const char *host, uint16_t port)
 {
-  FILE *fp;
+  FILE *fp = NULL;
   int fd = -1;
   SUBOOL ok = SU_FALSE;
 
@@ -118,6 +118,9 @@ suscli_tcp_datasaver_open_cb(void *userdata)
           SUSCLI_DATASAVER_TCP_DEFAULT_PORT),
       return NULL);
 
+  if (port == 0)
+    port = SUSCLI_DATASAVER_TCP_DEFAULT_PORT;
+
   return suscli_tcp_fopen(host, port);
 }
 
@@ -134,10 +137,11 @@ suscli_tcp_datasaver_write_cb(
     SU_TRYCATCH(
         fprintf(
             fp,
-            "%ld,%.6lf,%.9le\n",
+            "%ld,%.6lf,%.9e,%g\n",
             samples[i].timestamp.tv_sec,
             samples[i].timestamp.tv_usec * 1e-6,
-            samples[i].value) > 0,
+            samples[i].value,
+            SU_POWER_DB_RAW(samples[i].value)) > 0,
         return SU_FALSE);
   }
 

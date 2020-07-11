@@ -70,11 +70,11 @@ suscli_datasaver_new(const struct suscli_datasaver_params *params)
   suscli_datasaver_t *new = NULL;
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_datasaver_t)), goto fail);
+  new->params = *params;
+
   SU_TRYCATCH(
       new->state = (new->params.open)(new->params.userdata),
       goto fail);
-
-  new->params = *params;
 
   new->block_size = SUSCLI_DATASAVER_BLOCK_SIZE;
   SU_TRYCATCH(
@@ -96,7 +96,7 @@ fail:
   if (new != NULL)
     suscli_datasaver_destroy(new);
 
-  return new;
+  return NULL;
 }
 
 SUBOOL
@@ -174,7 +174,7 @@ void
 suscli_datasaver_destroy(suscli_datasaver_t *self)
 {
   if (self->worker != NULL)
-    suscan_worker_destroy(self->worker);
+    suscan_worker_halt(self->worker);
 
   if (self->block_buffer != NULL)
     free(self->block_buffer);
