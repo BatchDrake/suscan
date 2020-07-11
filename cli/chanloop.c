@@ -18,7 +18,7 @@
 
 */
 
-#define _SU_LOG_DOMAIN "chanloop"
+#define SU_LOG_DOMAIN "chanloop"
 
 #include <sigutils/log.h>
 #include <analyzer/msg.h>

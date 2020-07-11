@@ -23,6 +23,7 @@
 
 #include <sigutils/types.h>
 #include <analyzer/analyzer.h>
+#include <hashlist.h>
 #include <sys/time.h>
 #include <pthread.h>
 
@@ -35,16 +36,15 @@ struct suscli_sample {
 
 struct suscli_datasaver_params {
   void *userdata;
-  SUBOOL (*open) (void *userdata);
-  SUBOOL (*write) (void *userdata, const struct suscli_sample *, size_t);
-  SUBOOL (*close) (void *userdata);
+  void *(*open) (void *userdata);
+  SUBOOL (*write) (void *state, const struct suscli_sample *, size_t);
+  SUBOOL (*close) (void *state);
 };
-
 
 struct suscli_datasaver {
   struct suscli_datasaver_params params;
   SUBOOL failed;
-  SUBOOL opened;
+  void *state;
   SUBOOL have_mq;
   SUBOOL have_mutex;
   suscan_worker_t *worker;
@@ -64,5 +64,13 @@ suscli_datasaver_t *suscli_datasaver_new(
 SUBOOL suscli_datasaver_write(suscli_datasaver_t *, SUFLOAT);
 
 void suscli_datasaver_destroy(suscli_datasaver_t *);
+
+/***************************** Implementations ********************************/
+void suscli_datasaver_params_init_matlab(
+    struct suscli_datasaver_params *self,
+    const hashlist_t *params);
+void suscli_datasaver_params_init_tcp(
+    struct suscli_datasaver_params *self,
+    const hashlist_t *params);
 
 #endif /* _SUSCLI_DATASAVER_H */

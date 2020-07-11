@@ -18,7 +18,7 @@
 
 */
 
-#define _SU_LOG_DOMAIN "audio"
+#define SU_LOG_DOMAIN "audio"
 
 #include <sigutils/log.h>
 #include <cli/audio.h>

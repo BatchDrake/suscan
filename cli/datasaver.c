@@ -18,7 +18,7 @@
 
 */
 
-#define _SU_LOG_DOMAIN "cli-datasaver"
+#define SU_LOG_DOMAIN "cli-datasaver"
 
 #include <sigutils/log.h>
 #include "datasaver.h"
@@ -43,7 +43,7 @@ suscli_datasaver_writer_cb(
 
   if (avail > 0) {
     if (!(self->params.write)(
-        self->params.userdata,
+        self->state,
         self->block_buffer + self->block_consumed,
         avail)) {
       suscan_worker_req_halt(self->worker);
@@ -70,9 +70,10 @@ suscli_datasaver_new(const struct suscli_datasaver_params *params)
   suscli_datasaver_t *new = NULL;
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_datasaver_t)), goto fail);
-  SU_TRYCATCH((new->params.open)(new->params.userdata), goto fail);
+  SU_TRYCATCH(
+      new->state = (new->params.open)(new->params.userdata),
+      goto fail);
 
-  new->opened = SU_TRUE;
   new->params = *params;
 
   new->block_size = SUSCLI_DATASAVER_BLOCK_SIZE;
@@ -184,8 +185,8 @@ suscli_datasaver_destroy(suscli_datasaver_t *self)
   if (self->have_mutex)
     pthread_mutex_destroy(&self->mutex);
 
-  if (self->opened)
-    (self->params.close) (self->params.userdata);
+  if (self->state != NULL)
+    (self->params.close) (self->state);
 
   free(self);
 }

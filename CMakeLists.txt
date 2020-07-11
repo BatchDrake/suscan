@@ -373,6 +373,8 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/cmd/profiles.c
   ${CLIDIR}/cmd/rms.c
   ${CLIDIR}/cmd/profinfo.c
+  ${CLIDIR}/datasavers/matlab.c
+  ${CLIDIR}/datasavers/tcp.c
   ${CLIDIR}/datasaver.c
   ${SRCDIR}/lib.c
   ${SRCDIR}/suscli.c)
