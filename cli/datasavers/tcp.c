@@ -28,9 +28,27 @@
 #include <errno.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
 
 #define SUSCLI_DATASAVER_TCP_DEFAULT_HOST "localhost"
 #define SUSCLI_DATASAVER_TCP_DEFAULT_PORT 9999
+
+#define SUSCLI_DATASAVER_HOSTNAME_SZ 256
+
+SUPRIVATE SUBOOL have_hostname = SU_FALSE;
+SUPRIVATE char  hostname[SUSCLI_DATASAVER_HOSTNAME_SZ];
+
+const char *
+suscli_tcp_get_hostname(void)
+{
+  if (!have_hostname) {
+    if (gethostname(hostname, SUSCLI_DATASAVER_HOSTNAME_SZ - 1) == -1)
+      strncpy(hostname, "unknown", SUSCLI_DATASAVER_HOSTNAME_SZ - 1);
+    have_hostname = SU_TRUE;
+  }
+
+  return hostname;
+}
 
 SUPRIVATE int
 suscli_tcp_connect(const char *host, uint16_t port)
@@ -101,6 +119,8 @@ SUPRIVATE void *
 suscli_tcp_datasaver_open_cb(void *userdata)
 {
   const char *host = NULL;
+  const char *desc = NULL;
+
   SUFLOAT interval;
   int port;
   FILE *fp;
@@ -130,11 +150,31 @@ suscli_tcp_datasaver_open_cb(void *userdata)
           1),
       return NULL);
 
+  SU_TRYCATCH(
+      suscli_param_read_string(
+          params,
+          "desc",
+          &desc,
+          NULL),
+      return NULL);
+
   if (port == 0)
     port = SUSCLI_DATASAVER_TCP_DEFAULT_PORT;
 
-  if ((fp = suscli_tcp_fopen(host, port)) != NULL)
+  if ((fp = suscli_tcp_fopen(host, port)) != NULL) {
     fprintf(fp, "RATE,%.6f\n", 1e3 / interval);
+    if (desc == NULL)
+      fprintf(
+          fp,
+          "DESC,suscli@%s (%d)\n",
+          suscli_tcp_get_hostname(),
+          getpid());
+    else
+      fprintf(
+          fp,
+          "DESC,%s\n",
+          desc);
+  }
 
   return fp;
 }

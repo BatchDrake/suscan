@@ -75,6 +75,7 @@ struct suscli_rms_params {
   SUBOOL       tcp_enabled;
   const char *tcp_host;
   int         tcp_port;
+  const char *tcp_desc;
 
   /* MATLAB forwarder */
   SUBOOL matlab_enabled;
@@ -511,6 +512,15 @@ suscli_rms_params_parse(
       goto fail);
 
   SU_TRYCATCH(
+      suscli_param_read_string(
+          p,
+          "tcp-desc",
+          &self->tcp_desc,
+          NULL),
+      goto fail);
+
+
+  SU_TRYCATCH(
       suscli_param_read_bool(
           p,
           "matlab",
@@ -617,6 +627,9 @@ suscli_rms_state_init(
         goto fail);
     SU_TRYCATCH(
         hashlist_set(dshash, "interval", intervalstr),
+        goto fail);
+    SU_TRYCATCH(
+        hashlist_set(dshash, "desc", (void *) state->params.tcp_desc),
         goto fail);
 
     suscli_datasaver_params_init_tcp(&ds_params, dshash);
