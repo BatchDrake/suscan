@@ -80,6 +80,8 @@ suscli_tcp_fopen(const char *host, uint16_t port)
   SU_TRYCATCH((fd = suscli_tcp_connect(host, port)) != -1, goto fail);
   SU_TRYCATCH(fp = fdopen(fd, "wb"), goto fail);
 
+  setbuf(fp, NULL);
+
   ok = SU_TRUE;
 
 fail:
@@ -99,7 +101,9 @@ SUPRIVATE void *
 suscli_tcp_datasaver_open_cb(void *userdata)
 {
   const char *host = NULL;
+  SUFLOAT interval;
   int port;
+  FILE *fp;
   const hashlist_t *params = (const hashlist_t *) userdata;
 
   SU_TRYCATCH(
@@ -118,10 +122,21 @@ suscli_tcp_datasaver_open_cb(void *userdata)
           SUSCLI_DATASAVER_TCP_DEFAULT_PORT),
       return NULL);
 
+  SU_TRYCATCH(
+      suscli_param_read_float(
+          params,
+          "interval",
+          &interval,
+          1),
+      return NULL);
+
   if (port == 0)
     port = SUSCLI_DATASAVER_TCP_DEFAULT_PORT;
 
-  return suscli_tcp_fopen(host, port);
+  if ((fp = suscli_tcp_fopen(host, port)) != NULL)
+    fprintf(fp, "RATE,%.6f\n", 1e3 / interval);
+
+  return fp;
 }
 
 SUPRIVATE SUBOOL

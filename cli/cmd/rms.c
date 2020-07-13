@@ -569,6 +569,7 @@ suscli_rms_state_init(
   struct suscli_datasaver_params ds_params;
   hashlist_t *dshash = NULL;
   char portstr[20];
+  char intervalstr[64];
 
   memset(state, 0, sizeof(struct suscli_rms_state));
 
@@ -603,11 +604,19 @@ suscli_rms_state_init(
   /* User requested TCP forwarder */
   if (state->params.tcp_enabled) {
     snprintf(portstr, sizeof(portstr), "%d", state->params.tcp_port);
+    snprintf(
+        intervalstr,
+        sizeof(intervalstr), "%.3f",
+        state->params.rms_interval);
+
     SU_TRYCATCH(
         hashlist_set(dshash, "host", (void *) state->params.tcp_host),
         goto fail);
     SU_TRYCATCH(
         hashlist_set(dshash, "port", portstr),
+        goto fail);
+    SU_TRYCATCH(
+        hashlist_set(dshash, "interval", intervalstr),
         goto fail);
 
     suscli_datasaver_params_init_tcp(&ds_params, dshash);
