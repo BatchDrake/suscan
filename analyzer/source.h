@@ -320,6 +320,7 @@ SUBOOL suscan_source_config_set_sdr_args(
     const suscan_source_config_t *config,
     const char *args);
 
+suscan_source_config_t *suscan_source_config_new_default(void);
 suscan_source_config_t *suscan_source_config_new(
     enum suscan_source_type type,
     enum suscan_source_format format);

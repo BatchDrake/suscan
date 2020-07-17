@@ -46,6 +46,7 @@ pkg_check_modules(FFTW3    REQUIRED fftw3f>=3.0)
 pkg_check_modules(SOAPYSDR REQUIRED SoapySDR>=0.5.0)
 pkg_check_modules(XML2     REQUIRED libxml-2.0>=2.9.0)
 pkg_check_modules(VOLK              volk>=1.0)
+pkg_check_modules(PORTAUDIO         portaudio-2.0>=19)
 
 # Source location
 set(SRCDIR       src)
@@ -57,6 +58,7 @@ set(INSPECTORDIR ${ANALYZERDIR}/inspector/impl)
 set(SPECTSRCDIR  ${ANALYZERDIR}/spectsrcs)
 set(UTILDIR      util)
 set(RSRCDIR      rsrc)
+set(CLIDIR       cli)
 set(VERSIONDIR   analyzer)
 
 # Compiler flags
@@ -126,21 +128,23 @@ set(RSRC_CONFIG_FILES
   
 set(UTIL_HEADERS
   ${UTILDIR}/compat.h
+  ${UTILDIR}/hashlist.h
   ${UTILDIR}/macos-barriers.h
   ${UTILDIR}/macos-barriers.imp.h
   ${UTILDIR}/confdb.h
   ${UTILDIR}/cfg.h
   ${UTILDIR}/object.h 
-  ${UTILDIR}/util.h)
+  ${UTILDIR}/rbtree.h)
   
 set(UTIL_SOURCES
   ${UTILDIR}/cfg.c
   ${UTILDIR}/compat.c
   ${UTILDIR}/confdb.c
-  ${UTILDIR}/deserialize.c 
+  ${UTILDIR}/deserialize.c
+  ${UTILDIR}/hashlist.c
   ${UTILDIR}/object.c
-  ${UTILDIR}/serialize.c
-  ${UTILDIR}/util.c)
+  ${UTILDIR}/rbtree.c
+  ${UTILDIR}/serialize.c)
 
 set(VERSION_HEADERS ${VERSIONDIR}/version.h)
 
@@ -353,3 +357,72 @@ endif()
 
 install(TARGETS suscan.status DESTINATION bin)
 
+######################### Suscan Command Line tool ############################
+set(SUSCLI_HEADERS
+  ${CLIDIR}/audio.h
+  ${CLIDIR}/chanloop.h
+  ${CLIDIR}/cli.h
+  ${CLIDIR}/cmds.h
+  ${CLIDIR}/datasaver.h
+  ${SRCDIR}/suscan.h)
+
+set(SUSCLI_SOURCES
+  ${CLIDIR}/audio.c
+  ${CLIDIR}/chanloop.c
+  ${CLIDIR}/cli.c
+  ${CLIDIR}/cmd/profiles.c
+  ${CLIDIR}/cmd/rms.c
+  ${CLIDIR}/cmd/profinfo.c
+  ${CLIDIR}/datasavers/matlab.c
+  ${CLIDIR}/datasavers/tcp.c
+  ${CLIDIR}/datasaver.c
+  ${SRCDIR}/lib.c
+  ${SRCDIR}/suscli.c)
+
+add_executable(
+  suscli
+  ${SUSCLI_HEADERS} 
+  ${SUSCLI_SOURCES})
+
+# Private header directories
+target_include_directories(
+  suscli
+  PRIVATE . ${UTILDIR} ${CODECLIB_DIR} ${SRCDIR} ${CLIDIR})
+
+if(PORTAUDIO_FOUND)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_PORTAUDIO=1")
+  target_include_directories(suscli SYSTEM PUBLIC ${PORTAUDIO_INCLUDE_DIRS})
+  target_link_libraries(suscli ${PORTAUDIO_LIBRARIES})
+endif()
+
+# Required dependencies
+set_target_properties(suscli PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
+set_target_properties(suscli PROPERTIES LINK_FLAGS "${SIGUTILS_SPC_LDFLAGS}")
+
+link_directories(${PROJECT_BINARY_DIR} ${SOAPYSDR_LIBRARY_DIRS})
+
+target_link_libraries(suscli sigutils)
+target_link_libraries(suscli suscan)
+target_link_libraries(suscli m)
+
+target_include_directories(suscli SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
+target_link_libraries(suscli ${SNDFILE_LIBRARIES})
+
+target_include_directories(suscli SYSTEM PUBLIC ${FFTW3_INCLUDE_DIRS})
+target_link_libraries(suscli ${FFTW3_LIBRARIES})
+
+target_include_directories(suscli SYSTEM PUBLIC ${SOAPYSDR_INCLUDE_DIRS})
+target_link_libraries(suscli ${SOAPYSDR_LIBRARIES})
+
+target_include_directories(suscli SYSTEM PUBLIC ${XML2_INCLUDE_DIRS})
+target_link_libraries(suscli ${XML2_LIBRARIES})
+
+target_link_libraries(suscli ${CMAKE_THREAD_LIBS_INIT})
+
+# Optional dependencies
+if(VOLK_FOUND)
+  target_include_directories(suscli SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
+  target_link_libraries(suscli ${VOLK_LIBRARIES})
+endif()
+
+install(TARGETS suscli DESTINATION bin)

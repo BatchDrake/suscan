@@ -40,8 +40,8 @@
   }
 
 enum suscan_mode {
-  SUSCAN_MODE_GTK_UI,
-  SUSCAN_MODE_FINGERPRINT
+  SUSCAN_MODE_DELAYED_LOG,
+  SUSCAN_MODE_IMMEDIATE
 };
 
 SUBOOL suscan_channel_is_dc(const struct sigutils_channel *ch);

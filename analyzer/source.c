@@ -1194,6 +1194,43 @@ fail:
 }
 
 suscan_source_config_t *
+suscan_source_config_new_default(void)
+{
+  suscan_source_config_t *new = NULL;
+
+  SU_TRYCATCH(
+        new = suscan_source_config_new(
+            SUSCAN_SOURCE_TYPE_SDR,
+            SUSCAN_SOURCE_FORMAT_AUTO),
+        goto fail);
+
+  SU_TRYCATCH(
+      suscan_source_config_set_label(new, SUSCAN_SOURCE_DEFAULT_NAME),
+      goto fail);
+
+  suscan_source_config_set_freq(new, SUSCAN_SOURCE_DEFAULT_FREQ);
+
+  suscan_source_config_set_samp_rate(new, SUSCAN_SOURCE_DEFAULT_SAMP_RATE);
+
+  suscan_source_config_set_bandwidth(new, SUSCAN_SOURCE_DEFAULT_BANDWIDTH);
+
+  SU_TRYCATCH(
+      suscan_source_config_set_device(
+          new,
+          suscan_source_device_find_first_sdr()),
+      goto fail);
+
+  suscan_source_config_set_dc_remove(new, SU_TRUE);
+
+  return new;
+
+fail:
+  suscan_source_config_destroy(new);
+
+  return NULL;
+}
+
+suscan_source_config_t *
 suscan_source_config_clone(const suscan_source_config_t *config)
 {
   suscan_source_config_t *new = NULL;
@@ -2356,29 +2393,7 @@ suscan_source_add_default(void)
 {
   suscan_source_config_t *new = NULL;
 
-  SU_TRYCATCH(
-      new = suscan_source_config_new(
-          SUSCAN_SOURCE_TYPE_SDR,
-          SUSCAN_SOURCE_FORMAT_AUTO),
-      goto fail);
-
-  SU_TRYCATCH(
-      suscan_source_config_set_label(new, SUSCAN_SOURCE_DEFAULT_NAME),
-      goto fail);
-
-  suscan_source_config_set_freq(new, SUSCAN_SOURCE_DEFAULT_FREQ);
-
-  suscan_source_config_set_samp_rate(new, SUSCAN_SOURCE_DEFAULT_SAMP_RATE);
-
-  suscan_source_config_set_bandwidth(new, SUSCAN_SOURCE_DEFAULT_BANDWIDTH);
-
-  SU_TRYCATCH(
-      suscan_source_config_set_device(
-          new,
-          suscan_source_device_find_first_sdr()),
-      goto fail);
-
-  suscan_source_config_set_dc_remove(new, SU_TRUE);
+  SU_TRYCATCH(new = suscan_source_config_new_default(), goto fail);
 
   SU_TRYCATCH(PTR_LIST_APPEND_CHECK(config, new) != -1, goto fail);
 

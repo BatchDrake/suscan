@@ -498,6 +498,15 @@ suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type)
   return suscan_mq_read(analyzer->mq_out, type);
 }
 
+void *
+suscan_analyzer_read_timeout(
+    suscan_analyzer_t *analyzer,
+    uint32_t *type,
+    const struct timeval *timeout)
+{
+  return suscan_mq_read_timeout(analyzer->mq_out, type, timeout);
+}
+
 struct suscan_analyzer_inspector_msg *
 suscan_analyzer_read_inspector_msg(suscan_analyzer_t *analyzer)
 {
@@ -505,6 +514,18 @@ suscan_analyzer_read_inspector_msg(suscan_analyzer_t *analyzer)
   return suscan_mq_read_w_type(
       analyzer->mq_out,
       SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR);
+}
+
+struct suscan_analyzer_inspector_msg *
+suscan_analyzer_read_inspector_msg_timeout(
+    suscan_analyzer_t *analyzer,
+    const struct timeval *timeout)
+{
+  /* TODO: use poll and wait to wait for EOS and inspector messages */
+  return suscan_mq_read_w_type_timeout(
+      analyzer->mq_out,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+      timeout);
 }
 
 SUBOOL
@@ -726,6 +747,16 @@ done:
   return ok;
 }
 
+SUBOOL
+suscan_analyzer_force_eos(suscan_analyzer_t *self)
+{
+  if (self->source == NULL)
+    return SU_FALSE;
+
+  suscan_source_force_eos(self->source);
+
+  return SU_TRUE;
+}
 void
 suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
 {

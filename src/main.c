@@ -93,7 +93,7 @@ main(int argc, char *argv[], char *envp[])
 
   gettimeofday(&tv, NULL);
 
-  if (!suscan_sigutils_init(SUSCAN_MODE_GTK_UI)) {
+  if (!suscan_sigutils_init(SUSCAN_MODE_DELAYED_LOG)) {
     fprintf(stderr, "%s: failed to initialize sigutils library\n", argv[0]);
     goto done;
   }
