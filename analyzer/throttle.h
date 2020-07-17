@@ -30,31 +30,15 @@
  */
 #define SUSCAN_THROTTLE_RESET_THRESHOLD 1000000000ll
 #define SUSCAN_THROTTLE_MAX_READ_UNIT_FRAC .25
+#define SUSCAN_THROTTLE_LATE_READER_THRESHOLD_NS 1000000000ull
 
 struct suscan_throttle {
   SUSCOUNT samp_rate;
   SUSCOUNT samp_count;
-  struct timespec t0;
+  uint64_t t0;
 };
 
 typedef struct suscan_throttle suscan_throttle_t;
-
-#ifndef timespecsub
-SUINLINE void
-timespecsub(
-    struct timespec *a,
-    struct timespec *b,
-    struct timespec *sub)
-{
-  sub->tv_sec = a->tv_sec - b->tv_sec;
-  sub->tv_nsec = a->tv_nsec - b->tv_nsec;
-
-  if (sub->tv_nsec < 0) {
-    sub->tv_nsec += 1000000000;
-    --sub->tv_sec;
-  }
-}
-#endif
 
 void suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate);
 

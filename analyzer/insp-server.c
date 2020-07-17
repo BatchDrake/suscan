@@ -29,6 +29,7 @@
 #include <sigutils/sigutils.h>
 
 #include "inspector/inspector.h"
+#include "realtime.h"
 #include "mq.h"
 #include "msg.h"
 
@@ -95,9 +96,9 @@ suscan_inspector_spectrum_loop(
     struct suscan_mq *mq_out)
 {
   struct suscan_analyzer_inspector_msg *msg = NULL;
-  struct timespec now, sub;
   suscan_spectsrc_t *src = NULL;
   unsigned int i;
+  uint64_t now;
   SUFLOAT N0;
   SUSDIFF fed;
   SUFLOAT seconds;
@@ -107,9 +108,8 @@ suscan_inspector_spectrum_loop(
     while (samp_count > 0) {
       fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
       if (fed < samp_count) {
-        clock_gettime(CLOCK_MONOTONIC, &now);
-        timespecsub(&now, &insp->last_spectrum, &sub);
-        seconds = sub.tv_sec + 1e-9 * sub.tv_nsec;
+        now = suscan_gettime();
+        seconds = (now - insp->last_spectrum) * 1e-9;
         if (seconds >= insp->interval_spectrum) {
           insp->last_spectrum = now;
           SU_TRYCATCH(
@@ -174,16 +174,15 @@ suscan_inspector_estimator_loop(
     struct suscan_mq *mq_out)
 {
   struct suscan_analyzer_inspector_msg *msg = NULL;
-  struct timespec now, sub;
   unsigned int i;
+  uint64_t now;
   SUFLOAT value;
   SUFLOAT seconds;
 
   /* Check esimator state and update clients */
   if (insp->interval_estimator > 0) {
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    timespecsub(&now, &insp->last_estimator, &sub);
-    seconds = sub.tv_sec + 1e-9 * sub.tv_nsec;
+    now = suscan_gettime();
+    seconds = (now - insp->last_estimator) * 1e-9;
     if (seconds >= insp->interval_estimator) {
       insp->last_estimator = now;
       for (i = 0; i < insp->estimator_count; ++i)

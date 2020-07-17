@@ -30,6 +30,7 @@
 #include <sigutils/sampling.h>
 
 #include "inspector/inspector.h"
+#include "realtime.h"
 
 void
 suscan_inspector_lock(suscan_inspector_t *insp)
@@ -218,8 +219,8 @@ suscan_inspector_new(
   new->interval_spectrum  = .1;
 
   /* Initialize clocks */
-  clock_gettime(CLOCK_MONOTONIC, &new->last_estimator);
-  clock_gettime(CLOCK_MONOTONIC, &new->last_spectrum);
+  new->last_estimator = suscan_gettime();
+  new->last_spectrum = suscan_gettime();
 
   /* All set to call specific inspector */
   new->iface = iface;

@@ -31,6 +31,7 @@
 #include <sigutils/detect.h>
 
 #include "analyzer.h"
+#include "realtime.h"
 
 #include "mq.h"
 #include "msg.h"
@@ -446,11 +447,7 @@ suscan_analyzer_thread(void *data)
           if (SU_ABS(self->interval_psd - new_params->psd_update_int) > 1e-6) {
             self->interval_psd = new_params->psd_update_int;
             self->det_num_psd = 0;
-#ifdef __linux__
-            clock_gettime(CLOCK_MONOTONIC_COARSE, &self->last_psd);
-#else
-            clock_gettime(CLOCK_MONOTONIC, &self->last_psd);
-#endif /* __linux__ */
+	    self->last_psd = suscan_gettime_coarse();
           }
 
           /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
@@ -964,14 +961,8 @@ suscan_analyzer_new(
   /* Periodic updates */
   new->interval_channels = params->channel_update_int;
   new->interval_psd      = params->psd_update_int;
-
-#ifdef __linux__
-  clock_gettime(CLOCK_MONOTONIC_COARSE, &new->last_psd);
-  clock_gettime(CLOCK_MONOTONIC_COARSE, &new->last_channels);
-#else
-  clock_gettime(CLOCK_MONOTONIC, &new->last_psd);
-  clock_gettime(CLOCK_MONOTONIC, &new->last_channels);
-#endif
+  new->last_psd          = suscan_gettime_coarse();
+  new->last_channels     = suscan_gettime_coarse();
 
 
   /* Create channel detector */

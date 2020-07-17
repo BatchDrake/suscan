@@ -29,17 +29,17 @@
 
 #include <sigutils/sigutils.h>
 #include "throttle.h"
+#include "realtime.h"
 
 void
 suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate)
 {
   memset(throttle, 0, sizeof(suscan_throttle_t));
   throttle->samp_rate = samp_rate;
-
-  clock_gettime(CLOCK_MONOTONIC, &throttle->t0);
+  throttle->t0 = suscan_gettime_raw();
 
   /*
-   * In some circumstances, if both calls to clock_gettime happen
+   * In some circumstances, if both calls to suscan_gettime_raw happen
    * almost simultaneously, the difference in t0 is below the clock
    * resolution, entering in a full speed read that will hog the
    * CPU. This is definitely a bug, and this a workaround.
@@ -50,9 +50,9 @@ suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate)
 SUSCOUNT
 suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
 {
-  struct timespec tn;
   struct timespec sleep_time;
-  struct timespec sub;
+  uint64_t tn;
+  uint64_t sub;
   SUSCOUNT samps;
   SUSDIFF  nsecs;
   SUSDIFF  avail;
@@ -61,15 +61,15 @@ suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
   if (h > 0) {
     do {
       retry = SU_FALSE;
-      clock_gettime(CLOCK_MONOTONIC, &tn);
+      tn = suscan_gettime_raw();
 
-      timespecsub(&tn, &throttle->t0, &sub);
+      sub = tn - throttle->t0;
 
-      if (sub.tv_sec > 0) {
+      if (sub > SUSCAN_THROTTLE_LATE_READER_THRESHOLD_NS) {
         /* Reader is really late, get a rough estimate */
-        avail = throttle->samp_rate * sub.tv_sec - throttle->samp_count;
+        avail = throttle->samp_rate * (sub / 1000000000ull) - throttle->samp_count;
       } else {
-        nsecs = sub.tv_sec * 1000000000ll + sub.tv_nsec;
+        nsecs = sub;
         avail = (throttle->samp_rate * nsecs) / 1000000000ll
             - throttle->samp_count;
       }
