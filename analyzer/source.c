@@ -31,6 +31,9 @@
 #include "compat.h"
 #include <sigutils/taps.h>
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #ifdef _SU_SINGLE_PRECISION
 #  define sf_read sf_read_float
 #  define SUSCAN_SOAPY_SAMPFMT SOAPY_SDR_CF32
@@ -55,6 +58,46 @@ PTR_LIST(SUPRIVATE struct suscan_source_gain_desc, hidden_gain);
 /* Null device */
 SUPRIVATE suscan_source_device_t *null_device;
 SUPRIVATE const char *soapysdr_module_path = NULL;
+
+/* Helper global state */
+SUPRIVATE SUBOOL stderr_disabled = SU_FALSE;
+SUPRIVATE int    stderr_copy = -1;
+
+/********************************** Helpers **********************************/
+SUPRIVATE void
+suscan_source_disable_stderr(void)
+{
+  int fd = -1;
+
+  if (!stderr_disabled) {
+    SU_TRYCATCH((fd = open("/dev/null", O_WRONLY)) != -1, goto fail);
+    SU_TRYCATCH((stderr_copy = dup(STDERR_FILENO)) != -1, goto fail);
+    SU_TRYCATCH(dup2(fd, STDERR_FILENO) != -1, goto fail);
+    stderr_disabled = SU_TRUE;
+  }
+
+fail:
+  if (fd != -1)
+    close(fd);
+
+  if (!stderr_disabled) {
+    if (dup2(stderr_copy, STDERR_FILENO) != -1) {
+      close(stderr_copy);
+      stderr_copy = -1;
+    }
+  }
+}
+
+SUPRIVATE void
+suscan_source_enable_stderr(void)
+{
+  if (stderr_disabled) {
+    SU_TRYCATCH(dup2(stderr_copy, STDERR_FILENO) != -1, return);
+    close(stderr_copy);
+    stderr_copy = -1;
+    stderr_disabled = SU_FALSE;
+  }
+}
 
 /******************************* Source devices ******************************/
 SUPRIVATE void
@@ -271,7 +314,16 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
 
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(sdev = SoapySDRDevice_make(dev->args), goto done);
+  /*
+   * This tends to happen a lot and is an error, but it does not
+   * deserve an error message. A previously seen device being unavailable
+   * during startup limits what you can do with suscan, but it is
+   * not critical. Errors should appear when the user attempts to
+   * load a device that has not been populated.
+   */
+
+  if ((sdev = SoapySDRDevice_make(dev->args)) == NULL)
+    goto done;
 
   dev->available = SU_TRUE;
 
@@ -646,6 +698,8 @@ suscan_source_detect_devices(void)
     setenv("SOAPY_SDR_PLUGIN_PATH", soapysdr_module_path, SU_TRUE);
   }
 
+  suscan_source_disable_stderr();
+
   SU_TRYCATCH(
       soapy_dev_list = SoapySDRDevice_enumerate(NULL, &soapy_dev_len),
       goto done);
@@ -667,6 +721,8 @@ suscan_source_detect_devices(void)
   ok = SU_TRUE;
 
 done:
+  suscan_source_enable_stderr();
+
   if (soapy_dev_list != NULL)
     SoapySDRKwargsList_clear(soapy_dev_list, soapy_dev_len);
 
@@ -1548,9 +1604,7 @@ suscan_source_config_from_object(const suscan_object_t *object)
 
         /* This step is not critical, but we must try it anyways */
         if (!suscan_source_device_is_populated(device))
-          SU_TRYCATCH(
-              suscan_source_device_populate_info(device),
-              SU_WARNING("Failed to populate device info\n"));
+          (void) suscan_source_device_populate_info(device);
       }
 
     /* Retrieve gains */
@@ -1579,9 +1633,7 @@ suscan_source_config_from_object(const suscan_object_t *object)
 
         /* This step is not critical, but we must try it anyways */
         if (!suscan_source_device_is_populated(device))
-          SU_TRYCATCH(
-              suscan_source_device_populate_info(device),
-              SU_WARNING("Failed to populate device info\n"));
+          (void) suscan_source_device_populate_info(device);
       }
   }
 
