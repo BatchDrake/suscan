@@ -30,7 +30,7 @@ SUPRIVATE SUBOOL
 suscli_profinfo_gain_cb(void *privdata, const char *name, SUFLOAT value)
 {
   printf("    %s = %lg dB\n", name, value);
-  return SU_FALSE;
+  return SU_TRUE;
 }
 
 SUBOOL

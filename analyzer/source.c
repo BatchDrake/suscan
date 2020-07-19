@@ -1048,6 +1048,13 @@ suscan_source_config_walk_gains(
         config->gain_list[i]->val))
       return SU_FALSE;
 
+  for (i = 0; i < config->hidden_gain_count; ++i)
+    if (!(gain_cb) (
+        private,
+        config->hidden_gain_list[i]->desc->name,
+        config->hidden_gain_list[i]->val))
+      return SU_FALSE;
+
   return SU_TRUE;
 }
 
