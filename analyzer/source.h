@@ -57,7 +57,7 @@ struct suscan_source_device_info {
   PTR_LIST_CONST(struct suscan_source_gain_desc, gain_desc);
   PTR_LIST_CONST(char, antenna);
   const double *samp_rate_list;
-  int samp_rate_count;
+  unsigned int samp_rate_count;
   SUFREQ freq_min;
   SUFREQ freq_max;
 };
