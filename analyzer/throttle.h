@@ -23,19 +23,15 @@
 
 #include <sigutils/sigutils.h>
 
-/*
- * Throttle reset threshold. If the number of available samples keeps growing,
- * it means that the reader is slower than the declared sample rate. In that
- * case, we just reset t0 and set sample_count to 0.
- */
-#define SUSCAN_THROTTLE_RESET_THRESHOLD 1000000000ll
-#define SUSCAN_THROTTLE_MAX_READ_UNIT_FRAC .25
-#define SUSCAN_THROTTLE_LATE_READER_THRESHOLD_NS 1000000000ull
+#define SUSCAN_THROTTLE_LATE_DELAY_NS       50000000000ull
+#define SUSCAN_THROTTLE_MIN_BLOCK_SIZE                   1
+#define SUSCAN_THROTTLE_CHECKPOINT_DURATION_NS 10000000ull
 
 struct suscan_throttle {
-  SUSCOUNT samp_rate;
-  SUSCOUNT samp_count;
-  uint64_t t0;
+  uint64_t t0; /* Last checkpoint time */
+  SUSCOUNT avail; /* Samples available until next checkpoint */
+  SUSCOUNT delta_s; /* Samples per checkpoint */
+  SUSCOUNT delta_t; /* Nanoseconds per checkpoint */
 };
 
 typedef struct suscan_throttle suscan_throttle_t;

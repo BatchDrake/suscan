@@ -229,9 +229,6 @@ suscan_analyzer_get_samp_rate(const suscan_analyzer_t *analyzer)
 SUINLINE SUFLOAT
 suscan_analyzer_get_measured_samp_rate(const suscan_analyzer_t *self)
 {
-  if (self->measured_samp_rate < 1e-12)
-    return self->measured_samp_rate;
-
   return self->measured_samp_rate;
 }
 

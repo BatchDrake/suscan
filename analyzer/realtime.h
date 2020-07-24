@@ -25,6 +25,20 @@
 
 #include <time.h>
 
+#define SUSCAN_REALTIME_NS 1e-9
+
+#ifdef CLOCK_MONOTONIC_COARSE
+#  define SUSCAN_CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_COARSE
+#else
+#  define SUSCAN_CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
+#endif /* CLOCK_MONOTONIC_COARSE */
+
+#ifdef CLOCK_MONOTONIC_RAW
+#  define SUSCAN_CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC_RAW
+#else
+#  define SUSCAN_CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
+#endif /* CLOCK_MONOTONIC_COARSE */
+
 /*
  * Various time getting functions.
  */
@@ -42,29 +56,52 @@ suscan_gettime_helper(int clock)
 }
 
 SUINLINE uint64_t
+suscan_getres_helper(int clock)
+{
+  struct timespec ts;
+
+  /* FIXME: assert that clock_getres returned 0 */
+  clock_getres(clock, &ts);
+
+  return (ts.tv_sec * 1000000000ull) + ts.tv_nsec;
+}
+
+/* Clock functions */
+SUINLINE uint64_t
 suscan_gettime_coarse(void)
 {
-#ifdef CLOCK_MONOTONIC_COARSE
-  return suscan_gettime_helper(CLOCK_MONOTONIC_COARSE);
-#else
-  return suscan_gettime_helper(CLOCK_MONOTONIC);
-#endif
+  return suscan_gettime_helper(SUSCAN_CLOCK_MONOTONIC_COARSE);
 }
 
 SUINLINE uint64_t
 suscan_gettime_raw(void)
 {
-#ifdef CLOCK_MONOTONIC_RAW
-  return suscan_gettime_helper(CLOCK_MONOTONIC_RAW);
-#else
-  return suscan_gettime_helper(CLOCK_MONOTONIC);
-#endif
+  return suscan_gettime_helper(SUSCAN_CLOCK_MONOTONIC_RAW);
 }
 
 SUINLINE uint64_t
 suscan_gettime(void)
 {
   return suscan_gettime_helper(CLOCK_MONOTONIC);
+}
+
+/* Clock resolution functions */
+SUINLINE uint64_t
+suscan_getres_coarse(void)
+{
+  return suscan_getres_helper(SUSCAN_CLOCK_MONOTONIC_COARSE);
+}
+
+SUINLINE uint64_t
+suscan_getres_raw(void)
+{
+  return suscan_getres_helper(SUSCAN_CLOCK_MONOTONIC_RAW);
+}
+
+SUINLINE uint64_t
+suscan_getres(void)
+{
+  return suscan_getres_helper(CLOCK_MONOTONIC);
 }
 
 #endif
