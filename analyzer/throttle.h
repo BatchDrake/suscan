@@ -23,7 +23,7 @@
 
 #include <sigutils/sigutils.h>
 
-#define SUSCAN_THROTTLE_LATE_DELAY_NS       50000000000ull
+#define SUSCAN_THROTTLE_LATE_DELAY_NS        5000000000ull
 #define SUSCAN_THROTTLE_MIN_BLOCK_SIZE                   1
 #define SUSCAN_THROTTLE_CHECKPOINT_DURATION_NS 10000000ull
 
