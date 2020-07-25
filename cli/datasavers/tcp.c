@@ -23,6 +23,7 @@
 #include <sigutils/log.h>
 #include <cli/datasaver.h>
 #include <cli/cli.h>
+#include <netinet/in.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <errno.h>

@@ -400,7 +400,8 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
             &samp_rate_count),
         goto done);
 
-    SU_TRYCATCH(samp_rate_count > 0, goto done);
+    if (samp_rate_count == 0)
+      goto done;
 
     SU_TRYCATCH(
         dev->samp_rate_list = malloc(samp_rate_count * sizeof(double)),
@@ -448,12 +449,9 @@ suscan_source_device_get_info(
   info->gain_desc_list = NULL;
   info->gain_desc_count = 0;
 
-  if (!suscan_source_device_is_populated(dev)) {
-    SU_TRYCATCH(
-        suscan_source_device_populate_info((suscan_source_device_t *) dev),
-        goto fail);
-
-  }
+  if (!suscan_source_device_is_populated(dev))
+    if (!suscan_source_device_populate_info((suscan_source_device_t *) dev))
+        goto fail;
 
   /*
    * Populate gain desc info. This is performed by checking the epoch. If
