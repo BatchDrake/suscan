@@ -303,7 +303,7 @@ suscan_audio_inspector_feed(
   last = self->last;
 
   for (i = 0; i < count && suscan_inspector_sampler_buf_avail(insp) > 0; ++i) {
-    det_x = x[i];
+    det_x = SU_C_VALID(x[i]) ? x[i] : 0;
 
     /* Perform gain control */
     switch (self->cur_params.gc.gc_ctrl) {
