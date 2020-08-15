@@ -24,6 +24,7 @@
 #include <sigutils/sampling.h>
 #include <sigutils/ncqo.h>
 #include <analyzer/analyzer.h>
+#include <analyzer/analyzer.h>
 #include <string.h>
 
 #include <cli/cli.h>
@@ -81,6 +82,10 @@ struct suscli_rms_params {
   SUBOOL matlab_enabled;
   const char *matlab_path;
 
+  /* MAT5 file forwarder */
+  SUBOOL mat5_enabled;
+  const char *mat5_path;
+
   /* Precalculated terms */
   enum suscli_rms_mode mode_enum;
   SUFLOAT k;
@@ -119,8 +124,7 @@ struct suscli_rms_state {
   suscli_audio_player_t *player;
 
   /* Datasavers */
-  suscli_datasaver_t *tcpds;
-  suscli_datasaver_t *matlabds;
+  PTR_LIST(suscli_datasaver_t, ds);
 };
 
 SUPRIVATE struct suscli_rms_state *g_state;
@@ -519,7 +523,6 @@ suscli_rms_params_parse(
           NULL),
       goto fail);
 
-
   SU_TRYCATCH(
       suscli_param_read_bool(
           p,
@@ -533,6 +536,22 @@ suscli_rms_params_parse(
           p,
           "matlab-path",
           &self->matlab_path,
+          NULL),
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_param_read_bool(
+          p,
+          "mat5",
+          &self->mat5_enabled,
+          SU_FALSE),
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_param_read_string(
+          p,
+          "mat5-path",
+          &self->mat5_path,
           NULL),
       goto fail);
 
@@ -550,14 +569,17 @@ fail:
 SUPRIVATE void
 suscli_rms_state_finalize(struct suscli_rms_state *self)
 {
+  unsigned int i;
+
   if (self->player != NULL)
     suscli_audio_player_destroy(self->player);
 
-  if (self->matlabds != NULL)
-    suscli_datasaver_destroy(self->matlabds);
+  for (i = 0; i < self->ds_count; ++i)
+    if (self->ds_list[i] != NULL)
+      suscli_datasaver_destroy(self->ds_list[i]);
 
-  if (self->tcpds != NULL)
-    suscli_datasaver_destroy(self->tcpds);
+  if (self->ds_list != NULL)
+    free(self->ds_list);
 
   memset(self, 0, sizeof (struct suscli_rms_state));
 }
@@ -578,6 +600,7 @@ suscli_rms_state_init(
       suscli_audio_player_params_INITIALIZER;
   struct suscli_datasaver_params ds_params;
   hashlist_t *dshash = NULL;
+  suscli_datasaver_t *ds = NULL;
   char portstr[20];
   char intervalstr[64];
 
@@ -606,9 +629,21 @@ suscli_rms_state_init(
         goto fail);
 
     suscli_datasaver_params_init_matlab(&ds_params, dshash);
+    SU_TRYCATCH(ds = suscli_datasaver_new(&ds_params), goto fail);
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(state->ds, ds) != -1, goto fail);
+    ds = NULL;
+  }
+
+  /* User requested MAT5 forwarder */
+  if (state->params.mat5_enabled) {
     SU_TRYCATCH(
-        state->matlabds = suscli_datasaver_new(&ds_params),
+        hashlist_set(dshash, "path", (void *) state->params.mat5_path),
         goto fail);
+
+    suscli_datasaver_params_init_mat5(&ds_params, dshash);
+    SU_TRYCATCH(ds = suscli_datasaver_new(&ds_params), goto fail);
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(state->ds, ds) != -1, goto fail);
+    ds = NULL;
   }
 
   /* User requested TCP forwarder */
@@ -634,14 +669,17 @@ suscli_rms_state_init(
 
     suscli_datasaver_params_init_tcp(&ds_params, dshash);
 
-    SU_TRYCATCH(
-        state->tcpds = suscli_datasaver_new(&ds_params),
-        goto fail);
+    SU_TRYCATCH(ds = suscli_datasaver_new(&ds_params), goto fail);
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(state->ds, ds) != -1, goto fail);
+    ds = NULL;
   }
 
   ok = SU_TRUE;
 
 fail:
+  if (ds != NULL)
+    suscli_datasaver_destroy(ds);
+
   if (dshash != NULL)
     hashlist_destroy(dshash);
 
@@ -659,6 +697,7 @@ suscli_rms_on_data_cb(
     void *userdata)
 {
   int i;
+  unsigned int j;
   SUFLOAT y, tmp;
   SUFLOAT measure;
   struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
@@ -677,13 +716,10 @@ suscli_rms_on_data_cb(
       state->rms_changed = SU_TRUE;
 
       /* Feed datasavers */
-      if (state->tcpds)
-        if (!suscli_datasaver_write(state->tcpds, measure))
-          suscli_rms_state_mark_halting(state);
-
-      if (state->matlabds)
-        if (!suscli_datasaver_write(state->matlabds, measure))
-          suscli_rms_state_mark_halting(state);
+      for (j = 0; j < state->ds_count; ++j)
+        if (state->ds_list[j] != NULL)
+          if (!suscli_datasaver_write(state->ds_list[j], measure))
+            suscli_rms_state_mark_halting(state);
     }
 
     if (++state->disp_ctr >= state->samp_per_disp) {
