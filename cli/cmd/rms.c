@@ -768,6 +768,8 @@ suscli_rms_cb(const hashlist_t *params)
 
   chanloop_params.on_data  = suscli_rms_on_data_cb;
   chanloop_params.userdata = &state;
+  chanloop_params.rello    = SU_ASFLOAT(-1./6.);
+  chanloop_params.relbw    = SU_ASFLOAT(1./3.15);
 
   SU_TRYCATCH(
       chanloop = suscli_chanloop_open(

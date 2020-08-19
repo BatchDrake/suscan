@@ -32,6 +32,7 @@ SUPRIVATE su_mat_file_t *
 suscli_mat5_fopen(const char *path)
 {
   su_mat_file_t *mf = NULL;
+  su_mat_matrix_t *mtx = NULL;
   char *new_path = NULL;
   time_t now;
   struct tm tm;
@@ -55,7 +56,10 @@ suscli_mat5_fopen(const char *path)
   }
 
   SU_TRYCATCH(mf = su_mat_file_new(), goto fail);
+  SU_TRYCATCH(mtx = su_mat_file_make_matrix(mf, "XT0", 1, 1), goto fail);
+  SU_TRYCATCH(su_mat_matrix_write_col(mtx, SU_ASFLOAT(now)), goto fail);
   SU_TRYCATCH(su_mat_file_make_streaming_matrix(mf, "X", 4, 0), goto fail);
+  SU_TRYCATCH(su_mat_file_get_matrix_by_handle(mf, 0) == mtx, goto fail);
   SU_TRYCATCH(su_mat_file_dump(mf, path), goto fail);
 
   ok = SU_TRUE;
@@ -92,13 +96,17 @@ suscli_mat5_datasaver_write_cb(
     size_t length)
 {
   su_mat_file_t *mf = (su_mat_file_t *) state;
+  unsigned long T0;
   int i;
+
+  T0 = (unsigned long) su_mat_matrix_get(
+      su_mat_file_get_matrix_by_handle(mf, 0), 0, 0);
 
   for (i = 0; i < length; ++i) {
     SU_TRYCATCH(
         su_mat_file_stream_col(
             mf,
-            SU_ASFLOAT(samples[i].timestamp.tv_sec),
+            SU_ASFLOAT(samples[i].timestamp.tv_sec - T0),
             SU_ASFLOAT(samples[i].timestamp.tv_usec * 1e-6),
             samples[i].value,
             SU_POWER_DB_RAW(samples[i].value)),
