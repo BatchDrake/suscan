@@ -30,7 +30,7 @@
 SUPRIVATE FILE *
 suscli_matlab_fopen(const char *path)
 {
-  FILE *fp;
+  FILE *fp = NULL;
   char *new_path = NULL;
   time_t now;
   struct tm tm;
