@@ -134,7 +134,9 @@ set(UTIL_HEADERS
   ${UTILDIR}/confdb.h
   ${UTILDIR}/cfg.h
   ${UTILDIR}/object.h 
-  ${UTILDIR}/rbtree.h)
+  ${UTILDIR}/rbtree.h
+  ${UTILDIR}/sdp4.h
+  ${UTILDIR}/sgp4.h)
   
 set(UTIL_SOURCES
   ${UTILDIR}/cfg.c
@@ -144,7 +146,9 @@ set(UTIL_SOURCES
   ${UTILDIR}/hashlist.c
   ${UTILDIR}/object.c
   ${UTILDIR}/rbtree.c
-  ${UTILDIR}/serialize.c)
+  ${UTILDIR}/serialize.c
+  ${UTILDIR}/sdp4.c
+  ${UTILDIR}/sgp4.c)
 
 set(VERSION_HEADERS ${VERSIONDIR}/version.h)
 
