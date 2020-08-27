@@ -39,8 +39,8 @@ extern "C" {
 
 /* API version macros */
 #define SUSCAN_VERSION_MAJOR 0
-#define SUSCAN_VERSION_MINOR 1
-#define SUSCAN_VERSION_PATCH 1
+#define SUSCAN_VERSION_MINOR 2
+#define SUSCAN_VERSION_PATCH 0
 
 /* ABI version macros */
 #define SUSCAN_ABI_VERSION   1
