@@ -30,7 +30,8 @@ extern "C" {
 #include <SoapySDR/Device.h>
 #include <SoapySDR/Formats.h>
 #include <SoapySDR/Version.h>
-#include "../util/object.h"
+#include <util/util.h>
+#include <object.h>
 
 #define SUSCAN_SOURCE_DEFAULT_BUFSIZ 1024
 

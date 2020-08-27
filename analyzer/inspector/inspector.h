@@ -137,6 +137,18 @@ suscan_inspector_create_config(const suscan_inspector_t *insp)
   return suscan_config_new(insp->iface->cfgdesc);
 }
 
+SUINLINE SUFLOAT
+suscan_inspector_get_equiv_fs(const suscan_inspector_t *insp)
+{
+  return insp->samp_info.equiv_fs;
+}
+
+SUINLINE SUFLOAT
+suscan_inspector_get_equiv_bw(const suscan_inspector_t *insp)
+{
+  return insp->samp_info.bw;
+}
+
 SUINLINE su_specttuner_channel_t *
 suscan_inspector_get_channel(const suscan_inspector_t *insp)
 {

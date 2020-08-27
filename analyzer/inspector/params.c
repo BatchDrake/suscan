@@ -837,6 +837,24 @@ suscan_config_desc_add_audio_params(suscan_config_desc_t *desc)
           "Analog demodulator to use"),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "audio.squelch",
+          "Enable squelch"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
+          "audio.squelch-level",
+          "Squelch level"),
+      return SU_FALSE);
+
   return SU_TRUE;
 }
 
@@ -888,6 +906,26 @@ suscan_inspector_audio_params_parse(
 
   params->demod = value->as_int;
 
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "audio.squelch"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_BOOLEAN, return SU_FALSE);
+
+  params->squelch = value->as_bool;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "audio.squelch-level"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->squelch_level = value->as_float;
+
   return SU_TRUE;
 }
 
@@ -922,6 +960,20 @@ suscan_inspector_audio_params_save(
           config,
           "audio.demodulator",
           params->demod),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_bool(
+          config,
+          "audio.squelch",
+          params->squelch),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "audio.squelch-level",
+          params->squelch_level),
       return SU_FALSE);
 
   return SU_TRUE;

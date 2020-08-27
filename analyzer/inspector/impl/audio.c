@@ -58,6 +58,8 @@ struct suscan_audio_inspector_params {
 #define SUSCAN_AUDIO_AM_ATTENUATION               .25
 #define SUSCAN_AUDIO_AM_CARRIER_AVERAGING_SECONDS .2
 
+#define SUSCAN_AUDIO_SQUELCH_AVG_SECONDS          1e-2
+
 struct suscan_audio_inspector {
   struct suscan_inspector_sampling_info samp_info;
   struct suscan_audio_inspector_params req_params;
@@ -66,11 +68,23 @@ struct suscan_audio_inspector {
   /* Blocks */
   su_agc_t  agc;          /* AGC, for AM-like modulations */
   su_iir_filt_t filt;     /* Input filter */
+
+  su_iir_filt_t fm_lpf;   /* FM low pass filter */
+
   su_pll_t pll;           /* Carrier tracking PLL */
   su_ncqo_t lo;           /* Oscillator */
   su_sampler_t sampler;   /* Fixed rate sampler */
-  SUFLOAT beta;          /* Coefficient for single pole IIR filter */
+
+  SUFLOAT beta;           /* Coefficient for single pole IIR filter */
   SUCOMPLEX last;         /* Last processed sample (for quad demod) */
+
+  SUFLOAT sql_alpha;      /* Coefficient for SPLPF used for power comparison */
+  SUFLOAT fm_power_low;   /* Measure of FM power (LPF) */
+  SUFLOAT fm_power_chan;  /* Measure of FM power (full channel) */
+
+  SUFLOAT am_power_carr;  /* Measure of AM power carrier */
+
+  SUFLOAT ssb_power_chan; /* Measure of SSB power */
 };
 
 SUPRIVATE void
@@ -92,6 +106,8 @@ SUPRIVATE void
 suscan_audio_inspector_destroy(struct suscan_audio_inspector *insp)
 {
   su_iir_filt_finalize(&insp->filt);
+
+  su_iir_filt_finalize(&insp->fm_lpf);
 
   su_pll_finalize(&insp->pll);
 
@@ -144,9 +160,15 @@ suscan_audio_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
   /* NCQO init, used to sideband adjustment */
   su_ncqo_init(&new->lo, .5 * bw);
 
+  /* FM filters initialization, used for FM squelch */
+  SU_TRYCATCH(su_iir_bwlpf_init(&new->fm_lpf, 5, .5 * bw), goto fail);
+
   /* One second time constant, used to remove AM carrier */
-  new->beta = 1 - SU_EXP(
-      -1.f / (SUSCAN_AUDIO_AM_CARRIER_AVERAGING_SECONDS * sinfo->equiv_fs));
+  new->beta = SU_SPLPF_ALPHA(
+      SUSCAN_AUDIO_AM_CARRIER_AVERAGING_SECONDS * sinfo->equiv_fs);
+
+  new->sql_alpha = SU_SPLPF_ALPHA(
+      SUSCAN_AUDIO_SQUELCH_AVG_SECONDS * sinfo->equiv_fs);
 
   return new;
 
@@ -214,17 +236,16 @@ suscan_audio_inspector_new_bandwidth(void *private, SUFREQ bw)
 void
 suscan_audio_inspector_commit_config(void *private)
 {
-  struct suscan_audio_inspector *insp =
+  struct suscan_audio_inspector *self =
       (struct suscan_audio_inspector *) private;
   su_iir_filt_t filt;
   SUBOOL filt_initialized;
-  SUFLOAT fs = insp->samp_info.equiv_fs;
+  SUFLOAT fs = self->samp_info.equiv_fs;
 
-  insp->last  = 0;
+  self->last  = 0;
 
-  if (insp->req_params.audio.demod != SUSCAN_INSPECTOR_AUDIO_DEMOD_DISABLED) {
-    switch (insp->req_params.audio.demod)
-    {
+  if (self->req_params.audio.demod != SUSCAN_INSPECTOR_AUDIO_DEMOD_DISABLED) {
+    switch (self->req_params.audio.demod) {
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_FM:
         /*
          * FM transmissions are rather wide (up to 15 kHz), and pilot tones
@@ -234,7 +255,8 @@ suscan_audio_inspector_commit_config(void *private)
         filt_initialized = su_iir_bwlpf_init(
             &filt,
             5,
-            SU_ABS2NORM_FREQ(fs, insp->req_params.audio.cutoff));
+            SU_ABS2NORM_FREQ(fs, self->req_params.audio.cutoff));
+
         break;
 
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_AM:
@@ -246,7 +268,8 @@ suscan_audio_inspector_commit_config(void *private)
         filt_initialized = su_iir_bwlpf_init(
             &filt,
             3,
-            SU_ABS2NORM_FREQ(fs, insp->req_params.audio.cutoff));
+            SU_ABS2NORM_FREQ(fs, self->req_params.audio.cutoff));
+
         break;
 
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB:
@@ -259,7 +282,7 @@ suscan_audio_inspector_commit_config(void *private)
         filt_initialized = su_iir_brickwall_lp_init(
             &filt,
             SUSCAN_AUDIO_INSPECTOR_BRICKWALL_LEN,
-            SU_ABS2NORM_FREQ(fs, insp->req_params.audio.cutoff));
+            SU_ABS2NORM_FREQ(fs, self->req_params.audio.cutoff));
         break;
 
       default:
@@ -270,18 +293,18 @@ suscan_audio_inspector_commit_config(void *private)
     if (!filt_initialized) {
       SU_ERROR("No memory left to initialize audio filter");
     } else {
-      su_iir_filt_finalize(&insp->filt);
-      insp->filt = filt;
+      su_iir_filt_finalize(&self->filt);
+      self->filt = filt;
     }
   }
 
   /* Set sampling info */
-  if (insp->req_params.audio.sample_rate > 0)
+  if (self->req_params.audio.sample_rate > 0)
     su_sampler_set_rate(
-        &insp->sampler,
-        SU_ABS2NORM_BAUD(fs, insp->req_params.audio.sample_rate));
+        &self->sampler,
+        SU_ABS2NORM_BAUD(fs, self->req_params.audio.sample_rate));
 
-  insp->cur_params = insp->req_params;
+  self->cur_params = self->req_params;
 }
 
 SUSDIFF
@@ -294,6 +317,7 @@ suscan_audio_inspector_feed(
   SUCOMPLEX last, det_x, output = 0;
   SUSCOUNT i;
   SUCOMPLEX lo;
+  SUCOMPLEX ylp;
   struct suscan_audio_inspector *self =
       (struct suscan_audio_inspector *) private;
 
@@ -304,6 +328,23 @@ suscan_audio_inspector_feed(
 
   for (i = 0; i < count && suscan_inspector_sampler_buf_avail(insp) > 0; ++i) {
     det_x = SU_C_VALID(x[i]) ? x[i] : 0;
+
+    if (self->cur_params.audio.squelch
+        && (self->cur_params.audio.demod
+              == SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB
+            || self->cur_params.audio.demod
+                == SUSCAN_INSPECTOR_AUDIO_DEMOD_USB)) {
+      SU_SPLPF_FEED(
+          self->ssb_power_chan,
+          SU_C_REAL(det_x * SU_C_CONJ(det_x)),
+          self->sql_alpha);
+
+      if (self->ssb_power_chan
+          * suscan_inspector_get_equiv_fs(insp)
+            / suscan_inspector_get_equiv_bw(insp)
+            < self->cur_params.audio.squelch_level)
+        det_x = 0;
+    }
 
     /* Perform gain control */
     switch (self->cur_params.gc.gc_ctrl) {
@@ -320,6 +361,28 @@ suscan_audio_inspector_feed(
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_FM:
         output = SU_C_ARG(det_x * SU_C_CONJ(last)) / M_PI;
         last   = det_x;
+
+        /*
+         * FM squelch compares the output in lower frequencies
+         * with the output of the full channel.
+         */
+        if (self->cur_params.audio.squelch) {
+          ylp = su_iir_filt_feed(&self->fm_lpf, output);
+
+          SU_SPLPF_FEED(
+              self->fm_power_low,
+              SU_C_REAL(ylp * SU_C_CONJ(ylp)),
+              self->sql_alpha);
+
+          SU_SPLPF_FEED(
+              self->fm_power_chan,
+              SU_C_REAL(output * SU_C_CONJ(output)),
+              self->sql_alpha);
+
+          if (!sufreleq(self->fm_power_chan, self->fm_power_low, 1e-1))
+            output = 0;
+        }
+
         break;
 
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_AM:
@@ -327,8 +390,21 @@ suscan_audio_inspector_feed(
         output  = su_pll_track(&self->pll, det_x);
 
         /* Carrier removal */
-        last   += self->beta * (output - last);
-        output -= last;
+        SU_SPLPF_FEED(last, output, self->beta);
+
+        if (self->cur_params.audio.squelch) {
+          SU_SPLPF_FEED(
+              self->am_power_carr,
+              SU_C_REAL(last * SU_C_CONJ(last)),
+              self->sql_alpha);
+
+          if (self->am_power_carr < self->cur_params.audio.squelch_level)
+            output = 0;
+          else
+            output -= last;
+        } else {
+          output -= last;
+        }
 
         /* Volume attenuation */
         output *= SUSCAN_AUDIO_AM_ATTENUATION;
@@ -355,6 +431,7 @@ suscan_audio_inspector_feed(
     if (su_sampler_feed(&self->sampler, &output))
       suscan_inspector_push_sample(insp, output * .75);
   }
+
 
   self->last = last;
 
