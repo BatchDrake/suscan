@@ -174,6 +174,8 @@ struct suscan_inspector_audio_params {
   enum suscan_inspector_audio_demod demod;
   SUFLOAT cutoff; /* Cutoff frequency for audio filter */
   SUFLOAT volume;
+  SUBOOL  squelch;
+  SUFLOAT squelch_level;
 };
 
 SUBOOL suscan_config_desc_add_audio_params(suscan_config_desc_t *desc);

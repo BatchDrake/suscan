@@ -30,7 +30,6 @@
 #include "source.h"
 #include "compat.h"
 #include <sigutils/taps.h>
-
 #include <fcntl.h>
 #include <unistd.h>
 
