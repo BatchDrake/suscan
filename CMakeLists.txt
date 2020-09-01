@@ -38,6 +38,11 @@ project(
 
 include(FindPkgConfig)
 
+# Make sure CMAKE_INSTALL_LIBDIR is defined for all systems
+if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
+  set(CMAKE_INSTALL_LIBDIR lib)
+endif()
+
 # Find requirements
 find_package(Threads)
 pkg_check_modules(SIGUTILS REQUIRED sigutils>=0.1)
@@ -110,7 +115,7 @@ set(SIGUTILS_PC_FILE_PATH "${PROJECT_BINARY_DIR}/suscan.pc")
   
 set(
   INSTALL_PKGCONFIG_DIR 
-  "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig" 
+  "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
   CACHE PATH "Installation directory for pkgconfig (.pc) files")
 set(SU_PC_CFLAGS "${SIGUTILS_CONFIG_CFLAGS}")
 set(SU_PC_LIBRARIES "-l${SNDFILE_LIBRARIES} -lm -l${FFTW3_LIBRARIES} -l${VOLK_LIBRARIES}")
@@ -305,7 +310,7 @@ install(
   FILES ${RSRC_CONFIG_FILES}
   DESTINATION share/suscan/config)
    
-install(TARGETS suscan DESTINATION lib)
+install(TARGETS suscan DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 ########################### Suscan test executable ############################
 set(SUSCAN_HEADERS ${SRCDIR}/suscan.h)
