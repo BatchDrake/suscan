@@ -9,7 +9,6 @@
 #include <util.h> /* From util: Common utility library */
 
 #include <analyzer/source.h> /* Generic source API */
-#include <analyzer/xsig.h>   /* File sources */
 #include <analyzer/mq.h>     /* Message queue object */
 #include <analyzer/analyzer.h>
 
