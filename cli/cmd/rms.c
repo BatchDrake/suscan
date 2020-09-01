@@ -726,9 +726,9 @@ suscli_rms_on_data_cb(
       state->disp_ctr = 0;
       gettimeofday(&tv, NULL);
       printf(
-          "\033[2K[%ld.%06ld] RMS = %.3f dB\r",
+          "\033[2K[%ld.%06d] RMS = %.3f dB\r",
           tv.tv_sec,
-          tv.tv_usec,
+          (int) tv.tv_usec,
           state->curr_db);
       fflush(stdout);
     }
