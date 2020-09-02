@@ -400,6 +400,7 @@ target_include_directories(
 if(PORTAUDIO_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_PORTAUDIO=1")
   target_include_directories(suscli SYSTEM PUBLIC ${PORTAUDIO_INCLUDE_DIRS})
+  target_link_libraries(suscli ${PORTAUDIO_LIBRARIES})
   string(REPLACE ";" " " PORTAUDIO_SPC_LDFLAGS "${PORTAUDIO_LDFLAGS}")
   set(SIGUTILS_SPC_LDFLAGS "${SIGUTILS_SPC_LDFLAGS} ${PORTAUDIO_SPC_LDFLAGS}")
 endif()
