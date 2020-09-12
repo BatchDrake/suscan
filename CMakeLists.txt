@@ -189,6 +189,17 @@ set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/throttle.h
   ${ANALYZERDIR}/analyzer.h)
 
+set(CLI_LIB_HEADERS 
+  ${CLIDIR}/audio.h
+  ${CLIDIR}/chanloop.h
+  ${CLIDIR}/cli.h
+  ${CLIDIR}/cmds.h
+  ${CLIDIR}/datasaver.h)
+
+set(CLI_LIB_SOURCES 
+  ${CLIDIR}/chanloop.c
+  ${CLIDIR}/datasaver.c)
+  
 set(ESTIMATOR_SOURCES
   ${ESTIMATORDIR}/fac.c
   ${ESTIMATORDIR}/nonlinear.c)
@@ -241,6 +252,7 @@ add_library(
   ${CODEC_LIB_HEADERS}
   ${CODEC_LIB_SOURCES}
   ${ANALYZER_LIB_HEADERS}
+  ${CLI_LIB_SOURCES}
   ${ANALYZER_LIB_SOURCES}
   ${VERSION_SOURCES})
   
@@ -308,6 +320,10 @@ install(
   DESTINATION include/suscan/analyzer)
 
 install(
+  FILES ${CLI_LIB_HEADERS}
+  DESTINATION include/suscan/cli)
+
+install(
   FILES ${RSRC_CONFIG_FILES}
   DESTINATION share/suscan/config)
    
@@ -365,17 +381,10 @@ endif()
 install(TARGETS suscan.status DESTINATION bin)
 
 ######################### Suscan Command Line tool ############################
-set(SUSCLI_HEADERS
-  ${CLIDIR}/audio.h
-  ${CLIDIR}/chanloop.h
-  ${CLIDIR}/cli.h
-  ${CLIDIR}/cmds.h
-  ${CLIDIR}/datasaver.h
-  ${SRCDIR}/suscan.h)
+set(SUSCLI_HEADERS ${CLI_LIB_HEADERS} ${SRCDIR}/suscan.h)
 
 set(SUSCLI_SOURCES
   ${CLIDIR}/audio.c
-  ${CLIDIR}/chanloop.c
   ${CLIDIR}/cli.c
   ${CLIDIR}/cmd/profiles.c
   ${CLIDIR}/cmd/rms.c
@@ -383,7 +392,6 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/datasavers/mat5.c
   ${CLIDIR}/datasavers/matlab.c
   ${CLIDIR}/datasavers/tcp.c
-  ${CLIDIR}/datasaver.c
   ${SRCDIR}/lib.c
   ${SRCDIR}/suscli.c)
 

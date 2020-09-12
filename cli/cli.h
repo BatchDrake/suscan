@@ -79,6 +79,11 @@ SUBOOL suscli_param_read_profile(
     const char *key,
     suscan_source_config_t **out);
 
+suscan_source_config_t *suscli_lookup_profile(const char *name);
+
+SUBOOL suscli_register_sources(void);
+SUBOOL suscli_init_ui_source(void);
+
 SUBOOL suscli_run_command(const char *name, const char **argv);
 
 suscan_source_config_t *suscli_resolve_profile(const char *spec);

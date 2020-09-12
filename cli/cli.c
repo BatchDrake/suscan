@@ -56,7 +56,7 @@ suscli_walk_all_sources(suscan_source_config_t *config, void *privdata)
   return PTR_LIST_APPEND_CHECK(cli_config, config) != -1;
 }
 
-SUPRIVATE suscan_source_config_t *
+suscan_source_config_t *
 suscli_lookup_profile(const char *name)
 {
   int i;
@@ -347,7 +347,7 @@ if ((init_mask & flag) ^ (cmd->flags &flag)) { \
   init_mask |= flag;                           \
 }
 
-SUPRIVATE SUBOOL
+SUBOOL
 suscli_init_ui_source(void)
 {
   suscan_config_context_t *ctx = NULL;
@@ -409,6 +409,12 @@ fail:
 }
 
 SUBOOL
+suscli_register_sources(void)
+{
+  return suscan_source_config_walk(suscli_walk_all_sources, 0);
+}
+
+SUBOOL
 suscli_run_command(const char *name, const char **argv)
 {
   const struct suscli_command *cmd;
@@ -427,9 +433,7 @@ suscli_run_command(const char *name, const char **argv)
       SUSCLI_COMMAND_REQ_SOURCES,
       suscan_init_sources()
       && suscli_init_ui_source()
-      && suscan_source_config_walk(
-          suscli_walk_all_sources,
-          0));
+      && suscli_register_sources());
 
   SUSCLI_ASSERT_INIT(
       SUSCLI_COMMAND_REQ_ESTIMATORS,
