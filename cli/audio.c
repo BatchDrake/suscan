@@ -159,20 +159,22 @@ suscli_audio_playback_cb(
     void *cb_private)
 {
   suscli_audio_player_t *player = (suscli_audio_player_t *) wk_private;
-
+  size_t size = player->bufsiz;
   SUBOOL ok = SU_FALSE;
 
   if (!(player->params.play) (
           player,
           player->buffer,
-          player->bufsiz,
+          &size,
           player->params.userdata)) {
     goto fail;
   }
 
-  SU_TRYCATCH(
-      suscli_audio_play(player->stream, player->buffer, player->bufsiz),
-      goto fail);
+  if (size > 0) {
+    SU_TRYCATCH(
+        suscli_audio_play(player->stream, player->buffer, size),
+        goto fail);
+  }
 
   ok = SU_TRUE;
 

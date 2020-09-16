@@ -510,6 +510,14 @@ suscli_init(void)
 
   SU_TRYCATCH(
       suscli_command_register(
+          "radio",
+          "Listen to analog radio",
+          SUSCLI_COMMAND_REQ_SOURCES | SUSCLI_COMMAND_REQ_INSPECTORS,
+          suscli_radio_cb) != -1,
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_command_register(
           "profinfo",
           "Display profile information",
           SUSCLI_COMMAND_REQ_SOURCES,

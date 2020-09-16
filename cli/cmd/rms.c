@@ -156,7 +156,7 @@ SUPRIVATE SUBOOL
 suscli_rms_audio_play_cb(
     suscli_audio_player_t *self,
     SUFLOAT *buffer,
-    size_t len,
+    size_t *len,
     void *userdata)
 {
   struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
@@ -167,7 +167,7 @@ suscli_rms_audio_play_cb(
   SUBOOL ok = SU_FALSE;
 
   if (state->capturing) {
-    for (i = 0; i < len; ++i) {
+    for (i = 0; i < *len; ++i) {
       if (state->halting) {
         SU_INFO("Stopping audio.\n");
         ok = SU_FALSE;
@@ -248,7 +248,7 @@ suscli_rms_audio_play_cb(
       }
     }
   } else {
-    memset(buffer, 0, sizeof(SUFLOAT) * len);
+    memset(buffer, 0, sizeof(SUFLOAT) * *len);
   }
 
   ok = SU_TRUE;

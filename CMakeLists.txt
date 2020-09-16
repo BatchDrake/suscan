@@ -387,6 +387,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/audio.c
   ${CLIDIR}/cli.c
   ${CLIDIR}/cmd/profiles.c
+  ${CLIDIR}/cmd/radio.c
   ${CLIDIR}/cmd/rms.c
   ${CLIDIR}/cmd/profinfo.c
   ${CLIDIR}/datasavers/mat5.c

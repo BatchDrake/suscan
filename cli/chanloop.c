@@ -100,7 +100,7 @@ suscli_chanloop_open(
         SU_TRYCATCH(
             suscan_analyzer_open_ex_async(
                 new->analyzer,
-                "raw",
+                new->params.type,
                 &ch,
                 SU_TRUE, /* Precise centering */
                 SUSCAN_CHANLOOP_REQ_ID),
@@ -114,12 +114,13 @@ suscli_chanloop_open(
 
       case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
         msg = rawmsg;
-        if (msg->kind ==  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
+        if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
           fprintf(stderr, "Inspector opened!\n");
           fprintf(stderr, "  Inspector ID: 0x%08x\n", msg->inspector_id);
           fprintf(stderr, "  Request ID:   0x%08x\n", msg->req_id);
           fprintf(stderr, "  Handle:       0x%08x\n", msg->handle);
           fprintf(stderr, "  EquivFS:      %g sps\n", msg->equiv_fs);
+          fprintf(stderr, "  Ft:           %g Hz\n",  msg->channel.ft);
           fprintf(stderr, "  BW:           %g Hz\n",  msg->bandwidth);
           fprintf(stderr, "  LO:           %g Hz\n",  msg->lo);
 
@@ -128,6 +129,20 @@ suscli_chanloop_open(
           have_inspector = SU_TRUE;
 
           /* Set parameters */
+          if (new->params.on_open != NULL) {
+            if ((new->params.on_open) (
+                new->analyzer,
+                new->inspcfg,
+                new->params.userdata)) {
+              SU_TRYCATCH(
+                  suscan_analyzer_set_inspector_config_async(
+                      new->analyzer,
+                      msg->handle,
+                      new->inspcfg,
+                      0),
+                  goto fail);
+            }
+          }
         }
         break;
 

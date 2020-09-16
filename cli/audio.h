@@ -30,7 +30,7 @@ struct suscli_audio_player;
 struct suscli_audio_player_params {
   void *userdata;
   SUBOOL (*start) (struct suscli_audio_player *, void *userdata);
-  SUBOOL (*play)  (struct suscli_audio_player *, SUFLOAT *, size_t, void *);
+  SUBOOL (*play)  (struct suscli_audio_player *, SUFLOAT *, size_t *, void *);
   void   (*stop)  (struct suscli_audio_player *, void *userdata);
   void   (*error) (struct suscli_audio_player *, void *userdata);
 };

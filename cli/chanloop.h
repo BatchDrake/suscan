@@ -29,8 +29,7 @@ struct suscli_chanloop_params {
   const char *type;
   void *userdata;
   SUBOOL (*on_data) (suscan_analyzer_t *, const SUCOMPLEX *, size_t, void *);
-  SUBOOL (*on_open) (suscan_analyzer_t *, const SUCOMPLEX *, size_t, void *);
-
+  SUBOOL (*on_open) (suscan_analyzer_t *, suscan_config_t *, void *);
 };
 
 #define suscli_chanloop_params_INITIALIZER      \
@@ -68,6 +67,12 @@ SUINLINE SUFREQ
 suscli_chanloop_get_equiv_fs(const suscli_chanloop_t *self)
 {
   return self->equiv_fs;
+}
+
+SUINLINE suscan_config_t *
+suscli_chanloop_get_config(const suscli_chanloop_t *self)
+{
+  return self->inspcfg;
 }
 
 #endif /* _CLI_CHANLOOP_H */
