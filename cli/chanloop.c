@@ -124,6 +124,7 @@ suscli_chanloop_open(
           fprintf(stderr, "  BW:           %g Hz\n",  msg->bandwidth);
           fprintf(stderr, "  LO:           %g Hz\n",  msg->lo);
 
+          new->ft       = msg->channel.ft;
           new->equiv_fs = msg->equiv_fs;
           SU_TRYCATCH(new->inspcfg = suscan_config_dup(msg->config), goto fail);
           have_inspector = SU_TRUE;

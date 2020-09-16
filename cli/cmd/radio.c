@@ -32,6 +32,10 @@
 #include <cli/chanloop.h>
 #include <cli/audio.h>
 
+#include <poll.h>
+#include <termios.h>
+#include <signal.h>
+
 struct suscli_radio_params {
   suscan_source_config_t *profile;
   enum suscan_inspector_audio_demod demod;
@@ -39,12 +43,13 @@ struct suscli_radio_params {
   SUFLOAT cutoff;
   SUBOOL  squelch;
   SUFLOAT squelch_level;
+  SUBOOL  disable_stderr;
   unsigned int samp_rate;
 };
 
-
 struct suscli_radio_state {
   struct suscli_radio_params params;
+  suscan_analyzer_t *analyzer;
   unsigned int samp_rate;
   pthread_mutex_t mutex;
   SUBOOL mutex_initialized;
@@ -52,11 +57,18 @@ struct suscli_radio_state {
   SUSCOUNT audio_data_len;
   SUSCOUNT audio_data_alloc;
   SUBOOL halting;
+  SUFREQ frequency;
+
+  struct termios old_termios;
+  SUBOOL got_termios;
+
   suscli_audio_player_t *player;
 };
 
 SUPRIVATE void suscli_radio_state_mark_halting(
     struct suscli_radio_state *self);
+
+SUPRIVATE struct suscli_radio_state *g_state;
 
 /***************************** Audio callbacks ********************************/
 SUPRIVATE SUBOOL
@@ -277,6 +289,14 @@ suscli_radio_params_parse(
           SU_FALSE),
       goto fail);
 
+  SU_TRYCATCH(
+      suscli_param_read_bool(
+          p,
+          "disable_stderr",
+          &self->disable_stderr,
+          SU_FALSE),
+      goto fail);
+
   suscli_radio_params_debug(self);
 
   ok = SU_TRUE;
@@ -324,6 +344,9 @@ suscli_radio_state_init(
 
   state->mutex_initialized = SU_TRUE;
 
+  if (state->params.disable_stderr)
+    freopen("/dev/null", "w", stderr);
+
   /* User requested audio play */
   audio_params.userdata = state;
   audio_params.start    = suscli_radio_audio_start_cb;
@@ -343,6 +366,65 @@ fail:
 
   return ok;
 }
+
+/************************** STDIN interface ***********************************/
+SUPRIVATE SUBOOL
+suscli_radio_helper_prepare_stdin(struct termios *old_termios)
+{
+  struct termios tty;
+
+  if (tcgetattr(0, &tty) != 0)
+    return SU_FALSE;
+
+  *old_termios    = tty;
+
+  tty.c_lflag    &= ~(ECHO | ICANON);
+
+  if (tcsetattr(0, TCSANOW, &tty) != 0)
+    return SU_FALSE;
+
+  return SU_TRUE;
+}
+
+SUPRIVATE void
+suscli_radio_state_parse_stdin_commands(struct suscli_radio_state *self)
+{
+  struct pollfd fd;
+  int ret;
+  char cmd;
+
+  do {
+    fd.fd = 0;
+    fd.events = POLLIN;
+
+    ret = poll(&fd, 1, 0);
+
+    if (ret == 1 && read(0, &cmd, 1) == 1) {
+      switch (cmd) {
+        case 'a':
+          self->frequency -= 1e4;
+          suscan_analyzer_set_freq(
+              self->analyzer,
+              self->frequency,
+              suscan_source_config_get_lnb_freq(self->params.profile));
+          printf("\033[1KTune to: %10.0lf Hz\r", self->frequency);
+          fflush(stdout);
+          break;
+
+        case 'd':
+          self->frequency += 1e4;
+          suscan_analyzer_set_freq(
+              self->analyzer,
+              self->frequency,
+              suscan_source_config_get_lnb_freq(self->params.profile));
+          printf("\033[1KTune to: %10.0lf Hz\r", self->frequency);
+          fflush(stdout);
+          break;
+      }
+    }
+  } while (ret == 1);
+}
+
 /****************************** Capture ***************************************/
 SUPRIVATE SUBOOL
 suscli_radio_on_open_cb(
@@ -435,12 +517,30 @@ suscli_radio_on_data_cb(
 
   pthread_mutex_unlock(&state->mutex);
 
+  if (state->got_termios)
+    suscli_radio_state_parse_stdin_commands(state);
+
   if (state->halting) {
     SU_ERROR("Stopping capture.\n");
     return SU_FALSE;
   }
 
   return SU_TRUE;
+}
+
+void
+suscli_radio_interrupt_handler(int sig)
+{
+  if (g_state != NULL) {
+    if (g_state->params.disable_stderr)
+      freopen("/dev/tty", "w", stderr);
+
+    fprintf(stderr, "Ctrl+C hit, halting...\n");
+    if (g_state->got_termios)
+      tcsetattr(0, TCSANOW, &g_state->old_termios);
+    g_state->halting = SU_TRUE;
+    g_state = NULL;
+  }
 }
 
 SUBOOL
@@ -453,6 +553,9 @@ suscli_radio_cb(const hashlist_t *params)
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(suscli_radio_state_init(&state, params), goto fail);
+
+  g_state = &state;
+  signal(SIGINT, suscli_radio_interrupt_handler);
 
   chanloop_params.on_open  = suscli_radio_on_open_cb;
   chanloop_params.on_data  = suscli_radio_on_data_cb;
@@ -470,6 +573,11 @@ suscli_radio_cb(const hashlist_t *params)
           state.params.profile),
       goto fail);
 
+  state.frequency = suscli_chanloop_get_freq(chanloop);
+
+  state.analyzer = chanloop->analyzer;
+
+  state.got_termios = suscli_radio_helper_prepare_stdin(&state.old_termios);
 
   SU_TRYCATCH(suscli_chanloop_work(chanloop), goto fail);
 
