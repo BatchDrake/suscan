@@ -268,4 +268,6 @@ suscli_audio_player_destroy(suscli_audio_player_t *self)
     free(self->buffer);
 
   suscan_mq_finalize(&self->mq);
+
+  free(self);
 }
