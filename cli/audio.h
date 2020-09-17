@@ -29,6 +29,7 @@ struct suscli_audio_player;
 
 struct suscli_audio_player_params {
   void *userdata;
+  unsigned int samp_rate;
   SUBOOL (*start) (struct suscli_audio_player *, void *userdata);
   SUBOOL (*play)  (struct suscli_audio_player *, SUFLOAT *, size_t *, void *);
   void   (*stop)  (struct suscli_audio_player *, void *userdata);
@@ -37,6 +38,7 @@ struct suscli_audio_player_params {
 
 #define suscli_audio_player_params_INITIALIZER { \
   NULL, /* userdata */                           \
+  0,    /* samp_rate */                          \
   NULL, /* start */                              \
   NULL, /* play */                               \
   NULL, /* stop */                               \

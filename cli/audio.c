@@ -29,7 +29,7 @@
 #define SUSCLI_AUDIO_BUFFER_SIZE         512
 #define SUSCLI_AUDIO_BUFFER_ALLOC_SIZE   (5 * SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE)
 
-SUPRIVATE void *suscli_audio_open_stream(suscli_audio_player_t *);
+SUPRIVATE void *suscli_audio_open_stream(suscli_audio_player_t *, unsigned int);
 SUPRIVATE void suscli_audio_close_stream(void *);
 SUPRIVATE SUBOOL suscli_audio_play(void *, const SUFLOAT *, size_t);
 
@@ -62,7 +62,9 @@ pa_assert_init(void)
 }
 
 SUPRIVATE void *
-suscli_audio_open_stream(suscli_audio_player_t *self)
+suscli_audio_open_stream(
+    suscli_audio_player_t *self,
+    unsigned int samp_rate)
 {
   PaStreamParameters outputParameters;
   PaError pErr;
@@ -88,7 +90,7 @@ suscli_audio_open_stream(suscli_audio_player_t *self)
      &stream,
      NULL,
      &outputParameters,
-     SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE,
+     samp_rate,
      SUSCLI_AUDIO_BUFFER_SIZE,
      paClipOff,
      NULL,
@@ -108,7 +110,7 @@ suscli_audio_open_stream(suscli_audio_player_t *self)
     goto fail;
   }
 
-  self->samp_rate = SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE;
+  self->samp_rate = samp_rate;
 
 fail:
   return stream;
@@ -141,7 +143,7 @@ suscli_audio_close_stream(void *stream)
 
 #ifndef HAVE_AUDIO
 SUPRIVATE void *
-suscli_audio_open_stream(suscli_audio_player_t *self)
+suscli_audio_open_stream(suscli_audio_player_t *self, unsigned int)
 {
   SU_ERROR("Audio support disabled at compile time.\n");
   return NULL;
@@ -210,6 +212,9 @@ suscli_audio_player_new(const struct suscli_audio_player_params *params)
   new->bufsiz   = SUSCLI_AUDIO_BUFFER_SIZE;
   new->bufalloc = SUSCLI_AUDIO_BUFFER_ALLOC_SIZE;
 
+  if (new->params.samp_rate == 0)
+    new->params.samp_rate = SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE;
+
   SU_TRYCATCH(
       new->buffer = calloc(new->bufalloc, sizeof(SUFLOAT)),
       goto fail);
@@ -217,7 +222,9 @@ suscli_audio_player_new(const struct suscli_audio_player_params *params)
   SU_TRYCATCH(suscan_mq_init(&new->mq), goto fail);
   SU_TRYCATCH(new->worker = suscan_worker_new(&new->mq, new), goto fail);
 
-  SU_TRYCATCH(new->stream = suscli_audio_open_stream(new), goto fail);
+  SU_TRYCATCH(
+      new->stream = suscli_audio_open_stream(new, params->samp_rate),
+      goto fail);
 
   if (new->params.start != NULL)
     (new->params.start) (new, new->params.userdata);

@@ -465,11 +465,12 @@ suscli_radio_state_init(
     freopen("/dev/null", "w", stderr);
 
   /* User requested audio play */
-  audio_params.userdata = state;
-  audio_params.start    = suscli_radio_audio_start_cb;
-  audio_params.play     = suscli_radio_audio_play_cb;
-  audio_params.stop     = suscli_radio_audio_stop_cb;
-  audio_params.error    = suscli_radio_audio_error_cb;
+  audio_params.userdata  = state;
+  audio_params.samp_rate = state->params.samp_rate;
+  audio_params.start     = suscli_radio_audio_start_cb;
+  audio_params.play      = suscli_radio_audio_play_cb;
+  audio_params.stop      = suscli_radio_audio_stop_cb;
+  audio_params.error     = suscli_radio_audio_error_cb;
 
   SU_TRYCATCH(
       state->player = suscli_audio_player_new(&audio_params),
