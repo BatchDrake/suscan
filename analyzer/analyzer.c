@@ -809,9 +809,6 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
     pthread_mutex_destroy(&analyzer->sched_lock);
   }
 
-  /* Consume any pending messages */
-  suscan_analyzer_consume_mq(&analyzer->mq_in);
-
   /* Free channel detector */
   if (analyzer->detector != NULL)
     su_channel_detector_destroy(analyzer->detector);
@@ -866,6 +863,10 @@ suscan_analyzer_destroy(suscan_analyzer_t *analyzer)
   if (analyzer->bbfilt_list != NULL)
     free(analyzer->bbfilt_list);
 
+  /* Consume any pending messages */
+  suscan_analyzer_consume_mq(&analyzer->mq_in);
+
+  /* Finalize queue */
   suscan_mq_finalize(&analyzer->mq_in);
 
   free(analyzer);

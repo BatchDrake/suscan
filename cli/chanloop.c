@@ -258,6 +258,8 @@ suscli_chanloop_destroy(suscli_chanloop_t *self)
   if (self->inspcfg != NULL)
     suscan_config_destroy(self->inspcfg);
 
+  suscan_analyzer_consume_mq(&self->mq);
+
   suscan_mq_finalize(&self->mq);
 
   free(self);
