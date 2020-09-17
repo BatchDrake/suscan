@@ -296,7 +296,7 @@ SUPRIVATE SUBOOL
 suscan_source_device_populate_info(suscan_source_device_t *dev)
 {
   SoapySDRDevice *sdev = NULL;
-  SoapySDRRange *freqRanges;
+  SoapySDRRange *freqRanges = NULL;
   SoapySDRRange range;
   SUFREQ freq_min = INFINITY;
   SUFREQ freq_max = -INFINITY;
@@ -417,6 +417,9 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
   ok = SU_TRUE;
 
 done:
+  if (freqRanges != NULL)
+    free(freqRanges);
+
   if (dup != NULL)
     free(dup);
 
