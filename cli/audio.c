@@ -21,10 +21,13 @@
 #define SU_LOG_DOMAIN "audio"
 
 #include <sigutils/log.h>
+#include <string.h>
 #include <cli/audio.h>
 
-#define SUSCLI_AUDIO_BUFFER_SIZE         512
 #define SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE 44100
+
+#define SUSCLI_AUDIO_BUFFER_SIZE         512
+#define SUSCLI_AUDIO_BUFFER_ALLOC_SIZE   (5 * SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE)
 
 SUPRIVATE void *suscli_audio_open_stream(suscli_audio_player_t *);
 SUPRIVATE void suscli_audio_close_stream(void *);
@@ -66,6 +69,8 @@ suscli_audio_open_stream(suscli_audio_player_t *self)
   void *stream = NULL;
 
   SU_TRYCATCH(pa_assert_init(), goto fail);
+
+  memset(&outputParameters, 0, sizeof (PaStreamParameters));
 
   outputParameters.device = Pa_GetDefaultOutputDevice(); /* default output device */
   outputParameters.channelCount = 1;
@@ -196,10 +201,12 @@ suscli_audio_player_new(const struct suscli_audio_player_params *params)
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_audio_player_t)), goto fail);
 
-  new->params = *params;
-  new->bufsiz = SUSCLI_AUDIO_BUFFER_SIZE;
+  new->params   = *params;
+  new->bufsiz   = SUSCLI_AUDIO_BUFFER_SIZE;
+  new->bufalloc = SUSCLI_AUDIO_BUFFER_ALLOC_SIZE;
+
   SU_TRYCATCH(
-      new->buffer = calloc(SUSCLI_AUDIO_BUFFER_SIZE, sizeof(SUFLOAT)),
+      new->buffer = calloc(new->bufalloc, sizeof(SUFLOAT)),
       goto fail);
 
   SU_TRYCATCH(suscan_mq_init(&new->mq), goto fail);

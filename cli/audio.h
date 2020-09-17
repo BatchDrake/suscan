@@ -51,6 +51,8 @@ struct suscli_audio_player {
   SUBOOL   failed;
   SUFLOAT *buffer;
   size_t   bufsiz;
+  size_t   bufalloc;
+
   void    *stream;
 };
 
@@ -66,6 +68,12 @@ SUINLINE SUBOOL
 suscli_audio_player_failed(const suscli_audio_player_t *self)
 {
   return self->failed;
+}
+
+SUINLINE size_t
+suscli_audio_player_get_buffer_alloc_size(const suscli_audio_player_t *self)
+{
+  return self->bufalloc;
 }
 
 suscli_audio_player_t *suscli_audio_player_new(

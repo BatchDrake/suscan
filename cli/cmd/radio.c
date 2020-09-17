@@ -25,6 +25,8 @@
 #include <sigutils/ncqo.h>
 #include <analyzer/analyzer.h>
 #include <analyzer/inspector/params.h>
+#include <analyzer/realtime.h>
+#include <analyzer/mq.h>
 #include <string.h>
 
 #include <cli/cli.h>
@@ -36,9 +38,16 @@
 #include <termios.h>
 #include <signal.h>
 
+#define SUSCLI_RADIO_PARAMS_DEFAULT_DEMODULATOR  SUSCAN_INSPECTOR_AUDIO_DEMOD_FM
+#define SUSCLI_RADIO_PARAMS_DEFAULT_VOLUME_DB    0
+#define SUSCLI_RADIO_PARAMS_DEFAULT_SAMPLE_RATE  44100
+#define SUSCLI_RADIO_PARAMS_DEFAULT_SQUELCH_LVL  .5
+#define SUSCLI_RADIO_PARAMS_DEFAULT_BUFFERING_MS 100
+
 struct suscli_radio_params {
   suscan_source_config_t *profile;
   enum suscan_inspector_audio_demod demod;
+  int     buffering_ms;
   SUFREQ  frequency;
   SUFLOAT volume_db;
   SUFLOAT cutoff;
@@ -48,15 +57,22 @@ struct suscli_radio_params {
   unsigned int samp_rate;
 };
 
+typedef struct suscli_radio_audio_buffer suscli_radio_audio_buffer_t;
+
 struct suscli_radio_state {
   struct suscli_radio_params params;
   suscli_chanloop_t *chanloop;
   unsigned int samp_rate;
   pthread_mutex_t mutex;
   SUBOOL mutex_initialized;
+
   SUCOMPLEX *audio_data_samples;
   SUSCOUNT audio_data_len;
   SUSCOUNT audio_data_alloc;
+  SUBOOL   audio_data_buffering;
+  uint64_t audio_data_buffering_start;
+
+  SUBOOL play_ack;
   SUBOOL halting;
   SUFREQ frequency;
   SUFREQ freq_step;
@@ -68,6 +84,13 @@ struct suscli_radio_state {
 
 SUPRIVATE void suscli_radio_state_mark_halting(
     struct suscli_radio_state *self);
+
+SUPRIVATE void suscli_radio_state_set_buffering_state(
+    struct suscli_radio_state *self,
+    SUBOOL state);
+
+SUPRIVATE SUSCOUNT suscli_radio_state_get_buffering_time(
+    const struct suscli_radio_state *self);
 
 SUPRIVATE struct suscli_radio_state *g_state;
 
@@ -115,15 +138,30 @@ suscli_radio_audio_play_cb(
 
   if (!state->halting) {
     pthread_mutex_lock(&state->mutex);
-    if (state->audio_data_len > *len)
-      state->audio_data_len = *len;
-    else
+
+    if (state->audio_data_buffering) {
+      if (suscli_radio_state_get_buffering_time(state)
+          > state->params.buffering_ms)
+        suscli_radio_state_set_buffering_state(state, SU_FALSE);
+    } else if (!state->play_ack || state->audio_data_len == 0) {
+      state->play_ack = SU_TRUE;
+      suscli_radio_state_set_buffering_state(state, SU_TRUE);
+    }
+
+    if (!state->audio_data_buffering) {
+      if (state->audio_data_len
+          > suscli_audio_player_get_buffer_alloc_size(self))
+        state->audio_data_len = suscli_audio_player_get_buffer_alloc_size(self);
+
+      for (i = 0; i < state->audio_data_len; ++i)
+        buffer[i] = SU_C_REAL(state->audio_data_samples[i]);
+
       *len = state->audio_data_len;
+      state->audio_data_len = 0;
 
-    for (i = 0; i < state->audio_data_len; ++i)
-      buffer[i] = SU_C_REAL(state->audio_data_samples[i]);
-
-    state->audio_data_len = 0;
+    } else {
+      memset(buffer, 0, *len * sizeof(SUFLOAT));
+    }
 
     pthread_mutex_unlock(&state->mutex);
 
@@ -280,7 +318,7 @@ suscli_radio_params_parse(
           p,
           "demod",
           &self->demod,
-          SUSCAN_INSPECTOR_AUDIO_DEMOD_FM),
+          SUSCLI_RADIO_PARAMS_DEFAULT_DEMODULATOR),
       goto fail);
 
   SU_TRYCATCH(
@@ -288,7 +326,7 @@ suscli_radio_params_parse(
           p,
           "volume",
           &self->volume_db,
-          0),
+          SUSCLI_RADIO_PARAMS_DEFAULT_VOLUME_DB),
       goto fail);
 
   SU_TRYCATCH(
@@ -305,7 +343,7 @@ suscli_radio_params_parse(
           p,
           "samp_rate",
           (int *) &self->samp_rate,
-          44100),
+          SUSCLI_RADIO_PARAMS_DEFAULT_SAMPLE_RATE),
       goto fail);
 
   SU_TRYCATCH(
@@ -321,8 +359,17 @@ suscli_radio_params_parse(
           p,
           "squelch_level",
           &self->squelch_level,
-          .5),
+          SUSCLI_RADIO_PARAMS_DEFAULT_SQUELCH_LVL),
       goto fail);
+
+  SU_TRYCATCH(
+      suscli_param_read_int(
+          p,
+          "buffering_ms",
+          &self->buffering_ms,
+          SUSCLI_RADIO_PARAMS_DEFAULT_BUFFERING_MS),
+      goto fail);
+
 
   SU_TRYCATCH(
       suscli_param_read_bool(
@@ -369,7 +416,30 @@ suscli_radio_state_finalize(struct suscli_radio_state *self)
 SUPRIVATE void
 suscli_radio_state_mark_halting(struct suscli_radio_state *self)
 {
+  if (self->params.disable_stderr)
+    freopen("/dev/tty", "w", stderr);
+
+  if (self->got_termios)
+    tcsetattr(0, TCSANOW, &self->old_termios);
+
   self->halting = SU_TRUE;
+}
+
+SUPRIVATE void
+suscli_radio_state_set_buffering_state(
+    struct suscli_radio_state *self,
+    SUBOOL state)
+{
+  self->audio_data_buffering = state;
+
+  if (state)
+    self->audio_data_buffering_start = suscan_gettime_coarse();
+}
+
+SUPRIVATE SUSCOUNT
+suscli_radio_state_get_buffering_time(const struct suscli_radio_state *self)
+{
+  return (suscan_gettime_coarse() - self->audio_data_buffering_start) / 1000000;
 }
 
 SUPRIVATE SUBOOL
@@ -615,13 +685,8 @@ void
 suscli_radio_interrupt_handler(int sig)
 {
   if (g_state != NULL) {
-    if (g_state->params.disable_stderr)
-      freopen("/dev/tty", "w", stderr);
-
+    suscli_radio_state_mark_halting(g_state);
     fprintf(stderr, "Ctrl+C hit, halting...\n");
-    if (g_state->got_termios)
-      tcsetattr(0, TCSANOW, &g_state->old_termios);
-    g_state->halting = SU_TRUE;
     g_state = NULL;
   }
 }
