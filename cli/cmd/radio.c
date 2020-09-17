@@ -311,7 +311,7 @@ suscli_radio_params_parse(
           p,
           "disable_stderr",
           &self->disable_stderr,
-          SU_FALSE),
+          SU_TRUE),
       goto fail);
 
   suscli_radio_params_debug(self);
