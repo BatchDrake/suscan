@@ -148,6 +148,31 @@ suscli_param_read_profile(
   return SU_TRUE;
 
 }
+
+SUBOOL
+suscli_param_read_double(
+    const hashlist_t *params,
+    const char *key,
+    SUDOUBLE *out,
+    SUDOUBLE dfl)
+{
+  const char *value;
+  SUBOOL ok = SU_FALSE;
+
+  if ((value = hashlist_get(params, key)) != NULL)
+    if (sscanf(value, "%lg", &dfl) < 1) {
+      SU_ERROR("Parameter `%s' is not a double-precision real number.\n", key);
+      goto fail;
+    }
+
+  *out = dfl;
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+
 SUBOOL
 suscli_param_read_float(
     const hashlist_t *params,

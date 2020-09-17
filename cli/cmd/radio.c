@@ -39,6 +39,7 @@
 struct suscli_radio_params {
   suscan_source_config_t *profile;
   enum suscan_inspector_audio_demod demod;
+  SUFREQ  frequency;
   SUFLOAT volume_db;
   SUFLOAT cutoff;
   SUBOOL  squelch;
@@ -74,15 +75,15 @@ SUPRIVATE const char *
 suscli_radio_helper_format_frequency(SUFREQ freq, char *buf, size_t size)
 {
   if (freq < 1e3)
-    snprintf(buf, size, "%12.0lf Hz", freq);
+    snprintf(buf, size, "%.0lf Hz", freq);
   else if (freq < 1e6)
-    snprintf(buf, size, "%12.3lf kHz", freq * 1e-3);
+    snprintf(buf, size, "%.3lf kHz", freq * 1e-3);
   else if (freq < 1e9)
-    snprintf(buf, size, "%12.6lf MHz", freq * 1e-6);
+    snprintf(buf, size, "%.6lf MHz", freq * 1e-6);
   else if (freq < 1e12)
-    snprintf(buf, size, "%12.9lf GHz", freq * 1e-9);
+    snprintf(buf, size, "%.9lf GHz", freq * 1e-9);
   else
-    snprintf(buf, size, "%12.12lf THz", freq * 1e-12);
+    snprintf(buf, size, "%.12lf THz", freq * 1e-12);
 
   return buf;
 }
@@ -207,35 +208,51 @@ suscli_radio_demod_to_string(enum suscan_inspector_audio_demod demod)
 SUPRIVATE void
 suscli_radio_params_debug(const struct suscli_radio_params *self)
 {
-  fprintf(stderr, "Demodulator summary:\n");
-  fprintf(
-      stderr,
-      "  Profile: %s\n",
+  char freqbuffer[24];
+  const suscan_source_device_t *dev =
+      suscan_source_config_get_device(self->profile);
+
+  printf("Demodulator summary:\n");
+  printf(
+      "  Profile:       %s\n",
       suscan_source_config_get_label(self->profile));
 
-  fprintf(
-      stderr,
-      "  Demodulator: %s\n",
+  printf(
+      "  Device:        %s\n",
+      suscan_source_device_get_desc(dev));
+
+  suscli_radio_helper_format_frequency(
+      self->frequency,
+      freqbuffer,
+      sizeof(freqbuffer));
+
+  printf(
+      "  Frequency:     %s\n",
+      freqbuffer);
+
+  printf(
+      "  Demodulator:   %s\n",
       suscli_radio_demod_to_string(self->demod));
-  fprintf(
-      stderr,
-      "  Cutoff frequency: %g Hz\n",
-      self->cutoff);
-  fprintf(
-      stderr,
-      "  Squelch: %s\n",
+
+  suscli_radio_helper_format_frequency(
+      self->cutoff,
+      freqbuffer,
+      sizeof(freqbuffer));
+
+  printf(
+      "  Cutoff:        %s\n",
+      freqbuffer);
+  printf(
+      "  Squelch:       %s\n",
       self->squelch ? "Yes" : "No");
-  fprintf(
-      stderr,
+  printf(
       "  Squelch level: %g\n",
       self->squelch_level);
-  fprintf(
-      stderr,
-      "  Sample rate (requested): %d sp/s\n",
+  printf(
+      "  Sample rate:   %d sp/s\n",
       self->samp_rate);
-  fprintf(
-      stderr,
-      "  Volume: %g dB\n",
+  printf(
+      "  Volume:        %g dB\n",
       self->volume_db);
 }
 
@@ -273,6 +290,15 @@ suscli_radio_params_parse(
           &self->volume_db,
           0),
       goto fail);
+
+  SU_TRYCATCH(
+      suscli_param_read_double(
+          p,
+          "frequency",
+          &self->frequency,
+          suscan_source_config_get_freq(self->profile)),
+      goto fail);
+
 
   SU_TRYCATCH(
       suscli_param_read_int(
@@ -315,6 +341,8 @@ suscli_radio_params_parse(
       goto fail);
 
   suscli_radio_params_debug(self);
+
+  suscan_source_config_set_freq(self->profile, self->frequency);
 
   ok = SU_TRUE;
 
@@ -629,9 +657,7 @@ suscli_radio_cb(const hashlist_t *params)
       goto fail);
 
   state.frequency = suscli_chanloop_get_freq(chanloop);
-
   state.chanloop = chanloop;
-
   state.got_termios = suscli_radio_helper_prepare_stdin(&state.old_termios);
 
   SU_TRYCATCH(suscli_chanloop_work(chanloop), goto fail);

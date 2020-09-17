@@ -56,6 +56,12 @@ SUBOOL suscli_param_read_int(
     int *out,
     int dfl);
 
+SUBOOL suscli_param_read_double(
+    const hashlist_t *params,
+    const char *key,
+    SUDOUBLE *out,
+    SUDOUBLE dfl);
+
 SUBOOL suscli_param_read_float(
     const hashlist_t *params,
     const char *key,
