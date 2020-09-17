@@ -70,6 +70,11 @@ suscli_audio_open_stream(suscli_audio_player_t *self)
 
   SU_TRYCATCH(pa_assert_init(), goto fail);
 
+  if (Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice()) == NULL) {
+    SU_ERROR("No default PortAudio sound device found.\n");
+    goto fail;
+  }
+
   memset(&outputParameters, 0, sizeof (PaStreamParameters));
 
   outputParameters.device = Pa_GetDefaultOutputDevice(); /* default output device */
