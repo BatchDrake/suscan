@@ -143,7 +143,7 @@ suscli_audio_close_stream(void *stream)
 
 #ifndef HAVE_AUDIO
 SUPRIVATE void *
-suscli_audio_open_stream(suscli_audio_player_t *self, unsigned int)
+suscli_audio_open_stream(suscli_audio_player_t *self, unsigned int samp_rate)
 {
   SU_ERROR("Audio support disabled at compile time.\n");
   return NULL;
