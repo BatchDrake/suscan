@@ -49,7 +49,7 @@ struct suscli_radio_params {
 
 struct suscli_radio_state {
   struct suscli_radio_params params;
-  suscan_analyzer_t *analyzer;
+  suscli_chanloop_t *chanloop;
   unsigned int samp_rate;
   pthread_mutex_t mutex;
   SUBOOL mutex_initialized;
@@ -58,7 +58,7 @@ struct suscli_radio_state {
   SUSCOUNT audio_data_alloc;
   SUBOOL halting;
   SUFREQ frequency;
-
+  SUFREQ freq_step;
   struct termios old_termios;
   SUBOOL got_termios;
 
@@ -69,6 +69,23 @@ SUPRIVATE void suscli_radio_state_mark_halting(
     struct suscli_radio_state *self);
 
 SUPRIVATE struct suscli_radio_state *g_state;
+
+SUPRIVATE const char *
+suscli_radio_helper_format_frequency(SUFREQ freq, char *buf, size_t size)
+{
+  if (freq < 1e3)
+    snprintf(buf, size, "%12.0lf Hz", freq);
+  else if (freq < 1e6)
+    snprintf(buf, size, "%12.3lf kHz", freq * 1e-3);
+  else if (freq < 1e9)
+    snprintf(buf, size, "%12.6lf MHz", freq * 1e-6);
+  else if (freq < 1e12)
+    snprintf(buf, size, "%12.9lf GHz", freq * 1e-9);
+  else
+    snprintf(buf, size, "%12.12lf THz", freq * 1e-12);
+
+  return buf;
+}
 
 /***************************** Audio callbacks ********************************/
 SUPRIVATE SUBOOL
@@ -344,6 +361,8 @@ suscli_radio_state_init(
 
   state->mutex_initialized = SU_TRUE;
 
+  state->freq_step = 1e4;
+
   if (state->params.disable_stderr)
     freopen("/dev/null", "w", stderr);
 
@@ -392,6 +411,7 @@ suscli_radio_state_parse_stdin_commands(struct suscli_radio_state *self)
   struct pollfd fd;
   int ret;
   char cmd;
+  char freqbuffer[24];
 
   do {
     fd.fd = 0;
@@ -402,22 +422,57 @@ suscli_radio_state_parse_stdin_commands(struct suscli_radio_state *self)
     if (ret == 1 && read(0, &cmd, 1) == 1) {
       switch (cmd) {
         case 'a':
-          self->frequency -= 1e4;
-          suscan_analyzer_set_freq(
-              self->analyzer,
+          self->frequency -= self->freq_step;
+          suscli_chanloop_set_frequency(self->chanloop, self->frequency);
+          suscli_radio_helper_format_frequency(
               self->frequency,
-              suscan_source_config_get_lnb_freq(self->params.profile));
-          printf("\033[1KTune to: %10.0lf Hz\r", self->frequency);
+              freqbuffer,
+              sizeof(freqbuffer));
+          printf("\033[KTune to: %s\r", freqbuffer);
           fflush(stdout);
           break;
 
         case 'd':
-          self->frequency += 1e4;
-          suscan_analyzer_set_freq(
-              self->analyzer,
+          self->frequency += self->freq_step;
+          suscli_chanloop_set_frequency(self->chanloop, self->frequency);
+          suscli_radio_helper_format_frequency(
               self->frequency,
-              suscan_source_config_get_lnb_freq(self->params.profile));
-          printf("\033[1KTune to: %10.0lf Hz\r", self->frequency);
+              freqbuffer,
+              sizeof(freqbuffer));
+          printf("\033[KTune to: %s\r", freqbuffer);
+          fflush(stdout);
+          break;
+
+        case 'w':
+          self->freq_step *= 10;
+          suscli_radio_helper_format_frequency(
+              self->freq_step,
+              freqbuffer,
+              sizeof(freqbuffer));
+          printf("\033[KFrequency step: %s\r", freqbuffer);
+          fflush(stdout);
+          break;
+
+        case 's':
+          self->freq_step /= 10;
+          suscli_radio_helper_format_frequency(
+              self->freq_step,
+              freqbuffer,
+              sizeof(freqbuffer));
+          printf("\033[KFrequency step: %s\r", freqbuffer);
+          fflush(stdout);
+          break;
+
+        case 'm':
+          self->params.demod = (self->params.demod) % 4 + 1;
+          (void) suscan_config_set_integer(
+              suscli_chanloop_get_config(self->chanloop),
+              "audio.demodulator",
+              self->params.demod);
+          (void) suscli_chanloop_commit_config(self->chanloop);
+          printf(
+              "\033[KMode: %s\r",
+              suscli_radio_demod_to_string(self->params.demod));
           fflush(stdout);
           break;
       }
@@ -575,7 +630,7 @@ suscli_radio_cb(const hashlist_t *params)
 
   state.frequency = suscli_chanloop_get_freq(chanloop);
 
-  state.analyzer = chanloop->analyzer;
+  state.chanloop = chanloop;
 
   state.got_termios = suscli_radio_helper_prepare_stdin(&state.old_termios);
 

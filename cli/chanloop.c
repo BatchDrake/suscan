@@ -63,6 +63,7 @@ suscli_chanloop_open(
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_chanloop_t)), goto fail);
 
   new->params = *params;
+  new->lnb_freq = suscan_source_config_get_lnb_freq(cfg);
 
   if (new->params.type == NULL)
     new->params.type = "raw";
@@ -120,10 +121,11 @@ suscli_chanloop_open(
           fprintf(stderr, "  Request ID:   0x%08x\n", msg->req_id);
           fprintf(stderr, "  Handle:       0x%08x\n", msg->handle);
           fprintf(stderr, "  EquivFS:      %g sps\n", msg->equiv_fs);
-          fprintf(stderr, "  Ft:           %g Hz\n",  msg->channel.ft);
+          fprintf(stderr, "  Ft:           %10.0lf Hz\n",  msg->channel.ft);
           fprintf(stderr, "  BW:           %g Hz\n",  msg->bandwidth);
           fprintf(stderr, "  LO:           %g Hz\n",  msg->lo);
 
+          new->handle   = msg->handle;
           new->ft       = msg->channel.ft;
           new->equiv_fs = msg->equiv_fs;
           SU_TRYCATCH(new->inspcfg = suscan_config_dup(msg->config), goto fail);
@@ -221,6 +223,22 @@ suscli_chanloop_work(suscli_chanloop_t *self)
 
 fail:
   return ok;
+}
+
+SUBOOL
+suscli_chanloop_set_frequency(suscli_chanloop_t *self, SUFREQ freq)
+{
+  return suscan_analyzer_set_freq(self->analyzer, freq, self->lnb_freq);
+}
+
+SUBOOL
+suscli_chanloop_commit_config(suscli_chanloop_t *self)
+{
+  return suscan_analyzer_set_inspector_config_async(
+      self->analyzer,
+      self->handle,
+      self->inspcfg,
+      0);
 }
 
 SUBOOL
