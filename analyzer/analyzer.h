@@ -723,8 +723,7 @@ su_specttuner_channel_t *suscan_analyzer_open_channel(
         void *privdata);
 
 /* Internal */
-SUBOOL
-suscan_analyzer_close_channel(
+SUBOOL suscan_analyzer_close_channel(
     suscan_analyzer_t *analyzer,
     su_specttuner_channel_t *channel);
 
