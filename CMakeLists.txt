@@ -179,6 +179,7 @@ set(CODEC_LIB_SOURCES
 set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/realtime.h
   ${ANALYZERDIR}/msg.h
+  ${ANALYZERDIR}/impl/local.h
   ${ANALYZERDIR}/inspsched.h
   ${ANALYZERDIR}/spectsrc.h
   ${ANALYZERDIR}/worker.h
@@ -222,6 +223,7 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/bufpool.c
   ${ANALYZERDIR}/client.c
   ${ANALYZERDIR}/estimator.c
+  ${ANALYZERDIR}/impl/local.c
   ${ANALYZERDIR}/inspsched.c
   ${ANALYZERDIR}/insp-server.c
   ${ANALYZERDIR}/mq.c

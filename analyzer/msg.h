@@ -185,11 +185,6 @@ SUBOOL suscan_analyzer_send_psd(
     suscan_analyzer_t *analyzer,
     const su_channel_detector_t *detector);
 
-/************************* Message parsing methods ***************************/
-SUBOOL suscan_analyzer_parse_inspector_msg(
-    suscan_analyzer_t *analyzer,
-    struct suscan_analyzer_inspector_msg *msg);
-
 /***************** Message constructors and destructors **********************/
 /* Status message */
 struct suscan_analyzer_status_msg *suscan_analyzer_status_msg_new(

@@ -38,10 +38,10 @@ struct suscan_inspector_task_info {
   SUSCOUNT size;
 };
 
-struct suscan_analyzer;
+struct suscan_local_analyzer;
 
 struct suscan_inspsched {
-  struct suscan_analyzer *analyzer;
+  struct suscan_local_analyzer *analyzer;
 
   /* Inspector task info */
   PTR_LIST(struct suscan_inspector_task_info, task_info);
@@ -59,7 +59,7 @@ suscan_inspsched_get_num_workers(const suscan_inspsched_t *sched)
   return sched->worker_count;
 }
 
-SUINLINE struct suscan_analyzer *
+SUINLINE struct suscan_local_analyzer *
 suscan_inspsched_get_analyzer(const suscan_inspsched_t *sched)
 {
   return sched->analyzer;
@@ -85,7 +85,7 @@ SUBOOL suscan_inspsched_queue_task(
 
 SUBOOL suscan_inspsched_sync(suscan_inspsched_t *sched);
 
-suscan_inspsched_t *suscan_inspsched_new(struct suscan_analyzer *analyzer);
+suscan_inspsched_t *suscan_inspsched_new(struct suscan_local_analyzer *analyzer);
 
 SUBOOL suscan_inspsched_destroy(suscan_inspsched_t *sched);
 

@@ -115,10 +115,10 @@ suscan_analyzer_channel_msg_new(
       goto fail;
 
   new->channel_count = len;
-  new->source = analyzer->source;
+  new->source = NULL;
   new->sender = analyzer;
 
-  fc = (suscan_source_get_config(analyzer->source))->freq;
+  fc = suscan_analyzer_get_source_info(analyzer)->frequency;
 
   for (i = 0; i < len; ++i)
     if (list[i] != NULL)
@@ -435,9 +435,7 @@ suscan_analyzer_send_psd(
   }
 
   /* In wide spectrum mode, frequency is given by curr_freq */
-  msg->fc = self->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL
-      ? (suscan_source_get_config(self->source))->freq
-      : self->curr_freq;
+  msg->fc = suscan_analyzer_get_source_info(self)->frequency;
 
   msg->N0 = detector->N0;
 

@@ -27,6 +27,7 @@
 #define SU_LOG_DOMAIN "suscan-inspector-server"
 
 #include <sigutils/sigutils.h>
+#include <analyzer/impl/local.h>
 
 #include "inspector/inspector.h"
 #include "realtime.h"
@@ -228,7 +229,7 @@ fail:
 }
 
 SUPRIVATE SUBOOL
-suscan_analyzer_on_channel_data(
+suscan_local_analyzer_on_channel_data(
     const struct sigutils_specttuner_channel *channel,
     void *private,
     const SUCOMPLEX *data,
@@ -279,16 +280,16 @@ suscan_analyzer_on_channel_data(
 }
 
 suscan_inspector_t *
-suscan_analyzer_get_inspector(
-    const suscan_analyzer_t *analyzer,
+suscan_local_analyzer_get_inspector(
+    const suscan_local_analyzer_t *self,
     SUHANDLE handle)
 {
   suscan_inspector_t *brinsp;
 
-  if (handle < 0 || handle >= analyzer->inspector_count)
+  if (handle < 0 || handle >= self->inspector_count)
     return NULL;
 
-  brinsp = analyzer->inspector_list[handle];
+  brinsp = self->inspector_list[handle];
 
   if (brinsp != NULL && brinsp->state != SUSCAN_ASYNC_STATE_RUNNING)
     return NULL;
@@ -297,64 +298,66 @@ suscan_analyzer_get_inspector(
 }
 
 SUPRIVATE SUBOOL
-suscan_analyzer_mark_inspector_as_dead(
-    suscan_analyzer_t *self,
+suscan_local_analyzer_mark_inspector_as_dead(
+    suscan_local_analyzer_t *self,
     suscan_inspector_t *insp)
 {
   struct suscan_inspector_overridable_request *req = NULL;
 
   SU_TRYCATCH(
-      suscan_analyzer_lock_inspector_list(self),
+      suscan_local_analyzer_lock_inspector_list(self),
       return SU_FALSE);
 
   if ((req = suscan_inspector_get_userdata(insp)) != NULL)
     req->dead = SU_TRUE;
 
-  suscan_analyzer_unlock_inspector_list(self);
+  suscan_local_analyzer_unlock_inspector_list(self);
 
   return SU_TRUE;
 }
 
 SUPRIVATE SUBOOL
-suscan_analyzer_dispose_inspector_handle(
-    suscan_analyzer_t *analyzer,
+suscan_local_analyzer_dispose_inspector_handle(
+    suscan_local_analyzer_t *self,
     SUHANDLE handle)
 {
-  if (handle < 0 || handle >= analyzer->inspector_count)
+  if (handle < 0 || handle >= self->inspector_count)
     return SU_FALSE;
 
-  if (analyzer->inspector_list[handle] == NULL)
+  if (self->inspector_list[handle] == NULL)
     return SU_FALSE;
 
-  SU_TRYCATCH(suscan_analyzer_lock_inspector_list(analyzer), return SU_FALSE);
+  SU_TRYCATCH(
+      suscan_local_analyzer_lock_inspector_list(self),
+      return SU_FALSE);
 
-  analyzer->inspector_list[handle] = NULL;
+  self->inspector_list[handle] = NULL;
 
-  suscan_analyzer_unlock_inspector_list(analyzer);
+  suscan_local_analyzer_unlock_inspector_list(self);
 
   return SU_TRUE;
 }
 
 SUPRIVATE SUBOOL
-suscan_analyzer_open_inspector(
-    suscan_analyzer_t *analyzer,
+suscan_local_analyzer_open_inspector(
+    suscan_local_analyzer_t *self,
     const char *class,
     const struct sigutils_channel *channel,
     struct suscan_analyzer_inspector_msg *msg)
 {
   SUHANDLE hnd = -1;
-  unsigned int fs = suscan_analyzer_get_samp_rate(analyzer);
+  unsigned int fs = suscan_analyzer_get_samp_rate(self->parent);
   su_specttuner_channel_t *schan = NULL;
   suscan_inspector_t *new = NULL;
   unsigned int i;
 
   /* Open a channel to feed this inspector */
   SU_TRYCATCH(
-      schan = suscan_analyzer_open_channel_ex(
-          analyzer,
+      schan = suscan_local_analyzer_open_channel_ex(
+          self,
           channel,
           msg->precise,
-          suscan_analyzer_on_channel_data,
+          suscan_local_analyzer_on_channel_data,
           NULL),
       goto fail);
 
@@ -378,7 +381,7 @@ suscan_analyzer_open_inspector(
   SU_TRYCATCH(
       new = suscan_inspector_new(
           class,
-          suscan_analyzer_get_samp_rate(analyzer),
+          suscan_analyzer_get_samp_rate(self->parent),
           schan),
       goto fail);
 
@@ -407,12 +410,12 @@ suscan_analyzer_open_inspector(
    * TODO: Find inspectors in HALTED state, and free them
    */
 
-  suscan_analyzer_lock_inspector_list(analyzer);
+  suscan_local_analyzer_lock_inspector_list(self);
 
-  if ((hnd = PTR_LIST_APPEND_CHECK(analyzer->inspector, new)) == -1)
+  if ((hnd = PTR_LIST_APPEND_CHECK(self->inspector, new)) == -1)
     goto fail;
 
-  suscan_analyzer_unlock_inspector_list(analyzer);
+  suscan_local_analyzer_unlock_inspector_list(self);
 
   msg->handle = hnd;
 
@@ -421,7 +424,7 @@ suscan_analyzer_open_inspector(
    * bound yet, it will be discarded.
    */
   SU_TRYCATCH(
-      suscan_analyzer_bind_inspector_to_channel(analyzer, schan, new),
+      suscan_local_analyzer_bind_inspector_to_channel(self, schan, new),
       goto fail);
 
   /*
@@ -432,17 +435,17 @@ suscan_analyzer_open_inspector(
 
 fail:
   if (schan != NULL)
-    (void) suscan_analyzer_close_channel(analyzer, schan);
+    (void) suscan_local_analyzer_close_channel(self, schan);
 
   if (hnd != -1)
-    (void) suscan_analyzer_dispose_inspector_handle(analyzer, hnd);
+    (void) suscan_local_analyzer_dispose_inspector_handle(self, hnd);
 
   return SU_FALSE;
 }
 
 SUPRIVATE SUBOOL
-suscan_analyzer_set_inspector_freq(
-    suscan_analyzer_t *analyzer,
+suscan_local_analyzer_set_inspector_freq(
+    suscan_local_analyzer_t *analyzer,
     suscan_inspector_t *insp,
     SUFREQ freq)
 {
@@ -451,12 +454,12 @@ suscan_analyzer_set_inspector_freq(
   SUFLOAT f0;
 
   f0 = SU_NORM2ANG_FREQ(
-      SU_ABS2NORM_FREQ(suscan_analyzer_get_samp_rate(analyzer), freq));
+      SU_ABS2NORM_FREQ(suscan_analyzer_get_samp_rate(analyzer->parent), freq));
 
   if (f0 < 0)
     f0 += 2 * PI;
 
-  SU_TRYCATCH(suscan_analyzer_lock_loop(analyzer), goto done);
+  SU_TRYCATCH(suscan_local_analyzer_lock_loop(analyzer), goto done);
   mutex_acquired = SU_TRUE;
 
   /* vvvvvvvvvvvvvvvvvvvvvv Set frequency start vvvvvvvvvvvvvvvvvvvvvv */
@@ -470,14 +473,14 @@ suscan_analyzer_set_inspector_freq(
 
 done:
   if (mutex_acquired)
-    suscan_analyzer_unlock_loop(analyzer);
+    suscan_local_analyzer_unlock_loop(analyzer);
 
   return ok;
 }
 
 SUPRIVATE SUBOOL
-suscan_analyzer_set_inspector_bandwidth(
-    suscan_analyzer_t *analyzer,
+suscan_local_analyzer_set_inspector_bandwidth(
+    suscan_local_analyzer_t *analyzer,
     suscan_inspector_t *insp,
     SUFREQ bandwidth)
 {
@@ -486,12 +489,14 @@ suscan_analyzer_set_inspector_bandwidth(
   SUFLOAT relbw;
 
   relbw = SU_NORM2ANG_FREQ(
-      SU_ABS2NORM_FREQ(suscan_analyzer_get_samp_rate(analyzer), bandwidth));
+      SU_ABS2NORM_FREQ(
+          suscan_analyzer_get_samp_rate(analyzer->parent),
+          bandwidth));
 
   if (relbw < 0)
     relbw += 2 * PI;
 
-  SU_TRYCATCH(suscan_analyzer_lock_loop(analyzer), goto done);
+  SU_TRYCATCH(suscan_local_analyzer_lock_loop(analyzer), goto done);
   mutex_acquired = SU_TRUE;
 
   /* vvvvvvvvvvvvvvvvvvvvvv Set bandwidth start vvvvvvvvvvvvvvvvvvvvvv */
@@ -507,7 +512,7 @@ suscan_analyzer_set_inspector_bandwidth(
 
 done:
   if (mutex_acquired)
-    suscan_analyzer_unlock_loop(analyzer);
+    suscan_local_analyzer_unlock_loop(analyzer);
 
   return ok;
 }
@@ -523,8 +528,8 @@ done:
  */
 
 SUBOOL
-suscan_analyzer_parse_inspector_msg(
-    suscan_analyzer_t *analyzer,
+suscan_local_analyzer_parse_inspector_msg(
+    suscan_local_analyzer_t *analyzer,
     struct suscan_analyzer_inspector_msg *msg)
 {
   suscan_inspector_t *insp = NULL;
@@ -534,7 +539,7 @@ suscan_analyzer_parse_inspector_msg(
   switch (msg->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
       SU_TRYCATCH(
-          suscan_analyzer_open_inspector(
+          suscan_local_analyzer_open_inspector(
               analyzer,
               msg->class_name,
               &msg->channel,
@@ -544,7 +549,7 @@ suscan_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
-      if ((insp = suscan_analyzer_get_inspector(
+      if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
@@ -556,7 +561,7 @@ suscan_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR:
-      if ((insp = suscan_analyzer_get_inspector(
+      if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
@@ -571,7 +576,7 @@ suscan_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM:
-      if ((insp = suscan_analyzer_get_inspector(
+      if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
@@ -584,7 +589,7 @@ suscan_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
-      if ((insp = suscan_analyzer_get_inspector(
+      if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
@@ -602,7 +607,7 @@ suscan_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
-      if ((insp = suscan_analyzer_get_inspector(
+      if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
@@ -615,7 +620,7 @@ suscan_analyzer_parse_inspector_msg(
 
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
-      if ((insp = suscan_analyzer_get_inspector(
+      if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
@@ -627,7 +632,7 @@ suscan_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_WATERMARK:
-      if ((insp = suscan_analyzer_get_inspector(
+      if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
@@ -639,14 +644,14 @@ suscan_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_FREQ:
-      if ((insp = suscan_analyzer_get_inspector(
+      if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else {
         SU_TRYCATCH(
-            suscan_analyzer_set_inspector_freq(
+            suscan_local_analyzer_set_inspector_freq(
                 analyzer,
                 insp,
                 msg->channel.fc - msg->channel.ft),
@@ -656,7 +661,7 @@ suscan_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_BANDWIDTH:
-      if ((insp = suscan_analyzer_get_inspector(
+      if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         /* No such handle */
@@ -665,7 +670,7 @@ suscan_analyzer_parse_inspector_msg(
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT;
       } else {
         SU_TRYCATCH(
-            suscan_analyzer_set_inspector_bandwidth(
+            suscan_local_analyzer_set_inspector_bandwidth(
                 analyzer,
                 insp,
                 msg->channel.bw),
@@ -675,7 +680,7 @@ suscan_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
-      if ((insp = suscan_analyzer_get_inspector(
+      if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
@@ -687,7 +692,7 @@ suscan_analyzer_parse_inspector_msg(
            * Inspector has been halted. It's safe to dispose the handle
            * and free the object.
            */
-          (void) suscan_analyzer_dispose_inspector_handle(
+          (void) suscan_local_analyzer_dispose_inspector_handle(
               analyzer,
               msg->handle);
           suscan_inspector_destroy(insp);
@@ -699,7 +704,7 @@ suscan_analyzer_parse_inspector_msg(
            * being removed.
            */
           SU_TRYCATCH(
-              suscan_analyzer_mark_inspector_as_dead(analyzer, insp),
+              suscan_local_analyzer_mark_inspector_as_dead(analyzer, insp),
               goto done);
           insp->state = SUSCAN_ASYNC_STATE_HALTING;
         }
@@ -722,7 +727,7 @@ suscan_analyzer_parse_inspector_msg(
     msg->inspector_id = insp->inspector_id;
 
   if (!suscan_mq_write(
-      analyzer->mq_out,
+      analyzer->parent->mq_out,
       SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
       msg))
     goto done;
@@ -733,7 +738,7 @@ suscan_analyzer_parse_inspector_msg(
 
 done:
   if (mutex_acquired)
-    suscan_analyzer_unlock_loop(analyzer);
+    suscan_local_analyzer_unlock_loop(analyzer);
 
   return ok;
 }
