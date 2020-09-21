@@ -28,6 +28,10 @@
 
 SUPRIVATE struct suscan_analyzer_interface *g_local_analyzer_interface;
 
+/* Forward declarations */
+SUPRIVATE SUBOOL suscan_local_analyzer_is_real_time(const void *ptr);
+SUPRIVATE unsigned int suscan_local_analyzer_get_samp_rate(const void *ptr);
+
 SUBOOL
 suscan_analyzer_is_local(const suscan_analyzer_t *self)
 {
@@ -266,7 +270,7 @@ suscan_local_analyzer_reset_throttle(suscan_local_analyzer_t *self)
 {
   return suscan_local_analyzer_override_throttle(
       self,
-      suscan_analyzer_get_samp_rate(self->parent));
+      suscan_local_analyzer_get_samp_rate(self));
 }
 
 SUPRIVATE SUBOOL
@@ -480,17 +484,17 @@ done:
 }
 
 SUPRIVATE void
-suscan_analyzer_init_detector_params(
-    suscan_analyzer_t *self,
+suscan_local_analyzer_init_detector_params(
+    suscan_local_analyzer_t *self,
     struct sigutils_channel_detector_params *params)
 {
   /* Recover template */
-  *params = self->params.detector_params;
+  *params = self->parent->params.detector_params;
 
   /* Populate members with source information */
   params->mode = SU_CHANNEL_DETECTOR_MODE_SPECTRUM;
 
-  params->samp_rate = suscan_analyzer_get_samp_rate(self);
+  params->samp_rate = suscan_local_analyzer_get_samp_rate(self);
 
   /* Adjust parameters that depend on sample rate */
   su_channel_params_adjust(params);
@@ -540,7 +544,7 @@ suscan_local_analyzer_open_channel_ex(
   params.f0 =
       SU_NORM2ANG_FREQ(
           SU_ABS2NORM_FREQ(
-              suscan_analyzer_get_samp_rate(self->parent),
+              suscan_local_analyzer_get_samp_rate(self),
               chan_info->fc - chan_info->ft));
 
   if (params.f0 < 0)
@@ -549,7 +553,7 @@ suscan_local_analyzer_open_channel_ex(
   params.bw =
       SU_NORM2ANG_FREQ(
           SU_ABS2NORM_FREQ(
-              suscan_analyzer_get_samp_rate(self->parent),
+              suscan_local_analyzer_get_samp_rate(self),
               chan_info->f_hi - chan_info->f_lo));
   params.guard = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
   params.on_data = on_data;
@@ -664,14 +668,14 @@ suscan_local_analyzer_source_init(
   SU_TRYCATCH(self->source = suscan_source_new(config), goto fail);
 
   /* For non-realtime sources (i.e. file sources), enable throttling */
-  if (!suscan_analyzer_is_real_time(self->parent)) {
+  if (!suscan_local_analyzer_is_real_time(self)) {
     /* Create throttle mutex */
       (void) pthread_mutex_init(&self->throttle_mutex, NULL); /* Always succeeds */
       self->throttle_mutex_init = SU_TRUE;
 
     suscan_throttle_init(
         &self->throttle,
-        suscan_analyzer_get_samp_rate(self->parent));
+        suscan_local_analyzer_get_samp_rate(self));
   }
 
   return SU_TRUE;
@@ -742,7 +746,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   (void) pthread_mutex_init(&new->loop_mutex, NULL); /* Always succeeds */
   new->loop_init = SU_TRUE;
   det_params = parent->params.detector_params;
-  suscan_analyzer_init_detector_params(parent, &det_params);
+  suscan_local_analyzer_init_detector_params(new, &det_params);
   SU_TRYCATCH(
       new->detector = su_channel_detector_new(&det_params),
       goto fail);
@@ -810,7 +814,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
     new->read_buf = temp;
   }
 
-  new->effective_samp_rate = suscan_analyzer_get_samp_rate(new->parent);
+  new->effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
 
   /*
    * In case the source rejected our initial sample rate configuration, we
@@ -832,7 +836,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   if (parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
     SU_TRYCATCH(
         parent->params.max_freq - parent->params.min_freq >=
-          suscan_analyzer_get_samp_rate(new->parent),
+        suscan_local_analyzer_get_samp_rate(new),
         goto fail);
     new->current_sweep_params.fft_min_samples =
             SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
@@ -1062,7 +1066,7 @@ suscan_local_analyzer_get_measured_samp_rate(const void *ptr)
 {
   const suscan_local_analyzer_t *self = (const suscan_local_analyzer_t *) ptr;
 
-  return suscan_source_get_samp_rate(self->source);
+  return self->measured_samp_rate;
 }
 
 SUPRIVATE struct suscan_analyzer_source_info *
