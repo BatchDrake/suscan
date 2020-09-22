@@ -29,6 +29,7 @@
 #include <confdb.h>
 #include "source.h"
 #include "compat.h"
+#include "discovery.h"
 #include <sigutils/taps.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -1871,11 +1872,20 @@ fail:
 SUBOOL
 suscan_init_sources(void)
 {
+  const char *mcif;
+
   SU_TRYCATCH(suscan_source_device_preinit(), return SU_FALSE);
   SU_TRYCATCH(suscan_source_register_null_device(), return SU_FALSE);
   SU_TRYCATCH(suscan_confdb_use("sources"), return SU_FALSE);
   SU_TRYCATCH(suscan_source_detect_devices(), return SU_FALSE);
   SU_TRYCATCH(suscan_load_sources(), return SU_FALSE);
+
+  if ((mcif = getenv("SUSCAN_MULTICAST_ADDR")) != NULL && strlen(mcif) > 0) {
+    if (!suscan_device_net_discovery_start(mcif)) {
+      SU_ERROR("Failed to initialize remote device discovery.\n");
+      SU_ERROR("SuRPC services will be disabled.\n");
+    }
+  }
 
   return SU_TRUE;
 }

@@ -31,6 +31,8 @@
 #define SUSCLI_COMMAND_REQ_SPECTSRCS  8
 #define SUSCLI_COMMAND_REQ_INSPECTORS 16
 
+#define SUSCLI_COMMAND_REQ_ALL        0xff
+
 struct suscli_command {
   char *name;
   char *description;

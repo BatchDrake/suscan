@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2017 Gonzalo José Carracedo Carballal
+  Copyright (C) 2020 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -29,7 +29,6 @@
 #include <confdb.h>
 #include "source.h"
 #include "compat.h"
-#include <sigutils/taps.h>
 #include <fcntl.h>
 #include <unistd.h>
 

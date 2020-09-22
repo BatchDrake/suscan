@@ -549,6 +549,13 @@ suscli_init(void)
           suscli_profinfo_cb) != -1,
       goto fail);
 
+  SU_TRYCATCH(
+      suscli_command_register(
+          "devserv",
+          "Start the SuRPC remove device server",
+          SUSCLI_COMMAND_REQ_ALL,
+          suscli_devserv_cb) != -1,
+      goto fail);
   ok = SU_TRUE;
 
 fail:

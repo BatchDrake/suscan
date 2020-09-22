@@ -177,6 +177,7 @@ set(CODEC_LIB_SOURCES
   ${CODECDIR}/diff.c)
 
 set(ANALYZER_LIB_HEADERS
+  ${ANALYZERDIR}/discovery.h
   ${ANALYZERDIR}/realtime.h
   ${ANALYZERDIR}/msg.h
   ${ANALYZERDIR}/impl/local.h
@@ -223,6 +224,7 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/bufpool.c
   ${ANALYZERDIR}/client.c
   ${ANALYZERDIR}/device.c
+  ${ANALYZERDIR}/discovery.c
   ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/impl/local.c
   ${ANALYZERDIR}/inspsched.c
@@ -389,6 +391,7 @@ set(SUSCLI_HEADERS ${CLI_LIB_HEADERS} ${SRCDIR}/suscan.h)
 set(SUSCLI_SOURCES
   ${CLIDIR}/audio.c
   ${CLIDIR}/cli.c
+  ${CLIDIR}/cmd/devserv.c
   ${CLIDIR}/cmd/profiles.c
   ${CLIDIR}/cmd/radio.c
   ${CLIDIR}/cmd/rms.c

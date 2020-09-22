@@ -18,16 +18,20 @@
 
 */
 
-#ifndef _CLI_CMDS_H
-#define _CLI_CMDS_H
+#ifndef _SUSCAN_ANALYZER_DISCOVERY_H
+#define _SUSCAN_ANALYZER_DISCOVERY_H
 
-#include <sigutils/sigutils.h>
-#include <util/hashlist.h>
+#include <sigutils/types.h>
 
-SUBOOL suscli_devserv_cb(const hashlist_t *params);
-SUBOOL suscli_profiles_cb(const hashlist_t *params);
-SUBOOL suscli_rms_cb(const hashlist_t *params);
-SUBOOL suscli_profinfo_cb(const hashlist_t *params);
-SUBOOL suscli_radio_cb(const hashlist_t *params);
+#define SURPC_DISCOVERY_PROTOCOL_PORT   5555
+#define SURPC_DISCOVERY_MULTICAST_ADDR "239.255.51.63"
+#define SURPC_DISCOVERY_MAX_PDU_SIZE    4096
 
-#endif /* _CLI_CMDS_H */
+struct suscan_device_net_discovery_pdu {
+  uint16_t port;
+  char name[0];
+} __attribute__ ((packed));
+
+SUBOOL suscan_device_net_discovery_start(const char *iface);
+
+#endif /* _SUSCAN_ANALYZER_DISCOVERY_H */
