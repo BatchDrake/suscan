@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 /* Private device list */
+SUPRIVATE pthread_mutex_t g_device_list_mutex;
 PTR_LIST(SUPRIVATE suscan_source_device_t, device);
 
 /* Hidden gain list */
@@ -200,6 +201,10 @@ SUPRIVATE void
 suscan_source_reset_devices(void)
 {
   unsigned int i, j;
+  SUBOOL mutex_acquired = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
 
   for (i = 0; i < device_count; ++i)
     if (device_list[i] != NULL) {
@@ -221,6 +226,10 @@ suscan_source_reset_devices(void)
         device_list[i]->samp_rate_list = NULL;
       }
     }
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&g_device_list_mutex);
 }
 
 SUPRIVATE char *
@@ -518,22 +527,54 @@ suscan_source_device_walk(
     void *private)
 {
   unsigned int i;
+  suscan_source_device_t *dev;
+
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL cont = SU_TRUE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
 
   for (i = 0; i < device_count; ++i)
-    if (device_list[i] != NULL)
-      if (!(function)(device_list[i], i, private))
-        return SU_FALSE;
+    if (device_list[i] != NULL) {
+      dev = device_list[i];
 
-  return SU_TRUE;
+      SU_TRYCATCH(pthread_mutex_unlock(&g_device_list_mutex) == 0, goto done);
+      mutex_acquired = SU_FALSE;
+
+      if (!(function)(dev, i, private)) {
+        cont = SU_FALSE;
+        goto done;
+      }
+
+      SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) == 0, goto done);
+      mutex_acquired = SU_TRUE;
+    }
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&g_device_list_mutex);
+
+  return cont;
 }
 
 const suscan_source_device_t *
 suscan_source_device_get_by_index(unsigned int index)
 {
-  if (index >= device_count)
-    return NULL;
+  SUBOOL mutex_acquired = SU_FALSE;
+  const suscan_source_device_t *device = NULL;
 
-  return device_list[index];
+  SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
+
+  if (index < device_count)
+    device = device_list[index];
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&g_device_list_mutex);
+
+  return device;
 }
 
 unsigned int
@@ -547,14 +588,25 @@ const suscan_source_device_t *
 suscan_source_device_find_first_sdr(void)
 {
   unsigned int i;
+  suscan_source_device_t *device = null_device;
+  SUBOOL mutex_acquired = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
 
   for (i = 0; i < device_count; ++i)
     if (device_list[i] != NULL && device_list[i] != null_device)
       if (device_list[i]->available &&
-          strcmp(device_list[i]->driver, "audio") != 0)
-        return device_list[i];
+          strcmp(device_list[i]->driver, "audio") != 0) {
+        device = device_list[i];
+        goto done;
+      }
 
-  return null_device;
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&g_device_list_mutex);
+
+  return device;
 }
 
 #ifdef SUSCAN_DEBUG_KWARGS
@@ -608,6 +660,7 @@ suscan_source_device_soapy_args_are_equal(
   return SU_FALSE;
 }
 
+/* Non-MT safe */
 SUPRIVATE int
 suscan_source_device_assert_index(const char *iface, const SoapySDRKwargs *args)
 {
@@ -642,11 +695,23 @@ suscan_source_device_t *
 suscan_source_device_assert(const char *interface, const SoapySDRKwargs *args)
 {
   int index;
+  suscan_source_device_t *result = NULL;
+
+  SUBOOL mutex_acquired = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
 
   if ((index = suscan_source_device_assert_index(interface, args)) == -1)
-    return NULL;
+    goto done;
 
-  return device_list[index];
+  result = device_list[index];
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&g_device_list_mutex);
+
+  return result;
 }
 
 SUBOOL
@@ -725,4 +790,15 @@ const suscan_source_device_t *
 suscan_source_get_null_device(void)
 {
   return null_device;
+}
+
+SUBOOL
+suscan_source_device_preinit(void)
+{
+  SU_TRYCATCH(
+      pthread_mutex_init(&g_device_list_mutex, NULL) == 0,
+      return SU_FALSE);
+
+  return SU_TRUE;
+
 }

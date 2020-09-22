@@ -1871,6 +1871,7 @@ fail:
 SUBOOL
 suscan_init_sources(void)
 {
+  SU_TRYCATCH(suscan_source_device_preinit(), return SU_FALSE);
   SU_TRYCATCH(suscan_source_register_null_device(), return SU_FALSE);
   SU_TRYCATCH(suscan_confdb_use("sources"), return SU_FALSE);
   SU_TRYCATCH(suscan_source_detect_devices(), return SU_FALSE);

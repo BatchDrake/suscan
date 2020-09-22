@@ -148,6 +148,9 @@ const suscan_source_device_t *suscan_source_device_get_by_index(
 const suscan_source_device_t *suscan_source_get_null_device(void);
 
 /* Internal */
+SUBOOL suscan_source_device_preinit(void);
+
+/* Internal */
 SUBOOL suscan_source_register_null_device(void);
 
 /* Internal */
