@@ -222,6 +222,7 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/analyzer.c
   ${ANALYZERDIR}/bufpool.c
   ${ANALYZERDIR}/client.c
+  ${ANALYZERDIR}/device.c
   ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/impl/local.c
   ${ANALYZERDIR}/inspsched.c

@@ -35,6 +35,9 @@ extern "C" {
 
 #define SUSCAN_SOURCE_DEFAULT_BUFSIZ 1024
 
+#define SUSCAN_SOURCE_LOCAL_INTERFACE   "local"
+#define SUSCAN_SOURCE_REMOTE_INTERFACE  "remote"
+
 #define SUSCAN_SOURCE_DEFAULT_NAME      "Default source"
 #define SUSCAN_SOURCE_DEFAULT_FREQ      433920000 /* 433 ISM */
 #define SUSCAN_SOURCE_DEFAULT_SAMP_RATE 1000000
@@ -78,6 +81,7 @@ struct suscan_source_device_info {
 void suscan_source_device_info_finalize(struct suscan_source_device_info *info);
 
 struct suscan_source_device {
+  const char *interface;
   const char *driver;
   char *desc;
   SoapySDRKwargs *args;
@@ -142,6 +146,30 @@ const suscan_source_device_t *suscan_source_device_get_by_index(
     unsigned int index);
 
 const suscan_source_device_t *suscan_source_get_null_device(void);
+
+/* Internal */
+SUBOOL suscan_source_register_null_device(void);
+
+/* Internal */
+const suscan_source_device_t *suscan_source_device_find_first_sdr(void);
+
+/* Internal */
+const struct suscan_source_gain_desc *suscan_source_device_lookup_gain_desc(
+    const suscan_source_device_t *dev,
+    const char *name);
+
+/* Internal */
+const struct suscan_source_gain_desc *suscan_source_gain_desc_new_hidden(
+    const char *name,
+    SUFLOAT value);
+
+/* Internal */
+suscan_source_device_t *suscan_source_device_assert(
+    const char *interface,
+    const SoapySDRKwargs *args);
+
+/* Internal */
+SUBOOL suscan_source_device_populate_info(suscan_source_device_t *dev);
 
 unsigned int suscan_source_device_get_count(void);
 
@@ -436,6 +464,8 @@ void suscan_source_destroy(suscan_source_t *config);
 
 SUBOOL suscan_source_config_register(suscan_source_config_t *config);
 SUBOOL suscan_source_detect_devices(void);
+
+/* Internal */
 SUBOOL suscan_init_sources(void);
 
 #ifdef __cplusplus
