@@ -105,14 +105,20 @@ suscan_device_net_discovery_ctx_new(const char *iface, const char *mcaddr)
   group.imr_multiaddr.s_addr = inet_addr(mcaddr);
   group.imr_interface.s_addr = inet_addr(iface);
 
-  SU_TRYCATCH(
-      setsockopt(
+  if (setsockopt(
           new->fd,
           IPPROTO_IP,
           IP_ADD_MEMBERSHIP,
           (char *) &group,
-          sizeof(int)) != -1,
-      goto fail);
+          sizeof(int)) == -1) {
+    SU_ERROR(
+        "Failed to add multicast membership %s/%s to socket: %s\n",
+        iface,
+        mcaddr,
+        strerror(errno));
+    goto fail;
+  }
+
   return new;
 
 fail:
