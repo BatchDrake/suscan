@@ -132,6 +132,7 @@ set(RSRC_CONFIG_FILES
   ${RSRCDIR}/frequency_allocations.xml)
   
 set(UTIL_HEADERS
+  ${UTILDIR}/cbor.h
   ${UTILDIR}/compat.h
   ${UTILDIR}/hashlist.h
   ${UTILDIR}/macos-barriers.h
@@ -142,6 +143,7 @@ set(UTIL_HEADERS
   ${UTILDIR}/rbtree.h)
   
 set(UTIL_SOURCES
+  ${UTILDIR}/cbor.c
   ${UTILDIR}/cfg.c
   ${UTILDIR}/compat.c
   ${UTILDIR}/confdb.c
