@@ -44,6 +44,10 @@ enum cbor_major_type {
 #define ADDL_UINT64    27
 #define ADDL_ARRAY_INDEF  31
 #define ADDL_MAP_INDEF    31
+
+#define ADDL_FLOAT_FLOAT32 26
+#define ADDL_FLOAT_FLOAT64 27
+
 #define ADDL_FLOAT_FALSE  20
 #define ADDL_FLOAT_TRUE    21
 #define ADDL_FLOAT_NULL    22
@@ -238,6 +242,30 @@ pack_cbor_type(
 }
 
 int
+cbor_pack_single(grow_buf_t *buffer, SUSINGLE value)
+{
+  int ret;
+  int32_t as_int = cpu32_to_be(*(int32_t *) &value);
+
+  if ((ret = pack_cbor_type_byte(buffer, CMT_FLOAT, ADDL_UINT32)))
+    return ret;
+
+  return grow_buf_append(buffer, &as_int, sizeof(int32_t));
+}
+
+int
+cbor_pack_double(grow_buf_t *buffer, SUDOUBLE value)
+{
+  int ret;
+  int64_t as_int = cpu64_to_be(*(int64_t *) &value);
+
+  if ((ret = pack_cbor_type_byte(buffer, CMT_FLOAT, ADDL_UINT64)))
+    return ret;
+
+  return grow_buf_append(buffer, &as_int, sizeof(int64_t));
+}
+
+int
 cbor_pack_uint(grow_buf_t *buffer, uint64_t v)
 {
   return pack_cbor_type(buffer, CMT_UINT, v);
@@ -291,7 +319,9 @@ int
 cbor_pack_bool(grow_buf_t *buffer, SUBOOL b)
 {
   /* bools use the float major type */
-  return pack_cbor_type(buffer, CMT_FLOAT,
+  return pack_cbor_type(
+      buffer,
+      CMT_FLOAT,
       b ? ADDL_FLOAT_TRUE : ADDL_FLOAT_FALSE);
 }
 
@@ -364,8 +394,7 @@ cbor_pack_map_end(grow_buf_t *buffer, size_t npairs)
  */
 
 SUPRIVATE int
-read_cbor_type(grow_buf_t *buffer, enum cbor_major_type *type,
-  uint8_t *extra)
+read_cbor_type(grow_buf_t *buffer, enum cbor_major_type *type, uint8_t *extra)
 {
   uint8_t byte;
   ssize_t ret;
@@ -402,7 +431,7 @@ get_addl_bytes(grow_buf_t *buffer, uint8_t extra, uint64_t *out)
       break;
     default:
       if (extra > 23)
-  return -EINVAL;
+        return -EINVAL;
 
       size = 0;
       break;
@@ -440,7 +469,7 @@ SUPRIVATE int
 unpack_cbor_int(
     grow_buf_t *buffer,
     enum cbor_major_type expected_type,
-   uint64_t *out)
+    uint64_t *out)
 {
   enum cbor_major_type type;
   uint8_t extra;
@@ -475,6 +504,8 @@ unpack_cbor_float(grow_buf_t *buffer, uint8_t *extra)
     case ADDL_FLOAT_TRUE:
     case ADDL_FLOAT_NULL:
     case ADDL_FLOAT_BREAK:
+    case ADDL_FLOAT_FLOAT32:
+    case ADDL_FLOAT_FLOAT64:
       return 0;
   }
 
@@ -516,6 +547,7 @@ sync_buffers(grow_buf_t *orig, grow_buf_t *tmp)
 
   return (ret < 0) ? ret : 0;
 }
+
 
 int
 cbor_unpack_uint(grow_buf_t *buffer, uint64_t *v)
@@ -681,6 +713,78 @@ cbor_unpack_str(grow_buf_t *buffer, char **str)
 }
 
 int
+cbor_unpack_single(grow_buf_t *buffer, SUSINGLE *value)
+{
+  grow_buf_t tmp;
+  int32_t as_int;
+  uint8_t extra;
+  int ret;
+
+  grow_buf_init_loan(
+      &tmp,
+      grow_buf_current_data(buffer),
+      grow_buf_avail(buffer),
+      grow_buf_avail(buffer));
+
+  ret = unpack_cbor_float(&tmp, &extra);
+  if (ret)
+    return ret;
+
+  switch (extra) {
+    case ADDL_FLOAT_FLOAT32:
+      if (grow_buf_read(
+          buffer,
+          &as_int,
+          sizeof(int32_t)) != sizeof(int32_t))
+        return -EILSEQ;
+
+      *((int32_t *) value) = be32_to_cpu_unaligned(&as_int);
+      break;
+
+    default:
+      return -EILSEQ;
+  }
+
+  return sync_buffers(buffer, &tmp);
+}
+
+int
+cbor_unpack_double(grow_buf_t *buffer, SUDOUBLE *value)
+{
+  grow_buf_t tmp;
+  int64_t as_int;
+  uint8_t extra;
+  int ret;
+
+  grow_buf_init_loan(
+      &tmp,
+      grow_buf_current_data(buffer),
+      grow_buf_avail(buffer),
+      grow_buf_avail(buffer));
+
+  ret = unpack_cbor_float(&tmp, &extra);
+  if (ret)
+    return ret;
+
+  switch (extra) {
+    case ADDL_FLOAT_FLOAT64:
+      if (grow_buf_read(
+          buffer,
+          &as_int,
+          sizeof(int64_t)) != sizeof(int64_t))
+        return -EILSEQ;
+
+      *((int64_t *) value) = be32_to_cpu_unaligned(&as_int);
+      break;
+
+    default:
+      return -EILSEQ;
+  }
+
+  return sync_buffers(buffer, &tmp);
+}
+
+int
 cbor_unpack_bool(grow_buf_t *buffer, SUBOOL *b)
 {
   grow_buf_t tmp;
@@ -796,7 +900,9 @@ cbor_unpack_map_end(grow_buf_t *buffer, SUBOOL end_required)
 }
 
 int
-cbor_unpack_array_start(grow_buf_t *buffer, uint64_t *nelem,
+cbor_unpack_array_start(
+    grow_buf_t *buffer,
+    uint64_t *nelem,
     SUBOOL *end_required)
 {
   grow_buf_t tmp;
@@ -808,8 +914,13 @@ cbor_unpack_array_start(grow_buf_t *buffer, uint64_t *nelem,
       grow_buf_avail(buffer),
       grow_buf_avail(buffer));
 
-  ret = unpack_cbor_arraymap_start(&tmp, CMT_ARRAY, ADDL_ARRAY_INDEF,
-     nelem, end_required);
+  ret = unpack_cbor_arraymap_start(
+      &tmp,
+      CMT_ARRAY,
+      ADDL_ARRAY_INDEF,
+      nelem,
+      end_required);
+
   if (ret)
     return ret;
 

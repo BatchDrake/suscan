@@ -46,8 +46,26 @@ extern "C" {
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
 
+#define SUSCAN_SERIALIZER_PROTO(structname)     \
+SUBOOL                                          \
+JOIN(structname, _serialize)(                   \
+    const struct structname *self,              \
+    grow_buf_t *buffer)                         \
+
+#define SUSCAN_DESERIALIZER_PROTO(structname)   \
+SUBOOL                                          \
+JOIN(structname, _deserialize)(                 \
+    struct structname *self,                    \
+    grow_buf_t *buffer)                         \
+
+#define SUSCAN_SERIALIZABLE(structname)         \
+    struct structname;                          \
+    SUSCAN_SERIALIZER_PROTO(structname);        \
+    SUSCAN_DESERIALIZER_PROTO(structname);      \
+    struct structname
+
 /* Generic status message */
-struct suscan_analyzer_status_msg {
+SUSCAN_SERIALIZABLE(suscan_analyzer_status_msg) {
   int code;
   char *err_msg;
   const suscan_analyzer_t *sender;
@@ -61,18 +79,18 @@ struct suscan_analyzer_channel_msg {
 };
 
 /* Throttle parameters */
-struct suscan_analyzer_throttle_msg {
+SUSCAN_SERIALIZABLE(suscan_analyzer_throttle_msg) {
   SUSCOUNT samp_rate; /* Samp rate == 0: reset */
 };
 
 /* Channel spectrum message */
-struct suscan_analyzer_psd_msg {
+SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
   int64_t fc;
   uint32_t inspector_id;
   SUFLOAT  samp_rate;
+  SUFLOAT  N0;
   SUSCOUNT psd_size;
   SUFLOAT *psd_data;
-  SUFLOAT  N0;
 };
 
 /* Channel sample batch */
@@ -233,6 +251,7 @@ void suscan_analyzer_sample_batch_msg_destroy(
 
 /* Generic message disposer */
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);
+
 
 #ifdef __cplusplus
 }

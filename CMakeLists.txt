@@ -233,6 +233,7 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/insp-server.c
   ${ANALYZERDIR}/mq.c
   ${ANALYZERDIR}/msg.c
+  ${ANALYZERDIR}/serialize.c
   ${ANALYZERDIR}/slow.c
   ${ANALYZERDIR}/source.c
   ${ANALYZERDIR}/spectsrc.c

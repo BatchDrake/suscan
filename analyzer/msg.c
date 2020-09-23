@@ -20,13 +20,10 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <stdarg.h>
 #include <ctype.h>
 #include <libgen.h>
-#include <pthread.h>
 #include <stdint.h>
-#include <pthread.h>
 
 #define SU_LOG_DOMAIN "msg"
 
@@ -44,7 +41,6 @@ suscan_analyzer_status_msg_destroy(struct suscan_analyzer_status_msg *status)
   free(status);
 }
 
-/* Channel list */
 struct suscan_analyzer_status_msg *
 suscan_analyzer_status_msg_new(uint32_t code, const char *msg)
 {
