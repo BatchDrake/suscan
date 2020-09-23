@@ -24,7 +24,10 @@
 #include <sigutils/types.h>
 #include <stdint.h>
 #include <string.h>
+
 #include "cbor.h"
+
+#define CBOR_MEM_REUSE_SIZE_LIMIT (1 << 20)
 
 enum cbor_major_type {
   CMT_UINT  = 0,
@@ -61,125 +64,6 @@ enum cbor_major_type {
     ({        \
       (type << 5) | additional;      \
     })
-
-
-/*
- * Integer byteorder
- */
-
-SUINLINE uint64_t
-be64_to_cpu_unaligned(const void *in)
-{
-  const uint8_t *p = in;
-
-  return (((uint64_t) p[0] << 56) |
-    ((uint64_t) p[1] << 48) |
-    ((uint64_t) p[2] << 40) |
-    ((uint64_t) p[3] << 32) |
-    ((uint64_t) p[4] << 24) |
-    ((uint64_t) p[5] << 16) |
-    ((uint64_t) p[6] << 8) |
-    ((uint64_t) p[7]));
-}
-
-SUINLINE void
-cpu64_to_be_unaligned(uint64_t in, void *out)
-{
-  uint8_t *p = out;
-
-  p[0] = (in >> 56) & 0xff;
-  p[1] = (in >> 48) & 0xff;
-  p[2] = (in >> 40) & 0xff;
-  p[3] = (in >> 32) & 0xff;
-  p[4] = (in >> 24) & 0xff;
-  p[5] = (in >> 16) & 0xff;
-  p[6] = (in >> 8) & 0xff;
-  p[7] = in & 0xff;
-}
-
-SUINLINE uint64_t
-cpu64_to_be(uint64_t in)
-{
-  cpu64_to_be_unaligned(in, &in);
-
-  return in;
-}
-
-SUINLINE uint32_t
-be32_to_cpu_unaligned(const void *in)
-{
-  const uint8_t *p = in;
-
-  return (((uint32_t) p[0] << 24) |
-    ((uint32_t) p[1] << 16) |
-    ((uint32_t) p[2] << 8) |
-    ((uint32_t) p[3]));
-}
-
-SUINLINE void
-cpu32_to_be_unaligned(uint32_t in, void *out)
-{
-  uint8_t *p = out;
-
-  p[0] = (in >> 24) & 0xff;
-  p[1] = (in >> 16) & 0xff;
-  p[2] = (in >> 8) & 0xff;
-  p[3] = in & 0xff;
-}
-
-SUINLINE uint32_t
-cpu32_to_be(uint32_t in)
-{
-  cpu32_to_be_unaligned(in, &in);
-
-  return in;
-}
-
-SUINLINE uint16_t
-be16_to_cpu_unaligned(const void *in)
-{
-  const uint8_t *p = in;
-
-  return (((uint16_t) p[0] << 8) |
-    ((uint16_t) p[1]));
-}
-
-SUINLINE void
-cpu16_to_be_unaligned(uint16_t in, void *out)
-{
-  uint8_t *p = out;
-
-  p[0] = (in >> 8) & 0xff;
-  p[1] = in & 0xff;
-}
-
-SUINLINE uint16_t
-cpu16_to_be(uint16_t in)
-{
-  cpu16_to_be_unaligned(in, &in);
-
-  return in;
-}
-
-SUINLINE uint8_t
-be8_to_cpu_unaligned(const void *in)
-{
-  return *((const uint8_t *) in);
-}
-
-SUINLINE void
-cpu8_to_be_unaligned(uint8_t in, void *out)
-{
-  uint8_t *p = out;
-
-  *p = in;
-}
-
-SUINLINE uint8_t
-cpu8_to_be(uint8_t in)
-{
-  return in;
-}
 
 /*
  * pack
@@ -286,8 +170,10 @@ cbor_pack_int(grow_buf_t *buffer, int64_t v)
 }
 
 int
-cbor_pack_blob(grow_buf_t *buffer, const void *data,
-       size_t size)
+cbor_pack_blob(
+    grow_buf_t *buffer,
+    const void *data,
+    size_t size)
 {
   int ret;
 
@@ -295,6 +181,17 @@ cbor_pack_blob(grow_buf_t *buffer, const void *data,
     return ret;
 
   return grow_buf_append(buffer, data, size);
+}
+
+void *
+cbor_alloc_blob(grow_buf_t *buffer, size_t size)
+{
+  int ret;
+
+  if ((ret = pack_cbor_type(buffer, CMT_BYTE, size)))
+    return NULL;
+
+  return grow_buf_append_hollow(buffer, size);
 }
 
 int
@@ -640,7 +537,70 @@ cbor_unpack_int(grow_buf_t *buffer, int64_t *v)
 int
 cbor_unpack_blob(grow_buf_t *buffer, void **data, size_t *size)
 {
-  return -ENOTSUP;
+  uint64_t parsed_len;
+  grow_buf_t tmp;
+  ssize_t ret;
+  void *new_buf;
+
+  grow_buf_init_loan(
+      &tmp,
+      grow_buf_current_data(buffer),
+      grow_buf_avail(buffer),
+      grow_buf_avail(buffer));
+
+  ret = unpack_cbor_int(&tmp, CMT_BYTE, &parsed_len);
+  if (ret)
+    return ret;
+
+  if (parsed_len >= SIZE_MAX)
+    return -EOVERFLOW;
+
+  /* If parsed length is bigger than available data, something is very broken */
+  if (parsed_len > grow_buf_avail(&tmp))
+    return -EILSEQ;
+
+  if (parsed_len == 0) {
+    if (*size != 0)
+      free(*data);
+
+    *size = 0;
+    *data = NULL;
+
+    return 0;
+  }
+
+  /* Looks good! */
+  if (*size != 0) {
+    /*
+     * User reports cached buffer. Instead of reallocating every time the
+     * cached lengths don't match, we attempt to minimize the number of times
+     * we call realloc() by doing it only when:
+     *
+     *  - There is physically no space to hold the data.
+     *  - The current cached size is way too big
+     *
+     * This way we also achieve a trade-off between buffer reuse and
+     * memory footprint.
+     */
+
+    if (parsed_len > *size
+        || (*size != parsed_len  && *size > CBOR_MEM_REUSE_SIZE_LIMIT)) {
+      if ((new_buf = realloc(*data, parsed_len)) == NULL)
+        return -1;
+
+      *data = new_buf;
+    }
+  } else {
+    if ((new_buf = malloc(parsed_len)) == NULL)
+      return -1;
+
+    *data = new_buf;
+  }
+
+  *size = parsed_len;
+  memcpy(*data, grow_buf_current_data(&tmp), parsed_len);
+
+  return sync_buffers(buffer, &tmp);
 }
 
 int

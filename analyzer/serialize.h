@@ -23,6 +23,14 @@
 
 #include <util/cbor.h>
 
+#ifdef _SU_SINGLE_PRECISION
+#  define suscan_pack_compact_float_array   suscan_pack_compact_single_array
+#  define suscan_unpack_compact_float_array suscan_unpack_compact_single_array
+#else
+#  define suscan_pack_compact_float_array   suscan_pack_compact_double_array
+#  define suscan_unpack_compact_float_array suscan_unpack_compact_double_array
+#endif /* _SU_SINGLE_PRECISION */
+
 #define SUSCAN_SERIALIZER_PROTO(structname)     \
 SUBOOL                                          \
 JOIN(structname, _serialize)(                   \
@@ -72,5 +80,47 @@ fail:                                           \
     SU_TRYCATCH(                                \
         JOIN(cbor_unpack_, t)(buffer, &v) == 0, \
         goto fail)
+
+void suscan_single_array_cpu_to_be(
+    SUSINGLE *array,
+    const SUSINGLE *orig,
+    SUSCOUNT size);
+
+void suscan_single_array_be_to_cpu(
+    SUSINGLE *array,
+    const SUSINGLE *orig,
+    SUSCOUNT size);
+
+void suscan_double_array_cpu_to_be(
+    SUDOUBLE *array,
+    const SUDOUBLE *orig,
+    SUSCOUNT size);
+
+void suscan_double_array_be_to_cpu(
+    SUDOUBLE *array,
+    const SUDOUBLE *orig,
+    SUSCOUNT size);
+
+SUBOOL suscan_pack_compact_single_array(
+    grow_buf_t *buffer,
+    const SUSINGLE *array,
+    SUSCOUNT size);
+
+SUBOOL suscan_pack_compact_double_array(
+    grow_buf_t *buffer,
+    const SUDOUBLE *array,
+    SUSCOUNT size);
+
+SUBOOL
+suscan_unpack_compact_single_array(
+    grow_buf_t *buffer,
+    SUSINGLE **oarray,
+    SUSCOUNT *osize);
+
+SUBOOL
+suscan_unpack_compact_double_array(
+    grow_buf_t *buffer,
+    SUDOUBLE **oarray,
+    SUSCOUNT *osize);
 
 #endif /* _SUSCAN_SERIALIZE_H */

@@ -27,6 +27,176 @@
 #include "msg.h"
 #include "serialize.h"
 
+/* Helper functions */
+void
+suscan_single_array_cpu_to_be(
+    SUSINGLE *array,
+    const SUSINGLE *orig,
+    SUSCOUNT size)
+{
+  SUSCOUNT i;
+  uint32_t *idest = (uint32_t *) array;
+  const uint32_t *iorig = (const uint32_t *) orig;
+
+  for (i = 0; i < size; ++i)
+    idest[i] = cpu32_to_be(iorig[i]);
+}
+
+void
+suscan_single_array_be_to_cpu(
+    SUSINGLE *array,
+    const SUSINGLE *orig,
+    SUSCOUNT size)
+{
+  SUSCOUNT i;
+  uint32_t *idest = (uint32_t *) array;
+  const uint32_t *iorig = (const uint32_t *) orig;
+
+  for (i = 0; i < size; ++i)
+    idest[i] = be32_to_cpu_unaligned(iorig + i);
+}
+
+void
+suscan_double_array_cpu_to_be(
+    SUDOUBLE *array,
+    const SUDOUBLE *orig,
+    SUSCOUNT size)
+{
+  SUSCOUNT i;
+  uint64_t *idest = (uint64_t *) array;
+  const uint64_t *iorig = (const uint64_t *) orig;
+
+  for (i = 0; i < size; ++i)
+    idest[i] = cpu64_to_be(iorig[i]);
+}
+
+void
+suscan_double_array_be_to_cpu(
+    SUDOUBLE *array,
+    const SUDOUBLE *orig,
+    SUSCOUNT size)
+{
+  SUSCOUNT i;
+  uint64_t *idest = (uint64_t *) array;
+  const uint64_t *iorig = (const uint64_t *) orig;
+
+  for (i = 0; i < size; ++i)
+    idest[i] = be64_to_cpu_unaligned(iorig + i);
+}
+
+SUBOOL
+suscan_pack_compact_single_array(
+    grow_buf_t *buffer,
+    const SUSINGLE *array,
+    SUSCOUNT size)
+{
+  SUSCOUNT array_size = size * sizeof(SUSINGLE);
+  SUSINGLE *dest;
+  SUBOOL ok = SU_FALSE;
+
+  SUSCAN_PACK(uint, size);
+
+  SU_TRYCATCH(dest = cbor_alloc_blob(buffer, array_size), goto fail);
+
+  suscan_single_array_cpu_to_be(dest, array, size);
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+
+SUBOOL
+suscan_pack_compact_double_array(
+    grow_buf_t *buffer,
+    const SUDOUBLE *array,
+    SUSCOUNT size)
+{
+  SUSCOUNT array_size = size * sizeof(SUDOUBLE);
+  SUDOUBLE *dest;
+  SUBOOL ok = SU_FALSE;
+
+  SUSCAN_PACK(uint, size);
+
+  SU_TRYCATCH(dest = cbor_alloc_blob(buffer, array_size), goto fail);
+
+  suscan_double_array_cpu_to_be(dest, array, size);
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+
+SUBOOL
+suscan_unpack_compact_single_array(
+    grow_buf_t *buffer,
+    SUSINGLE **oarray,
+    SUSCOUNT *osize)
+{
+  SUSINGLE *array = *oarray;
+  SUSCOUNT array_length;
+  SUSCOUNT array_size = *osize * sizeof(SUSINGLE);
+  SUBOOL ok = SU_FALSE;
+
+  SUSCAN_UNPACK(uint64, array_length);
+
+  SU_TRYCATCH(
+      cbor_unpack_blob(buffer, (void **) &array, &array_size) == 0,
+      goto fail);
+  SU_TRYCATCH(array_size == array_length * sizeof(SUSINGLE), goto fail);
+
+  suscan_single_array_be_to_cpu(array, array, array_length);
+
+  *oarray = array;
+  *osize  = array_length;
+
+  array = NULL;
+
+  ok = SU_TRUE;
+
+fail:
+  if (array != NULL)
+    free(array);
+
+  return ok;
+}
+
+SUBOOL
+suscan_unpack_compact_double_array(
+    grow_buf_t *buffer,
+    SUDOUBLE **oarray,
+    SUSCOUNT *osize)
+{
+  SUDOUBLE *array = *oarray;
+  SUSCOUNT array_size = *osize * sizeof(SUDOUBLE);
+  SUSCOUNT array_length;
+  SUBOOL ok = SU_FALSE;
+
+  SUSCAN_UNPACK(uint64, array_length);
+
+  SU_TRYCATCH(
+      cbor_unpack_blob(buffer, (void **) &array, &array_size) == 0,
+      goto fail);
+
+  SU_TRYCATCH(array_size == array_length * sizeof(SUDOUBLE), goto fail);
+
+  suscan_double_array_be_to_cpu(array, array, array_length);
+
+  *oarray = array;
+  *osize  = array_length;
+
+  array = NULL;
+
+  ok = SU_TRUE;
+
+fail:
+  if (array != NULL)
+    free(array);
+
+  return ok;
+}
+
 /* suscan_analyzer_status_msg */
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_status_msg)
 {
@@ -71,16 +241,18 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_throttle_msg)
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
 {
   SUSCAN_PACK_BOILERPLATE_START;
-  SUSCOUNT i;
 
-  SUSCAN_PACK(int, self->fc);
-  SUSCAN_PACK(uint, self->inspector_id);
+  SUSCAN_PACK(int,   self->fc);
+  SUSCAN_PACK(uint,  self->inspector_id);
   SUSCAN_PACK(float, self->samp_rate);
   SUSCAN_PACK(float, self->N0);
 
-  SU_TRYCATCH(cbor_pack_array_start(buffer, self->psd_size) == 0, goto fail);
-  for (i = 0; i < self->psd_size; ++i)
-    SUSCAN_PACK(float, self->psd_data[i]);
+  SU_TRYCATCH(
+      suscan_pack_compact_single_array(
+          buffer,
+          self->psd_data,
+          self->psd_size),
+      goto fail);
 
   SUSCAN_PACK_BOILERPLATE_END;
 }
@@ -88,28 +260,18 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
-  SUSCOUNT i;
-  uint64_t new_size;
-  SUFLOAT *tmp;
-  SUBOOL end;
 
-  SUSCAN_UNPACK(int64, self->fc);
+  SUSCAN_UNPACK(int64,  self->fc);
   SUSCAN_UNPACK(uint32, self->inspector_id);
-  SUSCAN_UNPACK(float, self->samp_rate);
-  SUSCAN_UNPACK(float, self->N0);
+  SUSCAN_UNPACK(float,  self->samp_rate);
+  SUSCAN_UNPACK(float,  self->N0);
 
-  SU_TRYCATCH(cbor_unpack_array_start(buffer, &new_size, &end) == 0, goto fail);
-  SU_TRYCATCH(!end, goto fail);
-  if (self->psd_size != new_size) {
-    SU_TRYCATCH(
-        tmp = realloc(self->psd_data, new_size * sizeof(SUFLOAT)),
-        goto fail);
-
-    self->psd_data = tmp;
-  }
-
-  for (i = 0; i < self->psd_size; ++i)
-    SUSCAN_UNPACK(float, self->psd_data[i]);
+  SU_TRYCATCH(
+      suscan_unpack_compact_single_array(
+          buffer,
+          &self->psd_data,
+          &self->psd_size),
+      goto fail);
 
   UNPACK_BOILERPLATE_END;
 }

@@ -40,14 +40,132 @@
 #define cbor_unpack_freq    cbor_unpack_double
 
 /*
+ * Integer byteorder
+ */
+
+SUINLINE uint64_t
+be64_to_cpu_unaligned(const void *in)
+{
+  const uint8_t *p = in;
+
+  return (((uint64_t) p[0] << 56) |
+    ((uint64_t) p[1] << 48) |
+    ((uint64_t) p[2] << 40) |
+    ((uint64_t) p[3] << 32) |
+    ((uint64_t) p[4] << 24) |
+    ((uint64_t) p[5] << 16) |
+    ((uint64_t) p[6] << 8) |
+    ((uint64_t) p[7]));
+}
+
+SUINLINE void
+cpu64_to_be_unaligned(uint64_t in, void *out)
+{
+  uint8_t *p = out;
+
+  p[0] = (in >> 56) & 0xff;
+  p[1] = (in >> 48) & 0xff;
+  p[2] = (in >> 40) & 0xff;
+  p[3] = (in >> 32) & 0xff;
+  p[4] = (in >> 24) & 0xff;
+  p[5] = (in >> 16) & 0xff;
+  p[6] = (in >> 8) & 0xff;
+  p[7] = in & 0xff;
+}
+
+SUINLINE uint64_t
+cpu64_to_be(uint64_t in)
+{
+  cpu64_to_be_unaligned(in, &in);
+
+  return in;
+}
+
+SUINLINE uint32_t
+be32_to_cpu_unaligned(const void *in)
+{
+  const uint8_t *p = in;
+
+  return (((uint32_t) p[0] << 24) |
+    ((uint32_t) p[1] << 16) |
+    ((uint32_t) p[2] << 8) |
+    ((uint32_t) p[3]));
+}
+
+SUINLINE void
+cpu32_to_be_unaligned(uint32_t in, void *out)
+{
+  uint8_t *p = out;
+
+  p[0] = (in >> 24) & 0xff;
+  p[1] = (in >> 16) & 0xff;
+  p[2] = (in >> 8) & 0xff;
+  p[3] = in & 0xff;
+}
+
+SUINLINE uint32_t
+cpu32_to_be(uint32_t in)
+{
+  cpu32_to_be_unaligned(in, &in);
+
+  return in;
+}
+
+SUINLINE uint16_t
+be16_to_cpu_unaligned(const void *in)
+{
+  const uint8_t *p = in;
+
+  return (((uint16_t) p[0] << 8) |
+    ((uint16_t) p[1]));
+}
+
+SUINLINE void
+cpu16_to_be_unaligned(uint16_t in, void *out)
+{
+  uint8_t *p = out;
+
+  p[0] = (in >> 8) & 0xff;
+  p[1] = in & 0xff;
+}
+
+SUINLINE uint16_t
+cpu16_to_be(uint16_t in)
+{
+  cpu16_to_be_unaligned(in, &in);
+
+  return in;
+}
+
+SUINLINE uint8_t
+be8_to_cpu_unaligned(const void *in)
+{
+  return *((const uint8_t *) in);
+}
+
+SUINLINE void
+cpu8_to_be_unaligned(uint8_t in, void *out)
+{
+  uint8_t *p = out;
+
+  *p = in;
+}
+
+SUINLINE uint8_t
+cpu8_to_be(uint8_t in)
+{
+  return in;
+}
+
+/*
  * On failure, the buffer may contain partially encoded data items.  On
  * success, a fully encoded data item is appended to the buffer.
  */
 int cbor_pack_uint(grow_buf_t *buffer, uint64_t v);
 int cbor_pack_nint(grow_buf_t *buffer, uint64_t v);
 int cbor_pack_int(grow_buf_t *buffer, int64_t v);
-int cbor_pack_blob(grow_buf_t *buffer, const void *data,
-        size_t size);
+int cbor_pack_blob(grow_buf_t *buffer, const void *data, size_t size);
+void *cbor_alloc_blob(grow_buf_t *buffer, size_t size);
 int cbor_pack_cstr_len(grow_buf_t *buffer, const char *str, size_t len);
 int cbor_pack_str(grow_buf_t *buffer, const char *str);
 int cbor_pack_bool(grow_buf_t *buffer, SUBOOL b);
