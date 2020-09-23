@@ -27,16 +27,16 @@
 #include "msg.h"
 #include <util/cbor.h>
 
-#define PACK_BOILERPLATE_START                  \
+#define SUSCAN_PACK_BOILERPLATE_START                  \
   SUBOOL ok = SU_FALSE;
 
-#define PACK_BOILERPLATE_END                    \
+#define SUSCAN_PACK_BOILERPLATE_END                    \
   ok = SU_TRUE;                                 \
                                                 \
 fail:                                           \
   return ok
 
-#define UNPACK_BOILERPLATE_START                \
+#define SUSCAN_UNPACK_BOILERPLATE_START                \
   size_t ptr = grow_buf_ptr(buffer);            \
   SUBOOL ok = SU_FALSE;
 
@@ -49,12 +49,12 @@ fail:                                           \
                                                 \
   return ok;
 
-#define PACK(t, v)                              \
+#define SUSCAN_PACK(t, v)                              \
     SU_TRYCATCH(                                \
         JOIN(cbor_pack_, t)(buffer, v) == 0,    \
         goto fail)
 
-#define UNPACK(t, v)                            \
+#define SUSCAN_UNPACK(t, v)                            \
     SU_TRYCATCH(                                \
         JOIN(cbor_unpack_, t)(buffer, &v) == 0, \
         goto fail)
@@ -62,20 +62,20 @@ fail:                                           \
 /* suscan_analyzer_status_msg */
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_status_msg)
 {
-  PACK_BOILERPLATE_START;
+  SUSCAN_PACK_BOILERPLATE_START;
 
-  PACK(int, self->code);
-  PACK(str, self->err_msg);
+  SUSCAN_PACK(int, self->code);
+  SUSCAN_PACK(str, self->err_msg);
 
-  PACK_BOILERPLATE_END;
+  SUSCAN_PACK_BOILERPLATE_END;
 }
 
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_status_msg)
 {
-  UNPACK_BOILERPLATE_START;
+  SUSCAN_UNPACK_BOILERPLATE_START;
 
-  UNPACK(int32, self->code);
-  UNPACK(str, self->err_msg);
+  SUSCAN_UNPACK(int32, self->code);
+  SUSCAN_UNPACK(str, self->err_msg);
 
   UNPACK_BOILERPLATE_END;
 }
@@ -83,18 +83,18 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_status_msg)
 /* suscan_analyzer_throttle_msg */
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_throttle_msg)
 {
-  PACK_BOILERPLATE_START;
+  SUSCAN_PACK_BOILERPLATE_START;
 
-  PACK(uint, self->samp_rate);
+  SUSCAN_PACK(uint, self->samp_rate);
 
-  PACK_BOILERPLATE_END;
+  SUSCAN_PACK_BOILERPLATE_END;
 }
 
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_throttle_msg)
 {
-  UNPACK_BOILERPLATE_START;
+  SUSCAN_UNPACK_BOILERPLATE_START;
 
-  UNPACK(uint64, self->samp_rate);
+  SUSCAN_UNPACK(uint64, self->samp_rate);
 
   UNPACK_BOILERPLATE_END;
 }
@@ -102,33 +102,33 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_throttle_msg)
 /* suscan_analyzer_psd_msg */
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
 {
-  PACK_BOILERPLATE_START;
+  SUSCAN_PACK_BOILERPLATE_START;
   SUSCOUNT i;
 
-  PACK(int, self->fc);
-  PACK(uint, self->inspector_id);
-  PACK(float, self->samp_rate);
-  PACK(float, self->N0);
+  SUSCAN_PACK(int, self->fc);
+  SUSCAN_PACK(uint, self->inspector_id);
+  SUSCAN_PACK(float, self->samp_rate);
+  SUSCAN_PACK(float, self->N0);
 
   SU_TRYCATCH(cbor_pack_array_start(buffer, self->psd_size) == 0, goto fail);
   for (i = 0; i < self->psd_size; ++i)
-    PACK(float, self->psd_data[i]);
+    SUSCAN_PACK(float, self->psd_data[i]);
 
-  PACK_BOILERPLATE_END;
+  SUSCAN_PACK_BOILERPLATE_END;
 }
 
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
 {
-  UNPACK_BOILERPLATE_START;
+  SUSCAN_UNPACK_BOILERPLATE_START;
   SUSCOUNT i;
   uint64_t new_size;
   SUFLOAT *tmp;
   SUBOOL end;
 
-  UNPACK(int64, self->fc);
-  UNPACK(uint32, self->inspector_id);
-  UNPACK(float, self->samp_rate);
-  UNPACK(float, self->N0);
+  SUSCAN_UNPACK(int64, self->fc);
+  SUSCAN_UNPACK(uint32, self->inspector_id);
+  SUSCAN_UNPACK(float, self->samp_rate);
+  SUSCAN_UNPACK(float, self->N0);
 
   SU_TRYCATCH(cbor_unpack_array_start(buffer, &new_size, &end) == 0, goto fail);
   SU_TRYCATCH(!end, goto fail);
@@ -141,7 +141,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
   }
 
   for (i = 0; i < self->psd_size; ++i)
-    UNPACK(float, self->psd_data[i]);
+    SUSCAN_UNPACK(float, self->psd_data[i]);
 
   UNPACK_BOILERPLATE_END;
 }

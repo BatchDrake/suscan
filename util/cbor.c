@@ -26,7 +26,6 @@
 #include <string.h>
 #include "cbor.h"
 
-
 enum cbor_major_type {
   CMT_UINT  = 0,
   CMT_NINT  = 1,

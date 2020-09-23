@@ -23,7 +23,7 @@
 #ifndef _UTIL_CBOR_H
 #define _UTIL_CBOR_H
 
-#include <errno.h>
+#include <string.h>
 #include <sigutils/types.h>
 
 #define CBOR_UNKNOWN_NELEM  (~0ul)

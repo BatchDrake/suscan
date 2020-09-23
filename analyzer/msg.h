@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 #include "analyzer.h"
+#include "serialize.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,23 +47,6 @@ extern "C" {
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
 
-#define SUSCAN_SERIALIZER_PROTO(structname)     \
-SUBOOL                                          \
-JOIN(structname, _serialize)(                   \
-    const struct structname *self,              \
-    grow_buf_t *buffer)                         \
-
-#define SUSCAN_DESERIALIZER_PROTO(structname)   \
-SUBOOL                                          \
-JOIN(structname, _deserialize)(                 \
-    struct structname *self,                    \
-    grow_buf_t *buffer)                         \
-
-#define SUSCAN_SERIALIZABLE(structname)         \
-    struct structname;                          \
-    SUSCAN_SERIALIZER_PROTO(structname);        \
-    SUSCAN_DESERIALIZER_PROTO(structname);      \
-    struct structname
 
 /* Generic status message */
 SUSCAN_SERIALIZABLE(suscan_analyzer_status_msg) {

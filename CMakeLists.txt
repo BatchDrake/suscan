@@ -187,6 +187,7 @@ set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/spectsrc.h
   ${ANALYZERDIR}/worker.h
   ${ANALYZERDIR}/estimator.h
+  ${ANALYZERDIR}/serialize.h
   ${ANALYZERDIR}/source.h
   ${ANALYZERDIR}/symbuf.h
   ${ANALYZERDIR}/mq.h
