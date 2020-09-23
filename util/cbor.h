@@ -26,6 +26,10 @@
 #include <string.h>
 #include <sigutils/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #define CBOR_UNKNOWN_NELEM  (~0ul)
 
 #ifdef _SU_SINGLE_PRECISION
@@ -42,6 +46,9 @@
 /*
  * Integer byteorder
  */
+
+#ifndef __cplusplus
+/* Too obscene for C++ */
 
 SUINLINE uint64_t
 be64_to_cpu_unaligned(const void *in)
@@ -156,6 +163,7 @@ cpu8_to_be(uint8_t in)
 {
   return in;
 }
+#endif /* __cplusplus */
 
 /*
  * On failure, the buffer may contain partially encoded data items.  On
@@ -254,4 +262,8 @@ CBOR_UINT_UNPACKER(16)
 CBOR_UINT_UNPACKER(32)
 CBOR_UINT_UNPACKER(64)
 
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 #endif /* _UTIL_CBOR_H */

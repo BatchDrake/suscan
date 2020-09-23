@@ -31,6 +31,10 @@
 #include "msg.h"
 #include "source.h"
 
+#ifdef bool
+#  undef bool
+#endif /* bool */
+
 /**************************** Status message **********************************/
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_status_msg)
 {
@@ -49,7 +53,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_status_msg)
   SUSCAN_UNPACK(int32, self->code);
   SUSCAN_UNPACK(str, self->err_msg);
 
-  UNPACK_BOILERPLATE_END;
+  SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
 void
@@ -208,7 +212,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
           &self->psd_size),
       goto fail);
 
-  UNPACK_BOILERPLATE_END;
+  SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
 void
@@ -264,6 +268,114 @@ fail:
 }
 
 /***************************** Inspector message ******************************/
+SUSCAN_SERIALIZABLE(sigutils_channel);
+
+SUSCAN_SERIALIZER_PROTO(sigutils_channel)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(freq,  self->fc);
+  SUSCAN_PACK(freq,  self->f_lo);
+  SUSCAN_PACK(freq,  self->f_hi);
+  SUSCAN_PACK(float, self->bw);
+  SUSCAN_PACK(float, self->snr);
+  SUSCAN_PACK(float, self->S0);
+  SUSCAN_PACK(float, self->N0);
+  SUSCAN_PACK(freq,  self->ft);
+
+  SUSCAN_PACK(uint, self->age);
+  SUSCAN_PACK(uint, self->present);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(sigutils_channel)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(freq,   self->fc);
+  SUSCAN_UNPACK(freq,   self->f_lo);
+  SUSCAN_UNPACK(freq,   self->f_hi);
+  SUSCAN_UNPACK(float,  self->bw);
+  SUSCAN_UNPACK(float,  self->snr);
+  SUSCAN_UNPACK(float,  self->S0);
+  SUSCAN_UNPACK(float,  self->N0);
+  SUSCAN_UNPACK(freq,   self->ft);
+
+  SUSCAN_UNPACK(uint32, self->age);
+  SUSCAN_UNPACK(uint32, self->present);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_open(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+  unsigned int i;
+
+  SUSCAN_PACK(str,   self->class_name);
+
+  SU_TRYCATCH(sigutils_channel_serialize(&self->channel, buffer), goto fail);
+  SU_TRYCATCH(suscan_config_serialize(self->config, buffer), goto fail);
+
+  SUSCAN_PACK(bool,  self->precise);
+  SUSCAN_PACK(uint,  self->fs);
+  SUSCAN_PACK(float, self->equiv_fs);
+  SUSCAN_PACK(float, self->bandwidth);
+  SUSCAN_PACK(float, self->lo);
+
+  SU_TRYCATCH(
+      cbor_pack_array_start(buffer, self->estimator_count) == 0,
+      goto fail);
+  for (i = 0; i < self->estimator_count; ++i)
+    SUSCAN_PACK(str, self->estimator_list[i]->name);
+
+  SU_TRYCATCH(
+      cbor_pack_array_start(buffer, self->spectsrc_count) == 0,
+      goto fail);
+  for (i = 0; i < self->spectsrc_count; ++i)
+    SUSCAN_PACK(str, self->spectsrc_list[i]->name);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(int, self->kind);
+  SUSCAN_PACK(int, self->inspector_id);
+  SUSCAN_PACK(int, self->req_id);
+  SUSCAN_PACK(int, self->handle);
+  SUSCAN_PACK(int, self->status);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(uint32, self->int32_kind);
+
+  switch (self->kind) {
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_open(buffer, self),
+          goto fail);
+      break;
+
+    default:
+      SU_ERROR("Message kind is not supported\n");
+      goto fail;
+  }
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 struct suscan_analyzer_inspector_msg *
 suscan_analyzer_inspector_msg_new(
     enum suscan_analyzer_inspector_msgkind kind,
@@ -345,7 +457,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_sample_batch_msg)
           &self->sample_count),
       goto fail);
 
-  UNPACK_BOILERPLATE_END;
+  SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
 struct suscan_analyzer_sample_batch_msg *
@@ -405,7 +517,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_throttle_msg)
 
   SUSCAN_UNPACK(uint64, self->samp_rate);
 
-  UNPACK_BOILERPLATE_END;
+  SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
 /************************ Generic message disposal ****************************/

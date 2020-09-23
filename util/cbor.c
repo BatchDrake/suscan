@@ -202,12 +202,18 @@ cbor_pack_cstr_len(grow_buf_t *buffer, const char *str, size_t len)
   if ((ret = pack_cbor_type(buffer, CMT_TEXT, len)))
     return ret;
 
+  if (len == 0)
+    return 0;
+
   return grow_buf_append(buffer, str, len);
 }
 
 int
 cbor_pack_str(grow_buf_t *buffer, const char *str)
 {
+  if (str == NULL)
+    return cbor_pack_cstr_len(buffer, str, 0);
+
   return cbor_pack_cstr_len(buffer, str, strlen(str));
 }
 
@@ -841,8 +847,13 @@ cbor_unpack_map_start(grow_buf_t *buffer, uint64_t *npairs,
       grow_buf_avail(buffer),
       grow_buf_avail(buffer));
 
-  ret = unpack_cbor_arraymap_start(&tmp, CMT_MAP, ADDL_MAP_INDEF,
-     npairs, end_required);
+  ret = unpack_cbor_arraymap_start(
+      &tmp,
+      CMT_MAP,
+      ADDL_MAP_INDEF,
+      npairs,
+      end_required);
+
   if (ret)
     return ret;
 

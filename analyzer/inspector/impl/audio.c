@@ -27,6 +27,8 @@
 #include <sigutils/iir.h>
 #include <sigutils/clock.h>
 
+#include <analyzer/version.h>
+
 #include "inspector/interface.h"
 #include "inspector/params.h"
 #include "inspector/inspector.h"
@@ -460,12 +462,15 @@ SUBOOL
 suscan_audio_inspector_register(void)
 {
   SU_TRYCATCH(
-      iface.cfgdesc = suscan_config_desc_new(),
+      iface.cfgdesc = suscan_config_desc_new_ex(
+          "audio-params-desc-" SUSCAN_VERSION_STRING),
       return SU_FALSE);
 
   /* Add all configuration parameters */
   SU_TRYCATCH(suscan_config_desc_add_gc_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_audio_params(iface.cfgdesc), return SU_FALSE);
+
+  SU_TRYCATCH(suscan_config_desc_register(iface.cfgdesc), return SU_FALSE);
 
   /* Register inspector interface */
   SU_TRYCATCH(suscan_inspector_interface_register(&iface), return SU_FALSE);

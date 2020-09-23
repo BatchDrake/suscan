@@ -26,6 +26,74 @@
 
 #include "cfg.h"
 
+PTR_LIST_PRIVATE(suscan_config_desc_t, g_config_desc);
+SUPRIVATE pthread_mutex_t g_config_desc_mutex;
+
+SUPRIVATE suscan_config_desc_t *
+suscan_config_desc_lookup_unsafe(const char *global_name)
+{
+  unsigned int i;
+
+  for (i = 0; i < g_config_desc_count; ++i)
+    if (strcmp(g_config_desc_list[i]->global_name, global_name) == 0)
+      return g_config_desc_list[i];
+
+  return NULL;
+}
+
+suscan_config_desc_t *
+suscan_config_desc_lookup(const char *global_name)
+{
+  SUBOOL mutex_acquired = SU_FALSE;
+  suscan_config_desc_t *result = NULL;
+
+  SU_TRYCATCH(pthread_mutex_lock(&g_config_desc_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
+
+  result = suscan_config_desc_lookup_unsafe(global_name);
+
+done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&g_config_desc_mutex);
+
+  return result;
+}
+
+SUBOOL
+suscan_config_desc_register(suscan_config_desc_t *desc)
+{
+  int saved_errno;
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(!desc->registered, goto done);
+
+  SU_TRYCATCH(pthread_mutex_lock(&g_config_desc_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
+
+  saved_errno = errno;
+  errno = EEXIST;
+  SU_TRYCATCH(
+      suscan_config_desc_lookup_unsafe(desc->global_name) == NULL,
+      goto done);
+  errno = saved_errno;
+
+  SU_TRYCATCH(
+      PTR_LIST_APPEND_CHECK(g_config_desc, desc) != -1,
+      goto done);
+
+  desc->registered = SU_TRUE;
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&g_config_desc_mutex);
+
+  return ok;
+}
+
+
 SUPRIVATE int
 suscan_config_desc_lookup_field_id(
     const suscan_config_desc_t *source,
@@ -90,6 +158,13 @@ suscan_config_desc_destroy(suscan_config_desc_t *cfgdesc)
 {
   unsigned int i;
 
+  /* No-op. */
+  if (cfgdesc->registered)
+    return;
+
+  if (cfgdesc->global_name != NULL)
+    free(cfgdesc->global_name);
+
   for (i = 0; i < cfgdesc->field_count; ++i)
     if (cfgdesc->field_list[i] != NULL)
       suscan_field_destroy(cfgdesc->field_list[i]);
@@ -101,9 +176,34 @@ suscan_config_desc_destroy(suscan_config_desc_t *cfgdesc)
 }
 
 suscan_config_desc_t *
+suscan_config_desc_new_ex(const char *global_name)
+{
+  suscan_config_desc_t *new = NULL;
+
+  if (global_name != NULL)
+    if ((new = suscan_config_desc_lookup(global_name)) != NULL)
+      return new;
+
+  SU_TRYCATCH(
+      new = calloc(1, sizeof(suscan_config_desc_t)),
+      goto fail);
+
+  if (global_name != NULL)
+    SU_TRYCATCH(new->global_name = strdup(global_name), goto fail);
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_config_desc_destroy(new);
+
+  return NULL;
+}
+
+suscan_config_desc_t *
 suscan_config_desc_new(void)
 {
-  return calloc(1, sizeof(suscan_config_desc_t));
+  return suscan_config_desc_new_ex(NULL);
 }
 
 SUBOOL
@@ -150,46 +250,74 @@ fail:
   return SU_FALSE;
 }
 
-void
-suscan_config_destroy(suscan_config_t *config)
+SUPRIVATE void
+suscan_config_finalize(suscan_config_t *self)
 {
   unsigned int i;
 
-  if (config->desc != NULL && config->values != NULL) {
-    for (i = 0; i < config->desc->field_count; ++i)
-      if (config->values[i] != NULL)
-        free(config->values[i]);
+  if (self->desc != NULL && self->values != NULL) {
+    for (i = 0; i < self->desc->field_count; ++i)
+      if (self->values[i] != NULL)
+        free(self->values[i]);
 
-    free(config->values);
+    free(self->values);
   }
 
-  free(config);
+  memset(self, 0, sizeof(suscan_config_t));
+}
+
+void
+suscan_config_destroy(suscan_config_t *self)
+{
+  suscan_config_finalize(self);
+  free(self);
+}
+
+SUPRIVATE SUBOOL
+suscan_config_init(suscan_config_t *self, const suscan_config_desc_t *desc)
+{
+  unsigned int i;
+  SUBOOL ok = SU_FALSE;
+
+  memset(self, 0, sizeof(suscan_config_t));
+
+  self->desc = desc;
+
+  SU_TRYCATCH(
+      self->values = calloc(
+          desc->field_count,
+          sizeof(struct suscan_field_value *)),
+      goto fail);
+
+  /* Allocate space for all fields */
+  for (i = 0; i < desc->field_count; ++i) {
+    SU_TRYCATCH(
+        self->values[i] = calloc(1, sizeof(struct suscan_field_value)),
+        goto fail);
+
+    self->values[i]->field = desc->field_list[i];
+  }
+
+  ok = SU_TRUE;
+
+fail:
+  if (!ok)
+    suscan_config_finalize(self);
+
+  return ok;
 }
 
 suscan_config_t *
 suscan_config_new(const suscan_config_desc_t *desc)
 {
   suscan_config_t *new = NULL;
-  unsigned int i;
 
   SU_TRYCATCH(
       new = calloc(1, sizeof(suscan_config_t)),
       goto fail);
 
-  SU_TRYCATCH(
-      new->values = calloc(
-          desc->field_count,
-          sizeof(struct suscan_field_value *)),
-      goto fail);
-
-  new->desc = desc;
-
-  /* Allocate space for all fields */
-  for (i = 0; i < desc->field_count; ++i) {
-    if ((new->values[i] = calloc(1, sizeof(struct suscan_field_value))) == NULL)
-      goto fail;
-    new->values[i]->field = desc->field_list[i];
-  }
+  if (desc != NULL)
+    SU_TRYCATCH(suscan_config_init(new, desc), goto fail);
 
   return new;
 
@@ -823,4 +951,159 @@ suscan_object_to_config(suscan_config_t *config, const suscan_object_t *object)
 done:
 
   return ok;
+}
+
+SUSCAN_SERIALIZER_PROTO(suscan_config)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+  unsigned int i;
+
+  SUSCAN_PACK(str, self->desc->global_name);
+
+  SU_TRYCATCH(
+      cbor_pack_map_start(buffer, self->desc->field_count) == 0,
+      goto fail);
+
+  for (i = 0; i < self->desc->field_count; ++i) {
+    SUSCAN_PACK(str, self->desc->field_list[i]->name);
+
+    switch (self->desc->field_list[i]->type) {
+      case SUSCAN_FIELD_TYPE_BOOLEAN:
+        SUSCAN_PACK(bool, self->values[i]->as_bool);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FILE:
+      case SUSCAN_FIELD_TYPE_STRING:
+        SUSCAN_PACK(str, self->values[i]->as_string);
+        break;
+
+      case SUSCAN_FIELD_TYPE_FLOAT:
+        SUSCAN_PACK(float, self->values[i]->as_float);
+        break;
+
+      case SUSCAN_FIELD_TYPE_INTEGER:
+        SUSCAN_PACK(int, self->values[i]->as_int);
+        break;
+    }
+  }
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_config)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  char *global_name = NULL;
+  char *field_name = NULL;
+  SUBOOL boolean = SU_FALSE;
+  int64_t integer;
+  SUFLOAT real;
+  char *string = NULL;
+  suscan_config_desc_t *desc = NULL;
+  const struct suscan_field *field = NULL;
+  size_t i, npairs = 0;
+  SUBOOL end_required = SU_FALSE;
+  SUBOOL creative_mode;
+
+  SUSCAN_UNPACK(str, global_name);
+
+  SU_TRYCATCH(strlen(global_name) > 0, goto fail);
+
+  if ((desc = suscan_config_desc_lookup(global_name)) == NULL) {
+    creative_mode = SU_TRUE;
+    SU_TRYCATCH(
+        desc = suscan_config_desc_new_ex(global_name),
+        goto fail);
+  }
+
+  /* We currently don't support creative mode */
+  SU_TRYCATCH(!creative_mode, goto fail);
+
+  /*
+   * TODO: Add creative mode. Creative must be implemented in two passes.
+   * In a first pass, we deduce the new suscan_config_desc_t. In the second,
+   * we just deserialize the values
+   */
+  SU_TRYCATCH(
+      cbor_unpack_map_start(buffer, &npairs, &end_required) == 0,
+      goto fail);
+  SU_TRYCATCH(!end_required, goto fail);
+
+  self->desc = desc;
+
+  for (i = 0; i < npairs; ++i) {
+    SUSCAN_UNPACK(str, field_name);
+
+    SU_TRYCATCH(
+        field = suscan_config_desc_lookup_field(desc, field_name),
+        goto fail);
+
+    switch (field->type) {
+      case SUSCAN_FIELD_TYPE_BOOLEAN:
+        SUSCAN_UNPACK(bool, boolean);
+        SU_TRYCATCH(
+            suscan_config_set_bool(self, field_name, boolean),
+            goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_STRING:
+      case SUSCAN_FIELD_TYPE_FILE:
+        SUSCAN_UNPACK(str, string);
+        SU_TRYCATCH(
+            suscan_config_set_string(self, field_name, string),
+            goto fail);
+        free(string);
+        string = NULL;
+        break;
+
+      case SUSCAN_FIELD_TYPE_FLOAT:
+        SUSCAN_UNPACK(float, real);
+        SU_TRYCATCH(
+            suscan_config_set_float(self, field_name, real),
+            goto fail);
+        break;
+
+      case SUSCAN_FIELD_TYPE_INTEGER:
+        SUSCAN_UNPACK(int64, integer);
+        SU_TRYCATCH(
+            suscan_config_set_integer(self, field_name, integer),
+            goto fail);
+        break;
+    }
+
+    free(field_name);
+    field_name = NULL;
+  }
+
+  SUSCAN_UNPACK_BOILERPLATE_FINALLY;
+  if (string != NULL)
+    free(string);
+
+  if (field_name != NULL)
+    free(field_name);
+
+  if (global_name != NULL)
+    free(global_name);
+
+  if (creative_mode && desc != NULL) {
+    if (ok) {
+      /*
+       * There is a potential race condition here that could prevent
+       * the concurrent registration of remote configuration descriptions
+       * in creative mode. It is mandatory for the sender to define a proper
+       * name space to prevent potential name clashes.
+       */
+      if (!suscan_config_desc_register(desc) && errno == EEXIST)
+        ok = SU_FALSE;
+    }
+
+    if (!ok) {
+      suscan_config_finalize(self);
+      suscan_config_desc_destroy(desc);
+    }
+  } else if (!ok) {
+    suscan_config_finalize(self);
+  }
+
+  SUSCAN_UNPACK_BOILERPLATE_RETURN;
 }

@@ -27,6 +27,8 @@
 #include <sigutils/iir.h>
 #include <sigutils/clock.h>
 
+#include <analyzer/version.h>
+
 #include "inspector/interface.h"
 #include "inspector/params.h"
 #include "inspector/inspector.h"
@@ -92,7 +94,12 @@ SUPRIVATE struct suscan_inspector_interface iface = {
 SUBOOL
 suscan_raw_inspector_register(void)
 {
-  SU_TRYCATCH(iface.cfgdesc = suscan_config_desc_new(), return SU_FALSE);
+  SU_TRYCATCH(
+      iface.cfgdesc = suscan_config_desc_new_ex(
+          "raw-params-desc-" SUSCAN_VERSION_STRING),
+      return SU_FALSE);
+
+  SU_TRYCATCH(suscan_config_desc_register(iface.cfgdesc), return SU_FALSE);
 
   /* Register inspector interface */
   SU_TRYCATCH(suscan_inspector_interface_register(&iface), return SU_FALSE);

@@ -27,6 +27,8 @@
 #include <sigutils/pll.h>
 #include <sigutils/clock.h>
 
+#include <analyzer/version.h>
+
 #include "inspector/interface.h"
 #include "inspector/params.h"
 
@@ -414,7 +416,8 @@ SUBOOL
 suscan_ask_inspector_register(void)
 {
   SU_TRYCATCH(
-      iface.cfgdesc = suscan_config_desc_new(),
+      iface.cfgdesc = suscan_config_desc_new_ex(
+          "ask-params-desc-" SUSCAN_VERSION_STRING),
       return SU_FALSE);
 
   /* Add all configuration parameters */
@@ -422,6 +425,8 @@ suscan_ask_inspector_register(void)
   SU_TRYCATCH(suscan_config_desc_add_ask_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_mf_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_br_params(iface.cfgdesc), return SU_FALSE);
+
+  SU_TRYCATCH(suscan_config_desc_register(iface.cfgdesc), return SU_FALSE);
 
   /* Add estimator */
   (void) suscan_inspector_interface_add_estimator(&iface, "baud-nonlinear"),

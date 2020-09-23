@@ -107,12 +107,16 @@ enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND
 };
 
-struct suscan_analyzer_inspector_msg {
-  enum suscan_analyzer_inspector_msgkind kind;
+SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
+  union {
+    enum suscan_analyzer_inspector_msgkind kind;
+    uint32_t int32_kind;
+  };
+
   uint32_t inspector_id; /* Per-inspector identifier */
   uint32_t req_id;       /* Per-request identifier */
   uint32_t handle;       /* Handle */
-  int status;
+  int32_t  status;
 
   union {
     struct {
@@ -120,7 +124,7 @@ struct suscan_analyzer_inspector_msg {
       struct sigutils_channel channel;
       suscan_config_t *config;
       SUBOOL precise;
-      unsigned int fs;  /* Baseband rate */
+      uint32_t fs;  /* Baseband rate */
       SUFLOAT equiv_fs; /* Channel rate */
       SUFLOAT bandwidth;
       SUFLOAT lo;
