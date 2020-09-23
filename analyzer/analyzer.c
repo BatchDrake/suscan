@@ -107,7 +107,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_PACK(bool,  self->iq_reverse);
   SUSCAN_PACK(bool,  self->agc);
 
-  SU_TRYCATCH(cbor_pack_array_start(buffer, self->gain_count) == 0, goto fail);
+  SU_TRYCATCH(cbor_pack_map_start(buffer, self->gain_count) == 0, goto fail);
 
   for (i = 0; i < self->gain_count; ++i)
     SU_TRYCATCH(
@@ -135,7 +135,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_UNPACK(bool,   self->agc);
 
   SU_TRYCATCH(
-      cbor_unpack_array_start(buffer, &nelem, &end_required) == 0,
+      cbor_unpack_map_start(buffer, &nelem, &end_required) == 0,
       goto fail);
   SU_TRYCATCH(!end_required, goto fail);
 
