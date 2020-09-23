@@ -106,6 +106,7 @@ fail:
   return ok;
 }
 
+
 SUBOOL
 suscan_pack_compact_double_array(
     grow_buf_t *buffer,
@@ -126,6 +127,18 @@ suscan_pack_compact_double_array(
 
 fail:
   return ok;
+}
+
+SUBOOL
+suscan_pack_compact_complex_array(
+    grow_buf_t *buffer,
+    const SUCOMPLEX *array,
+    SUSCOUNT size)
+{
+  return suscan_pack_compact_float_array(
+      buffer,
+      (const SUFLOAT *) array,
+      size << 1);
 }
 
 SUBOOL
@@ -195,6 +208,38 @@ fail:
     free(array);
 
   return ok;
+}
+
+SUBOOL
+suscan_unpack_compact_complex_array(
+    grow_buf_t *buffer,
+    SUCOMPLEX **array,
+    SUSCOUNT *size)
+{
+  int ret;
+  SUSCOUNT fake_size = *size << 1;
+
+  if ((ret = suscan_unpack_compact_float_array(
+      buffer,
+      (SUFLOAT **) array,
+      &fake_size)) != 0)
+    return SU_FALSE;
+
+  /*
+   * Size must be an even number. If it is not the case, something
+   * went very wrong.
+   */
+  if (fake_size & 1) {
+    free(*array);
+    *array = NULL;
+    *size  = 0;
+
+    return SU_FALSE;
+  }
+
+  *size = fake_size >> 1;
+
+  return SU_TRUE;
 }
 
 /* suscan_analyzer_status_msg */
@@ -271,6 +316,37 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
           buffer,
           &self->psd_data,
           &self->psd_size),
+      goto fail);
+
+  UNPACK_BOILERPLATE_END;
+}
+
+/* Channel sample batch */
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_sample_batch_msg)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(int, self->inspector_id);
+  SU_TRYCATCH(
+      suscan_pack_compact_complex_array(
+          buffer,
+          self->samples,
+          self->sample_count),
+      goto fail);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_sample_batch_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(uint32, self->inspector_id);
+  SU_TRYCATCH(
+      suscan_unpack_compact_complex_array(
+          buffer,
+          &self->samples,
+          &self->sample_count),
       goto fail);
 
   UNPACK_BOILERPLATE_END;

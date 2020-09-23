@@ -50,7 +50,7 @@ extern "C" {
 
 /* Generic status message */
 SUSCAN_SERIALIZABLE(suscan_analyzer_status_msg) {
-  int code;
+  int32_t code;
   char *err_msg;
   const suscan_analyzer_t *sender;
 };
@@ -78,10 +78,10 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
 };
 
 /* Channel sample batch */
-struct suscan_analyzer_sample_batch_msg {
-  uint32_t     inspector_id;
-  SUCOMPLEX   *samples;
-  unsigned int sample_count;
+SUSCAN_SERIALIZABLE(suscan_analyzer_sample_batch_msg) {
+  uint32_t   inspector_id;
+  SUCOMPLEX *samples;
+  SUSCOUNT   sample_count;
 };
 
 /*
