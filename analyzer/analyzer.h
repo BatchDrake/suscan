@@ -33,6 +33,8 @@
 #include "throttle.h"
 #include "inspector/inspector.h"
 #include "inspsched.h"
+#include "serialize.h"
+
 #include "mq.h"
 
 #ifdef __cplusplus
@@ -83,7 +85,7 @@ struct suscan_analyzer_params {
   0,                                            /* max_freq */              \
 }
 
-struct suscan_analyzer_gain_info {
+SUSCAN_SERIALIZABLE(suscan_analyzer_gain_info) {
   char *name;
   SUFLOAT value;
 };
@@ -159,7 +161,7 @@ typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
       const SUCOMPLEX *samples,
       SUSCOUNT length);
 
-struct suscan_analyzer_source_info {
+SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
   SUSCOUNT source_samp_rate;
   SUSCOUNT effective_samp_rate;
   SUFLOAT  measured_samp_rate;

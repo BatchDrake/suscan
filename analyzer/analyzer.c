@@ -35,7 +35,31 @@
 #include "mq.h"
 #include "msg.h"
 
+#ifdef bool
+#  undef bool
+#endif /* bool */
+
 /* Gain info objects */
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_gain_info)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(str,   self->name);
+  SUSCAN_PACK(float, self->value);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_gain_info)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(str,   self->name);
+  SUSCAN_UNPACK(float, self->value);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 void
 suscan_analyzer_gain_info_destroy(struct suscan_analyzer_gain_info *self)
 {
@@ -67,6 +91,74 @@ fail:
 }
 
 /* Helper methods */
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_source_info)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+  unsigned int i;
+
+  SUSCAN_PACK(uint,  self->source_samp_rate);
+  SUSCAN_PACK(uint,  self->effective_samp_rate);
+  SUSCAN_PACK(float, self->measured_samp_rate);
+  SUSCAN_PACK(freq,  self->frequency);
+  SUSCAN_PACK(freq,  self->lnb);
+  SUSCAN_PACK(float, self->bandwidth);
+  SUSCAN_PACK(str,   self->antenna);
+  SUSCAN_PACK(bool,  self->dc_remove);
+  SUSCAN_PACK(bool,  self->iq_reverse);
+  SUSCAN_PACK(bool,  self->agc);
+
+  SU_TRYCATCH(cbor_pack_array_start(buffer, self->gain_count) == 0, goto fail);
+
+  for (i = 0; i < self->gain_count; ++i)
+    SU_TRYCATCH(
+        suscan_analyzer_gain_info_serialize(self->gain_list[i], buffer),
+        goto fail);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  SUBOOL end_required = SU_FALSE;
+  size_t i, nelem;
+
+  SUSCAN_UNPACK(uint64, self->source_samp_rate);
+  SUSCAN_UNPACK(uint64, self->effective_samp_rate);
+  SUSCAN_UNPACK(float,  self->measured_samp_rate);
+  SUSCAN_UNPACK(freq,   self->frequency);
+  SUSCAN_UNPACK(freq,   self->lnb);
+  SUSCAN_UNPACK(float,  self->bandwidth);
+  SUSCAN_UNPACK(str,    self->antenna);
+  SUSCAN_UNPACK(bool,   self->dc_remove);
+  SUSCAN_UNPACK(bool,   self->iq_reverse);
+  SUSCAN_UNPACK(bool,   self->agc);
+
+  SU_TRYCATCH(
+      cbor_unpack_array_start(buffer, &nelem, &end_required) == 0,
+      goto fail);
+  SU_TRYCATCH(!end_required, goto fail);
+
+  self->gain_count = nelem;
+  SU_TRYCATCH(
+      self->gain_list = calloc(
+          nelem,
+          sizeof (struct suscan_analyzer_gain_info *)),
+      goto fail);
+
+  for (i = 0; i < self->gain_count; ++i) {
+    SU_TRYCATCH(
+        self->gain_list = calloc(1, sizeof (struct suscan_analyzer_gain_info)),
+        goto fail);
+
+    SU_TRYCATCH(
+        suscan_analyzer_gain_info_deserialize(self->gain_list[i], buffer),
+        goto fail);
+  }
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 void
 suscan_analyzer_consume_mq(struct suscan_mq *mq)
 {
