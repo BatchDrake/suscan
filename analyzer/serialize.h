@@ -111,6 +111,11 @@ SUBOOL suscan_pack_compact_double_array(
     const SUDOUBLE *array,
     SUSCOUNT size);
 
+SUBOOL suscan_pack_compact_complex_array(
+    grow_buf_t *buffer,
+    const SUCOMPLEX *array,
+    SUSCOUNT size);
+
 SUBOOL
 suscan_unpack_compact_single_array(
     grow_buf_t *buffer,
@@ -122,5 +127,10 @@ suscan_unpack_compact_double_array(
     grow_buf_t *buffer,
     SUDOUBLE **oarray,
     SUSCOUNT *osize);
+
+SUBOOL suscan_unpack_compact_complex_array(
+    grow_buf_t *buffer,
+    SUCOMPLEX **array,
+    SUSCOUNT *size);
 
 #endif /* _SUSCAN_SERIALIZE_H */

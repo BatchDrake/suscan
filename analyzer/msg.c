@@ -31,7 +31,27 @@
 #include "msg.h"
 #include "source.h"
 
-/* Status message */
+/**************************** Status message **********************************/
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_status_msg)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(int, self->code);
+  SUSCAN_PACK(str, self->err_msg);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_status_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(int32, self->code);
+  SUSCAN_UNPACK(str, self->err_msg);
+
+  UNPACK_BOILERPLATE_END;
+}
+
 void
 suscan_analyzer_status_msg_destroy(struct suscan_analyzer_status_msg *status)
 {
@@ -63,6 +83,7 @@ suscan_analyzer_status_msg_new(uint32_t code, const char *msg)
   return new;
 }
 
+/***************************** Channel message ********************************/
 void
 suscan_analyzer_channel_msg_take_channels(
     struct suscan_analyzer_channel_msg *msg,
@@ -140,56 +161,54 @@ fail:
   return NULL;
 }
 
-struct suscan_analyzer_inspector_msg *
-suscan_analyzer_inspector_msg_new(
-    enum suscan_analyzer_inspector_msgkind kind,
-    uint32_t req_id)
-{
-  struct suscan_analyzer_inspector_msg *new;
-
-  if ((new = calloc(1, sizeof (struct suscan_analyzer_inspector_msg))) == NULL)
-    return NULL;
-
-  new->kind = kind;
-  new->req_id = req_id;
-
-  return new;
-}
-
+/******************************* PSD message **********************************/
 SUFLOAT *
-suscan_analyzer_inspector_msg_take_spectrum(
-    struct suscan_analyzer_inspector_msg *msg)
+suscan_analyzer_psd_msg_take_psd(struct suscan_analyzer_psd_msg *msg)
 {
-  SUFLOAT *result = msg->spectrum_data;
+  SUFLOAT *result = msg->psd_data;
 
-  msg->spectrum_data = NULL;
+  msg->psd_data = NULL;
+  msg->psd_size = 0;
 
   return result;
 }
 
-void
-suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
 {
-  if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG
-      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG
-      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
-    if (msg->config != NULL)
-      suscan_config_destroy(msg->config);
+  SUSCAN_PACK_BOILERPLATE_START;
 
-    if (msg->estimator_list != NULL)
-      free(msg->estimator_list);
+  SUSCAN_PACK(int,   self->fc);
+  SUSCAN_PACK(uint,  self->inspector_id);
+  SUSCAN_PACK(float, self->samp_rate);
+  SUSCAN_PACK(float, self->N0);
 
-    if (msg->spectsrc_list != NULL)
-      free(msg->spectsrc_list);
+  SU_TRYCATCH(
+      suscan_pack_compact_single_array(
+          buffer,
+          self->psd_data,
+          self->psd_size),
+      goto fail);
 
-    if (msg->class_name != NULL)
-      free(msg->class_name);
-  } else if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
-    if (msg->spectrum_data != NULL)
-      free(msg->spectrum_data);
-  }
+  SUSCAN_PACK_BOILERPLATE_END;
+}
 
-  free(msg);
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(int64,  self->fc);
+  SUSCAN_UNPACK(uint32, self->inspector_id);
+  SUSCAN_UNPACK(float,  self->samp_rate);
+  SUSCAN_UNPACK(float,  self->N0);
+
+  SU_TRYCATCH(
+      suscan_unpack_compact_single_array(
+          buffer,
+          &self->psd_data,
+          &self->psd_size),
+      goto fail);
+
+  UNPACK_BOILERPLATE_END;
 }
 
 void
@@ -244,14 +263,89 @@ fail:
   return NULL;
 }
 
-SUFLOAT *
-suscan_analyzer_psd_msg_take_psd(struct suscan_analyzer_psd_msg *msg)
+/***************************** Inspector message ******************************/
+struct suscan_analyzer_inspector_msg *
+suscan_analyzer_inspector_msg_new(
+    enum suscan_analyzer_inspector_msgkind kind,
+    uint32_t req_id)
 {
-  SUFLOAT *result = msg->psd_data;
+  struct suscan_analyzer_inspector_msg *new;
 
-  msg->psd_data = NULL;
+  if ((new = calloc(1, sizeof (struct suscan_analyzer_inspector_msg))) == NULL)
+    return NULL;
+
+  new->kind = kind;
+  new->req_id = req_id;
+
+  return new;
+}
+
+SUFLOAT *
+suscan_analyzer_inspector_msg_take_spectrum(
+    struct suscan_analyzer_inspector_msg *msg)
+{
+  SUFLOAT *result = msg->spectrum_data;
+
+  msg->spectrum_data = NULL;
+  msg->spectrum_size = 0;
 
   return result;
+}
+
+void
+suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
+{
+  if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG
+      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG
+      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
+    if (msg->config != NULL)
+      suscan_config_destroy(msg->config);
+
+    if (msg->estimator_list != NULL)
+      free(msg->estimator_list);
+
+    if (msg->spectsrc_list != NULL)
+      free(msg->spectsrc_list);
+
+    if (msg->class_name != NULL)
+      free(msg->class_name);
+  } else if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
+    if (msg->spectrum_data != NULL)
+      free(msg->spectrum_data);
+  }
+
+  free(msg);
+}
+
+/************************** Sample batch message ******************************/
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_sample_batch_msg)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(int, self->inspector_id);
+  SU_TRYCATCH(
+      suscan_pack_compact_complex_array(
+          buffer,
+          self->samples,
+          self->sample_count),
+      goto fail);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_sample_batch_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(uint32, self->inspector_id);
+  SU_TRYCATCH(
+      suscan_unpack_compact_complex_array(
+          buffer,
+          &self->samples,
+          &self->sample_count),
+      goto fail);
+
+  UNPACK_BOILERPLATE_END;
 }
 
 struct suscan_analyzer_sample_batch_msg *
@@ -294,6 +388,27 @@ suscan_analyzer_sample_batch_msg_destroy(
   free(msg);
 }
 
+
+/************************** Throttle message **********************************/
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_throttle_msg)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(uint, self->samp_rate);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_throttle_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(uint64, self->samp_rate);
+
+  UNPACK_BOILERPLATE_END;
+}
+
+/************************ Generic message disposal ****************************/
 void
 suscan_analyzer_dispose_message(uint32_t type, void *ptr)
 {
