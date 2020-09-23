@@ -25,39 +25,7 @@
 
 #include "mq.h"
 #include "msg.h"
-#include <util/cbor.h>
-
-#define SUSCAN_PACK_BOILERPLATE_START                  \
-  SUBOOL ok = SU_FALSE;
-
-#define SUSCAN_PACK_BOILERPLATE_END                    \
-  ok = SU_TRUE;                                 \
-                                                \
-fail:                                           \
-  return ok
-
-#define SUSCAN_UNPACK_BOILERPLATE_START                \
-  size_t ptr = grow_buf_ptr(buffer);            \
-  SUBOOL ok = SU_FALSE;
-
-#define UNPACK_BOILERPLATE_END                  \
-    ok = SU_TRUE;                               \
-                                                \
-fail:                                           \
-  if (!ok)                                      \
-    grow_buf_seek(buffer, ptr, SEEK_SET);       \
-                                                \
-  return ok;
-
-#define SUSCAN_PACK(t, v)                              \
-    SU_TRYCATCH(                                \
-        JOIN(cbor_pack_, t)(buffer, v) == 0,    \
-        goto fail)
-
-#define SUSCAN_UNPACK(t, v)                            \
-    SU_TRYCATCH(                                \
-        JOIN(cbor_unpack_, t)(buffer, &v) == 0, \
-        goto fail)
+#include "serialize.h"
 
 /* suscan_analyzer_status_msg */
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_status_msg)
