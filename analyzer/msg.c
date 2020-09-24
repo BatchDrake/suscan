@@ -342,6 +342,85 @@ suscan_analyzer_inspector_msg_serialize_open(
   SUSCAN_PACK_BOILERPLATE_END;
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_config(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+  SU_TRYCATCH(suscan_config_serialize(self->config, buffer), goto fail);
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_estimator(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+  SUSCAN_PACK(uint,  self->estimator_id);
+  SUSCAN_PACK(bool,  self->enabled);
+  SUSCAN_PACK(float, self->value);
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_spectrum(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+  SUSCAN_PACK(uint, self->spectsrc_id);
+  SU_TRYCATCH(
+      suscan_pack_compact_float_array(
+          buffer,
+          self->spectrum_data,
+          self->spectrum_size),
+      goto fail);
+
+  SUSCAN_PACK(freq, self->fc);
+  SUSCAN_PACK(float, self->N0);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_set_freq(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(freq, self->fc);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_set_bandwidth(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(freq, self->bandwidth);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_set_watermark(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(uint, self->watermark);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 {
   SUSCAN_PACK_BOILERPLATE_START;
@@ -352,6 +431,65 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
   SUSCAN_PACK(int, self->handle);
   SUSCAN_PACK(int, self->status);
 
+  switch (self->kind) {
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_open(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_config(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_estimator(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_spectrum(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_FREQ:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_set_freq(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_BANDWIDTH:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_set_bandwidth(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_WATERMARK:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_set_watermark(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
+      /* Empty messages */
+      break;
+
+    default:
+      SU_ERROR("Message kind is not supported\n");
+      goto fail;
+  }
+
   SUSCAN_PACK_BOILERPLATE_END;
 }
 
@@ -360,18 +498,6 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
   SUSCAN_UNPACK_BOILERPLATE_START;
 
   SUSCAN_UNPACK(uint32, self->int32_kind);
-
-  switch (self->kind) {
-    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
-      SU_TRYCATCH(
-          suscan_analyzer_inspector_msg_serialize_open(buffer, self),
-          goto fail);
-      break;
-
-    default:
-      SU_ERROR("Message kind is not supported\n");
-      goto fail;
-  }
 
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
