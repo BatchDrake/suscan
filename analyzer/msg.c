@@ -229,33 +229,36 @@ suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
 {
   struct suscan_analyzer_psd_msg *new = NULL;
   unsigned int i;
+
   SU_TRYCATCH(
       new = calloc(1, sizeof(struct suscan_analyzer_psd_msg)),
       goto fail);
 
-  new->psd_size = cd->params.window_size;
-  new->samp_rate = cd->params.samp_rate;
+  if (cd != NULL) {
+    new->psd_size = cd->params.window_size;
+    new->samp_rate = cd->params.samp_rate;
 
-  if (cd->params.decimation > 1)
-    new->samp_rate /= cd->params.decimation;
+    if (cd->params.decimation > 1)
+      new->samp_rate /= cd->params.decimation;
 
-  new->fc = 0;
+    new->fc = 0;
 
-  SU_TRYCATCH(
-      new->psd_data = malloc(sizeof(SUFLOAT) * new->psd_size),
-      goto fail);
+    SU_TRYCATCH(
+        new->psd_data = malloc(sizeof(SUFLOAT) * new->psd_size),
+        goto fail);
 
-  switch (cd->params.mode) {
-    case SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION:
-      for (i = 0; i < new->psd_size; ++i)
-        new->psd_data[i] = SU_C_REAL(cd->fft[i]);
-      break;
+    switch (cd->params.mode) {
+      case SU_CHANNEL_DETECTOR_MODE_AUTOCORRELATION:
+        for (i = 0; i < new->psd_size; ++i)
+          new->psd_data[i] = SU_C_REAL(cd->fft[i]);
+        break;
 
-    default:
-      for (i = 0; i < new->psd_size; ++i) {
-        new->psd_data[i] = SU_C_REAL(cd->fft[i] * SU_C_CONJ(cd->fft[i]));
-        new->psd_data[i] /= cd->params.window_size;;
-      }
+      default:
+        for (i = 0; i < new->psd_size; ++i) {
+          new->psd_data[i] = SU_C_REAL(cd->fft[i] * SU_C_CONJ(cd->fft[i]));
+          new->psd_data[i] /= cd->params.window_size;;
+        }
+    }
   }
 
   return new;
@@ -819,11 +822,13 @@ suscan_analyzer_sample_batch_msg_new(
       new = calloc(1, sizeof(struct suscan_analyzer_sample_batch_msg)),
       goto fail);
 
-  SU_TRYCATCH(
-      new->samples = malloc(count * sizeof(SUCOMPLEX)),
-      goto fail);
+  if (samples != NULL && count > 0) {
+    SU_TRYCATCH(
+          new->samples = malloc(count * sizeof(SUCOMPLEX)),
+          goto fail);
 
-  memcpy(new->samples, samples, count * sizeof(SUCOMPLEX));
+    memcpy(new->samples, samples, count * sizeof(SUCOMPLEX));
+  }
 
   new->sample_count = count;
   new->inspector_id = inspector_id;
@@ -865,6 +870,131 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_throttle_msg)
   SUSCAN_UNPACK(uint64, self->samp_rate);
 
   SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+/*********************** Generic message serialization ************************/
+SUBOOL
+suscan_analyzer_msg_serialize(
+    uint32_t type,
+    const void *ptr,
+    grow_buf_t *buffer)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(uint, type);
+
+  switch (type) {
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
+      SU_TRYCATCH(
+          suscan_analyzer_status_msg_serialize(ptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
+      SU_WARNING("Channel-type messages are not currently supported\n");
+      goto fail;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize(ptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+      SU_TRYCATCH(
+          suscan_analyzer_psd_msg_serialize(ptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
+      SU_TRYCATCH(
+          suscan_analyzer_sample_batch_msg_serialize(ptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
+      SU_TRYCATCH(
+          suscan_analyzer_throttle_msg_serialize(ptr, buffer),
+          goto fail);
+      break;
+  }
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUBOOL
+suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  void *msgptr = NULL;
+
+  SUSCAN_UNPACK(uint32, *type);
+
+  switch (*type) {
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
+      SU_TRYCATCH(
+          msgptr = suscan_analyzer_status_msg_new(0, NULL),
+          goto fail);
+      SU_TRYCATCH(
+          suscan_analyzer_status_msg_deserialize(msgptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
+      SU_WARNING("Channel-type messages are not currently supported\n");
+      goto fail;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
+      SU_TRYCATCH(
+          msgptr = suscan_analyzer_inspector_msg_new(0, 0),
+          goto fail);
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize(msgptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+      SU_TRYCATCH(
+          msgptr = suscan_analyzer_psd_msg_new(NULL),
+          goto fail);
+      SU_TRYCATCH(
+          suscan_analyzer_psd_msg_deserialize(msgptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
+      SU_TRYCATCH(
+          msgptr = suscan_analyzer_sample_batch_msg_new(0, NULL, 0),
+          goto fail);
+      SU_TRYCATCH(
+          suscan_analyzer_sample_batch_msg_deserialize(msgptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
+      SU_TRYCATCH(
+          msgptr = calloc(1, sizeof (struct suscan_analyzer_throttle_msg)),
+          goto fail);
+      SU_TRYCATCH(
+          suscan_analyzer_throttle_msg_serialize(msgptr, buffer),
+          goto fail);
+      break;
+
+    default:
+      SU_WARNING("Unknown message type `%d'\n", *type);
+      goto fail;
+  }
+
+  SUSCAN_UNPACK_BOILERPLATE_FINALLY;
+
+  if (ok)
+    *ptr = msgptr;
+  else if (msgptr != NULL)
+    suscan_analyzer_dispose_message(*type, msgptr);
+
+  SUSCAN_UNPACK_BOILERPLATE_RETURN;
 }
 
 /************************ Generic message disposal ****************************/

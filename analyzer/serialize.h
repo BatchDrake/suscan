@@ -59,7 +59,7 @@ fail:                                           \
   return ok
 
 #define SUSCAN_UNPACK_BOILERPLATE_START         \
-  size_t ptr = grow_buf_ptr(buffer);            \
+  size_t _ptr = grow_buf_ptr(buffer);           \
   SUBOOL ok = SU_FALSE;
 
 #define SUSCAN_UNPACK_BOILERPLATE_FINALLY       \
@@ -67,7 +67,7 @@ fail:                                           \
                                                 \
 fail:                                           \
   if (!ok)                                      \
-    grow_buf_seek(buffer, ptr, SEEK_SET);       \
+    grow_buf_seek(buffer, _ptr, SEEK_SET);      \
                                                 \
 
 #define SUSCAN_UNPACK_BOILERPLATE_RETURN        \

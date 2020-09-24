@@ -235,6 +235,19 @@ struct suscan_analyzer_sample_batch_msg *suscan_analyzer_sample_batch_msg_new(
 void suscan_analyzer_sample_batch_msg_destroy(
     struct suscan_analyzer_sample_batch_msg *msg);
 
+/* Generic serializer / deserializer */
+SUBOOL
+suscan_analyzer_msg_serialize(
+    uint32_t type,
+    const void *ptr,
+    grow_buf_t *buffer);
+
+SUBOOL
+suscan_analyzer_msg_deserialize(
+    uint32_t *type,
+    void **ptr,
+    grow_buf_t *buffer);
+
 /* Generic message disposer */
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);
 
