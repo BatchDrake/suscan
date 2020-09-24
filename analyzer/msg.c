@@ -343,6 +343,87 @@ suscan_analyzer_inspector_msg_serialize_open(
 }
 
 SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_open(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  char *name = NULL;
+  uint64_t nelem;
+  SUBOOL end_required = SU_FALSE;
+  unsigned int i;
+
+  SUSCAN_UNPACK(str,    self->class_name);
+
+  SU_TRYCATCH(sigutils_channel_deserialize(&self->channel, buffer), goto fail);
+  SU_TRYCATCH(suscan_config_deserialize(self->config, buffer), goto fail);
+
+  SUSCAN_UNPACK(bool,   self->precise);
+  SUSCAN_UNPACK(uint32, self->fs);
+  SUSCAN_UNPACK(float,  self->equiv_fs);
+  SUSCAN_UNPACK(float,  self->bandwidth);
+  SUSCAN_UNPACK(float,  self->lo);
+
+  SU_TRYCATCH(
+      cbor_unpack_array_start(
+          buffer,
+          &nelem,
+          &end_required) == 0,
+      goto fail);
+  SU_TRYCATCH(!end_required, goto fail);
+  self->estimator_count = nelem;
+
+  SU_TRYCATCH(
+      self->estimator_list = calloc(
+          self->estimator_count,
+          sizeof(struct suscan_estimator_class *)),
+      goto fail);
+
+  for (i = 0; i < self->estimator_count; ++i) {
+    SUSCAN_UNPACK(str, name);
+    self->estimator_list[i] = suscan_estimator_class_lookup(name);
+    if (self->estimator_list[i] == NULL)
+      SU_WARNING("Estimator class `%s' not found\n", name);
+
+    free(name);
+    name = NULL;
+  }
+
+  SU_TRYCATCH(
+      cbor_unpack_array_start(
+          buffer,
+          &nelem,
+          &end_required) == 0,
+      goto fail);
+  SU_TRYCATCH(!end_required, goto fail);
+  self->spectsrc_count = nelem;
+
+  SU_TRYCATCH(
+      self->spectsrc_list = calloc(
+          self->spectsrc_count,
+          sizeof(struct suscan_estimator_class *)),
+      goto fail);
+
+  for (i = 0; i < self->spectsrc_count; ++i) {
+    SUSCAN_UNPACK(str, name);
+    self->spectsrc_list[i] = suscan_spectsrc_class_lookup(name);
+    if (self->estimator_list[i] == NULL)
+      SU_WARNING("Spectrum source class `%s' not found\n", name);
+
+    free(name);
+    name = NULL;
+  }
+
+
+  SUSCAN_UNPACK_BOILERPLATE_FINALLY;
+
+  if (name != NULL)
+    free(name);
+
+  SUSCAN_UNPACK_BOILERPLATE_RETURN;
+}
+
+SUPRIVATE SUBOOL
 suscan_analyzer_inspector_msg_serialize_config(
     grow_buf_t *buffer,
     const struct suscan_analyzer_inspector_msg *self)
@@ -350,6 +431,16 @@ suscan_analyzer_inspector_msg_serialize_config(
   SUSCAN_PACK_BOILERPLATE_START;
   SU_TRYCATCH(suscan_config_serialize(self->config, buffer), goto fail);
   SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_config(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  SU_TRYCATCH(suscan_config_deserialize(self->config, buffer), goto fail);
+  SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
 SUPRIVATE SUBOOL
@@ -362,6 +453,18 @@ suscan_analyzer_inspector_msg_serialize_estimator(
   SUSCAN_PACK(bool,  self->enabled);
   SUSCAN_PACK(float, self->value);
   SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_estimator(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  SUSCAN_UNPACK(uint32, self->estimator_id);
+  SUSCAN_UNPACK(bool,   self->enabled);
+  SUSCAN_UNPACK(float,  self->value);
+  SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
 SUPRIVATE SUBOOL
@@ -384,6 +487,25 @@ suscan_analyzer_inspector_msg_serialize_spectrum(
   SUSCAN_PACK_BOILERPLATE_END;
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_spectrum(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  SUSCAN_UNPACK(uint32, self->spectsrc_id);
+  SU_TRYCATCH(
+      suscan_unpack_compact_float_array(
+          buffer,
+          &self->spectrum_data,
+          &self->spectrum_size),
+      goto fail);
+
+  SUSCAN_UNPACK(freq,  self->fc);
+  SUSCAN_UNPACK(float, self->N0);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
 
 SUPRIVATE SUBOOL
 suscan_analyzer_inspector_msg_serialize_set_freq(
@@ -398,15 +520,39 @@ suscan_analyzer_inspector_msg_serialize_set_freq(
 }
 
 SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_set_freq(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(freq, self->fc);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
 suscan_analyzer_inspector_msg_serialize_set_bandwidth(
     grow_buf_t *buffer,
     const struct suscan_analyzer_inspector_msg *self)
 {
   SUSCAN_PACK_BOILERPLATE_START;
 
-  SUSCAN_PACK(freq, self->bandwidth);
+  SUSCAN_PACK(float, self->bandwidth);
 
   SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_set_bandwidth(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(float, self->bandwidth);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
 SUPRIVATE SUBOOL
@@ -419,6 +565,18 @@ suscan_analyzer_inspector_msg_serialize_set_watermark(
   SUSCAN_PACK(uint, self->watermark);
 
   SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_set_watermark(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(uint64, self->watermark);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
@@ -498,6 +656,69 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
   SUSCAN_UNPACK_BOILERPLATE_START;
 
   SUSCAN_UNPACK(uint32, self->int32_kind);
+  SUSCAN_UNPACK(uint32, self->inspector_id);
+  SUSCAN_UNPACK(uint32, self->req_id);
+  SUSCAN_UNPACK(uint32, self->handle);
+  SUSCAN_UNPACK(int32,  self->status);
+
+  switch (self->kind) {
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_open(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_config(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_estimator(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_spectrum(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_FREQ:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_set_freq(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_BANDWIDTH:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_set_bandwidth(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_WATERMARK:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_set_watermark(buffer, self),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
+      /* Empty messages */
+      break;
+
+    default:
+      SU_ERROR("Message kind is not supported\n");
+      goto fail;
+  }
 
   SUSCAN_UNPACK_BOILERPLATE_END;
 }

@@ -147,7 +147,6 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
     };
 
     SUSCOUNT watermark;
-    struct suscan_analyzer_params params;
   };
 };
 
