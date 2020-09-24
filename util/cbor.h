@@ -35,13 +35,43 @@ extern "C" {
 #ifdef _SU_SINGLE_PRECISION
 #  define cbor_pack_float   cbor_pack_single
 #  define cbor_unpack_float cbor_unpack_single
+#  define CBOR_ADDL_FLOAT_SUFLOAT CBOR_ADDL_FLOAT_FLOAT32
 #else
 #  define cbor_pack_float   cbor_pack_double
 #  define cbor_unpack_float cbor_unpack_double
+#  define CBOR_ADDL_FLOAT_SUFLOAT CBOR_ADDL_FLOAT_FLOAT64
 #endif /* _SU_SINGLE_PRECISION */
 
 #define cbor_pack_freq      cbor_pack_double
 #define cbor_unpack_freq    cbor_unpack_double
+
+#define CBOR_MEM_REUSE_SIZE_LIMIT (1 << 20)
+
+enum cbor_major_type {
+  CMT_UINT  = 0,
+  CMT_NINT  = 1,
+  CMT_BYTE  = 2,
+  CMT_TEXT  = 3,
+  CMT_ARRAY = 4,
+  CMT_MAP   = 5,
+  CMT_TAG   = 6,
+  CMT_FLOAT = 7,
+};
+
+#define CBOR_ADDL_UINT8        24
+#define CBOR_ADDL_UINT16       25
+#define CBOR_ADDL_UINT32       26
+#define CBOR_ADDL_UINT64       27
+#define CBOR_ADDL_ARRAY_INDEF  31
+#define CBOR_ADDL_MAP_INDEF    31
+
+#define CBOR_ADDL_FLOAT_FLOAT32 26
+#define CBOR_ADDL_FLOAT_FLOAT64 27
+
+#define CBOR_ADDL_FLOAT_FALSE   20
+#define CBOR_ADDL_FLOAT_TRUE    21
+#define CBOR_ADDL_FLOAT_NULL    22
+#define CBOR_ADDL_FLOAT_BREAK   31
 
 /*
  * Integer byteorder
@@ -192,7 +222,10 @@ int cbor_pack_cstr(grow_buf_t *buffer, const char *str)
   return cbor_pack_cstr_len(buffer, str, strlen(str));
 }
 
-
+int cbor_peek_type(
+    grow_buf_t *buffer,
+    enum cbor_major_type *type,
+    uint8_t *extra);
 /*
  * On failure, the buffer state is unchanged.  On success, the buffer is
  * updated to point to the first byte of the next data item.

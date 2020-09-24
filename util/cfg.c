@@ -990,6 +990,123 @@ SUSCAN_SERIALIZER_PROTO(suscan_config)
   SUSCAN_PACK_BOILERPLATE_END;
 }
 
+SUPRIVATE SUBOOL
+suscan_config_desc_populate_from_cbor(
+    suscan_config_desc_t *self,
+    grow_buf_t *buffer)
+{
+  grow_buf_t tmp;
+  enum cbor_major_type type;
+  uint8_t extra;
+  SUBOOL boolean = SU_FALSE;
+  int64_t integer;
+  SUFLOAT real;
+  char *key = NULL;
+  char *string = NULL;
+  size_t i, npairs = 0;
+  SUBOOL end_required = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  grow_buf_init_loan(
+      &tmp,
+      grow_buf_current_data(buffer),
+      grow_buf_avail(buffer),
+      grow_buf_avail(buffer));
+
+  SU_TRYCATCH(
+      cbor_unpack_map_start(&tmp, &npairs, &end_required) == 0,
+      goto fail);
+  SU_TRYCATCH(!end_required, goto fail);
+
+  for (i = 0; i < npairs; ++i) {
+    SU_TRYCATCH(cbor_unpack_str(&tmp, &key) == 0, goto fail);
+    SU_TRYCATCH(cbor_peek_type(&tmp, &type, &extra) == 0, goto fail);
+
+    switch (type) {
+      case CMT_NINT:
+      case CMT_UINT:
+        SU_TRYCATCH(
+            suscan_config_desc_add_field(
+                self,
+                SUSCAN_FIELD_TYPE_INTEGER,
+                SU_FALSE,
+                key,
+                "(no description)"),
+            goto fail);
+
+        SU_TRYCATCH(cbor_unpack_int64(&tmp, &integer) == 0, goto fail);
+        break;
+
+      case CMT_TEXT:
+        SU_TRYCATCH(
+            suscan_config_desc_add_field(
+                self,
+                SUSCAN_FIELD_TYPE_STRING,
+                SU_FALSE,
+                key,
+                "(no description)"),
+            goto fail);
+
+        SU_TRYCATCH(cbor_unpack_str(&tmp, &string) == 0, goto fail);
+        free(string);
+        string = NULL;
+        break;
+
+      case CMT_FLOAT:
+        switch (extra) {
+          case CBOR_ADDL_FLOAT_FALSE:
+          case CBOR_ADDL_FLOAT_TRUE:
+            SU_TRYCATCH(
+                suscan_config_desc_add_field(
+                    self,
+                    SUSCAN_FIELD_TYPE_BOOLEAN,
+                    SU_FALSE,
+                    key,
+                    "(no description)"),
+                goto fail);
+
+            SU_TRYCATCH(cbor_unpack_bool(&tmp, &boolean) == 0, goto fail);
+            break;
+
+          case CBOR_ADDL_FLOAT_SUFLOAT:
+            SU_TRYCATCH(
+                suscan_config_desc_add_field(
+                    self,
+                    SUSCAN_FIELD_TYPE_FLOAT,
+                    SU_FALSE,
+                    key,
+                    "(no description)"),
+                goto fail);
+            SU_TRYCATCH(cbor_unpack_float(&tmp, &real) == 0, goto fail);
+            break;
+
+          default:
+            SU_ERROR("Invalid CBOR float subtype\n");
+            goto fail;
+        }
+        break;
+
+      default:
+        SU_ERROR("Invalid CBOR major type %d\n", type);
+        goto fail;
+    }
+
+    free(key);
+    key = NULL;
+  }
+
+  ok = SU_TRUE;
+
+fail:
+  if (string != NULL)
+    free(string);
+
+  if (key != NULL)
+    free(key);
+
+  return ok;
+}
+
 SUSCAN_DESERIALIZER_PROTO(suscan_config)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
@@ -1001,29 +1118,25 @@ SUSCAN_DESERIALIZER_PROTO(suscan_config)
   char *string = NULL;
   suscan_config_desc_t *desc = NULL;
   const struct suscan_field *field = NULL;
+  SUBOOL creative_mode = SU_TRUE;
   size_t i, npairs = 0;
   SUBOOL end_required = SU_FALSE;
-  SUBOOL creative_mode;
 
+  /* Serialized configurations must have a name */
   SUSCAN_UNPACK(str, global_name);
-
   SU_TRYCATCH(strlen(global_name) > 0, goto fail);
 
   if ((desc = suscan_config_desc_lookup(global_name)) == NULL) {
     creative_mode = SU_TRUE;
+
     SU_TRYCATCH(
         desc = suscan_config_desc_new_ex(global_name),
         goto fail);
+    SU_TRYCATCH(
+        suscan_config_desc_populate_from_cbor(desc, buffer),
+        goto fail);
   }
 
-  /* We currently don't support creative mode */
-  SU_TRYCATCH(!creative_mode, goto fail);
-
-  /*
-   * TODO: Add creative mode. Creative must be implemented in two passes.
-   * In a first pass, we deduce the new suscan_config_desc_t. In the second,
-   * we just deserialize the values
-   */
   SU_TRYCATCH(
       cbor_unpack_map_start(buffer, &npairs, &end_required) == 0,
       goto fail);

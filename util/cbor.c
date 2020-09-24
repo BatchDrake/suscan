@@ -27,42 +27,14 @@
 
 #include "cbor.h"
 
-#define CBOR_MEM_REUSE_SIZE_LIMIT (1 << 20)
-
-enum cbor_major_type {
-  CMT_UINT  = 0,
-  CMT_NINT  = 1,
-  CMT_BYTE  = 2,
-  CMT_TEXT  = 3,
-  CMT_ARRAY = 4,
-  CMT_MAP   = 5,
-  CMT_TAG   = 6,
-  CMT_FLOAT = 7,
-};
-
-#define ADDL_UINT8    24
-#define ADDL_UINT16    25
-#define ADDL_UINT32    26
-#define ADDL_UINT64    27
-#define ADDL_ARRAY_INDEF  31
-#define ADDL_MAP_INDEF    31
-
-#define ADDL_FLOAT_FLOAT32 26
-#define ADDL_FLOAT_FLOAT64 27
-
-#define ADDL_FLOAT_FALSE  20
-#define ADDL_FLOAT_TRUE    21
-#define ADDL_FLOAT_NULL    22
-#define ADDL_FLOAT_BREAK  31
-
-#define MKTYPE(type, additional)    \
-    ({        \
-      (type << 5) | additional;      \
+#define MKTYPE(type, additional)        \
+    ({                                  \
+      (type << 5) | additional;         \
     })
 
-#define MKTYPE_STATIC(type, additional)    \
-    ({        \
-      (type << 5) | additional;      \
+#define MKTYPE_STATIC(type, additional) \
+    ({                                  \
+      (type << 5) | additional;         \
     })
 
 /*
@@ -102,19 +74,19 @@ pack_cbor_type(
 
   if (additional <= 0xff) {
     size = sizeof(uint8_t);
-    addl = ADDL_UINT8;
+    addl = CBOR_ADDL_UINT8;
     u.u8 = cpu8_to_be(additional);
   } else if (additional <= 0xffff) {
     size = sizeof(uint16_t);
-    addl = ADDL_UINT16;
+    addl = CBOR_ADDL_UINT16;
     u.u16 = cpu16_to_be(additional);
   } else if (additional <= 0xffffffff) {
     size = sizeof(uint32_t);
-    addl = ADDL_UINT32;
+    addl = CBOR_ADDL_UINT32;
     u.u32 = cpu32_to_be(additional);
   } else {
     size = sizeof(uint64_t);
-    addl = ADDL_UINT64;
+    addl = CBOR_ADDL_UINT64;
     u.u64 = cpu64_to_be(additional);
   }
 
@@ -130,7 +102,7 @@ cbor_pack_single(grow_buf_t *buffer, SUSINGLE value)
   int ret;
   int32_t as_int = cpu32_to_be(*(int32_t *) &value);
 
-  if ((ret = pack_cbor_type_byte(buffer, CMT_FLOAT, ADDL_UINT32)))
+  if ((ret = pack_cbor_type_byte(buffer, CMT_FLOAT, CBOR_ADDL_UINT32)))
     return ret;
 
   return grow_buf_append(buffer, &as_int, sizeof(int32_t));
@@ -142,7 +114,7 @@ cbor_pack_double(grow_buf_t *buffer, SUDOUBLE value)
   int ret;
   int64_t as_int = cpu64_to_be(*(int64_t *) &value);
 
-  if ((ret = pack_cbor_type_byte(buffer, CMT_FLOAT, ADDL_UINT64)))
+  if ((ret = pack_cbor_type_byte(buffer, CMT_FLOAT, CBOR_ADDL_UINT64)))
     return ret;
 
   return grow_buf_append(buffer, &as_int, sizeof(int64_t));
@@ -224,20 +196,20 @@ cbor_pack_bool(grow_buf_t *buffer, SUBOOL b)
   return pack_cbor_type(
       buffer,
       CMT_FLOAT,
-      b ? ADDL_FLOAT_TRUE : ADDL_FLOAT_FALSE);
+      b ? CBOR_ADDL_FLOAT_TRUE : CBOR_ADDL_FLOAT_FALSE);
 }
 
 int
 cbor_pack_null(grow_buf_t *buffer)
 {
   /* null uses the float major type */
-  return pack_cbor_type(buffer, CMT_FLOAT, ADDL_FLOAT_NULL);
+  return pack_cbor_type(buffer, CMT_FLOAT, CBOR_ADDL_FLOAT_NULL);
 }
 
 int
 cbor_pack_break(grow_buf_t *buffer)
 {
-  SUPRIVATE const uint8_t byte = MKTYPE_STATIC(CMT_FLOAT, ADDL_FLOAT_BREAK);
+  SUPRIVATE const uint8_t byte = MKTYPE_STATIC(CMT_FLOAT, CBOR_ADDL_FLOAT_BREAK);
 
   return grow_buf_append(buffer, &byte, 1);
 }
@@ -245,7 +217,7 @@ cbor_pack_break(grow_buf_t *buffer)
 int
 cbor_pack_array_start(grow_buf_t *buffer, size_t nelem)
 {
-  SUPRIVATE const uint8_t byte = MKTYPE_STATIC(CMT_ARRAY, ADDL_ARRAY_INDEF);
+  SUPRIVATE const uint8_t byte = MKTYPE_STATIC(CMT_ARRAY, CBOR_ADDL_ARRAY_INDEF);
 
   if (nelem != CBOR_UNKNOWN_NELEM)
     return pack_cbor_type(buffer, CMT_ARRAY, nelem);
@@ -270,7 +242,7 @@ cbor_pack_map_start(grow_buf_t *buffer, size_t npairs)
   if (npairs == CBOR_UNKNOWN_NELEM) {
     /* indefinite-length map */
     SUPRIVATE const uint8_t byte = MKTYPE_STATIC(CMT_MAP,
-    ADDL_MAP_INDEF);
+    CBOR_ADDL_MAP_INDEF);
 
     return grow_buf_append(buffer, &byte, 1);
   } else {
@@ -294,6 +266,29 @@ cbor_pack_map_end(grow_buf_t *buffer, size_t npairs)
 /*
  * unpack
  */
+
+int
+cbor_peek_type(grow_buf_t *buffer, enum cbor_major_type *type, uint8_t *extra)
+{
+  uint8_t byte;
+  ssize_t ret;
+  grow_buf_t tmp;
+
+  grow_buf_init_loan(
+      &tmp,
+      grow_buf_current_data(buffer),
+      grow_buf_avail(buffer),
+      grow_buf_avail(buffer));
+
+  ret = grow_buf_read(&tmp, &byte, 1);
+  if (ret < 1)
+    return ret ? ret : -EINVAL;
+
+  *type = byte >> 5;
+  *extra = byte & 0x1f;
+
+  return 0;
+}
 
 SUPRIVATE int
 read_cbor_type(grow_buf_t *buffer, enum cbor_major_type *type, uint8_t *extra)
@@ -319,16 +314,16 @@ get_addl_bytes(grow_buf_t *buffer, uint8_t extra, uint64_t *out)
   size_t size;
 
   switch (extra) {
-    case ADDL_UINT8:
+    case CBOR_ADDL_UINT8:
       size = 1;
       break;
-    case ADDL_UINT16:
+    case CBOR_ADDL_UINT16:
       size = 2;
       break;
-    case ADDL_UINT32:
+    case CBOR_ADDL_UINT32:
       size = 4;
       break;
-    case ADDL_UINT64:
+    case CBOR_ADDL_UINT64:
       size = 8;
       break;
     default:
@@ -402,12 +397,12 @@ unpack_cbor_float(grow_buf_t *buffer, uint8_t *extra)
     return -EILSEQ;
 
   switch (*extra) {
-    case ADDL_FLOAT_FALSE:
-    case ADDL_FLOAT_TRUE:
-    case ADDL_FLOAT_NULL:
-    case ADDL_FLOAT_BREAK:
-    case ADDL_FLOAT_FLOAT32:
-    case ADDL_FLOAT_FLOAT64:
+    case CBOR_ADDL_FLOAT_FALSE:
+    case CBOR_ADDL_FLOAT_TRUE:
+    case CBOR_ADDL_FLOAT_NULL:
+    case CBOR_ADDL_FLOAT_BREAK:
+    case CBOR_ADDL_FLOAT_FLOAT32:
+    case CBOR_ADDL_FLOAT_FLOAT64:
       return 0;
   }
 
@@ -696,7 +691,7 @@ cbor_unpack_single(grow_buf_t *buffer, SUSINGLE *value)
     return ret;
 
   switch (extra) {
-    case ADDL_FLOAT_FLOAT32:
+    case CBOR_ADDL_FLOAT_FLOAT32:
       if (grow_buf_read(
           buffer,
           &as_int,
@@ -732,7 +727,7 @@ cbor_unpack_double(grow_buf_t *buffer, SUDOUBLE *value)
     return ret;
 
   switch (extra) {
-    case ADDL_FLOAT_FLOAT64:
+    case CBOR_ADDL_FLOAT_FLOAT64:
       if (grow_buf_read(
           buffer,
           &as_int,
@@ -767,10 +762,10 @@ cbor_unpack_bool(grow_buf_t *buffer, SUBOOL *b)
     return ret;
 
   switch (extra) {
-    case ADDL_FLOAT_FALSE:
+    case CBOR_ADDL_FLOAT_FALSE:
       *b = SU_FALSE;
       break;
-    case ADDL_FLOAT_TRUE:
+    case CBOR_ADDL_FLOAT_TRUE:
       *b = SU_TRUE;
       break;
     default:
@@ -798,7 +793,7 @@ cbor_unpack_null(grow_buf_t *buffer)
     return ret;
 
   switch (extra) {
-    case ADDL_FLOAT_NULL:
+    case CBOR_ADDL_FLOAT_NULL:
       break;
     default:
       return -EILSEQ;
@@ -825,7 +820,7 @@ cbor_unpack_break(grow_buf_t *buffer)
     return ret;
 
   switch (extra) {
-    case ADDL_FLOAT_BREAK:
+    case CBOR_ADDL_FLOAT_BREAK:
       break;
     default:
       return -EILSEQ;
@@ -850,7 +845,7 @@ cbor_unpack_map_start(grow_buf_t *buffer, uint64_t *npairs,
   ret = unpack_cbor_arraymap_start(
       &tmp,
       CMT_MAP,
-      ADDL_MAP_INDEF,
+      CBOR_ADDL_MAP_INDEF,
       npairs,
       end_required);
 
@@ -887,7 +882,7 @@ cbor_unpack_array_start(
   ret = unpack_cbor_arraymap_start(
       &tmp,
       CMT_ARRAY,
-      ADDL_ARRAY_INDEF,
+      CBOR_ADDL_ARRAY_INDEF,
       nelem,
       end_required);
 
