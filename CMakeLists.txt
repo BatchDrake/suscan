@@ -183,6 +183,7 @@ set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/realtime.h
   ${ANALYZERDIR}/msg.h
   ${ANALYZERDIR}/impl/local.h
+  ${ANALYZERDIR}/impl/remote.h
   ${ANALYZERDIR}/inspsched.h
   ${ANALYZERDIR}/spectsrc.h
   ${ANALYZERDIR}/worker.h
@@ -230,6 +231,7 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/discovery.c
   ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/impl/local.c
+  ${ANALYZERDIR}/impl/remote.c
   ${ANALYZERDIR}/inspsched.c
   ${ANALYZERDIR}/insp-server.c
   ${ANALYZERDIR}/mq.c

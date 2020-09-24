@@ -160,6 +160,25 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
 }
 
 void
+suscan_analyzer_source_info_init(struct suscan_analyzer_source_info *self)
+{
+  memset(self, 0, sizeof(struct suscan_analyzer_source_info));
+}
+
+void
+suscan_analyzer_source_info_finalize(struct suscan_analyzer_source_info *self)
+{
+  unsigned int i;
+
+  for (i = 0; i < self->gain_count; ++i)
+    if (self->gain_list[i] != NULL)
+      suscan_analyzer_gain_info_destroy(self->gain_list[i]);
+
+  if (self->gain_list != NULL)
+    free(self->gain_list);
+}
+
+void
 suscan_analyzer_consume_mq(struct suscan_mq *mq)
 {
   void *private;

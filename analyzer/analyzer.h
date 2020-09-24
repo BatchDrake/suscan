@@ -177,6 +177,22 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
   PTR_LIST(struct suscan_analyzer_gain_info, gain);
 };
 
+/*!
+ * Initialize a source information structure
+ * \param self a pointer to the source info structure
+ * \author Gonzalo José Carracedo Carballal
+ */
+void suscan_analyzer_source_info_init(
+    struct suscan_analyzer_source_info *self);
+
+/*!
+ * Release allocated resources in the source information structure
+ * \param self a pointer to the source info structure
+ * \author Gonzalo José Carracedo Carballal
+ */
+void suscan_analyzer_source_info_finalize(
+    struct suscan_analyzer_source_info *self);
+
 struct suscan_analyzer_interface {
   const char *name;
   void  *(*ctor) (struct suscan_analyzer *, va_list);
