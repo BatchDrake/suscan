@@ -47,8 +47,7 @@ enum suscan_analyzer_remote_type {
   SUSCAN_ANALYZER_REMOTE_REQ_HALT,
 };
 
-SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call)
-{
+SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call) {
   uint32_t type;
 
   union {
@@ -85,9 +84,44 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call)
 };
 
 void suscan_analyzer_remote_call_init(
-    struct suscan_analyzer_remote_call *self);
+    struct suscan_analyzer_remote_call *self,
+    enum suscan_analyzer_remote_type type);
 void suscan_analyzer_remote_call_finalize(
     struct suscan_analyzer_remote_call *self);
+
+struct suscan_remote_analyzer {
+  suscan_analyzer_t *parent;
+
+  pthread_mutex_t call_mutex;
+  SUBOOL call_mutex_initialized;
+  struct suscan_analyzer_source_info source_info;
+  struct suscan_analyzer_remote_call call;
+  struct suscan_mq pdu_queue;
+
+  int control_fd;
+  int data_fd;
+
+  SUFLOAT measured_samp_rate;
+};
+
+typedef struct suscan_remote_analyzer suscan_remote_analyzer_t;
+
+/* Internal */
+struct suscan_analyzer_remote_call *
+suscan_remote_analyzer_acquire_call(
+    suscan_remote_analyzer_t *self,
+    enum suscan_analyzer_remote_type type);
+
+SUBOOL
+suscan_remote_analyzer_release_call(
+    suscan_remote_analyzer_t *self,
+    struct suscan_analyzer_remote_call *call);
+
+SUBOOL
+suscan_remote_analyzer_queue_call(
+    suscan_remote_analyzer_t *self,
+    struct suscan_analyzer_remote_call *call,
+    SUBOOL is_control);
 
 #ifdef __cplusplus
 }

@@ -907,6 +907,9 @@ SUBOOL suscan_analyzer_reset_equalizer_async(
 const struct suscan_analyzer_interface *
 suscan_local_analyzer_get_interface(void);
 
+const struct suscan_analyzer_interface *
+suscan_remote_analyzer_get_interface(void);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
