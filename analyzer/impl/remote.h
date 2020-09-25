@@ -100,8 +100,6 @@ struct suscan_remote_analyzer {
 
   int control_fd;
   int data_fd;
-
-  SUFLOAT measured_samp_rate;
 };
 
 typedef struct suscan_remote_analyzer suscan_remote_analyzer_t;

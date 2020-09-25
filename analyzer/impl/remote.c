@@ -386,7 +386,8 @@ suscan_remote_analyzer_set_gain(void *ptr, const char *name, SUFLOAT value)
           SUSCAN_ANALYZER_REMOTE_SET_GAIN),
       goto done);
 
-  /* TODO: Implement me */
+  SU_TRYCATCH(call->gain.name = strdup(name), goto done);
+  call->gain.value = value;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -411,10 +412,10 @@ suscan_remote_analyzer_set_antenna(void *ptr, const char *name)
   SU_TRYCATCH(
       call = suscan_remote_analyzer_acquire_call(
           self,
-          SUSCAN_ANALYZER_REMOTE_SET_GAIN),
+          SUSCAN_ANALYZER_REMOTE_SET_ANTENNA),
       goto done);
 
-  /* TODO: Implement me */
+  SU_TRYCATCH(call->antenna = strdup(name), goto done);
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -439,10 +440,10 @@ suscan_remote_analyzer_set_bandwidth(void *ptr, SUFLOAT value)
   SU_TRYCATCH(
       call = suscan_remote_analyzer_acquire_call(
           self,
-          SUSCAN_ANALYZER_REMOTE_SET_GAIN),
+          SUSCAN_ANALYZER_REMOTE_SET_BANDWIDTH),
       goto done);
 
-  /* TODO: Implement me */
+  call->bandwidth = value;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -467,10 +468,10 @@ suscan_remote_analyzer_set_dc_remove(void *ptr, SUBOOL value)
   SU_TRYCATCH(
       call = suscan_remote_analyzer_acquire_call(
           self,
-          SUSCAN_ANALYZER_REMOTE_SET_GAIN),
+          SUSCAN_ANALYZER_REMOTE_SET_DC_REMOVE),
       goto done);
 
-  /* TODO: Implement me */
+  call->dc_remove = value;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -495,10 +496,10 @@ suscan_remote_analyzer_set_iq_reverse(void *ptr, SUBOOL value)
   SU_TRYCATCH(
       call = suscan_remote_analyzer_acquire_call(
           self,
-          SUSCAN_ANALYZER_REMOTE_SET_GAIN),
+          SUSCAN_ANALYZER_REMOTE_SET_IQ_REVERSE),
       goto done);
 
-  /* TODO: Implement me */
+  call->iq_reverse = value;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -525,10 +526,10 @@ suscan_remote_analyzer_set_agc(void *ptr, SUBOOL value)
   SU_TRYCATCH(
       call = suscan_remote_analyzer_acquire_call(
           self,
-          SUSCAN_ANALYZER_REMOTE_SET_GAIN),
+          SUSCAN_ANALYZER_REMOTE_SET_AGC),
       goto done);
 
-  /* TODO: Implement me */
+  call->agc = value;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -553,7 +554,7 @@ suscan_remote_analyzer_force_eos(void *ptr)
   SU_TRYCATCH(
       call = suscan_remote_analyzer_acquire_call(
           self,
-          SUSCAN_ANALYZER_REMOTE_SET_GAIN),
+          SUSCAN_ANALYZER_REMOTE_SET_FORCE_EOS),
       goto done);
 
   /* TODO: Implement me */
@@ -581,28 +582,8 @@ SUPRIVATE unsigned int
 suscan_remote_analyzer_get_samp_rate(const void *ptr)
 {
   suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
-  struct suscan_analyzer_remote_call *call = NULL;
-  SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(
-      call = suscan_remote_analyzer_acquire_call(
-          self,
-          SUSCAN_ANALYZER_REMOTE_SET_GAIN),
-      goto done);
-
-  /* TODO: Implement me */
-
-  SU_TRYCATCH(
-      suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
-      goto done);
-
-  ok = SU_TRUE;
-
-done:
-  if (call != NULL)
-    suscan_remote_analyzer_release_call(self, call);
-
-  return ok;
+  return self->source_info.source_samp_rate;
 }
 
 SUPRIVATE SUFLOAT
@@ -610,7 +591,7 @@ suscan_remote_analyzer_get_measured_samp_rate(const void *ptr)
 {
   const suscan_remote_analyzer_t *self = (const suscan_remote_analyzer_t *) ptr;
 
-  return self->measured_samp_rate;
+  return self->source_info.measured_samp_rate;
 }
 
 SUPRIVATE struct suscan_analyzer_source_info *
@@ -643,7 +624,7 @@ suscan_remote_analyzer_set_sweep_strategy(
           SUSCAN_ANALYZER_REMOTE_SET_SWEEP_STRATEGY),
       goto done);
 
-  /* TODO: Implement me */
+  call->sweep_strategy = strategy;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -673,7 +654,7 @@ suscan_remote_analyzer_set_spectrum_partitioning(
           SUSCAN_ANALYZER_REMOTE_SET_SPECTRUM_PARTITIONING),
       goto done);
 
-  /* TODO: Implement me */
+  call->spectrum_partitioning = partitioning;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -701,7 +682,8 @@ suscan_remote_analyzer_set_hop_range(void *ptr, SUFREQ min, SUFREQ max)
           SUSCAN_ANALYZER_REMOTE_SET_HOP_RANGE),
       goto done);
 
-  /* TODO: Implement me */
+  call->hop_range.min = min;
+  call->hop_range.max = max;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -717,9 +699,7 @@ done:
 }
 
 SUPRIVATE SUBOOL
-suscan_remote_analyzer_set_buffering_size(
-    void *ptr,
-    SUSCOUNT size)
+suscan_remote_analyzer_set_buffering_size(void *ptr, SUSCOUNT size)
 {
   suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
   struct suscan_analyzer_remote_call *call = NULL;
@@ -731,7 +711,7 @@ suscan_remote_analyzer_set_buffering_size(
           SUSCAN_ANALYZER_REMOTE_SET_BUFFERING_SIZE),
       goto done);
 
-  /* TODO: Implement me */
+  call->buffering_size = size;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -759,7 +739,8 @@ suscan_remote_analyzer_write(void *ptr, uint32_t type, void *priv)
           SUSCAN_ANALYZER_REMOTE_MESSAGE),
       goto done);
 
-  /* TODO: Implement me */
+  call->msg.type = type;
+  call->msg.ptr  = priv;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -770,6 +751,9 @@ suscan_remote_analyzer_write(void *ptr, uint32_t type, void *priv)
 done:
   if (call != NULL)
     suscan_remote_analyzer_release_call(self, call);
+
+  if (ok)
+    suscan_analyzer_dispose_message(type, priv);
 
   return ok;
 }
@@ -785,8 +769,6 @@ suscan_remote_analyzer_req_halt(void *ptr)
           self,
           SUSCAN_ANALYZER_REMOTE_REQ_HALT),
       goto done);
-
-  /* TODO: Implement me */
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
