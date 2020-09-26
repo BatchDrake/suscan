@@ -45,6 +45,7 @@ extern "C" {
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xb /* Analyzer params */
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
+#define SUSCAN_ANALYZER_INIT_PROGRESS              1
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
 
 

@@ -22,10 +22,22 @@
 #define _SUSCAN_ANALYZER_IMPL_REMOTE_H
 
 #include <analyzer/analyzer.h>
+#include <netinet/in.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+#define SUSCAN_REMOTE_PDU_HEADER_MAGIC             0xf5005ca9
+#define SUSCAN_REMOTE_ANALYZER_CONNECT_TIMEOUT_MS       10000
+#define SUSCAN_REMOTE_ANALYZER_AUTH_TIMEOUT_MS          10000
+#define SUSCAN_REMOTE_ANALYZER_PDU_BODY_TIMEOUT_MS       5000
+#define SUSCAN_REMOTE_READ_BUFFER                        1400
+
+struct suscan_analyzer_remote_pdu_header {
+  uint32_t magic;
+  uint32_t size;
+};
 
 enum suscan_analyzer_remote_type {
   SUSCAN_ANALYZER_REMOTE_NONE,
@@ -86,8 +98,29 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call) {
 void suscan_analyzer_remote_call_init(
     struct suscan_analyzer_remote_call *self,
     enum suscan_analyzer_remote_type type);
+
+SUBOOL suscan_analyzer_remote_call_take_source_info(
+    struct suscan_analyzer_remote_call *self,
+    struct suscan_analyzer_source_info *info);
+
+SUBOOL suscan_analyzer_remote_call_deliver_message(
+    struct suscan_analyzer_remote_call *self,
+    suscan_analyzer_t *analyzer);
+
 void suscan_analyzer_remote_call_finalize(
     struct suscan_analyzer_remote_call *self);
+
+struct suscan_remote_analyzer_peer_info {
+  const char *hostname;
+  uint16_t port;
+  struct in_addr hostaddr;
+
+  int control_fd;
+  int data_fd;
+
+  grow_buf_t read_buffer;
+  grow_buf_t write_buffer;
+};
 
 struct suscan_remote_analyzer {
   suscan_analyzer_t *parent;
@@ -96,10 +129,16 @@ struct suscan_remote_analyzer {
   SUBOOL call_mutex_initialized;
   struct suscan_analyzer_source_info source_info;
   struct suscan_analyzer_remote_call call;
+  struct suscan_remote_analyzer_peer_info peer;
   struct suscan_mq pdu_queue;
 
-  int control_fd;
-  int data_fd;
+  int cancel_pipe[2];
+
+  SUBOOL    rx_thread_init;
+  pthread_t rx_thread;
+
+  SUBOOL    tx_thread_init;
+  pthread_t tx_thread;
 };
 
 typedef struct suscan_remote_analyzer suscan_remote_analyzer_t;
