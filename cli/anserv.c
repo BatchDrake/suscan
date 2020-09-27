@@ -22,7 +22,7 @@
 
 #include "anserv.h"
 #include <sigutils/log.h>
-
+#include <sys/poll.h>
 
 /************************** Analyzer Client API *******************************/
 suscli_analyzer_client_t *
@@ -211,3 +211,259 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
 
   free(self);
 }
+
+/**************************** Client list API ********************************/
+SUPRIVATE SUBOOL
+suscli_analyzer_client_list_update_pollfds_unsafe(
+    struct suscli_analyzer_client_list *self)
+{
+  unsigned int i, count = self->client_count;
+  suscli_analyzer_client_t *client;
+  struct pollfd *pollfds = NULL;
+  struct rbtree_node *this;
+  SUBOOL ok = SU_FALSE;
+
+  this = rbtree_get_first(self->client_tree);
+
+  SU_TRYCATCH(
+      pollfds = realloc(self->client_pfds, (count + 1) * sizeof(struct pollfd)),
+      goto done);
+
+  /* We always have one socket to poll from: the listen socket */
+  pollfds[0].fd      = self->listen_fd;
+  pollfds[0].events  = POLLIN;
+  pollfds[0].revents = 0;
+
+  while (this != NULL) {
+    if (this->data != NULL) {
+      SU_TRYCATCH(i < count, goto done);
+      client = this->data;
+
+      ++i;
+
+      pollfds[i].fd      = client->sfd;
+      pollfds[i].events  = POLLIN;
+      pollfds[i].revents = 0;
+    }
+
+    this = this->next;
+  }
+
+  self->client_pfds = pollfds;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscli_analyzer_client_list_cleanup_unsafe(
+    struct suscli_analyzer_client_list *self)
+{
+  suscli_analyzer_client_t *client;
+  struct rbtree_node *this;
+  SUBOOL changed = SU_FALSE;
+
+  this = rbtree_get_first(self->client_tree);
+
+  while (this != NULL) {
+    if (this->data != NULL) {
+      client = this->data;
+      if (suscli_analyzer_client_is_failed(client)) {
+        suscli_analyzer_client_list_remove_unsafe(self, client);
+        suscli_analyzer_client_destroy(client);
+        changed = SU_TRUE;
+      }
+    }
+    this = this->next;
+  }
+
+  return changed;
+}
+
+SUBOOL
+suscli_analyzer_client_list_attempt_cleanup(
+    struct suscli_analyzer_client_list *self)
+{
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  if (pthread_mutex_trylock(&self->client_mutex) == 0) {
+    mutex_acquired = SU_TRUE;
+
+    if (suscli_analyzer_client_list_cleanup_unsafe(self))
+      SU_TRYCATCH(
+          suscli_analyzer_client_list_update_pollfds_unsafe(self),
+          goto done);
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->client_mutex);
+
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_list_init(
+    struct suscli_analyzer_client_list *self,
+    int listen_fd)
+{
+  SUBOOL ok = SU_FALSE;
+
+  memset(self, 0, sizeof(struct suscli_analyzer_client_list));
+
+  SU_TRYCATCH(self->client_tree = rbtree_new(), goto done);
+
+  SU_TRYCATCH(pthread_mutex_init(&self->client_mutex, NULL), goto done);
+  self->client_mutex_initialized = SU_TRUE;
+
+  self->listen_fd = listen_fd;
+
+  SU_TRYCATCH(
+      suscli_analyzer_client_list_update_pollfds_unsafe(self),
+      goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok)
+    suscli_analyzer_client_list_finalize(self);
+
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_list_append_client(
+    struct suscli_analyzer_client_list *self,
+    suscli_analyzer_client_t *client)
+{
+  struct rbtree_node *node;
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&self->client_mutex) != -1, goto done);
+  mutex_acquired = SU_TRUE;
+
+  node = rbtree_search(self->client_tree, client->sfd, RB_EXACT);
+
+  SU_TRYCATCH(node == NULL || node->data == NULL, goto done);
+
+  if (node != NULL) {
+    node->data = client;
+  } else {
+    SU_TRYCATCH(
+        rbtree_insert(self->client_tree, client->sfd, client) != -1,
+        goto done);
+  }
+
+  client->next = self->client_head;
+  client->prev = NULL;
+
+  if (self->client_head != NULL)
+    self->client_head->prev = client;
+
+  self->client_head = client;
+
+  ++self->client_count;
+
+  if (self->cleanup_requested) {
+    self->cleanup_requested = SU_FALSE;
+    (void) suscli_analyzer_client_list_cleanup_unsafe(self);
+  }
+
+  SU_TRYCATCH(
+      suscli_analyzer_client_list_update_pollfds_unsafe(self),
+      goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->client_mutex);
+
+  return ok;
+}
+
+suscli_analyzer_client_t *
+suscli_analyzer_client_list_lookup(
+    const struct suscli_analyzer_client_list *self,
+    int fd)
+{
+  struct rbtree_node *node;
+
+  if ((node = rbtree_search(self->client_tree, fd, RB_EXACT)) == NULL)
+    return NULL;
+
+  return node->data;
+}
+
+SUBOOL
+suscli_analyzer_client_list_remove_unsafe(
+    struct suscli_analyzer_client_list *self,
+    suscli_analyzer_client_t *client)
+{
+  suscli_analyzer_client_t *prev, *next;
+  struct rbtree_node *node;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&self->client_mutex) != -1, goto done);
+
+  prev = client->prev;
+  next = client->next;
+
+  SU_TRYCATCH(
+      node = rbtree_search(self->client_tree, client->sfd, RB_EXACT),
+      goto done);
+
+  /* This redundancy is intentional */
+  SU_TRYCATCH(node->data != NULL, goto done);
+  SU_TRYCATCH(node->data == client, goto done);
+
+  /* Set it to NULL. This marks an empty place. */
+  node->data = NULL;
+
+  if (prev != NULL)
+    prev->next = next;
+  else
+    self->client_head = next;
+
+  if (next != NULL)
+    next->prev = prev;
+
+  client->prev = client->next = NULL;
+
+  --self->client_count;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+void
+suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
+{
+  suscli_analyzer_client_t *this, *next;
+
+  if (self->client_mutex_initialized)
+    pthread_mutex_destroy(&self->client_mutex);
+
+  this = self->client_head;
+
+  while (this != NULL) {
+    next = this->next;
+    suscli_analyzer_client_destroy(this);
+    this = next;
+  }
+
+  if (self->client_tree != NULL)
+    rbtree_destroy(self->client_tree);
+
+  if (self->client_pfds != NULL)
+    free(self->client_pfds);
+}
+

@@ -27,6 +27,7 @@
 struct suscli_analyzer_client {
   int sfd;
   SUBOOL auth;
+  SUBOOL failed;
   struct timeval conntime;
   struct in_addr remote_addr;
 
@@ -53,6 +54,24 @@ struct suscli_analyzer_client {
 
 typedef struct suscli_analyzer_client suscli_analyzer_client_t;
 
+SUINLINE SUBOOL
+suscli_analyzer_client_is_failed(const suscli_analyzer_client_t *self)
+{
+  return self->failed;
+}
+
+SUINLINE SUBOOL
+suscli_analyzer_client_is_auth(const suscli_analyzer_client_t *self)
+{
+  return self->auth;
+}
+
+void
+suscli_analyzer_client_set_auth(suscli_analyzer_client_t *self, SUBOOL auth)
+{
+  self->auth = auth;
+}
+
 suscli_analyzer_client_t *suscli_analyzer_client_new(int sfd);
 SUBOOL suscli_analyzer_client_read(suscli_analyzer_client_t *self);
 struct suscan_analyzer_remote_call *suscli_analyzer_client_take_call(
@@ -66,17 +85,32 @@ struct pollfd;
 
 struct suscli_analyzer_client_list {
   suscli_analyzer_client_t *client_head;
+  int listen_fd;
   rbtree_t *client_tree;
   struct pollfd *client_pfds;
   unsigned int client_count;
+  SUBOOL cleanup_requested;
   pthread_mutex_t client_mutex;
   SUBOOL client_mutex_initialized;
 };
 
-SUBOOL suscli_analyzer_client_list_init(struct suscli_analyzer_client_list *);
+SUBOOL suscli_analyzer_client_list_init(
+    struct suscli_analyzer_client_list *,
+    int listen_fd);
 SUBOOL suscli_analyzer_client_list_append_client(
     struct suscli_analyzer_client_list *self,
     suscli_analyzer_client_t *client);
+
+suscli_analyzer_client_t *suscli_analyzer_client_list_lookup(
+    const struct suscli_analyzer_client_list *self,
+    int fd);
+
+SUBOOL suscli_analyzer_client_list_remove_unsafe(
+    struct suscli_analyzer_client_list *self,
+    suscli_analyzer_client_t *client);
+
+SUBOOL suscli_analyzer_client_list_attempt_cleanup(
+    struct suscli_analyzer_client_list *self);
 
 SUINLINE unsigned int
 suscli_analyzer_client_list_get_count(
