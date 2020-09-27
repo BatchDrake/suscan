@@ -110,6 +110,30 @@ SUBOOL suscan_analyzer_remote_call_deliver_message(
 void suscan_analyzer_remote_call_finalize(
     struct suscan_analyzer_remote_call *self);
 
+/*!
+ * Cancellable read from a socket
+ * \param sfd socket descriptor from which to read
+ * \param cancelfd file descriptor to the cancellation pipe
+ * \param buffer destination buffer
+ * \param size number of bytes to read
+ * \param timeout_ms read timeout (in milliseconds)
+ * Attempts to fill a buffer of \param size bytes by repeatedly polling on
+ * the socket descriptor \param sfd. The read operation can be cancelled by
+ * other thread simply by writing a byte in the write end of the pipe specified
+ * by cancelfd.
+ * \return \param size if the read was successful or [0, \param size) if the
+ * socket connection was closed prematurely by the remote peer. If an error
+ * occurred, the function returns -1 and errno is set to a descriptive
+ * error code.
+ * \author Gonzalo José Carracedo Carballal
+ */
+size_t suscan_remote_read(
+    int sfd,
+    int cancelfd,
+    void *buffer,
+    size_t size,
+    int timeout_ms);
+
 struct suscan_remote_analyzer_peer_info {
   const char *hostname;
   uint16_t port;
