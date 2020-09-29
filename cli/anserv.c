@@ -201,7 +201,7 @@ done:
 void
 suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
 {
-  shutdown(self->sfd, 2);
+  close(self->sfd);
 
   grow_buf_finalize(&self->incoming_pdu);
   grow_buf_finalize(&self->outcoming_pdu);
@@ -225,9 +225,15 @@ suscli_analyzer_client_list_update_pollfds_unsafe(
 
   this = rbtree_get_first(self->client_tree);
 
-  SU_TRYCATCH(
-      pollfds = realloc(self->client_pfds, (count + 1) * sizeof(struct pollfd)),
-      goto done);
+  if (count + 1 > self->client_pfds_alloc) {
+    SU_TRYCATCH(
+        pollfds = realloc(self->client_pfds, (count + 1) * sizeof(struct pollfd)),
+        goto done);
+    self->client_pfds = pollfds;
+    self->client_pfds_alloc = count + 1;
+  } else {
+    pollfds = self->client_pfds;
+  }
 
   /* We always have one socket to poll from: the listen socket */
   pollfds[0].fd      = self->listen_fd;
@@ -248,8 +254,6 @@ suscli_analyzer_client_list_update_pollfds_unsafe(
 
     this = this->next;
   }
-
-  self->client_pfds = pollfds;
 
   ok = SU_TRUE;
 
@@ -467,3 +471,173 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
     free(self->client_pfds);
 }
 
+/***************************** RX Thread **************************************/
+SUPRIVATE SUBOOL
+suscli_analyzer_server_process_auth_message(
+    suscli_analyzer_server_t *self,
+    suscli_analyzer_client_t *client,
+    const struct suscan_analyzer_remote_call *call)
+{
+  SUBOOL ok = SU_FALSE;
+
+  /* Check authentication message */
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscli_analyzer_server_start_analyzer(suscli_analyzer_server_t *self)
+{
+  SUBOOL ok = SU_FALSE;
+
+  /* TODO: Make analyzer object */
+  /* TODO: Create TX thread */
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscli_analyzer_server_process_call(
+    suscli_analyzer_server_t *self,
+    suscli_analyzer_client_t *client,
+    const struct suscan_analyzer_remote_call *call)
+{
+  SUBOOL ok = SU_FALSE;
+
+  if (suscli_analyzer_client_is_auth(client)) {
+    /* TODO: Process different call types */
+  } else {
+    SU_TRYCATCH(
+        suscli_analyzer_server_process_auth_message(self, client, call),
+        goto done);
+
+    if (suscli_analyzer_client_is_auth(client)) {
+      /*
+       * Authentication successful! Now the client is entitled to make
+       * changes in the server. First, ensure the analyzer object is
+       * running.
+       */
+      if (self->analyzer == NULL)
+        SU_TRYCATCH(suscli_analyzer_server_start_analyzer(self), goto done);
+    } else {
+      /* Authentication failed. Mark as failed. */
+      client->failed = SU_TRUE;
+    }
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscli_analyzer_server_register_clients(suscli_analyzer_server_t *self)
+{
+  int fd;
+  suscli_analyzer_client_t *client = NULL;
+  struct sockaddr_in inaddr;
+  socklen_t len = sizeof(struct sockaddr_in);
+  SUBOOL ok = SU_FALSE;
+
+  while ((fd = accept(
+      self->client_list.listen_fd,
+      (struct sockaddr *) &inaddr,
+      &len)) != -1) {
+    SU_TRYCATCH(client = suscli_analyzer_client_new(fd), goto done);
+    SU_TRYCATCH(
+        suscli_analyzer_client_list_append_client(&self->client_list, client),
+        goto done);
+
+    /* TODO: Send authentication challenge */
+    client = NULL;
+  }
+
+  SU_TRYCATCH(errno != EAGAIN, goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok)
+    SU_ERROR("errno: %s\n", strerror(errno));
+
+  if (client != NULL)
+    suscli_analyzer_client_destroy(client);
+
+  return ok;
+}
+
+SUPRIVATE void *
+suscli_analyzer_server_rx_thread(void *userdata)
+{
+  suscli_analyzer_server_t *self =
+      (suscli_analyzer_server_t *) userdata;
+  suscli_analyzer_client_t *client = NULL;
+  struct suscan_analyzer_remote_call *call;
+  struct rbtree_node *node;
+  int count;
+  unsigned int i;
+  struct pollfd *pfds;
+  SUBOOL ok = SU_FALSE;
+
+  for (;;) {
+    pfds = self->client_list.client_pfds;
+
+    SU_TRYCATCH(
+        (count = poll(pfds, self->client_list.client_count + 1, -1)) > 0,
+        goto done);
+
+    if (pfds[0].revents & POLLIN) {
+      /* New client(s)! */
+      SU_TRYCATCH(suscli_analyzer_server_register_clients(self), goto done);
+      --count;
+    }
+
+    for (i = 1; count > 0 && i <= self->client_list.client_count; ++i) {
+      if (pfds[0].revents && POLLIN) {
+        SU_TRYCATCH(
+            node = rbtree_search(
+                self->client_list.client_tree,
+                pfds[0].fd,
+                RB_EXACT),
+            goto done);
+        client = node->data;
+        SU_TRYCATCH(client != NULL, goto done);
+
+        if (client != NULL) {
+          SU_TRYCATCH(suscli_analyzer_client_read(client), goto done);
+          if ((call = suscli_analyzer_client_take_call(client)) != NULL) {
+            /* Call completed from client, process it and do stuff */
+            SU_TRYCATCH(
+                suscli_analyzer_server_process_call(self, client, call),
+                goto done);
+          }
+        }
+      }
+
+      --count;
+    }
+
+    /* This is actually a consistency condition */
+    SU_TRYCATCH(count == 0, goto done);
+
+    /* Some sockets may have been marked as dead. Clean them */
+    SU_TRYCATCH(
+        suscli_analyzer_client_list_attempt_cleanup(&self->client_list),
+        goto done);
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok)
+    SU_ERROR("errno: %s\n", strerror(errno));
+
+  return NULL;
+}

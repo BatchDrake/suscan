@@ -88,6 +88,7 @@ struct suscli_analyzer_client_list {
   int listen_fd;
   rbtree_t *client_tree;
   struct pollfd *client_pfds;
+  unsigned int client_pfds_alloc;
   unsigned int client_count;
   SUBOOL cleanup_requested;
   pthread_mutex_t client_mutex;
