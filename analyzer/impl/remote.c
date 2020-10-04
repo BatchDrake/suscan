@@ -284,6 +284,8 @@ suscan_analyzer_remote_call_finalize(struct suscan_analyzer_remote_call *self)
       suscan_analyzer_dispose_message(self->msg.type, self->msg.ptr);
       break;
   }
+
+  self->type = SUSCAN_ANALYZER_REMOTE_NONE;
 }
 
 /**************************** Network thread **********************************/

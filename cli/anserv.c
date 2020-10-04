@@ -155,23 +155,17 @@ suscli_analyzer_client_get_outcoming_call(
 }
 
 SUBOOL
-suscli_analyzer_client_deliver_call(suscli_analyzer_client_t *self)
+suscli_analyzer_client_write_buffer(
+    suscli_analyzer_client_t *self,
+    const grow_buf_t *buffer)
 {
   struct suscan_analyzer_remote_pdu_header header;
   const uint8_t *data;
   size_t size, chunksize;
   SUBOOL ok = SU_FALSE;
 
-  grow_buf_clear(&self->outcoming_pdu);
-
-  SU_TRYCATCH(
-      suscan_analyzer_remote_call_serialize(
-          &self->outcoming_call,
-          &self->outcoming_pdu),
-      goto done);
-
-  data = grow_buf_get_buffer(&self->outcoming_pdu);
-  size = grow_buf_get_size(&self->outcoming_pdu);
+  data = grow_buf_get_buffer(buffer);
+  size = grow_buf_get_size(buffer);
 
   header.magic = htonl(SUSCAN_REMOTE_PDU_HEADER_MAGIC);
   header.size  = htonl(size);
@@ -191,6 +185,42 @@ suscli_analyzer_client_deliver_call(suscli_analyzer_client_t *self)
     data += chunksize;
     size -= chunksize;
   }
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self)
+{
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(!self->failed, goto done);
+
+  SU_TRYCATCH(shutdown(self->sfd, 2) == 0, goto done);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_deliver_call(suscli_analyzer_client_t *self)
+{
+  SUBOOL ok = SU_FALSE;
+
+  grow_buf_clear(&self->outcoming_pdu);
+
+  SU_TRYCATCH(
+      suscan_analyzer_remote_call_serialize(
+          &self->outcoming_call,
+          &self->outcoming_pdu),
+      goto done);
+
+  SU_TRYCATCH(
+      suscli_analyzer_client_write_buffer(self, &self->outcoming_pdu),
+      goto done);
 
   ok = SU_TRUE;
 
@@ -392,6 +422,83 @@ done:
   return ok;
 }
 
+SUBOOL
+suscli_analyzer_client_list_broadcast(
+    struct suscli_analyzer_client_list *self,
+    const grow_buf_t *buffer)
+{
+  suscli_analyzer_client_t *this;
+  int error;
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&self->client_mutex) != -1, goto done);
+  mutex_acquired = SU_TRUE;
+
+  this = self->client_head;
+
+  while (this != NULL) {
+    if (!suscli_analyzer_client_is_failed(this)
+        && suscli_analyzer_client_is_auth(this)) {
+      if (!suscli_analyzer_client_write_buffer(this, buffer)) {
+        error = errno;
+        SU_WARNING(
+            "Client[%s]: write failed (%s)\n",
+            suscli_analyzer_client_string_addr(this),
+            strerror(error));
+        suscli_analyzer_client_mark_failed(this);
+      }
+    }
+
+    this = this->next;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->client_mutex);
+
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_list_force_shutdown(
+    struct suscli_analyzer_client_list *self)
+{
+  suscli_analyzer_client_t *this;
+  int error;
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&self->client_mutex) != -1, goto done);
+  mutex_acquired = SU_TRUE;
+
+  this = self->client_head;
+
+  while (this != NULL) {
+    if (!suscli_analyzer_client_is_failed(this)) {
+      if (!suscli_analyzer_client_shutdown(this)) {
+        error = errno;
+        SU_WARNING(
+            "Client[%s]: shutdown failed (%s)\n",
+            suscli_analyzer_client_string_addr(this),
+            strerror(error));
+      }
+    }
+
+    this = this->next;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->client_mutex);
+
+  return ok;
+}
+
 suscli_analyzer_client_t *
 suscli_analyzer_client_list_lookup(
     const struct suscli_analyzer_client_list *self,
@@ -470,6 +577,46 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
   if (self->client_pfds != NULL)
     free(self->client_pfds);
 }
+/***************************** TX Thread **************************************/
+
+
+SUPRIVATE void *
+suscli_analyzer_server_tx_thread(void *ptr)
+{
+  suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) ptr;
+  void *message;
+  uint32_t type;
+
+  while ((message = suscan_analyzer_read(self->analyzer, &type)) != NULL) {
+    self->broadcast_call.type     = SUSCAN_ANALYZER_REMOTE_MESSAGE;
+    self->broadcast_call.msg.type = type;
+    self->broadcast_call.msg.ptr  = message;
+
+    grow_buf_clear(&self->broadcast_pdu);
+
+    SU_TRYCATCH(
+        suscan_analyzer_remote_call_serialize(
+            &self->broadcast_call,
+            &self->broadcast_pdu),
+        goto done);
+
+    suscli_analyzer_client_list_broadcast(
+        &self->client_list,
+        &self->broadcast_pdu);
+
+    suscan_analyzer_remote_call_finalize(&self->broadcast_call);
+  }
+
+done:
+  suscan_analyzer_remote_call_finalize(&self->broadcast_call);
+  suscli_analyzer_client_list_force_shutdown(&self->client_list);
+  suscan_analyzer_destroy(self->analyzer);
+  self->analyzer = NULL;
+
+  self->tx_halted = SU_TRUE;
+
+  return NULL;
+}
 
 /***************************** RX Thread **************************************/
 SUPRIVATE SUBOOL
@@ -491,14 +638,42 @@ done:
 SUPRIVATE SUBOOL
 suscli_analyzer_server_start_analyzer(suscli_analyzer_server_t *self)
 {
+  struct suscan_analyzer_params params =
+      suscan_analyzer_params_INITIALIZER;
+  suscan_analyzer_t *analyzer = NULL;
   SUBOOL ok = SU_FALSE;
 
-  /* TODO: Make analyzer object */
-  /* TODO: Create TX thread */
+  SU_TRYCATCH(self->analyzer == NULL,   goto done);
+  SU_TRYCATCH(!self->tx_thread_running, goto done);
+
+  SU_TRYCATCH(
+      analyzer = suscan_analyzer_new(
+          &params,
+          self->config,
+          &self->mq),
+      goto done);
+
+
+  self->tx_halted = SU_FALSE;
+
+  SU_TRYCATCH(
+      pthread_create(
+          &self->tx_thread,
+          NULL,
+          suscli_analyzer_server_tx_thread,
+          self) != -1,
+      goto done);
+  self->tx_thread_running = SU_TRUE;
+
+  self->analyzer = analyzer;
+  analyzer = NULL;
 
   ok = SU_TRUE;
 
 done:
+  if (analyzer != NULL)
+    suscan_analyzer_destroy(analyzer);
+
   return ok;
 }
 
@@ -524,10 +699,13 @@ suscli_analyzer_server_process_call(
        * running.
        */
       if (self->analyzer == NULL)
-        SU_TRYCATCH(suscli_analyzer_server_start_analyzer(self), goto done);
+        if (!suscli_analyzer_server_start_analyzer(self)) {
+          SU_ERROR("Failed to initialize analyzer. Rejecting client\n");
+          suscli_analyzer_client_shutdown(client);
+        }
     } else {
       /* Authentication failed. Mark as failed. */
-      client->failed = SU_TRUE;
+      suscli_analyzer_client_shutdown(client);
     }
   }
 
@@ -573,6 +751,15 @@ done:
   return ok;
 }
 
+SUPRIVATE void
+suscli_analyzer_server_clean_dead_threads(suscli_analyzer_server_t *self)
+{
+  if (self->tx_thread_running && self->tx_halted) {
+    pthread_join(self->tx_thread, NULL);
+    self->tx_thread_running = SU_FALSE;
+  }
+}
+
 SUPRIVATE void *
 suscli_analyzer_server_rx_thread(void *userdata)
 {
@@ -592,6 +779,8 @@ suscli_analyzer_server_rx_thread(void *userdata)
     SU_TRYCATCH(
         (count = poll(pfds, self->client_list.client_count + 1, -1)) > 0,
         goto done);
+
+    suscli_analyzer_server_clean_dead_threads(self);
 
     if (pfds[0].revents & POLLIN) {
       /* New client(s)! */

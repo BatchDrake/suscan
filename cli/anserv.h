@@ -23,6 +23,7 @@
 
 #include <analyzer/impl/remote.h>
 #include <util/rbtree.h>
+#include <arpa/inet.h>
 
 struct suscli_analyzer_client {
   int sfd;
@@ -66,11 +67,24 @@ suscli_analyzer_client_is_auth(const suscli_analyzer_client_t *self)
   return self->auth;
 }
 
-void
+SUINLINE const char *
+suscli_analyzer_client_string_addr(const suscli_analyzer_client_t *self)
+{
+  return inet_ntoa(self->remote_addr);
+}
+
+SUINLINE void
 suscli_analyzer_client_set_auth(suscli_analyzer_client_t *self, SUBOOL auth)
 {
   self->auth = auth;
 }
+
+SUINLINE void
+suscli_analyzer_client_mark_failed(suscli_analyzer_client_t *self)
+{
+  self->failed = SU_TRUE;
+}
+
 
 suscli_analyzer_client_t *suscli_analyzer_client_new(int sfd);
 SUBOOL suscli_analyzer_client_read(suscli_analyzer_client_t *self);
@@ -78,7 +92,12 @@ struct suscan_analyzer_remote_call *suscli_analyzer_client_take_call(
     suscli_analyzer_client_t *);
 struct suscan_analyzer_remote_call *suscli_analyzer_client_get_outcoming_call(
     suscli_analyzer_client_t *);
+SUBOOL suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self);
 SUBOOL suscli_analyzer_client_deliver_call(suscli_analyzer_client_t *self);
+SUBOOL suscli_analyzer_client_write_buffer(
+    suscli_analyzer_client_t *self,
+    const grow_buf_t *buffer);
+
 void suscli_analyzer_client_destroy(suscli_analyzer_client_t *self);
 
 struct pollfd;
@@ -128,9 +147,17 @@ struct suscli_analyzer_server {
 
   suscan_analyzer_t *analyzer;
   suscan_source_config_t *config;
+  struct suscan_mq mq;
 
   pthread_t rx_thread; /* Poll on client_pfds */
   pthread_t tx_thread; /* Wait on suscan_mq_read */
+
+  grow_buf_t broadcast_pdu;
+  struct suscan_analyzer_remote_call broadcast_call;
+
+  SUBOOL rx_thread_running;
+  SUBOOL tx_thread_running;
+  SUBOOL tx_halted;
 };
 
 typedef struct suscli_analyzer_server suscli_analyzer_server_t;
