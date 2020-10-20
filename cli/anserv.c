@@ -363,7 +363,7 @@ suscli_analyzer_client_list_init(
 
   SU_TRYCATCH(self->client_tree = rbtree_new(), goto done);
 
-  SU_TRYCATCH(pthread_mutex_init(&self->client_mutex, NULL), goto done);
+  SU_TRYCATCH(pthread_mutex_init(&self->client_mutex, NULL) == 0, goto done);
   self->client_mutex_initialized = SU_TRUE;
 
   SU_TRYCATCH(
@@ -585,6 +585,8 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
 
   if (self->client_pfds != NULL)
     free(self->client_pfds);
+
+  memset(self, 0, sizeof(struct suscli_analyzer_client_list));
 }
 
 /***************************** TX Thread **************************************/
@@ -992,14 +994,14 @@ suscli_analyzer_server_create_socket(uint16_t port)
 
   if (bind(fd, (struct sockaddr *) &addr, sizeof (struct sockaddr_in)) == -1) {
     SU_ERROR(
-        "Failed to bind socket to port %d for lister: %s\n",
+        "failed to bind socket to port %d for listen: %s\n",
         port,
         strerror(errno));
     goto done;
   }
 
-  if (listen(fd, 5) != -1) {
-    SU_ERROR("Failed to listen on socket: %s\n", strerror(errno));
+  if (listen(fd, 5) == -1) {
+    SU_ERROR("failed to listen on socket: %s\n", strerror(errno));
     goto done;
   }
 
@@ -1027,6 +1029,7 @@ suscli_analyzer_server_new(suscan_source_config_t *profile, uint16_t port)
   new->cancel_pipefd[0] = -1;
   new->cancel_pipefd[1] = -1;
 
+  new->listen_port = port;
   SU_TRYCATCH(new->config = suscan_source_config_clone(profile), goto done);
 
   SU_TRYCATCH(pipe(new->cancel_pipefd) != -1, goto done);
@@ -1095,6 +1098,9 @@ suscli_analyzer_server_destroy(suscli_analyzer_server_t *self)
     close(self->cancel_pipefd[1]);
 
   suscli_analyzer_client_list_finalize(&self->client_list);
+
+  if (self->config != NULL)
+    suscan_source_config_destroy(self->config);
 
   free(self);
 }

@@ -151,6 +151,8 @@ void suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *);
 struct suscli_analyzer_server {
   struct suscli_analyzer_client_list client_list;
 
+  uint16_t listen_port;
+
   suscan_analyzer_t *analyzer;
   suscan_source_config_t *config;
   struct suscan_mq mq;
@@ -167,6 +169,18 @@ struct suscli_analyzer_server {
 };
 
 typedef struct suscli_analyzer_server suscli_analyzer_server_t;
+
+SUINLINE suscan_source_config_t *
+suscli_analyzer_server_get_profile(const suscli_analyzer_server_t *self)
+{
+  return self->config;
+}
+
+SUINLINE uint16_t
+suscli_analyzer_server_get_port(const suscli_analyzer_server_t *self)
+{
+  return self->listen_port;
+}
 
 suscli_analyzer_server_t *
 suscli_analyzer_server_new(suscan_source_config_t *profile, uint16_t port);
