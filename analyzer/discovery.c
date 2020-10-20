@@ -133,11 +133,18 @@ suscan_device_net_discovery_thread(void *data)
 {
   ssize_t sz;
   socklen_t len = sizeof(struct sockaddr_in);
+  char *name = NULL;
+  SoapySDRKwargs args = {0, NULL, NULL};
+  char str_port[8];
   struct sockaddr_in addr;
   const char *as_ip;
 
   struct suscan_device_net_discovery_ctx *ctx =
       (struct suscan_device_net_discovery_ctx *) data;
+
+  SU_TRYCATCH(
+      SoapySDRKwargs_set(&args, "driver", "tcp") == 0,
+      goto done);
 
   printf("Entering discovery thread\n");
   while ((sz = recvfrom(
@@ -149,11 +156,40 @@ suscan_device_net_discovery_thread(void *data)
       &len)) > 0) {
     if (sz > 2) {
       as_ip = inet_ntoa(addr.sin_addr);
-      printf("%s:%d: %s\n", as_ip, ntohs(ctx->pdu->port), ctx->pdu->name);
+      SU_TRYCATCH(
+          name = strbuild("%s@%s", ctx->pdu->name, as_ip),
+          goto done);
+
+      snprintf(str_port, 8, "%u", ntohs(ctx->pdu->port));
+
+      SU_TRYCATCH(
+          SoapySDRKwargs_set(&args, "label", name) == 0,
+          goto done);
+
+      SU_TRYCATCH(
+          SoapySDRKwargs_set(&args, "host", as_ip) == 0,
+          goto done);
+
+      SU_TRYCATCH(
+          SoapySDRKwargs_set(&args, "port", str_port) == 0,
+          goto done);
+
+      SU_TRYCATCH(
+          suscan_source_device_assert(
+              SUSCAN_SOURCE_REMOTE_INTERFACE,
+              &args) != NULL,
+          goto done);
+
+      free(name);
+      name = NULL;
     }
   }
 
   printf("Loop broken\n");
+
+done:
+  if (name != NULL)
+    free(name);
 
   suscan_device_net_discovery_ctx_destroy(ctx);
 
@@ -172,6 +208,7 @@ suscan_device_net_discovery_start(const char *iface)
           SURPC_DISCOVERY_MULTICAST_ADDR),
       return SU_FALSE);
 
+  printf("Creating discovery thread...\n");
   SU_TRYCATCH(
       pthread_create(
           &g_discovery_thread,

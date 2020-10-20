@@ -241,8 +241,10 @@ suscan_source_device_build_desc(const char *driver, const char *label)
     return strbuild("Audio input (%s)", label);
   else if (strcmp(driver, "hackrf") == 0)
     return strbuild("HackRF One (%s)", label);
-  else if(strcmp(driver, "null") == 0)
+  else if (strcmp(driver, "null") == 0)
     return strdup("Dummy device");
+  else if (strcmp(driver, "tcp") == 0)
+    return strbuild("%s (TCP)", label);
   return strbuild("%s (%s)", driver, label);
 }
 
@@ -305,6 +307,12 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
   unsigned int i;
 
   SUBOOL ok = SU_FALSE;
+
+  if (suscan_source_device_is_remote(dev)) {
+    dev->available = SU_TRUE;
+    ok = SU_TRUE;
+    goto done;
+  }
 
   /*
    * This tends to happen a lot and is an error, but it does not

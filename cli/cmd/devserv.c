@@ -136,7 +136,6 @@ suscli_devserv_ctx_new(const char *iface, const char *mcaddr)
   new->mc_addr.sin_port = htons(SURPC_DISCOVERY_PROTOCOL_PORT);
 
   /* Populate servers */
-
   for (i = 1; i <= suscli_get_source_count(); ++i) {
     cfg = suscli_get_source(i);
 

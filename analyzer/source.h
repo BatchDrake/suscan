@@ -26,6 +26,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include <sndfile.h>
+#include <string.h>
 #include <sigutils/sigutils.h>
 #include <SoapySDR/Device.h>
 #include <SoapySDR/Formats.h>
@@ -109,6 +110,15 @@ suscan_source_device_get_driver(const suscan_source_device_t *dev)
     driver = dev->driver;
 
   return driver;
+}
+
+SUINLINE SUBOOL
+suscan_source_device_is_remote(const suscan_source_device_t *dev)
+{
+  if (dev->interface == NULL)
+    return SU_FALSE;
+
+  return strcmp(dev->interface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0;
 }
 
 SUINLINE const char *
