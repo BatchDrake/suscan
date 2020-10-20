@@ -255,21 +255,28 @@ suscli_analyzer_client_list_update_pollfds_unsafe(
 
   this = rbtree_get_first(self->client_tree);
 
-  if (count + 1 > self->client_pfds_alloc) {
+  if (count + SUSCLI_ANSERV_FD_OFFSET > self->client_pfds_alloc) {
     SU_TRYCATCH(
-        pollfds = realloc(self->client_pfds, (count + 1) * sizeof(struct pollfd)),
+        pollfds = realloc(
+            self->client_pfds,
+            (count + SUSCLI_ANSERV_FD_OFFSET) * sizeof(struct pollfd)),
         goto done);
     self->client_pfds = pollfds;
-    self->client_pfds_alloc = count + 1;
+    self->client_pfds_alloc = count + SUSCLI_ANSERV_FD_OFFSET;
   } else {
     pollfds = self->client_pfds;
   }
 
-  /* We always have one socket to poll from: the listen socket */
-  pollfds[0].fd      = self->listen_fd;
-  pollfds[0].events  = POLLIN;
-  pollfds[0].revents = 0;
+  /* We always have two fds to poll. The listen socket and the cancel socket */
+  pollfds[SUSCLI_ANSERV_LISTEN_FD].fd      = self->listen_fd;
+  pollfds[SUSCLI_ANSERV_LISTEN_FD].events  = POLLIN;
+  pollfds[SUSCLI_ANSERV_LISTEN_FD].revents = 0;
 
+  pollfds[SUSCLI_ANSERV_CANCEL_FD].fd      = self->cancel_fd;
+  pollfds[SUSCLI_ANSERV_CANCEL_FD].events  = POLLIN;
+  pollfds[SUSCLI_ANSERV_CANCEL_FD].revents = 0;
+
+  i = 0;
   while (this != NULL) {
     if (this->data != NULL) {
       SU_TRYCATCH(i < count, goto done);
@@ -277,9 +284,9 @@ suscli_analyzer_client_list_update_pollfds_unsafe(
 
       ++i;
 
-      pollfds[i].fd      = client->sfd;
-      pollfds[i].events  = POLLIN;
-      pollfds[i].revents = 0;
+      pollfds[i + SUSCLI_ANSERV_FD_OFFSET].fd      = client->sfd;
+      pollfds[i + SUSCLI_ANSERV_FD_OFFSET].events  = POLLIN;
+      pollfds[i + SUSCLI_ANSERV_FD_OFFSET].revents = 0;
     }
 
     this = this->next;
@@ -344,18 +351,20 @@ done:
 SUBOOL
 suscli_analyzer_client_list_init(
     struct suscli_analyzer_client_list *self,
-    int listen_fd)
+    int listen_fd,
+    int cancel_fd)
 {
   SUBOOL ok = SU_FALSE;
 
   memset(self, 0, sizeof(struct suscli_analyzer_client_list));
 
+  self->listen_fd = listen_fd;
+  self->cancel_fd = cancel_fd;
+
   SU_TRYCATCH(self->client_tree = rbtree_new(), goto done);
 
   SU_TRYCATCH(pthread_mutex_init(&self->client_mutex, NULL), goto done);
   self->client_mutex_initialized = SU_TRUE;
-
-  self->listen_fd = listen_fd;
 
   SU_TRYCATCH(
       suscli_analyzer_client_list_update_pollfds_unsafe(self),
@@ -577,9 +586,8 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
   if (self->client_pfds != NULL)
     free(self->client_pfds);
 }
+
 /***************************** TX Thread **************************************/
-
-
 SUPRIVATE void *
 suscli_analyzer_server_tx_thread(void *ptr)
 {
@@ -588,6 +596,9 @@ suscli_analyzer_server_tx_thread(void *ptr)
   uint32_t type;
 
   while ((message = suscan_analyzer_read(self->analyzer, &type)) != NULL) {
+    if (type == SUSCAN_WORKER_MSG_TYPE_HALT)
+      break;
+
     self->broadcast_call.type     = SUSCAN_ANALYZER_REMOTE_MESSAGE;
     self->broadcast_call.msg.type = type;
     self->broadcast_call.msg.ptr  = message;
@@ -631,7 +642,7 @@ suscli_analyzer_server_process_auth_message(
 
   ok = SU_TRUE;
 
-done:
+/*done:*/
   return ok;
 }
 
@@ -678,15 +689,134 @@ done:
 }
 
 SUPRIVATE SUBOOL
+suscli_analyzer_server_deliver_call(
+    suscli_analyzer_server_t *self,
+    struct suscan_analyzer_remote_call *call)
+{
+  SUBOOL ok = SU_FALSE;
+
+  switch (call->type) {
+    case SUSCAN_ANALYZER_REMOTE_SET_FREQUENCY:
+      SU_TRYCATCH(
+          suscan_analyzer_set_freq(self->analyzer, call->freq, call->lnb),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_GAIN:
+      SU_TRYCATCH(
+          suscan_analyzer_set_gain(
+              self->analyzer,
+              call->gain.name,
+              call->gain.value),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_ANTENNA:
+      SU_TRYCATCH(
+          suscan_analyzer_set_antenna(self->analyzer, call->antenna),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_BANDWIDTH:
+      SU_TRYCATCH(
+          suscan_analyzer_set_bw(self->analyzer, call->bandwidth),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_DC_REMOVE:
+      SU_TRYCATCH(
+          suscan_analyzer_set_dc_remove(self->analyzer, call->dc_remove),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_IQ_REVERSE:
+      SU_TRYCATCH(
+          suscan_analyzer_set_iq_reverse(self->analyzer, call->iq_reverse),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_AGC:
+      SU_TRYCATCH(
+          suscan_analyzer_set_agc(self->analyzer, call->agc),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_FORCE_EOS:
+      SU_TRYCATCH(
+          suscan_analyzer_force_eos(self->analyzer),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_SWEEP_STRATEGY:
+      SU_TRYCATCH(
+          suscan_analyzer_set_sweep_stratrgy(
+              self->analyzer,
+              call->sweep_strategy),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_SPECTRUM_PARTITIONING:
+      SU_TRYCATCH(
+          suscan_analyzer_set_spectrum_partitioning(
+              self->analyzer,
+              call->spectrum_partitioning),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_HOP_RANGE:
+      SU_TRYCATCH(
+          suscan_analyzer_set_hop_range(
+              self->analyzer,
+              call->hop_range.min,
+              call->hop_range.max),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_BUFFERING_SIZE:
+      SU_TRYCATCH(
+          suscan_analyzer_set_buffering_size(
+              self->analyzer,
+              call->buffering_size),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_MESSAGE:
+      SU_TRYCATCH(
+          suscan_analyzer_write(
+              self->analyzer,
+              call->msg.type,
+              call->msg.ptr),
+          goto done);
+      call->msg.ptr = NULL;
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_REQ_HALT:
+      suscan_analyzer_req_halt(self->analyzer);
+      break;
+
+    default:
+      SU_ERROR("Invalid call code %d\n", call->type);
+      goto done;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUPRIVATE SUBOOL
 suscli_analyzer_server_process_call(
     suscli_analyzer_server_t *self,
     suscli_analyzer_client_t *client,
-    const struct suscan_analyzer_remote_call *call)
+    struct suscan_analyzer_remote_call *call)
 {
   SUBOOL ok = SU_FALSE;
 
   if (suscli_analyzer_client_is_auth(client)) {
-    /* TODO: Process different call types */
+    SU_TRYCATCH(
+        suscli_analyzer_server_deliver_call(self, call),
+        goto done);
   } else {
     SU_TRYCATCH(
         suscli_analyzer_server_process_auth_message(self, client, call),
@@ -777,19 +907,28 @@ suscli_analyzer_server_rx_thread(void *userdata)
     pfds = self->client_list.client_pfds;
 
     SU_TRYCATCH(
-        (count = poll(pfds, self->client_list.client_count + 1, -1)) > 0,
+        (count = poll(
+            pfds,
+            self->client_list.client_count + SUSCLI_ANSERV_FD_OFFSET,
+            -1)) > 0,
         goto done);
 
     suscli_analyzer_server_clean_dead_threads(self);
 
-    if (pfds[0].revents & POLLIN) {
+    if (pfds[SUSCLI_ANSERV_CANCEL_FD].revents & POLLIN) {
+      /* Cancel requested */
+      ok = SU_TRUE;
+      goto done;
+    }
+
+    if (pfds[SUSCLI_ANSERV_LISTEN_FD].revents & POLLIN) {
       /* New client(s)! */
       SU_TRYCATCH(suscli_analyzer_server_register_clients(self), goto done);
       --count;
     }
 
-    for (i = 1; count > 0 && i <= self->client_list.client_count; ++i) {
-      if (pfds[0].revents && POLLIN) {
+    for (i = 0; count > 0 && i <= self->client_list.client_count; ++i) {
+      if (pfds[i + SUSCLI_ANSERV_FD_OFFSET].revents && POLLIN) {
         SU_TRYCATCH(
             node = rbtree_search(
                 self->client_list.client_tree,
@@ -830,3 +969,134 @@ done:
 
   return NULL;
 }
+
+SUPRIVATE int
+suscli_analyzer_server_create_socket(uint16_t port)
+{
+  struct sockaddr_in addr;
+  int enable = 1;
+  int sfd = -1;
+  int fd = -1;
+
+  SU_TRYCATCH(
+      (fd = socket(AF_INET, SOCK_STREAM, 0)) != -1,
+      goto done);
+
+  SU_TRYCATCH(
+      (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))) != -1,
+      goto done);
+
+  addr.sin_family      = AF_INET;
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  addr.sin_port        = htons(port);
+
+  if (bind(fd, (struct sockaddr *) &addr, sizeof (struct sockaddr_in)) == -1) {
+    SU_ERROR(
+        "Failed to bind socket to port %d for lister: %s\n",
+        port,
+        strerror(errno));
+    goto done;
+  }
+
+  if (listen(fd, 5) != -1) {
+    SU_ERROR("Failed to listen on socket: %s\n", strerror(errno));
+    goto done;
+  }
+
+  sfd = fd;
+  fd = -1;
+
+done:
+  if (fd != -1)
+    close(fd);
+
+  return sfd;
+}
+
+suscli_analyzer_server_t *
+suscli_analyzer_server_new(suscan_source_config_t *profile, uint16_t port)
+{
+  suscli_analyzer_server_t *new = NULL;
+  int sfd = -1;
+
+  SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_server_t)), goto done);
+
+  new->client_list.listen_fd = -1;
+  new->client_list.cancel_fd = -1;
+
+  new->cancel_pipefd[0] = -1;
+  new->cancel_pipefd[1] = -1;
+
+  SU_TRYCATCH(new->config = suscan_source_config_clone(profile), goto done);
+
+  SU_TRYCATCH(pipe(new->cancel_pipefd) != -1, goto done);
+
+  SU_TRYCATCH(
+      (sfd = suscli_analyzer_server_create_socket(port)) != -1,
+      goto done);
+
+  SU_TRYCATCH(
+      suscli_analyzer_client_list_init(
+          &new->client_list,
+          sfd,
+          new->cancel_pipefd[0]),
+      goto done);
+
+  SU_TRYCATCH(
+      pthread_create(
+          &new->rx_thread,
+          NULL,
+          suscli_analyzer_server_rx_thread,
+          new) != -1,
+      goto done);
+  new->rx_thread_running = SU_TRUE;
+
+  return new;
+
+done:
+  if (new != NULL)
+    suscli_analyzer_server_destroy(new);
+
+  return NULL;
+}
+
+SUPRIVATE void
+suscli_analyzer_server_cancel_rx_thread(suscli_analyzer_server_t *self)
+{
+  char b = 1;
+
+  (void) write(self->cancel_pipefd[1], &b, 1);
+}
+
+void
+suscli_analyzer_server_destroy(suscli_analyzer_server_t *self)
+{
+  if (self->rx_thread_running) {
+    if (self->analyzer != NULL) {
+      suscan_analyzer_req_halt(self->analyzer);
+      if (self->tx_thread_running)
+        pthread_join(self->tx_thread, NULL);
+
+      if (self->analyzer != NULL)
+        suscan_analyzer_destroy(self->analyzer);
+    }
+
+    suscli_analyzer_server_cancel_rx_thread(self);
+    pthread_join(self->rx_thread, NULL);
+  }
+
+  if (self->client_list.listen_fd != -1)
+    close(self->client_list.listen_fd);
+
+  if (self->cancel_pipefd[0] != -1)
+    close(self->cancel_pipefd[0]);
+
+  if (self->cancel_pipefd[1] != -1)
+    close(self->cancel_pipefd[1]);
+
+  suscli_analyzer_client_list_finalize(&self->client_list);
+
+  free(self);
+}
+
+

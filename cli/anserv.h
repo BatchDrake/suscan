@@ -25,6 +25,10 @@
 #include <util/rbtree.h>
 #include <arpa/inet.h>
 
+#define SUSCLI_ANSERV_LISTEN_FD 0
+#define SUSCLI_ANSERV_CANCEL_FD 1
+#define SUSCLI_ANSERV_FD_OFFSET 2
+
 struct suscli_analyzer_client {
   int sfd;
   SUBOOL auth;
@@ -104,6 +108,7 @@ struct pollfd;
 
 struct suscli_analyzer_client_list {
   suscli_analyzer_client_t *client_head;
+  int cancel_fd;
   int listen_fd;
   rbtree_t *client_tree;
   struct pollfd *client_pfds;
@@ -116,7 +121,8 @@ struct suscli_analyzer_client_list {
 
 SUBOOL suscli_analyzer_client_list_init(
     struct suscli_analyzer_client_list *,
-    int listen_fd);
+    int listen_fd,
+    int cancel_fd);
 SUBOOL suscli_analyzer_client_list_append_client(
     struct suscli_analyzer_client_list *self,
     suscli_analyzer_client_t *client);
@@ -151,7 +157,7 @@ struct suscli_analyzer_server {
 
   pthread_t rx_thread; /* Poll on client_pfds */
   pthread_t tx_thread; /* Wait on suscan_mq_read */
-
+  int cancel_pipefd[2];
   grow_buf_t broadcast_pdu;
   struct suscan_analyzer_remote_call broadcast_call;
 
@@ -161,5 +167,16 @@ struct suscli_analyzer_server {
 };
 
 typedef struct suscli_analyzer_server suscli_analyzer_server_t;
+
+suscli_analyzer_server_t *
+suscli_analyzer_server_new(suscan_source_config_t *profile, uint16_t port);
+
+SUINLINE SUBOOL
+suscli_analyzer_server_is_running(suscli_analyzer_server_t *self)
+{
+  return self->rx_thread_running;
+}
+
+void suscli_analyzer_server_destroy(suscli_analyzer_server_t *self);
 
 #endif /* _SUSCAN_CLI_ANSERV_H */

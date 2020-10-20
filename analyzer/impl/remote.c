@@ -81,7 +81,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
       SUSCAN_PACK(bool, self->agc);
       break;
 
-    case SUSCAN_ANALYZER_REMOTE_SET_FORCE_EOS:
+    case SUSCAN_ANALYZER_REMOTE_FORCE_EOS:
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_SWEEP_STRATEGY:
@@ -164,7 +164,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
       SUSCAN_UNPACK(bool, self->agc);
       break;
 
-    case SUSCAN_ANALYZER_REMOTE_SET_FORCE_EOS:
+    case SUSCAN_ANALYZER_REMOTE_FORCE_EOS:
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_SWEEP_STRATEGY:
@@ -766,7 +766,7 @@ suscan_remote_analyzer_rx_thread(void *ptr)
             goto done);
         break;
 
-      case SUSCAN_ANALYZER_REMOTE_SET_FORCE_EOS:
+      case SUSCAN_ANALYZER_REMOTE_FORCE_EOS:
         self->parent->eos = SU_TRUE;
         suscan_analyzer_send_status(
             self->parent,
@@ -1164,7 +1164,7 @@ suscan_remote_analyzer_force_eos(void *ptr)
   SU_TRYCATCH(
       call = suscan_remote_analyzer_acquire_call(
           self,
-          SUSCAN_ANALYZER_REMOTE_SET_FORCE_EOS),
+          SUSCAN_ANALYZER_REMOTE_FORCE_EOS),
       goto done);
 
   /* TODO: Implement me */
