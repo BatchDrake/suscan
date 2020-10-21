@@ -106,12 +106,7 @@ suscan_source_device_get_param(
     const suscan_source_device_t *dev,
     const char *key)
 {
-  const char *value;
-
-  if ((value = SoapySDRKwargs_get(dev->args, key)) == NULL)
-    value = dev->driver;
-
-  return value;
+  return SoapySDRKwargs_get(dev->args, key);
 }
 
 SUINLINE const char *
@@ -155,7 +150,10 @@ suscan_source_device_is_available(const suscan_source_device_t *dev)
 SUINLINE SUBOOL
 suscan_source_device_is_populated(const suscan_source_device_t *dev)
 {
-  return dev->antenna_count != 0;
+  /*
+   * Remote devices are never populated
+   */
+  return !suscan_source_device_is_remote(dev) && dev->antenna_count != 0;
 }
 
 SUBOOL suscan_source_device_walk(
@@ -181,7 +179,7 @@ const suscan_source_device_t *suscan_source_device_find_first_sdr(void);
 
 /* Internal */
 const struct suscan_source_gain_desc *suscan_source_device_lookup_gain_desc(
-    const suscan_source_device_t *dev,
+    const suscan_source_device_t *self,
     const char *name);
 
 /* Internal */
@@ -195,12 +193,12 @@ suscan_source_device_t *suscan_source_device_assert(
     const SoapySDRKwargs *args);
 
 /* Internal */
-SUBOOL suscan_source_device_populate_info(suscan_source_device_t *dev);
+SUBOOL suscan_source_device_populate_info(suscan_source_device_t *self);
 
 unsigned int suscan_source_device_get_count(void);
 
 SUBOOL suscan_source_device_get_info(
-    const suscan_source_device_t *dev,
+    const suscan_source_device_t *self,
     unsigned int channel,
     struct suscan_source_device_info *info);
 
@@ -241,6 +239,7 @@ struct suscan_source_config {
 
   /* For SDR sources */
   const suscan_source_device_t *device; /* Borrowed, optional */
+  const char *interface;
   SoapySDRKwargs *soapy_args;
   char *antenna;
   unsigned int channel;
@@ -361,7 +360,7 @@ SUBOOL suscan_source_config_set_gain(
 
 SUBOOL suscan_source_config_set_device(
     suscan_source_config_t *config,
-    const suscan_source_device_t *dev);
+    const suscan_source_device_t *self);
 
 SUINLINE const suscan_source_device_t *
 suscan_source_config_get_device(suscan_source_config_t *config)
@@ -478,6 +477,23 @@ SUINLINE const suscan_source_config_t *
 suscan_source_get_config(const suscan_source_t *src)
 {
   return src->config;
+}
+
+SUINLINE const char *
+suscan_source_config_get_param(
+    const suscan_source_config_t *self,
+    const char *key)
+{
+  return SoapySDRKwargs_get(self->soapy_args, key);
+}
+
+SUINLINE SUBOOL
+suscan_source_config_is_remote(const suscan_source_config_t *self)
+{
+  if (self->interface == NULL)
+    return SU_FALSE;
+
+  return strcmp(self->interface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0;
 }
 
 SUINLINE SUBOOL

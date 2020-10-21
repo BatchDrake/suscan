@@ -299,14 +299,14 @@ suscan_analyzer_new(
     suscan_source_config_t *config,
     struct suscan_mq *mq)
 {
-  const suscan_source_device_t *device =
-      suscan_source_config_get_device(config);
   const struct suscan_analyzer_interface *iface =
       suscan_local_analyzer_get_interface();
 
-  if (device != NULL)
-    if (suscan_source_device_is_remote(device))
-      iface = suscan_remote_analyzer_get_interface();
+  /* TODO: Replace by a lookup method when the
+   * global interface list is available */
+
+  if (suscan_source_config_is_remote(config))
+    iface = suscan_remote_analyzer_get_interface();
 
   return suscan_analyzer_new_from_interface(params, mq, iface, config);
 }

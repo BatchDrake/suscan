@@ -928,15 +928,13 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 {
   suscan_remote_analyzer_t *new = NULL;
   suscan_source_config_t *config;
-  const suscan_source_device_t *dev;
   const char *driver;
   const char *portstr;
   unsigned int port;
 
   config = va_arg(ap, suscan_source_config_t *);
-  dev = suscan_source_config_get_device(config);
 
-  if ((driver = suscan_source_device_get_driver(dev)) == NULL) {
+  if ((driver = suscan_source_config_get_param(config, "driver")) == NULL) {
     SU_ERROR("Cannot initialize remote source: no driver specified\n");
     goto fail;
   }
@@ -956,13 +954,13 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->cancel_pipe[0]  = -1;
   new->cancel_pipe[1]  = -1;
 
-  new->peer.hostname = suscan_source_device_get_param(dev, "host");
+  new->peer.hostname = suscan_source_config_get_param(config, "host");
   if (new->peer.hostname == NULL) {
     SU_ERROR("Cannot initialize remote source: no remote host provided\n");
     goto fail;
   }
 
-  portstr = suscan_source_device_get_param(dev, "port");
+  portstr = suscan_source_config_get_param(config, "port");
   if (portstr == NULL) {
     SU_ERROR("Cannot initialize remote source: no remote port provided\n");
     goto fail;

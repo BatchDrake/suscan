@@ -532,6 +532,7 @@ suscan_source_config_set_device(
     /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
   }
 
+  config->interface = dev->interface;
   config->device = dev;
 
   /* Fuck off */
@@ -551,6 +552,7 @@ suscan_source_config_new(
   new->format = format;
   new->average = 1;
   new->dc_remove = SU_TRUE;
+  new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
   new->loop = SU_TRUE;
   
   SU_TRYCATCH(new->soapy_args = calloc(1, sizeof(SoapySDRKwargs)), goto fail);
@@ -626,6 +628,7 @@ suscan_source_config_clone(const suscan_source_config_t *config)
         goto fail);
 
   new->device = config->device;
+  new->interface = config->interface;
 
   for (i = 0; i < config->gain_count; ++i)
     SU_TRYCATCH(
@@ -784,6 +787,9 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   if (cfg->antenna != NULL)
     SU_CFGSAVE(value, antenna);
 
+  if (cfg->interface != NULL)
+    SU_CFGSAVE(value, interface);
+
   /* XXX: This is terrible. Either change this or define SUFREQ as uint64_t */
   SU_CFGSAVE(float, freq);
   SU_CFGSAVE(float, lnb_freq);
@@ -885,6 +891,13 @@ suscan_source_config_from_object(const suscan_object_t *object)
   if ((tmp = suscan_object_get_field_value(object, "antenna")) != NULL)
     SU_TRYCATCH(suscan_source_config_set_antenna(new, tmp), goto fail);
 
+  if ((tmp = suscan_object_get_field_value(object, "interface")) != NULL) {
+    if (strcmp(tmp, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0)
+      new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
+    else if (strcmp(tmp, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0)
+      new->interface = SUSCAN_SOURCE_REMOTE_INTERFACE;
+  }
+
   SU_CFGLOAD(float, freq, 0);
   SU_CFGLOAD(float, lnb_freq, 0);
   SU_CFGLOAD(float, bandwidth, 0);
@@ -916,7 +929,7 @@ suscan_source_config_from_object(const suscan_object_t *object)
         /* New device added. Assert it. */
         SU_TRYCATCH(
             new->device = device = suscan_source_device_assert(
-                SUSCAN_SOURCE_LOCAL_INTERFACE,
+                new->interface,
                 new->soapy_args),
             goto fail);
 
@@ -947,7 +960,7 @@ suscan_source_config_from_object(const suscan_object_t *object)
         /* New device added. Assert it. */
         SU_TRYCATCH(
             new->device = device = suscan_source_device_assert(
-                SUSCAN_SOURCE_LOCAL_INTERFACE,
+                new->interface,
                 new->soapy_args),
             goto fail);
 
@@ -1874,6 +1887,7 @@ suscan_init_sources(void)
 {
   const char *mcif;
 
+  /* TODO: Register analyzer interfaces? */
   SU_TRYCATCH(suscan_source_device_preinit(), return SU_FALSE);
   SU_TRYCATCH(suscan_source_register_null_device(), return SU_FALSE);
   SU_TRYCATCH(suscan_confdb_use("sources"), return SU_FALSE);
@@ -1881,7 +1895,6 @@ suscan_init_sources(void)
   SU_TRYCATCH(suscan_load_sources(), return SU_FALSE);
 
   if ((mcif = getenv("SUSCAN_MULTICAST_ADDR")) != NULL && strlen(mcif) > 0) {
-    printf("Initialize discovery\n");
     if (!suscan_device_net_discovery_start(mcif)) {
       SU_ERROR("Failed to initialize remote device discovery.\n");
       SU_ERROR("SuRPC services will be disabled.\n");

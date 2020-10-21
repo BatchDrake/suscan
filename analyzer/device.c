@@ -750,6 +750,7 @@ suscan_source_detect_devices(void)
   suscan_source_device_t *dev = NULL;
   size_t soapy_dev_len;
   unsigned int i;
+  SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
   suscan_source_reset_devices();
@@ -772,19 +773,27 @@ suscan_source_detect_devices(void)
             SUSCAN_SOURCE_LOCAL_INTERFACE,
             soapy_dev_list + i),
         goto done);
+  }
 
+  SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) != -1, goto done);
+  mutex_acquired = SU_TRUE;
+
+  /* First device is always null */
+  for (i = 1; i < device_count; ++i) {
     /*
      * Populate device info. If this fails, don't pass exception:
      * there may be a problem with this device, but not with the rest of them.
      */
-    if (!suscan_source_device_is_populated(dev)) {
+    if (!suscan_source_device_is_populated(dev))
       SU_TRYCATCH(suscan_source_device_populate_info(dev), continue);
-    }
   }
 
   ok = SU_TRUE;
 
 done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&g_device_list_mutex);
+
   suscan_source_enable_stderr();
 
   if (soapy_dev_list != NULL)
