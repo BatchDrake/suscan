@@ -790,7 +790,7 @@ done:
   if (call != NULL)
     suscan_remote_analyzer_release_call(self, call);
 
-  /* TODO: Send urgent -1 emergency halt message */
+  (void) suscan_mq_write(&self->pdu_queue, SUSCAN_REMOTE_HALT, NULL);
 
   return NULL;
 }
@@ -804,6 +804,15 @@ suscan_remote_analyzer_tx_thread(void *ptr)
   void *msgptr = NULL;
 
   SU_TRYCATCH(suscan_remote_analyzer_connect_to_peer(self), goto done);
+
+  SU_TRYCATCH(
+      pthread_create(
+          &self->rx_thread,
+          NULL,
+          suscan_remote_analyzer_rx_thread,
+          self) != -1,
+      goto done);
+  self->rx_thread_init = SU_TRUE;
 
   while ((msgptr = suscan_mq_read(&self->pdu_queue, &is_ctl)) != NULL) {
     switch (is_ctl) {
@@ -821,8 +830,8 @@ suscan_remote_analyzer_tx_thread(void *ptr)
         as_growbuf = NULL;
         break;
 
-      case 2:
-        /* Emergency halt. */
+      case SUSCAN_REMOTE_HALT:
+        /* Remote halt */
         break;
     }
   }
@@ -907,8 +916,10 @@ suscan_remote_analyzer_consume_pdu_queue(suscan_remote_analyzer_t *self)
   uint32_t type;
 
   while (suscan_mq_poll(&self->pdu_queue, &type, (void **) &buffer)) {
-    grow_buf_finalize(buffer);
-    free(buffer);
+    if (type != SUSCAN_REMOTE_HALT) {
+      grow_buf_finalize(buffer);
+      free(buffer);
+    }
   }
 }
 
@@ -916,14 +927,66 @@ void *
 suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 {
   suscan_remote_analyzer_t *new = NULL;
+  suscan_source_config_t *config;
+  const suscan_source_device_t *dev;
+  const char *driver;
+  const char *portstr;
+  unsigned int port;
+
+  config = va_arg(ap, suscan_source_config_t *);
+  dev = suscan_source_config_get_device(config);
+
+  if ((driver = suscan_source_device_get_driver(dev)) == NULL) {
+    SU_ERROR("Cannot initialize remote source: no driver specified\n");
+    goto fail;
+  }
+
+  if (strcmp(driver, "tcp") != 0) {
+    SU_ERROR(
+        "Cannot initialize remote source: unsupported driver `%s'\n",
+        driver);
+    goto fail;
+  }
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_remote_analyzer_t)), goto fail);
 
+  new->parent = parent;
   new->peer.control_fd = -1;
-  new->peer.data_fd = -1;
+  new->peer.data_fd    = -1;
+  new->cancel_pipe[0]  = -1;
+  new->cancel_pipe[1]  = -1;
+
+  new->peer.hostname = suscan_source_device_get_param(dev, "host");
+  if (new->peer.hostname == NULL) {
+    SU_ERROR("Cannot initialize remote source: no remote host provided\n");
+    goto fail;
+  }
+
+  portstr = suscan_source_device_get_param(dev, "port");
+  if (portstr == NULL) {
+    SU_ERROR("Cannot initialize remote source: no remote port provided\n");
+    goto fail;
+  }
+
+  if (sscanf(portstr, "%u", &port) < 1 || port > 65535) {
+    SU_ERROR("Cannot initialize remote source: invalid port\n");
+    goto fail;
+  }
+  new->peer.port = port;
 
   SU_TRYCATCH(pthread_mutex_init(&new->call_mutex, NULL) == 0, goto fail);
   new->call_mutex_initialized = SU_TRUE;
+
+  SU_TRYCATCH(pipe(new->cancel_pipe) != -1, goto fail);
+
+  SU_TRYCATCH(
+      pthread_create(
+          &new->tx_thread,
+          NULL,
+          suscan_remote_analyzer_tx_thread,
+          new) != -1,
+      goto fail);
+  new->tx_thread_init = SU_TRUE;
 
   return new;
 
@@ -938,17 +1001,34 @@ SUPRIVATE void
 suscan_remote_analyzer_dtor(void *ptr)
 {
   suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+  char b = 1;
+
+  if (self->tx_thread_init) {
+    if (self->rx_thread_init) {
+      write(self->cancel_pipe[1], &b, 1);
+      pthread_join(self->rx_thread, NULL);
+    }
+
+    suscan_mq_write(&self->pdu_queue, SUSCAN_REMOTE_HALT, NULL);
+    pthread_join(self->tx_thread, NULL);
+  }
 
   if (self->peer.control_fd != -1)
-    shutdown(self->peer.control_fd, 2);
+    close(self->peer.control_fd);
 
   if (self->peer.data_fd != -1)
-    shutdown(self->peer.data_fd, 2);
+    close(self->peer.data_fd);
 
   if (self->call_mutex_initialized)
     pthread_mutex_destroy(&self->call_mutex);
 
   suscan_remote_analyzer_consume_pdu_queue(self);
+
+  if (self->cancel_pipe[0] != -1)
+    close(self->cancel_pipe[0]);
+
+  if (self->cancel_pipe[1] != -1)
+    close(self->cancel_pipe[1]);
 
   free(self);
 }

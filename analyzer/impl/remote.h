@@ -34,6 +34,8 @@ extern "C" {
 #define SUSCAN_REMOTE_ANALYZER_PDU_BODY_TIMEOUT_MS       5000
 #define SUSCAN_REMOTE_READ_BUFFER                        1400
 
+#define SUSCAN_REMOTE_HALT                                  2
+
 struct suscan_analyzer_remote_pdu_header {
   uint32_t magic;
   uint32_t size;

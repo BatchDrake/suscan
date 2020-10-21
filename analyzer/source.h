@@ -102,11 +102,24 @@ struct suscan_source_device {
 typedef struct suscan_source_device suscan_source_device_t;
 
 SUINLINE const char *
+suscan_source_device_get_param(
+    const suscan_source_device_t *dev,
+    const char *key)
+{
+  const char *value;
+
+  if ((value = SoapySDRKwargs_get(dev->args, key)) == NULL)
+    value = dev->driver;
+
+  return value;
+}
+
+SUINLINE const char *
 suscan_source_device_get_driver(const suscan_source_device_t *dev)
 {
   const char *driver;
 
-  if ((driver = SoapySDRKwargs_get(dev->args, "driver")) == NULL)
+  if ((driver = suscan_source_device_get_param(dev, "driver")) == NULL)
     driver = dev->driver;
 
   return driver;
