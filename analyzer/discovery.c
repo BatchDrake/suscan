@@ -128,6 +128,16 @@ fail:
   return NULL;
 }
 
+#if SOAPY_SDR_API_VERSION < 0x00070000
+#  define SOAPYSDR_KWARGS_SET(a, k, v)                  \
+  (void) SoapySDRKwargs_set((a), (k), (v))
+#else
+#  define SOAPYSDR_KWARGS_SET(a, k, v)                  \
+    SU_TRYCATCH(                                        \
+      SoapySDRKwargs_set((a), (k), (v)) == 0,           \
+      goto done)
+#endif
+
 SUPRIVATE void *
 suscan_device_net_discovery_thread(void *data)
 {
@@ -142,9 +152,7 @@ suscan_device_net_discovery_thread(void *data)
   struct suscan_device_net_discovery_ctx *ctx =
       (struct suscan_device_net_discovery_ctx *) data;
 
-  SU_TRYCATCH(
-      SoapySDRKwargs_set(&args, "driver", "tcp") == 0,
-      goto done);
+  SOAPYSDR_KWARGS_SET(&args, "driver", "tcp");
 
   printf("Entering discovery thread\n");
   while ((sz = recvfrom(
@@ -162,17 +170,9 @@ suscan_device_net_discovery_thread(void *data)
 
       snprintf(str_port, 8, "%u", ntohs(ctx->pdu->port));
 
-      SU_TRYCATCH(
-          SoapySDRKwargs_set(&args, "label", name) == 0,
-          goto done);
-
-      SU_TRYCATCH(
-          SoapySDRKwargs_set(&args, "host", as_ip) == 0,
-          goto done);
-
-      SU_TRYCATCH(
-          SoapySDRKwargs_set(&args, "port", str_port) == 0,
-          goto done);
+      SOAPYSDR_KWARGS_SET(&args, "label", "name");
+      SOAPYSDR_KWARGS_SET(&args, "host", "as_ip");
+      SOAPYSDR_KWARGS_SET(&args, "port", "str_port");
 
       SU_TRYCATCH(
           suscan_source_device_assert(
