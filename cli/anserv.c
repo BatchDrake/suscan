@@ -23,6 +23,7 @@
 #include "anserv.h"
 #include <sigutils/log.h>
 #include <sys/poll.h>
+#include <sys/fcntl.h>
 
 /************************** Analyzer Client API *******************************/
 suscli_analyzer_client_t *
@@ -43,6 +44,7 @@ suscli_analyzer_client_new(int sfd)
       goto fail);
 
   new->remote_addr = sin.sin_addr;
+  new->sfd = sfd;
 
   return new;
 
@@ -58,21 +60,29 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
 {
   size_t chunksize;
   size_t ret;
-
+  SUBOOL do_close = SU_TRUE;
   SUBOOL ok = SU_FALSE;
 
   if (!self->have_header) {
     chunksize =
         sizeof(struct suscan_analyzer_remote_pdu_header) - self->header_ptr;
 
-    if ((ret = read(
-        self->sfd,
-        self->header_bytes + self->header_ptr,
-        chunksize))
-        < 1) {
-      SU_ERROR("Failed to read from socket: %s\n", strerror(errno));
+    ret = read(self->sfd, self->header_bytes + self->header_ptr, chunksize);
+
+    if (ret == 0)
+      SU_WARNING(
+          "Client[%s]: Unexpected client close\n",
+          suscli_analyzer_client_string_addr(self));
+    else if (ret == -1)
+      SU_ERROR(
+          "Client[%s]: Read error: %s\n",
+          suscli_analyzer_client_string_addr(self),
+          strerror(errno));
+    else
+      do_close = SU_FALSE;
+
+    if (do_close)
       goto done;
-    }
 
     self->header_ptr += ret;
 
@@ -126,19 +136,19 @@ suscli_analyzer_client_take_call(suscli_analyzer_client_t *self)
   struct suscan_analyzer_remote_call *call = NULL;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(self->have_header && self->have_body, goto done);
+  if (self->have_header && self->have_body) {
+    call = &self->incoming_call;
 
-  call = &self->incoming_call;
+    suscan_analyzer_remote_call_finalize(call);
+    suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_NONE);
 
-  suscan_analyzer_remote_call_finalize(call);
-  suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_NONE);
+    if (!suscan_analyzer_remote_call_deserialize(call, &self->incoming_pdu)) {
+      SU_ERROR("Protocol error: failed to deserialize remote call\n");
+      goto done;
+    }
 
-  if (!suscan_analyzer_remote_call_deserialize(call, &self->incoming_pdu)) {
-    SU_ERROR("Protocol error: failed to deserialize remote call\n");
-    goto done;
+    ok = SU_TRUE;
   }
-
-  ok = SU_TRUE;
 
 done:
   if (!ok)
@@ -282,11 +292,11 @@ suscli_analyzer_client_list_update_pollfds_unsafe(
       SU_TRYCATCH(i < count, goto done);
       client = this->data;
 
-      ++i;
-
       pollfds[i + SUSCLI_ANSERV_FD_OFFSET].fd      = client->sfd;
       pollfds[i + SUSCLI_ANSERV_FD_OFFSET].events  = POLLIN;
       pollfds[i + SUSCLI_ANSERV_FD_OFFSET].revents = 0;
+
+      ++i;
     }
 
     this = this->next;
@@ -332,7 +342,6 @@ suscli_analyzer_client_list_attempt_cleanup(
 
   if (pthread_mutex_trylock(&self->client_mutex) == 0) {
     mutex_acquired = SU_TRUE;
-
     if (suscli_analyzer_client_list_cleanup_unsafe(self))
       SU_TRYCATCH(
           suscli_analyzer_client_list_update_pollfds_unsafe(self),
@@ -393,7 +402,12 @@ suscli_analyzer_client_list_append_client(
 
   node = rbtree_search(self->client_tree, client->sfd, RB_EXACT);
 
-  SU_TRYCATCH(node == NULL || node->data == NULL, goto done);
+  if (node != NULL && node->data != NULL) {
+    SU_ERROR(
+        "Server state desync: attempting to register a client with the same sfd (%d) twice\n",
+        client->sfd);
+    goto done;
+  }
 
   if (node != NULL) {
     node->data = client;
@@ -529,8 +543,6 @@ suscli_analyzer_client_list_remove_unsafe(
   suscli_analyzer_client_t *prev, *next;
   struct rbtree_node *node;
   SUBOOL ok = SU_FALSE;
-
-  SU_TRYCATCH(pthread_mutex_lock(&self->client_mutex) != -1, goto done);
 
   prev = client->prev;
   next = client->next;
@@ -869,7 +881,7 @@ suscli_analyzer_server_register_clients(suscli_analyzer_server_t *self)
     client = NULL;
   }
 
-  SU_TRYCATCH(errno != EAGAIN, goto done);
+  SU_TRYCATCH(errno == EAGAIN, goto done);
 
   ok = SU_TRUE;
 
@@ -934,24 +946,24 @@ suscli_analyzer_server_rx_thread(void *userdata)
         SU_TRYCATCH(
             node = rbtree_search(
                 self->client_list.client_tree,
-                pfds[0].fd,
+                pfds[i + SUSCLI_ANSERV_FD_OFFSET].fd,
                 RB_EXACT),
             goto done);
         client = node->data;
         SU_TRYCATCH(client != NULL, goto done);
 
         if (client != NULL) {
-          SU_TRYCATCH(suscli_analyzer_client_read(client), goto done);
-          if ((call = suscli_analyzer_client_take_call(client)) != NULL) {
+          if (!suscli_analyzer_client_read(client))
+            suscli_analyzer_client_mark_failed(client);
+          else if ((call = suscli_analyzer_client_take_call(client)) != NULL) {
             /* Call completed from client, process it and do stuff */
             SU_TRYCATCH(
                 suscli_analyzer_server_process_call(self, client, call),
                 goto done);
           }
         }
+        --count;
       }
-
-      --count;
     }
 
     /* This is actually a consistency condition */
@@ -979,10 +991,21 @@ suscli_analyzer_server_create_socket(uint16_t port)
   int enable = 1;
   int sfd = -1;
   int fd = -1;
+  int flags;
 
   SU_TRYCATCH(
       (fd = socket(AF_INET, SOCK_STREAM, 0)) != -1,
       goto done);
+
+  if ((flags = fcntl(fd, F_GETFL)) == -1) {
+    SU_ERROR("Failed to perform fcntl on socket: %s\n", strerror(errno));
+    goto done;
+  }
+
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+    SU_ERROR("Failed to make socket non blocking: %s\n", strerror(errno));
+    goto done;
+  }
 
   SU_TRYCATCH(
       (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))) != -1,

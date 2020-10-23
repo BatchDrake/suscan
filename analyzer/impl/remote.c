@@ -539,7 +539,7 @@ suscan_remote_analyzer_network_connect_cancellable(
   ret = connect(sfd, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
 
   if (ret == -1) {
-    SU_TRYCATCH(errno != EINPROGRESS, goto done);
+    SU_TRYCATCH(errno == EINPROGRESS, goto done);
 
     /* Inspect the socket. Connection is ready as soon as we can write on it */
     fds[0].events = POLLOUT;
@@ -600,7 +600,7 @@ suscan_remote_analyzer_network_connect_cancellable(
    */
 done:
   if (sfd != -1)
-    shutdown(sfd, 2);
+    close(sfd);
 
   return ret;
 }
