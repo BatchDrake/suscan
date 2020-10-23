@@ -170,9 +170,9 @@ suscan_device_net_discovery_thread(void *data)
 
       snprintf(str_port, 8, "%u", ntohs(ctx->pdu->port));
 
-      SOAPYSDR_KWARGS_SET(&args, "label", "name");
-      SOAPYSDR_KWARGS_SET(&args, "host", "as_ip");
-      SOAPYSDR_KWARGS_SET(&args, "port", "str_port");
+      SOAPYSDR_KWARGS_SET(&args, "label", name);
+      SOAPYSDR_KWARGS_SET(&args, "host", as_ip);
+      SOAPYSDR_KWARGS_SET(&args, "port", str_port);
 
       SU_TRYCATCH(
           suscan_source_device_assert(
