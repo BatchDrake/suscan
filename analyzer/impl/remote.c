@@ -35,6 +35,19 @@
 
 SUPRIVATE struct suscan_analyzer_interface *g_remote_analyzer_interface;
 
+#if 0
+SUPRIVATE void
+grow_buffer_debug(const grow_buf_t *buffer)
+{
+  unsigned int i;
+
+  for (i = 0; i < buffer->size; ++i)
+    fprintf(stderr, "%02x", buffer->bytes[i]);
+
+  fprintf(stderr, "\n");
+}
+#endif
+
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
 {
   SUSCAN_PACK_BOILERPLATE_START;
@@ -303,11 +316,13 @@ suscan_remote_read(
   size_t ret = 0;
   struct pollfd fds[2];
 
-  fds[0].events = POLLIN;
-  fds[0].fd     = sfd;
+  fds[0].events  = POLLIN;
+  fds[0].fd      = sfd;
+  fds[0].revents = 0;
 
-  fds[1].events = POLLIN;
-  fds[1].fd     = cancelfd;
+  fds[1].events  = POLLIN;
+  fds[1].fd      = cancelfd;
+  fds[1].revents = 0;
 
   as_bytes = (uint8_t *) buffer;
 
@@ -350,18 +365,19 @@ suscan_remote_read_pdu(
   uint32_t chunksiz;
   struct suscan_analyzer_remote_pdu_header header;
   void *chunk;
+  size_t got;
   SUBOOL ok = SU_FALSE;
 
   grow_buf_clear(buffer);
 
   /* Attempt to read header */
   SU_TRYCATCH(
-      suscan_remote_read(
+      (got = suscan_remote_read(
           sfd,
           cancelfd,
           &header,
           sizeof(struct suscan_analyzer_remote_pdu_header),
-          timeout_ms) == sizeof(struct suscan_analyzer_remote_pdu_header),
+          timeout_ms)) == sizeof(struct suscan_analyzer_remote_pdu_header),
       goto done);
 
   header.size  = ntohl(header.size);

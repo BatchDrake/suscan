@@ -117,6 +117,7 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
     self->header.size -= chunksize;
 
     if (self->header.size == 0) {
+      grow_buf_seek(&self->incoming_pdu, 0, SEEK_SET);
       self->have_body = SU_TRUE;
     }
   } else {
@@ -137,6 +138,8 @@ suscli_analyzer_client_take_call(suscli_analyzer_client_t *self)
   SUBOOL ok = SU_FALSE;
 
   if (self->have_header && self->have_body) {
+    self->have_header = SU_FALSE;
+    self->have_body   = SU_FALSE;
     call = &self->incoming_call;
 
     suscan_analyzer_remote_call_finalize(call);
@@ -654,6 +657,7 @@ suscli_analyzer_server_process_auth_message(
 
   /* Check authentication message */
 
+  client->auth = SU_TRUE;
   ok = SU_TRUE;
 
 /*done:*/
@@ -678,7 +682,7 @@ suscli_analyzer_server_start_analyzer(suscli_analyzer_server_t *self)
           &self->mq),
       goto done);
 
-
+  self->analyzer = analyzer;
   self->tx_halted = SU_FALSE;
 
   SU_TRYCATCH(
@@ -690,7 +694,6 @@ suscli_analyzer_server_start_analyzer(suscli_analyzer_server_t *self)
       goto done);
   self->tx_thread_running = SU_TRUE;
 
-  self->analyzer = analyzer;
   analyzer = NULL;
 
   ok = SU_TRUE;
@@ -849,6 +852,7 @@ suscli_analyzer_server_process_call(
         }
     } else {
       /* Authentication failed. Mark as failed. */
+      SU_ERROR("Authentication failed. Forcing shutdown\n");
       suscli_analyzer_client_shutdown(client);
     }
   }
