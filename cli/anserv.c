@@ -167,6 +167,16 @@ suscli_analyzer_client_get_outcoming_call(
   return &self->outcoming_call;
 }
 
+void
+suscli_analyzer_client_return_outcoming_call(
+    suscli_analyzer_client_t *self,
+    struct suscan_analyzer_remote_call *call)
+{
+  SU_TRYCATCH(&self->outcoming_call == call, return);
+
+  suscan_analyzer_remote_call_finalize(call);
+}
+
 SUBOOL
 suscli_analyzer_client_write_buffer(
     suscli_analyzer_client_t *self,
@@ -198,6 +208,8 @@ suscli_analyzer_client_write_buffer(
     data += chunksize;
     size -= chunksize;
   }
+
+  ok = SU_TRUE;
 
 done:
   return ok;
@@ -238,6 +250,37 @@ suscli_analyzer_client_deliver_call(suscli_analyzer_client_t *self)
   ok = SU_TRUE;
 
 done:
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_send_source_info(
+    suscli_analyzer_client_t *self,
+    const struct suscan_analyzer_source_info *info)
+{
+  struct suscan_analyzer_remote_call *call = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      call = suscli_analyzer_client_get_outcoming_call(self),
+      goto done);
+
+  suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_SOURCE_INFO);
+
+  SU_TRYCATCH(
+      suscan_analyzer_source_info_init_copy(&call->source_info, info),
+      goto done);
+
+  SU_TRYCATCH(suscli_analyzer_client_deliver_call(self), goto done);
+
+  suscli_analyzer_client_set_has_source_info(self, SU_TRUE);
+
+  ok = SU_TRUE;
+
+done:
+  if (call != NULL)
+    suscli_analyzer_client_return_outcoming_call(self, call);
+
   return ok;
 }
 
@@ -465,7 +508,7 @@ suscli_analyzer_client_list_broadcast(
 
   while (this != NULL) {
     if (!suscli_analyzer_client_is_failed(this)
-        && suscli_analyzer_client_is_auth(this)) {
+        && suscli_analyzer_client_has_source_info(this)) {
       if (!suscli_analyzer_client_write_buffer(this, buffer)) {
         error = errno;
         SU_WARNING(
@@ -845,11 +888,24 @@ suscli_analyzer_server_process_call(
        * changes in the server. First, ensure the analyzer object is
        * running.
        */
-      if (self->analyzer == NULL)
+      if (self->analyzer == NULL) {
         if (!suscli_analyzer_server_start_analyzer(self)) {
           SU_ERROR("Failed to initialize analyzer. Rejecting client\n");
           suscli_analyzer_client_shutdown(client);
         }
+      }
+
+      /*
+       * Now that we are sure that the analyzer object exists, we update
+       * the client with the source information. This is important from the
+       * endpoint perspective in order to be aware of frequency limits, sample
+       * rate, etc
+       */
+      SU_TRYCATCH(
+          suscli_analyzer_client_send_source_info(
+              client,
+              suscan_analyzer_get_source_info(self->analyzer)),
+          goto done);
     } else {
       /* Authentication failed. Mark as failed. */
       SU_ERROR("Authentication failed. Forcing shutdown\n");

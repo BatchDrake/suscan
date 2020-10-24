@@ -32,6 +32,7 @@
 struct suscli_analyzer_client {
   int sfd;
   SUBOOL auth;
+  SUBOOL has_source_info;
   SUBOOL failed;
   struct timeval conntime;
   struct in_addr remote_addr;
@@ -71,6 +72,13 @@ suscli_analyzer_client_is_auth(const suscli_analyzer_client_t *self)
   return self->auth;
 }
 
+SUINLINE SUBOOL
+suscli_analyzer_client_has_source_info(const suscli_analyzer_client_t *self)
+{
+  return self->has_source_info;
+}
+
+
 SUINLINE const char *
 suscli_analyzer_client_string_addr(const suscli_analyzer_client_t *self)
 {
@@ -81,6 +89,14 @@ SUINLINE void
 suscli_analyzer_client_set_auth(suscli_analyzer_client_t *self, SUBOOL auth)
 {
   self->auth = auth;
+}
+
+SUINLINE void
+suscli_analyzer_client_set_has_source_info(
+    suscli_analyzer_client_t *self,
+    SUBOOL has_info)
+{
+  self->has_source_info = has_info;
 }
 
 SUINLINE void
@@ -96,6 +112,10 @@ struct suscan_analyzer_remote_call *suscli_analyzer_client_take_call(
     suscli_analyzer_client_t *);
 struct suscan_analyzer_remote_call *suscli_analyzer_client_get_outcoming_call(
     suscli_analyzer_client_t *);
+void suscli_analyzer_client_return_outcoming_call(
+    suscli_analyzer_client_t *self,
+    struct suscan_analyzer_remote_call *call);
+
 SUBOOL suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self);
 SUBOOL suscli_analyzer_client_deliver_call(suscli_analyzer_client_t *self);
 SUBOOL suscli_analyzer_client_write_buffer(

@@ -165,6 +165,54 @@ suscan_analyzer_source_info_init(struct suscan_analyzer_source_info *self)
   memset(self, 0, sizeof(struct suscan_analyzer_source_info));
 }
 
+SUBOOL
+suscan_analyzer_source_info_init_copy(
+    struct suscan_analyzer_source_info *self,
+    const struct suscan_analyzer_source_info *origin)
+{
+  struct suscan_analyzer_gain_info *gi = NULL;
+  unsigned int i;
+  SUBOOL ok = SU_FALSE;
+
+  suscan_analyzer_source_info_init(self);
+
+  self->source_samp_rate    = origin->source_samp_rate;
+  self->effective_samp_rate = origin->effective_samp_rate;
+  self->measured_samp_rate  = origin->measured_samp_rate;
+  self->frequency           = origin->frequency;
+  self->lnb                 = origin->lnb;
+  self->bandwidth           = origin->bandwidth;
+
+  if (origin->antenna != NULL)
+    SU_TRYCATCH(self->antenna = strdup(origin->antenna), goto done);
+
+  self->dc_remove  = origin->dc_remove;
+  self->iq_reverse = origin->iq_reverse;
+  self->agc        = origin->agc;
+
+  for (i = 0; i < origin->gain_count; ++i) {
+    SU_TRYCATCH(
+        gi = suscan_analyzer_gain_info_new(
+            origin->gain_list[i]->name,
+            origin->gain_list[i]->value),
+        goto done);
+
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(self->gain, gi) != -1, goto done);
+    gi = NULL;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (gi != NULL)
+    suscan_analyzer_gain_info_destroy(gi);
+
+  if (!ok)
+    suscan_analyzer_source_info_finalize(self);
+
+  return ok;
+}
+
 void
 suscan_analyzer_source_info_finalize(struct suscan_analyzer_source_info *self)
 {
@@ -176,6 +224,8 @@ suscan_analyzer_source_info_finalize(struct suscan_analyzer_source_info *self)
 
   if (self->gain_list != NULL)
     free(self->gain_list);
+
+  memset(self, 0, sizeof(struct suscan_analyzer_source_info));
 }
 
 void

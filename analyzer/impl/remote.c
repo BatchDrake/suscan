@@ -36,7 +36,7 @@
 SUPRIVATE struct suscan_analyzer_interface *g_remote_analyzer_interface;
 
 #if 0
-SUPRIVATE void
+void
 grow_buffer_debug(const grow_buf_t *buffer)
 {
   unsigned int i;
@@ -205,8 +205,10 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
       SU_TRYCATCH(
           suscan_analyzer_msg_deserialize(
               &self->msg.type,
-              &self->msg.ptr, buffer),
+              &self->msg.ptr,
+              buffer),
           goto fail);
+
       break;
 
     case SUSCAN_ANALYZER_REMOTE_REQ_HALT:
@@ -260,6 +262,11 @@ suscan_analyzer_remote_call_deliver_message(
       self->type == SUSCAN_ANALYZER_REMOTE_MESSAGE,
       return SU_FALSE);
 
+  type = self->msg.type;
+  priv = self->msg.ptr;
+
+  printf("Send message %d (%p)\n", type, priv);
+
   SU_TRYCATCH(suscan_mq_write(analyzer->mq_out, type, priv), goto done);
 
   self->type = SUSCAN_ANALYZER_REMOTE_NONE;
@@ -267,10 +274,9 @@ suscan_analyzer_remote_call_deliver_message(
   ok = SU_TRUE;
 
 done:
-  if (!ok && priv != NULL) {
+  if (!ok && priv != NULL)
     suscan_analyzer_dispose_message(type, priv);
 
-  }
   return ok;
 }
 
@@ -475,7 +481,6 @@ suscan_remote_analyzer_receive_call(
           &self->peer.read_buffer,
           timeout_ms),
       goto done);
-  ok = SU_TRUE;
 
   call = suscan_remote_analyzer_acquire_call(
       self,
@@ -647,6 +652,10 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
 
   SU_TRYCATCH(write_ok, goto done);
 
+  /*
+   * TODO: Verify server identity
+   */
+
   SU_TRYCATCH(
       call = suscan_remote_analyzer_receive_call(
           self,
@@ -655,11 +664,13 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           SUSCAN_REMOTE_ANALYZER_AUTH_TIMEOUT_MS),
       goto done);
 
-  SU_TRYCATCH(call->type == SUSCAN_ANALYZER_REMOTE_AUTH_INFO, goto done);
+  SU_TRYCATCH(call->type == SUSCAN_ANALYZER_REMOTE_SOURCE_INFO, goto done);
+  SU_TRYCATCH(
+      suscan_analyzer_remote_call_take_source_info(
+          call,
+          &self->source_info),
+      goto done);
 
-  /*
-   * TODO: Check authentication tokens
-   */
   suscan_remote_analyzer_release_call(self, call);
   call = NULL;
 
@@ -771,7 +782,7 @@ suscan_remote_analyzer_rx_thread(void *ptr)
       self->peer.control_fd,
       self->cancel_pipe[0],
       -1)) != NULL) {
-
+    printf("Received call type %d\n", call->type);
     switch (call->type) {
       case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
         /* TODO: Notify */

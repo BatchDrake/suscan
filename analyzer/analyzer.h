@@ -186,6 +186,18 @@ void suscan_analyzer_source_info_init(
     struct suscan_analyzer_source_info *self);
 
 /*!
+ * Initialize a source information structure from an existing
+ * source information
+ * \param self a pointer to the source info structure to be initialized
+ * \param origin a pointer to the source info structure to copy
+ * \return SU_TRUE on success, SU_FALSE on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_source_info_init_copy(
+    struct suscan_analyzer_source_info *self,
+    const struct suscan_analyzer_source_info *origin);
+
+/*!
  * Release allocated resources in the source information structure
  * \param self a pointer to the source info structure
  * \author Gonzalo José Carracedo Carballal
