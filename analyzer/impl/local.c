@@ -356,6 +356,11 @@ suscan_analyzer_thread(void *data)
       SUSCAN_ANALYZER_INIT_SUCCESS,
       NULL);
 
+  /* Send source info */
+  suscan_analyzer_send_source_info(
+      self->parent,
+      &self->source_info);
+
   /* Pop all messages from queue before reading from the source */
   for (;;) {
     /* First read: blocks */
@@ -699,6 +704,70 @@ suscan_analyzer_params_debug(const struct suscan_analyzer_params *params)
 
 SUPRIVATE void suscan_local_analyzer_dtor(void *ptr);
 
+SUPRIVATE SUBOOL
+suscan_local_analyzer_source_info_add_gain(
+    void *private,
+    struct suscan_source_gain_value *gain)
+{
+  SUBOOL ok = SU_FALSE;
+  struct suscan_analyzer_gain_info *ginfo;
+  struct suscan_analyzer_source_info *info =
+      (struct suscan_analyzer_source_info *) private;
+
+  SU_TRYCATCH(ginfo = suscan_analyzer_gain_info_new(gain), goto fail);
+
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->gain, ginfo) != -1, goto fail);
+
+  ginfo = NULL;
+
+  ok = SU_TRUE;
+
+fail:
+  if (ginfo != NULL)
+    suscan_analyzer_gain_info_destroy(ginfo);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
+{
+  struct suscan_analyzer_source_info *info = &self->source_info;
+  const suscan_source_config_t *config = suscan_source_get_config(self->source);
+  const char *ant = suscan_source_config_get_antenna(config);
+  SUBOOL ok = SU_FALSE;
+
+  info->source_samp_rate = suscan_source_get_samp_rate(self->source);
+  info->effective_samp_rate = self->effective_samp_rate;
+  info->measured_samp_rate = self->measured_samp_rate;
+  info->frequency = suscan_source_get_freq(self->source);
+  info->lnb = suscan_source_config_get_lnb_freq(config);
+  info->bandwidth = suscan_source_config_get_bandwidth(config);
+  info->dc_remove = suscan_source_config_get_dc_remove(config);
+  info->iq_reverse = self->iq_rev;
+  info->agc = SU_FALSE;
+
+  if (ant != NULL) {
+    SU_TRYCATCH(info->antenna = strdup(ant), goto done);
+  } else {
+    info->antenna = NULL;
+  }
+
+  if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_SDR) {
+    SU_TRYCATCH(
+        suscan_source_config_walk_gains_ex(
+            config,
+            suscan_local_analyzer_source_info_add_gain,
+            info),
+        goto done);
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
 void *
 suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 {
@@ -843,6 +912,9 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
     new->current_sweep_params.max_freq = parent->params.max_freq;
     new->current_sweep_params.min_freq = parent->params.min_freq;
   }
+
+  /* Populate source info. */
+  SU_TRYCATCH(suscan_local_analyzer_populate_source_info(new), goto fail);
 
   if (pthread_create(
       &new->thread,

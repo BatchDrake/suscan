@@ -70,7 +70,61 @@ suscan_analyzer_gain_info_destroy(struct suscan_analyzer_gain_info *self)
 }
 
 struct suscan_analyzer_gain_info *
-suscan_analyzer_gain_info_new(const char *name, SUFLOAT value)
+suscan_analyzer_gain_info_dup(
+    const struct suscan_analyzer_gain_info *old)
+{
+  struct suscan_analyzer_gain_info *new = NULL;
+
+  SU_TRYCATCH(
+      new = calloc(1, sizeof(struct suscan_analyzer_gain_info)),
+      goto fail);
+
+  SU_TRYCATCH(new->name = strdup(old->name), goto fail);
+
+  new->max   = old->max;
+  new->min   = old->min;
+  new->step  = old->step;
+  new->value = old->value;
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_analyzer_gain_info_destroy(new);
+
+  return NULL;
+}
+
+struct suscan_analyzer_gain_info *
+suscan_analyzer_gain_info_new(
+    const struct suscan_source_gain_value *value)
+{
+  struct suscan_analyzer_gain_info *new = NULL;
+
+  SU_TRYCATCH(
+      new = calloc(1, sizeof(struct suscan_analyzer_gain_info)),
+      goto fail);
+
+  SU_TRYCATCH(new->name = strdup(value->desc->name), goto fail);
+
+  new->max   = value->desc->max;
+  new->min   = value->desc->min;
+  new->step  = value->desc->step;
+  new->value = value->val;
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_analyzer_gain_info_destroy(new);
+
+  return NULL;
+}
+
+struct suscan_analyzer_gain_info *
+suscan_analyzer_gain_info_new_value_only(
+    const char *name,
+    SUFLOAT value)
 {
   struct suscan_analyzer_gain_info *new = NULL;
 
@@ -79,6 +133,7 @@ suscan_analyzer_gain_info_new(const char *name, SUFLOAT value)
       goto fail);
 
   SU_TRYCATCH(new->name = strdup(name), goto fail);
+
   new->value = value;
 
   return new;
@@ -192,9 +247,7 @@ suscan_analyzer_source_info_init_copy(
 
   for (i = 0; i < origin->gain_count; ++i) {
     SU_TRYCATCH(
-        gi = suscan_analyzer_gain_info_new(
-            origin->gain_list[i]->name,
-            origin->gain_list[i]->value),
+        gi = suscan_analyzer_gain_info_dup(origin->gain_list[i]),
         goto done);
 
     SU_TRYCATCH(PTR_LIST_APPEND_CHECK(self->gain, gi) != -1, goto done);

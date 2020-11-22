@@ -430,6 +430,25 @@ suscan_source_config_walk_gains(
   return SU_TRUE;
 }
 
+SUBOOL
+suscan_source_config_walk_gains_ex(
+    const suscan_source_config_t *config,
+    SUBOOL (*gain_cb) (void *private, struct suscan_source_gain_value *),
+    void *private)
+{
+  unsigned int i;
+
+  for (i = 0; i < config->gain_count; ++i)
+    if (!(gain_cb) (private, config->gain_list[i]))
+      return SU_FALSE;
+
+  for (i = 0; i < config->hidden_gain_count; ++i)
+    if (!(gain_cb) (private, config->hidden_gain_list[i]))
+      return SU_FALSE;
+
+  return SU_TRUE;
+}
+
 struct suscan_source_gain_value *
 suscan_source_config_assert_gain(
     suscan_source_config_t *config,

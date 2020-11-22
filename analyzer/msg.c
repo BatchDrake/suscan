@@ -884,6 +884,12 @@ suscan_analyzer_msg_serialize(
   SUSCAN_PACK(uint, type);
 
   switch (type) {
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
+      SU_TRYCATCH(
+          suscan_analyzer_source_info_serialize(ptr, buffer),
+          goto fail);
+      break;
+
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
       SU_TRYCATCH(
@@ -932,6 +938,15 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
   SUSCAN_UNPACK(uint32, *type);
 
   switch (*type) {
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
+      SU_TRYCATCH(
+          msgptr = calloc(1, sizeof (struct suscan_analyzer_source_info)),
+          goto fail);
+      SU_TRYCATCH(
+          suscan_analyzer_source_info_deserialize(msgptr, buffer),
+          goto fail);
+      break;
+
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
       SU_TRYCATCH(
@@ -1002,6 +1017,11 @@ void
 suscan_analyzer_dispose_message(uint32_t type, void *ptr)
 {
   switch (type) {
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
+      suscan_analyzer_source_info_finalize(ptr);
+      free(ptr);
+      break;
+
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
       suscan_analyzer_status_msg_destroy(ptr);
@@ -1113,6 +1133,40 @@ suscan_analyzer_send_detector_channels(
 done:
   if (msg != NULL)
     suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL, msg);
+  return ok;
+}
+
+SUBOOL
+suscan_analyzer_send_source_info(
+    suscan_analyzer_t *self,
+    const struct suscan_analyzer_source_info *info)
+{
+  struct suscan_analyzer_source_info *copy = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      copy = calloc(1, sizeof(struct suscan_analyzer_source_info)),
+      goto done);
+
+  SU_TRYCATCH(suscan_analyzer_source_info_init_copy(copy, info), goto done);
+
+  SU_TRYCATCH(
+      suscan_mq_write(
+          self->mq_out,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO,
+          copy),
+      goto done);
+
+  copy = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (copy != NULL) {
+    suscan_analyzer_source_info_finalize(copy);
+    free(copy);
+  }
+
   return ok;
 }
 

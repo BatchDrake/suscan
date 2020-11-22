@@ -344,6 +344,11 @@ SUBOOL suscan_source_config_walk_gains(
     SUBOOL (*gain_cb) (void *privdata, const char *name, SUFLOAT value),
     void *privdata);
 
+SUBOOL suscan_source_config_walk_gains_ex(
+    const suscan_source_config_t *config,
+    SUBOOL (*gain_cb) (void *privdata, struct suscan_source_gain_value *),
+    void *privdata);
+
 struct suscan_source_gain_value *suscan_source_config_assert_gain(
     suscan_source_config_t *config,
     const char *name,

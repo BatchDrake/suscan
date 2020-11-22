@@ -265,6 +265,13 @@ suscan_analyzer_remote_call_deliver_message(
   type = self->msg.type;
   priv = self->msg.ptr;
 
+  if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO) {
+    suscan_analyzer_source_info_finalize(&self->source_info);
+    SU_TRYCATCH(
+        suscan_analyzer_source_info_init_copy(&self->source_info, priv),
+        goto done);
+  }
+
   printf("Send message %d (%p)\n", type, priv);
 
   SU_TRYCATCH(suscan_mq_write(analyzer->mq_out, type, priv), goto done);
@@ -671,6 +678,7 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           &self->source_info),
       goto done);
 
+  /* TODO: Warn client about new source info */
   suscan_remote_analyzer_release_call(self, call);
   call = NULL;
 

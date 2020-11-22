@@ -31,7 +31,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_KEYBOARD      0x0
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO   0x0
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT   0x1
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL       0x2
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_EOS           0x3
@@ -189,6 +189,10 @@ SUBOOL suscan_analyzer_send_detector_channels(
 SUBOOL suscan_analyzer_send_psd(
     suscan_analyzer_t *analyzer,
     const su_channel_detector_t *detector);
+
+SUBOOL suscan_analyzer_send_source_info(
+    suscan_analyzer_t *self,
+    const struct suscan_analyzer_source_info *info);
 
 /***************** Message constructors and destructors **********************/
 /* Status message */

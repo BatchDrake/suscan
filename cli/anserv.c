@@ -1001,6 +1001,7 @@ suscli_analyzer_server_rx_thread(void *userdata)
       --count;
     }
 
+    /* Traverse client list and look for pending messages */
     for (i = 0; count > 0 && i <= self->client_list.client_count; ++i) {
       if (pfds[i + SUSCLI_ANSERV_FD_OFFSET].revents && POLLIN) {
         SU_TRYCATCH(

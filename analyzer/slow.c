@@ -445,7 +445,9 @@ suscan_local_analyzer_slow_set_gain(
   struct suscan_analyzer_gain_info *req = NULL;
   SUBOOL mutex_acquired = SU_FALSE;
 
-  SU_TRYCATCH(req = suscan_analyzer_gain_info_new(name, value), goto fail);
+  SU_TRYCATCH(
+      req = suscan_analyzer_gain_info_new_value_only(name, value),
+      goto fail);
 
   /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvv */
   SU_TRYCATCH(

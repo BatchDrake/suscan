@@ -87,19 +87,42 @@ struct suscan_analyzer_params {
 
 SUSCAN_SERIALIZABLE(suscan_analyzer_gain_info) {
   char *name;
+  SUFLOAT min;
+  SUFLOAT max;
+  SUFLOAT step;
   SUFLOAT value;
 };
 
 /*!
  * Constructor for gain info objects.
- * \param name name of the gain element
- * \param value value (in dB) of the gain info element
+ * \param value gain value object describing this gain element
  * \return a pointer to the created object or NULL on failure
  * \author Gonzalo José Carracedo Carballal
  */
 struct suscan_analyzer_gain_info *suscan_analyzer_gain_info_new(
+    const struct suscan_source_gain_value *value);
+
+/*!
+ * Constructor for gain info objects (value only).
+ * \param name name of the gain element
+ * \param value value of this gain in dBs
+ * \return a pointer to the created object or NULL on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+struct suscan_analyzer_gain_info *
+suscan_analyzer_gain_info_new_value_only(
     const char *name,
     SUFLOAT value);
+
+/*!
+ * Copy-constructor for gain info objects.
+ * \param old existing gain info object
+ * \return a pointer to the created object or NULL on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+struct suscan_analyzer_gain_info *
+suscan_analyzer_gain_info_dup(
+    const struct suscan_analyzer_gain_info *old);
 
 /*!
  * Destructor of the gain info object.
