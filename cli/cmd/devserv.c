@@ -116,15 +116,38 @@ suscli_devserv_ctx_new(const char *iface, const char *mcaddr)
       goto fail);
 
   mc_if.s_addr = inet_addr(iface);
+
+  /* Not necessary, but coherent. */
+  if (ntohl(mc_if.s_addr) == 0xffffffff) {
+    SU_ERROR(
+        "Invalid interface address `%s' (does not look like a valid IP address)\n",
+        iface);
+    goto fail;
+  }
+
+  if ((ntohl(mc_if.s_addr) & 0xf0000000) == 0xe0000000) {
+    SU_ERROR("Invalid interface address. Please note that if= expects the "
+        "IP address of a configured local network interface, not a multicast "
+        "group.\n");
+
+    goto fail;
+  }
+
   if (setsockopt(
           new->fd,
           IPPROTO_IP,
           IP_MULTICAST_IF,
           (char *) &mc_if,
           sizeof (struct in_addr)) == -1) {
-    SU_ERROR(
-        "failed to set network interface for multicast: %s\n",
-        strerror(errno));
+    if (errno == EADDRNOTAVAIL) {
+      SU_ERROR("Invalid interface address. Please verify that there is a "
+          "local network interface with IP `%s'\n", iface);
+    } else {
+      SU_ERROR(
+          "failed to set network interface for multicast: %s\n",
+          strerror(errno));
+    }
+
     goto fail;
   }
 
