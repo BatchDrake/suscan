@@ -734,7 +734,7 @@ cbor_unpack_double(grow_buf_t *buffer, SUDOUBLE *value)
           sizeof(int64_t)) != sizeof(int64_t))
         return -EILSEQ;
 
-      *((int64_t *) value) = be32_to_cpu_unaligned(&as_int);
+      *((int64_t *) value) = be64_to_cpu_unaligned(&as_int);
       break;
 
     default:
