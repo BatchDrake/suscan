@@ -125,7 +125,7 @@ suscan_device_net_discovery_ctx_new(const char *iface, const char *mcaddr)
           IP_ADD_MEMBERSHIP,
           (char *) &group,
           sizeof(struct ip_mreq)) == -1) {
-    if (errno == EADDRNOTAVAIL) {
+    if (errno == ENODEV) {
       SU_ERROR("Invalid interface address. Please verify that there is a "
           "local network interface with IP `%s'\n", iface);
     } else {
