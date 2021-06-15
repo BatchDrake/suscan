@@ -1912,7 +1912,8 @@ suscan_init_sources(void)
   SU_TRYCATCH(suscan_source_detect_devices(), return SU_FALSE);
   SU_TRYCATCH(suscan_load_sources(), return SU_FALSE);
 
-  if ((mcif = getenv("SUSCAN_MULTICAST_ADDR")) != NULL && strlen(mcif) > 0) {
+  if ((mcif = getenv("SUSCAN_DISCOVERY_IF")) != NULL && strlen(mcif) > 0) {
+    printf("Discovery mode started\n");
     if (!suscan_device_net_discovery_start(mcif)) {
       SU_ERROR("Failed to initialize remote device discovery.\n");
       SU_ERROR("SuRPC services will be disabled.\n");
