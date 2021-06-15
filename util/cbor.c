@@ -693,7 +693,7 @@ cbor_unpack_single(grow_buf_t *buffer, SUSINGLE *value)
   switch (extra) {
     case CBOR_ADDL_FLOAT_FLOAT32:
       if (grow_buf_read(
-          buffer,
+          &tmp,
           &as_int,
           sizeof(int32_t)) != sizeof(int32_t))
         return -EILSEQ;
@@ -729,7 +729,7 @@ cbor_unpack_double(grow_buf_t *buffer, SUDOUBLE *value)
   switch (extra) {
     case CBOR_ADDL_FLOAT_FLOAT64:
       if (grow_buf_read(
-          buffer,
+          &tmp,
           &as_int,
           sizeof(int64_t)) != sizeof(int64_t))
         return -EILSEQ;
