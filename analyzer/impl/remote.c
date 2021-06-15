@@ -787,7 +787,6 @@ suscan_remote_analyzer_rx_thread(void *ptr)
       self->peer.control_fd,
       self->cancel_pipe[0],
       -1)) != NULL) {
-    printf("Received call type %d\n", call->type);
     switch (call->type) {
       case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
         /* TODO: Notify */

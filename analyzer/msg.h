@@ -72,6 +72,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
   int64_t fc;
   uint32_t inspector_id;
   SUFLOAT  samp_rate;
+  SUFLOAT  measured_samp_rate;
   SUFLOAT  N0;
   SUSCOUNT psd_size;
   SUFLOAT *psd_data;

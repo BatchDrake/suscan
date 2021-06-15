@@ -183,6 +183,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
   SUSCAN_PACK(int,   self->fc);
   SUSCAN_PACK(uint,  self->inspector_id);
   SUSCAN_PACK(float, self->samp_rate);
+  SUSCAN_PACK(float, self->measured_samp_rate);
   SUSCAN_PACK(float, self->N0);
 
   SU_TRYCATCH(
@@ -202,6 +203,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
   SUSCAN_UNPACK(int64,  self->fc);
   SUSCAN_UNPACK(uint32, self->inspector_id);
   SUSCAN_UNPACK(float,  self->samp_rate);
+  SUSCAN_UNPACK(float,  self->measured_samp_rate);
   SUSCAN_UNPACK(float,  self->N0);
 
   SU_TRYCATCH(
@@ -1189,6 +1191,8 @@ suscan_analyzer_send_psd(
 
   /* In wide spectrum mode, frequency is given by curr_freq */
   msg->fc = suscan_analyzer_get_source_info(self)->frequency;
+  msg->samp_rate = suscan_analyzer_get_source_info(self)->source_samp_rate;
+  msg->measured_samp_rate = suscan_analyzer_get_measured_samp_rate(self);
 
   msg->N0 = detector->N0;
 
