@@ -70,7 +70,7 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
 
     if (ret == 0)
       SU_WARNING(
-          "Client[%s]: Unexpected client close\n",
+          "Client[%s]: Client left\n",
           suscli_analyzer_client_string_addr(self));
     else if (ret == -1)
       SU_ERROR(
@@ -750,6 +750,7 @@ done:
 SUPRIVATE SUBOOL
 suscli_analyzer_server_deliver_call(
     suscli_analyzer_server_t *self,
+    suscli_analyzer_client_t *caller,
     struct suscan_analyzer_remote_call *call)
 {
   SUBOOL ok = SU_FALSE;
@@ -801,9 +802,14 @@ suscli_analyzer_server_deliver_call(
       break;
 
     case SUSCAN_ANALYZER_REMOTE_FORCE_EOS:
-      SU_TRYCATCH(
-          suscan_analyzer_force_eos(self->analyzer),
-          goto done);
+      if (self->client_list.client_count == 1) {
+        SU_TRYCATCH(
+            suscan_analyzer_force_eos(self->analyzer),
+            goto done);
+      } else {
+        SU_WARNING("Force EOS message ignored (other consumers online)\n");
+        suscli_analyzer_client_shutdown(caller);
+      }
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_SWEEP_STRATEGY:
@@ -850,7 +856,13 @@ suscli_analyzer_server_deliver_call(
       break;
 
     case SUSCAN_ANALYZER_REMOTE_REQ_HALT:
-      suscan_analyzer_req_halt(self->analyzer);
+      /* TODO: Acknowledge something. */
+      if (self->client_list.client_count == 1) {
+        suscan_analyzer_req_halt(self->analyzer);
+      } else {
+        SU_WARNING("Halt message ignored (other consumers online)\n");
+        suscli_analyzer_client_shutdown(caller);
+      }
       break;
 
     default:
@@ -874,7 +886,7 @@ suscli_analyzer_server_process_call(
 
   if (suscli_analyzer_client_is_auth(client)) {
     SU_TRYCATCH(
-        suscli_analyzer_server_deliver_call(self, call),
+        suscli_analyzer_server_deliver_call(self, client, call),
         goto done);
   } else {
     SU_TRYCATCH(
@@ -891,6 +903,10 @@ suscli_analyzer_server_process_call(
         if (!suscli_analyzer_server_start_analyzer(self)) {
           SU_ERROR("Failed to initialize analyzer. Rejecting client\n");
           suscli_analyzer_client_shutdown(client);
+
+          /* Yep, no errors. Assume graceful disconnection. */
+          ok = SU_TRUE;
+          goto done;
         }
       }
 
@@ -992,44 +1008,46 @@ suscli_analyzer_server_rx_thread(void *userdata)
       /* Cancel requested */
       ok = SU_TRUE;
       goto done;
-    }
-
-    if (pfds[SUSCLI_ANSERV_LISTEN_FD].revents & POLLIN) {
-      /* New client(s)! */
+    } else if (pfds[SUSCLI_ANSERV_LISTEN_FD].revents & POLLIN) {
+      /*
+       * New client. We cannot continue inspecting the pfds because they
+       * have been overwritten by update_pollfds.
+       */
       SU_TRYCATCH(suscli_analyzer_server_register_clients(self), goto done);
-      --count;
-    }
+    } else {
+      /* Traverse client list and look for pending messages */
+      for (i = 0; count > 0 && i <= self->client_list.client_count; ++i) {
+        if (pfds[i + SUSCLI_ANSERV_FD_OFFSET].revents && POLLIN) {
+          SU_TRYCATCH(
+              node = rbtree_search(
+                  self->client_list.client_tree,
+                  pfds[i + SUSCLI_ANSERV_FD_OFFSET].fd,
+                  RB_EXACT),
+              goto done);
+          client = node->data;
 
-    /* Traverse client list and look for pending messages */
-    for (i = 0; count > 0 && i <= self->client_list.client_count; ++i) {
-      if (pfds[i + SUSCLI_ANSERV_FD_OFFSET].revents && POLLIN) {
-        SU_TRYCATCH(
-            node = rbtree_search(
-                self->client_list.client_tree,
-                pfds[i + SUSCLI_ANSERV_FD_OFFSET].fd,
-                RB_EXACT),
-            goto done);
-        client = node->data;
-        SU_TRYCATCH(client != NULL, goto done);
+          SU_TRYCATCH(client != NULL, goto done);
 
-        if (client != NULL) {
-          if (!suscli_analyzer_client_read(client))
-            suscli_analyzer_client_mark_failed(client);
-          else if ((call = suscli_analyzer_client_take_call(client)) != NULL) {
-            /* Call completed from client, process it and do stuff */
-            SU_TRYCATCH(
-                suscli_analyzer_server_process_call(self, client, call),
-                goto done);
+          if (!suscli_analyzer_client_is_failed(client)) {
+            if (!suscli_analyzer_client_read(client)) {
+              suscli_analyzer_client_mark_failed(client);
+            } else if ((call = suscli_analyzer_client_take_call(client))
+                != NULL) {
+              /* Call completed from client, process it and do stuff */
+              SU_TRYCATCH(
+                  suscli_analyzer_server_process_call(self, client, call),
+                  goto done);
+            }
           }
+          --count;
         }
-        --count;
       }
+
+      /* This is actually a consistency condition */
+      SU_TRYCATCH(count == 0, goto done);
     }
 
-    /* This is actually a consistency condition */
-    SU_TRYCATCH(count == 0, goto done);
-
-    /* Some sockets may have been marked as dead. Clean them */
+    /* Some sockets may have been marked as dead. Clean them up */
     SU_TRYCATCH(
         suscli_analyzer_client_list_attempt_cleanup(&self->client_list),
         goto done);

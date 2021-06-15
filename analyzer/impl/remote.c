@@ -271,8 +271,6 @@ suscan_analyzer_remote_call_deliver_message(
         goto done);
   }
 
-  printf("Send message %d (%p)\n", type, priv);
-
   SU_TRYCATCH(suscan_mq_write(analyzer->mq_out, type, priv), goto done);
 
   self->type = SUSCAN_ANALYZER_REMOTE_NONE;
