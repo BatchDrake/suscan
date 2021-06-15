@@ -44,6 +44,9 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_gain_info)
   SUSCAN_PACK_BOILERPLATE_START;
 
   SUSCAN_PACK(str,   self->name);
+  SUSCAN_PACK(float, self->min);
+  SUSCAN_PACK(float, self->max);
+  SUSCAN_PACK(float, self->step);
   SUSCAN_PACK(float, self->value);
 
   SUSCAN_PACK_BOILERPLATE_END;
@@ -54,6 +57,9 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_gain_info)
   SUSCAN_UNPACK_BOILERPLATE_START;
 
   SUSCAN_UNPACK(str,   self->name);
+  SUSCAN_UNPACK(float, self->min);
+  SUSCAN_UNPACK(float, self->max);
+  SUSCAN_UNPACK(float, self->step);
   SUSCAN_UNPACK(float, self->value);
 
   SUSCAN_UNPACK_BOILERPLATE_END;
@@ -202,7 +208,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
 
   for (i = 0; i < self->gain_count; ++i) {
     SU_TRYCATCH(
-        self->gain_list = calloc(1, sizeof (struct suscan_analyzer_gain_info)),
+        self->gain_list[i] = calloc(1, sizeof (struct suscan_analyzer_gain_info)),
         goto fail);
 
     SU_TRYCATCH(

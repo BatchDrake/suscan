@@ -142,7 +142,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
 
     case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
       SU_TRYCATCH(
-          suscan_analyzer_source_info_serialize(&self->source_info, buffer),
+          suscan_analyzer_source_info_deserialize(&self->source_info, buffer),
           goto fail);
       break;
 
@@ -674,6 +674,9 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           call,
           &self->source_info),
       goto done);
+  SU_TRYCATCH(
+      suscan_analyzer_send_source_info(self->parent, &self->source_info),
+      goto done);
 
   /* TODO: Warn client about new source info */
   suscan_remote_analyzer_release_call(self, call);
@@ -789,11 +792,14 @@ suscan_remote_analyzer_rx_thread(void *ptr)
       -1)) != NULL) {
     switch (call->type) {
       case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
-        /* TODO: Notify */
         SU_TRYCATCH(
             suscan_analyzer_remote_call_take_source_info(
                 call,
                 &self->source_info),
+            goto done);
+
+        SU_TRYCATCH(
+            suscan_analyzer_send_source_info(self->parent, &self->source_info),
             goto done);
         break;
 
