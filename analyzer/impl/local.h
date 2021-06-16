@@ -164,6 +164,9 @@ void suscan_local_analyzer_enter_sched(suscan_local_analyzer_t *analyzer);
 void suscan_local_analyzer_leave_sched(suscan_local_analyzer_t *analyzer);
 
 /* Internal */
+SUBOOL suscan_local_analyzer_is_real_time_ex(const suscan_local_analyzer_t *self);
+
+/* Internal */
 su_specttuner_channel_t *suscan_local_analyzer_open_channel_ex(
     suscan_local_analyzer_t *analyzer,
     const struct sigutils_channel *chan_info,

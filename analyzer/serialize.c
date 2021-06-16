@@ -218,11 +218,13 @@ suscan_unpack_compact_complex_array(
   int ret;
   SUSCOUNT fake_size = *size << 1;
 
-  if ((ret = suscan_unpack_compact_float_array(
+  if (!suscan_unpack_compact_float_array(
       buffer,
       (SUFLOAT **) array,
-      &fake_size)) != 0)
+      &fake_size)) {
+    SU_ERROR("Failed to unpack float components of complex array\n");
     return SU_FALSE;
+  }
 
   /*
    * Size must be an even number. If it is not the case, something
@@ -232,6 +234,11 @@ suscan_unpack_compact_complex_array(
     free(*array);
     *array = NULL;
     *size  = 0;
+
+    SU_ERROR(
+        "Complex array: asked for %d floats, but %d received?\n",
+        *size << 1,
+        fake_size);
 
     return SU_FALSE;
   }

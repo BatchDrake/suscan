@@ -1117,7 +1117,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_config)
   char *string = NULL;
   suscan_config_desc_t *desc = NULL;
   const struct suscan_field *field = NULL;
-  SUBOOL creative_mode = SU_TRUE;
+  SUBOOL creative_mode = SU_FALSE;
   size_t i, npairs = 0;
   SUBOOL end_required = SU_FALSE;
 
@@ -1141,7 +1141,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_config)
       goto fail);
   SU_TRYCATCH(!end_required, goto fail);
 
-  self->desc = desc;
+  SU_TRYCATCH(suscan_config_init(self, desc), goto fail);
 
   for (i = 0; i < npairs; ++i) {
     SUSCAN_UNPACK(str, field_name);

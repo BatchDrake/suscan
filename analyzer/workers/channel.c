@@ -231,7 +231,7 @@ suscan_source_channel_wk_cb(
   mutex_acquired = SU_TRUE;
 
   /* With non-real time sources, use throttle to control CPU usage */
-  if (suscan_analyzer_is_real_time(self->parent)) {
+  if (suscan_local_analyzer_is_real_time_ex(self)) {
     read_size = self->read_size;
   } else {
     SU_TRYCATCH(
@@ -259,7 +259,7 @@ suscan_source_channel_wk_cb(
     if (self->iq_rev)
       suscan_analyzer_do_iq_rev(self->read_buf, got);
 
-    if (!suscan_analyzer_is_real_time(self->parent)) {
+    if (!suscan_local_analyzer_is_real_time_ex(self)) {
       SU_TRYCATCH(
           pthread_mutex_lock(&self->throttle_mutex) != -1,
           goto done);

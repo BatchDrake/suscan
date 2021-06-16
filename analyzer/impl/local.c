@@ -1140,12 +1140,18 @@ suscan_local_analyzer_force_eos(void *ptr)
   return SU_TRUE;
 }
 
+SUBOOL
+suscan_local_analyzer_is_real_time_ex(const suscan_local_analyzer_t *self)
+{
+  return suscan_source_get_type(self->source) == SUSCAN_SOURCE_TYPE_SDR;
+}
+
 SUPRIVATE SUBOOL
 suscan_local_analyzer_is_real_time(const void *ptr)
 {
   const suscan_local_analyzer_t *self = (const suscan_local_analyzer_t *) ptr;
 
-  return suscan_source_get_type(self->source) == SUSCAN_SOURCE_TYPE_SDR;
+  return suscan_local_analyzer_is_real_time_ex(self);
 }
 
 SUPRIVATE unsigned int

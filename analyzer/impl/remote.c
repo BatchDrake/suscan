@@ -304,7 +304,9 @@ suscan_analyzer_remote_call_finalize(struct suscan_analyzer_remote_call *self)
       break;
 
     case SUSCAN_ANALYZER_REMOTE_MESSAGE:
-      suscan_analyzer_dispose_message(self->msg.type, self->msg.ptr);
+      /* Messages can become null if they are forwarded to the user */
+      if (self->msg.ptr != NULL)
+        suscan_analyzer_dispose_message(self->msg.type, self->msg.ptr);
       break;
   }
 
@@ -1464,6 +1466,7 @@ suscan_remote_analyzer_write(void *ptr, uint32_t type, void *priv)
           SUSCAN_ANALYZER_REMOTE_MESSAGE),
       goto done);
 
+  /* Transfer ownership */
   call->msg.type = type;
   call->msg.ptr  = priv;
 
@@ -1476,8 +1479,7 @@ suscan_remote_analyzer_write(void *ptr, uint32_t type, void *priv)
 done:
   if (call != NULL)
     suscan_remote_analyzer_release_call(self, call);
-
-  if (ok)
+  else
     suscan_analyzer_dispose_message(type, priv);
 
   return ok;

@@ -323,7 +323,13 @@ suscan_analyzer_inspector_msg_serialize_open(
   SUSCAN_PACK(str,   self->class_name);
 
   SU_TRYCATCH(sigutils_channel_serialize(&self->channel, buffer), goto fail);
-  SU_TRYCATCH(suscan_config_serialize(self->config, buffer), goto fail);
+
+  if (self->config != NULL) {
+    SU_TRYCATCH(suscan_config_serialize(self->config, buffer), goto fail);
+  } else {
+    SUSCAN_PACK(str, "<nullconfig>");
+    SU_TRYCATCH(cbor_pack_map_start(buffer, 0) == 0, goto fail);
+  }
 
   SUSCAN_PACK(bool,  self->precise);
   SUSCAN_PACK(uint,  self->fs);
@@ -360,6 +366,8 @@ suscan_analyzer_inspector_msg_deserialize_open(
   SUSCAN_UNPACK(str,    self->class_name);
 
   SU_TRYCATCH(sigutils_channel_deserialize(&self->channel, buffer), goto fail);
+
+  SU_TRYCATCH(self->config = suscan_config_new(NULL), goto fail);
   SU_TRYCATCH(suscan_config_deserialize(self->config, buffer), goto fail);
 
   SUSCAN_UNPACK(bool,   self->precise);
@@ -443,6 +451,7 @@ suscan_analyzer_inspector_msg_deserialize_config(
     struct suscan_analyzer_inspector_msg *self)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
+  SU_TRYCATCH(self->config = suscan_config_new(NULL), goto fail);
   SU_TRYCATCH(suscan_config_deserialize(self->config, buffer), goto fail);
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
