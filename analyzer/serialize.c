@@ -95,9 +95,10 @@ suscan_pack_compact_single_array(
 
   SUSCAN_PACK(uint, size);
 
-  SU_TRYCATCH(dest = cbor_alloc_blob(buffer, array_size), goto fail);
-
-  suscan_single_array_cpu_to_be(dest, array, size);
+  if (size > 0) {
+    SU_TRYCATCH(dest = cbor_alloc_blob(buffer, array_size), goto fail);
+    suscan_single_array_cpu_to_be(dest, array, size);
+  }
 
   ok = SU_TRUE;
 
@@ -118,9 +119,10 @@ suscan_pack_compact_double_array(
 
   SUSCAN_PACK(uint, size);
 
-  SU_TRYCATCH(dest = cbor_alloc_blob(buffer, array_size), goto fail);
-
-  suscan_double_array_cpu_to_be(dest, array, size);
+  if (size > 0) {
+    SU_TRYCATCH(dest = cbor_alloc_blob(buffer, array_size), goto fail);
+    suscan_double_array_cpu_to_be(dest, array, size);
+  }
 
   ok = SU_TRUE;
 
@@ -153,12 +155,16 @@ suscan_unpack_compact_single_array(
 
   SUSCAN_UNPACK(uint64, array_length);
 
-  SU_TRYCATCH(
-      cbor_unpack_blob(buffer, (void **) &array, &array_size) == 0,
-      goto fail);
-  SU_TRYCATCH(array_size == array_length * sizeof(SUSINGLE), goto fail);
+  if (array_length > 0) {
+    SU_TRYCATCH(
+          cbor_unpack_blob(buffer, (void **) &array, &array_size) == 0,
+          goto fail);
+    SU_TRYCATCH(array_size == array_length * sizeof(SUSINGLE), goto fail);
 
-  suscan_single_array_be_to_cpu(array, array, array_length);
+    suscan_single_array_be_to_cpu(array, array, array_length);
+  } else {
+    array = NULL;
+  }
 
   *oarray = array;
   *osize  = array_length;
@@ -187,13 +193,18 @@ suscan_unpack_compact_double_array(
 
   SUSCAN_UNPACK(uint64, array_length);
 
-  SU_TRYCATCH(
-      cbor_unpack_blob(buffer, (void **) &array, &array_size) == 0,
-      goto fail);
+  if (array_length > 0) {
+    SU_TRYCATCH(
+        cbor_unpack_blob(buffer, (void **) &array, &array_size) == 0,
+        goto fail);
 
-  SU_TRYCATCH(array_size == array_length * sizeof(SUDOUBLE), goto fail);
+    SU_TRYCATCH(array_size == array_length * sizeof(SUDOUBLE), goto fail);
 
-  suscan_double_array_be_to_cpu(array, array, array_length);
+    suscan_double_array_be_to_cpu(array, array, array_length);
+  } else {
+    array = NULL;
+  }
+
 
   *oarray = array;
   *osize  = array_length;
@@ -215,7 +226,6 @@ suscan_unpack_compact_complex_array(
     SUCOMPLEX **array,
     SUSCOUNT *size)
 {
-  int ret;
   SUSCOUNT fake_size = *size << 1;
 
   if (!suscan_unpack_compact_float_array(

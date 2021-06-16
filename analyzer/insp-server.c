@@ -442,6 +442,8 @@ fail:
   return SU_FALSE;
 }
 
+
+#ifdef SUSCAN_ANALYZER_INSPECTOR_BLOCKING_MESSAGES
 SUPRIVATE SUBOOL
 suscan_local_analyzer_set_inspector_freq(
     suscan_local_analyzer_t *analyzer,
@@ -515,6 +517,7 @@ done:
 
   return ok;
 }
+#endif /* SUSCAN_ANALYZER_INSPECTOR_BLOCKING_MESSAGES */
 
 
 /*
@@ -643,6 +646,7 @@ suscan_local_analyzer_parse_inspector_msg(
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_FREQ:
+#ifdef SUSCAN_ANALYZER_INSPECTOR_BLOCKING_MESSAGES
       if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
@@ -656,10 +660,18 @@ suscan_local_analyzer_parse_inspector_msg(
                 msg->channel.fc - msg->channel.ft),
             msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT);
       }
-
+#else
+      SU_TRYCATCH(
+          suscan_local_analyzer_set_inspector_freq_overridable(
+              analyzer,
+              msg->handle,
+              msg->channel.fc - msg->channel.ft),
+          msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT);
+#endif /* SUSCAN_ANALYZER_INSPECTOR_BLOCKING_MESSAGES */
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_BANDWIDTH:
+#ifdef SUSCAN_ANALYZER_INSPECTOR_BLOCKING_MESSAGES
       if ((insp = suscan_local_analyzer_get_inspector(
           analyzer,
           msg->handle)) == NULL) {
@@ -675,6 +687,14 @@ suscan_local_analyzer_parse_inspector_msg(
                 msg->channel.bw),
             msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT);
       }
+#else
+      SU_TRYCATCH(
+          suscan_local_analyzer_set_inspector_bandwidth_overridable(
+              analyzer,
+              msg->handle,
+              msg->channel.bw),
+          msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT);
+#endif /* SUSCAN_ANALYZER_INSPECTOR_BLOCKING_MESSAGES */
 
       break;
 

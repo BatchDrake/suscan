@@ -487,15 +487,15 @@ suscan_analyzer_inspector_msg_serialize_spectrum(
 {
   SUSCAN_PACK_BOILERPLATE_START;
   SUSCAN_PACK(uint, self->spectsrc_id);
+  SUSCAN_PACK(freq,  self->fc);
+  SUSCAN_PACK(float, self->N0);
+
   SU_TRYCATCH(
       suscan_pack_compact_float_array(
           buffer,
           self->spectrum_data,
           self->spectrum_size),
       goto fail);
-
-  SUSCAN_PACK(freq, self->fc);
-  SUSCAN_PACK(float, self->N0);
 
   SUSCAN_PACK_BOILERPLATE_END;
 }
@@ -507,15 +507,15 @@ suscan_analyzer_inspector_msg_deserialize_spectrum(
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
   SUSCAN_UNPACK(uint32, self->spectsrc_id);
+  SUSCAN_UNPACK(freq,  self->fc);
+  SUSCAN_UNPACK(float, self->N0);
+
   SU_TRYCATCH(
       suscan_unpack_compact_float_array(
           buffer,
           &self->spectrum_data,
           &self->spectrum_size),
       goto fail);
-
-  SUSCAN_UNPACK(freq,  self->fc);
-  SUSCAN_UNPACK(float, self->N0);
 
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
@@ -527,7 +527,8 @@ suscan_analyzer_inspector_msg_serialize_set_freq(
 {
   SUSCAN_PACK_BOILERPLATE_START;
 
-  SUSCAN_PACK(freq, self->fc);
+  SUSCAN_PACK(freq, self->channel.fc);
+  SUSCAN_PACK(freq, self->channel.ft);
 
   SUSCAN_PACK_BOILERPLATE_END;
 }
@@ -539,7 +540,8 @@ suscan_analyzer_inspector_msg_deserialize_set_freq(
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
 
-  SUSCAN_UNPACK(freq, self->fc);
+  SUSCAN_UNPACK(freq, self->channel.fc);
+  SUSCAN_UNPACK(freq, self->channel.ft);
 
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
@@ -551,7 +553,7 @@ suscan_analyzer_inspector_msg_serialize_set_bandwidth(
 {
   SUSCAN_PACK_BOILERPLATE_START;
 
-  SUSCAN_PACK(float, self->bandwidth);
+  SUSCAN_PACK(float, self->channel.bw);
 
   SUSCAN_PACK_BOILERPLATE_END;
 }
@@ -563,7 +565,7 @@ suscan_analyzer_inspector_msg_deserialize_set_bandwidth(
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
 
-  SUSCAN_UNPACK(float, self->bandwidth);
+  SUSCAN_UNPACK(float, self->channel.bw);
 
   SUSCAN_UNPACK_BOILERPLATE_END;
 }

@@ -484,6 +484,8 @@ suscan_analyzer_inspector_set_spectrum_async(
 
   req->handle = handle;
   req->spectsrc_id = spectsrc_id;
+  req->spectrum_data = NULL;
+  req->spectrum_size = 0;
 
   if (!suscan_analyzer_write(
       analyzer,
@@ -498,6 +500,7 @@ suscan_analyzer_inspector_set_spectrum_async(
   ok = SU_TRUE;
 
 done:
+
   if (req != NULL)
     suscan_analyzer_inspector_msg_destroy(req);
 
