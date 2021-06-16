@@ -160,6 +160,8 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_PACK(uint,  self->effective_samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
   SUSCAN_PACK(freq,  self->frequency);
+  SUSCAN_PACK(freq,  self->freq_min);
+  SUSCAN_PACK(freq,  self->freq_max);
   SUSCAN_PACK(freq,  self->lnb);
   SUSCAN_PACK(float, self->bandwidth);
   SUSCAN_PACK(str,   self->antenna);
@@ -187,6 +189,8 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_UNPACK(uint64, self->effective_samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
   SUSCAN_UNPACK(freq,   self->frequency);
+  SUSCAN_UNPACK(freq,   self->freq_min);
+  SUSCAN_UNPACK(freq,   self->freq_max);
   SUSCAN_UNPACK(freq,   self->lnb);
   SUSCAN_UNPACK(float,  self->bandwidth);
   SUSCAN_UNPACK(str,    self->antenna);
@@ -240,6 +244,8 @@ suscan_analyzer_source_info_init_copy(
   self->effective_samp_rate = origin->effective_samp_rate;
   self->measured_samp_rate  = origin->measured_samp_rate;
   self->frequency           = origin->frequency;
+  self->freq_min            = origin->freq_min;
+  self->freq_max            = origin->freq_max;
   self->lnb                 = origin->lnb;
   self->bandwidth           = origin->bandwidth;
 

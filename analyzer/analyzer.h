@@ -189,6 +189,8 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
   SUFLOAT  measured_samp_rate;
 
   SUFREQ   frequency;
+  SUFREQ   freq_min;
+  SUFREQ   freq_max;
   SUFREQ   lnb;
 
   SUFLOAT  bandwidth;

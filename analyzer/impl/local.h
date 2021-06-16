@@ -22,6 +22,9 @@
 
 #include <analyzer/analyzer.h>
 
+#define SUSCAN_LOCAL_ANALYZER_MIN_RADIO_FREQ -3e11
+#define SUSCAN_LOCAL_ANALYZER_MAX_RADIO_FREQ +3e11
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */

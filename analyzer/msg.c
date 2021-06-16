@@ -1149,6 +1149,7 @@ suscan_analyzer_send_source_info(
       copy = calloc(1, sizeof(struct suscan_analyzer_source_info)),
       goto done);
 
+  // XXX: Protect!
   SU_TRYCATCH(suscan_analyzer_source_info_init_copy(copy, info), goto done);
 
   SU_TRYCATCH(

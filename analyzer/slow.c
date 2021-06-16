@@ -20,6 +20,7 @@
 #define SU_LOG_DOMAIN "slow-worker"
 
 #include <analyzer/impl/local.h>
+#include <analyzer/msg.h>
 #include <string.h>
 
 /*
@@ -87,6 +88,9 @@ suscan_local_analyzer_set_gain_cb(
         goto fail);
   }
 
+  /* TODO: Protect with mutex, set antenna and deliver source info */
+
+
 fail:
   if (mutex_acquired)
     pthread_mutex_unlock(&analyzer->hotconf_mutex);
@@ -123,6 +127,8 @@ suscan_local_analyzer_set_antenna_cb(
 
   suscan_source_set_antenna(analyzer->source, req);
 
+  /* TODO: Protect with mutex, set antenna and deliver source info */
+
 fail:
   if (mutex_acquired)
     pthread_mutex_unlock(&analyzer->hotconf_mutex);
@@ -144,6 +150,12 @@ suscan_local_analyzer_set_dc_remove_cb(
 
   (void) suscan_source_set_dc_remove(analyzer->source, remove);
 
+  /* Source info changed. Notify update */
+  analyzer->source_info.dc_remove = remove;
+  suscan_analyzer_send_source_info(
+      analyzer->parent,
+      &analyzer->source_info);
+
   return SU_FALSE;
 }
 
@@ -157,6 +169,12 @@ suscan_local_analyzer_set_agc_cb(
   SUBOOL set = (SUBOOL) (uintptr_t) cb_private;
 
   (void) suscan_source_set_agc(analyzer->source, set);
+
+  /* Source info changed. Notify update */
+  analyzer->source_info.agc = set;
+  suscan_analyzer_send_source_info(
+      analyzer->parent,
+      &analyzer->source_info);
 
   return SU_FALSE;
 }
@@ -175,6 +193,13 @@ suscan_local_analyzer_set_bw_cb(
     if (suscan_source_set_bandwidth(analyzer->source, bw)) {
       /* XXX: Use a proper frequency adjust method */
       analyzer->detector->params.bw = bw;
+
+      /* Source info changed. Notify update */
+      analyzer->source_info.bandwidth = bw;
+
+      suscan_analyzer_send_source_info(
+          analyzer->parent,
+          &analyzer->source_info);
     }
     analyzer->bw_req = analyzer->bw_req_value != bw;
   }
@@ -198,7 +223,16 @@ suscan_local_analyzer_set_freq_cb(
     if (suscan_source_set_freq2(analyzer->source, freq, lnb_freq)) {
       /* XXX: Use a proper frequency adjust method */
       analyzer->detector->params.fc = freq;
+
+      /* Source info changed. Notify update */
+      analyzer->source_info.frequency = freq;
+      analyzer->source_info.lnb       = lnb_freq;
+
+      suscan_analyzer_send_source_info(
+          analyzer->parent,
+          &analyzer->source_info);
     }
+
     analyzer->freq_req = (analyzer->freq_req_value != freq ||
         analyzer->lnb_req_value != lnb_freq);
   }

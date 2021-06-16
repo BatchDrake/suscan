@@ -109,50 +109,62 @@ suscan_source_device_get_param(
 }
 
 SUINLINE const char *
-suscan_source_device_get_driver(const suscan_source_device_t *dev)
+suscan_source_device_get_driver(const suscan_source_device_t *self)
 {
   const char *driver;
 
-  if ((driver = suscan_source_device_get_param(dev, "driver")) == NULL)
-    driver = dev->driver;
+  if ((driver = suscan_source_device_get_param(self, "driver")) == NULL)
+    driver = self->driver;
 
   return driver;
 }
 
 SUINLINE SUBOOL
-suscan_source_device_is_remote(const suscan_source_device_t *dev)
+suscan_source_device_is_remote(const suscan_source_device_t *self)
 {
-  if (dev->interface == NULL)
+  if (self->interface == NULL)
     return SU_FALSE;
 
-  return strcmp(dev->interface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0;
+  return strcmp(self->interface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0;
 }
 
 SUINLINE const char *
-suscan_source_device_get_desc(const suscan_source_device_t *dev)
+suscan_source_device_get_desc(const suscan_source_device_t *self)
 {
-  return dev->desc;
+  return self->desc;
 }
 
 SUINLINE int
-suscan_source_device_get_index(const suscan_source_device_t *dev)
+suscan_source_device_get_index(const suscan_source_device_t *self)
 {
-  return dev->index;
+  return self->index;
+}
+
+SUINLINE SUFREQ
+suscan_source_device_get_min_freq(const suscan_source_device_t *self)
+{
+  return self->freq_min;
+}
+
+SUINLINE SUFREQ
+suscan_source_device_get_max_freq(const suscan_source_device_t *self)
+{
+  return self->freq_max;
 }
 
 SUINLINE SUBOOL
-suscan_source_device_is_available(const suscan_source_device_t *dev)
+suscan_source_device_is_available(const suscan_source_device_t *self)
 {
-  return dev->available;
+  return self->available;
 }
 
 SUINLINE SUBOOL
-suscan_source_device_is_populated(const suscan_source_device_t *dev)
+suscan_source_device_is_populated(const suscan_source_device_t *self)
 {
   /*
    * Remote devices are never populated
    */
-  return !suscan_source_device_is_remote(dev) && dev->antenna_count != 0;
+  return !suscan_source_device_is_remote(self) && self->antenna_count != 0;
 }
 
 SUBOOL suscan_source_device_walk(
@@ -367,7 +379,7 @@ SUBOOL suscan_source_config_set_device(
     const suscan_source_device_t *self);
 
 SUINLINE const suscan_source_device_t *
-suscan_source_config_get_device(suscan_source_config_t *config)
+suscan_source_config_get_device(const suscan_source_config_t *config)
 {
   return config->device;
 }

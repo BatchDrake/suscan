@@ -728,6 +728,24 @@ fail:
   return ok;
 }
 
+SUPRIVATE void
+suscan_local_analyzer_get_freq_limits(
+    const suscan_local_analyzer_t *self,
+    SUFREQ *min,
+    SUFREQ *max)
+{
+  const suscan_source_config_t *config = suscan_source_get_config(self->source);
+  const suscan_source_device_t *dev = suscan_source_config_get_device(config);
+
+  if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_SDR) {
+    *min = suscan_source_device_get_min_freq(dev);
+    *max = suscan_source_device_get_max_freq(dev);
+  } else {
+    *min = SUSCAN_LOCAL_ANALYZER_MIN_RADIO_FREQ;
+    *max = SUSCAN_LOCAL_ANALYZER_MAX_RADIO_FREQ;
+  }
+}
+
 SUPRIVATE SUBOOL
 suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
 {
@@ -740,6 +758,12 @@ suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
   info->effective_samp_rate = self->effective_samp_rate;
   info->measured_samp_rate = self->measured_samp_rate;
   info->frequency = suscan_source_get_freq(self->source);
+
+  suscan_local_analyzer_get_freq_limits(
+      self,
+      &info->freq_min,
+      &info->freq_max);
+
   info->lnb = suscan_source_config_get_lnb_freq(config);
   info->bandwidth = suscan_source_config_get_bandwidth(config);
   info->dc_remove = suscan_source_config_get_dc_remove(config);
