@@ -25,6 +25,10 @@
 #include <sys/poll.h>
 #include <sys/fcntl.h>
 
+SUPRIVATE void suscli_analyzer_server_kick_client(
+    suscli_analyzer_server_t *self,
+    suscli_analyzer_client_t *client);
+
 /***************************** TX Thread **************************************/
 SUPRIVATE SUBOOL
 suscli_analyzer_server_intercept_message(
@@ -46,99 +50,138 @@ suscli_analyzer_server_intercept_message(
     case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
       inspmsg = (struct suscan_analyzer_inspector_msg *) message;
 
-       switch (inspmsg->kind) {
-         case  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
-           printf("(s) Intercept response OPEN:\n");
-           printf("  Request ID: %d\n", inspmsg->req_id);
+      switch (inspmsg->kind) {
+        case  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
+          printf("(s) Intercept response OPEN:\n");
+          printf("  Request ID: %d\n", inspmsg->req_id);
 
-           client = suscli_analyzer_client_list_lookup(
-               &self->client_list,
-               inspmsg->req_id);
+          client = suscli_analyzer_client_list_lookup(
+              &self->client_list,
+              inspmsg->req_id);
 
-           if (client == NULL) {
-             SU_ERROR(
-                 "Consistency error! No client with given sfd %d\n",
-                 inspmsg->req_id);
-             goto done;
-           }
+          if (client == NULL) {
+            SU_ERROR(
+                "Consistency error! No client with given sfd %d\n",
+                inspmsg->req_id);
+            goto done;
+          }
 
-           if (client->sfd != inspmsg->req_id) {
-             SU_ERROR(
-                 "Consistency error! sfd %d does not match req_id\n",
-                 client->sfd, inspmsg->req_id);
-             goto done;
-           }
+          if (client->sfd != inspmsg->req_id) {
+            SU_ERROR(
+                "Consistency error! sfd %d does not match req_id\n",
+                client->sfd, inspmsg->req_id);
+            goto done;
+          }
 
-           printf("  Client ref: %p\n", client);
+          printf("  Client ref: %p\n", client);
 
-           suscli_analyzer_client_dec_inspector_open_request(client);
+          suscli_analyzer_client_dec_inspector_open_request(client);
 
-           SU_TRYCATCH(
-               (itl_index = suscli_analyzer_client_list_alloc_itl_entry_unsafe(
-                   &self->client_list,
-                   client)) != -1,
-               goto done);
+          SU_TRYCATCH(
+              (itl_index = suscli_analyzer_client_list_alloc_itl_entry_unsafe(
+                  &self->client_list,
+                  client)) != -1,
+                  goto done);
 
-           printf("  ITL index: %d\n", itl_index);
+          printf("  ITL index: %d\n", itl_index);
 
-           entry = suscli_analyzer_client_list_get_itl_entry_unsafe(
-               &self->client_list,
-               itl_index);
+          entry = suscli_analyzer_client_list_get_itl_entry_unsafe(
+              &self->client_list,
+              itl_index);
 
-           /* Time to create a new handle */
-           local_handle = suscli_analyzer_client_register_inspector_handle(
-               client,
-               inspmsg->handle,
-               itl_index);
+          /* Time to create a new handle */
+          local_handle = suscli_analyzer_client_register_inspector_handle(
+              client,
+              inspmsg->handle,
+              itl_index);
 
-           printf("  Global handle: %d\n", inspmsg->handle);
-           printf("  Local handle:  %d\n", local_handle);
-           printf("(s) Opened!\n");
+          entry->local_handle = local_handle;
 
-           inspmsg->handle = local_handle;
-           break;
+          printf("  Global handle: %d\n", inspmsg->handle);
+          printf("  Local handle:  %d\n", local_handle);
+          printf("(s) Opened!\n");
 
-         case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
-           client = suscli_analyzer_client_list_lookup(
-               &self->client_list,
-               inspmsg->req_id);
+          inspmsg->handle = local_handle;
+          break;
 
-           if (client == NULL) {
-             SU_ERROR(
-                 "Consistency error! No client with given sfd %d\n",
-                 inspmsg->req_id);
-             goto done;
-           }
+        case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
+          printf("(s) Intercept response CLOSE:\n");
+          /* Translate inspector id to the user-defined inspector id */
+          itl_index = inspmsg->inspector_id;
 
-           printf("(s) Intercept response INVALID CHANNEL\n");
-           suscli_analyzer_client_dec_inspector_open_request(client);
-           break;
+          entry = suscli_analyzer_client_list_get_itl_entry_unsafe(
+              &self->client_list,
+              itl_index);
 
-           /* TODO: Handle inspector closure */
-         default:
-           printf("(s) Intercept response %s: handle = %d\n",
-                  suscan_analyzer_inspector_msgkind_to_string(inspmsg->kind),
-                  inspmsg->handle);
+          if (entry == NULL) {
+            SU_ERROR("BUG: Unmatched itl_index\n");
+            goto done;
+          } else {
+            client = entry->client;
+            inspmsg->inspector_id = entry->local_inspector_id;
+            printf("  Client: %p\n", client);
+            printf("  Global ID: %d\n", itl_index);
+            printf("  Inspector ID: 0x%08x\n", entry->local_inspector_id);
+            printf("  Local ID: %d\n", entry->local_handle);
 
-           /* Translate inspector id to the user-defined inspector id */
-           itl_index = inspmsg->inspector_id;
+            /* Close local handle */
+            SU_TRYCATCH(
+                suscli_analyzer_client_dispose_inspector_handle(
+                    client,
+                    entry->local_handle),
+                goto done);
 
-           entry = suscli_analyzer_client_list_get_itl_entry_unsafe(
-               &self->client_list,
-               itl_index);
+            /* Remove entry from ITL */
+            SU_TRYCATCH(
+                suscli_analyzer_client_list_dispose_itl_entry_unsafe(
+                    &self->client_list,
+                    itl_index),
+                goto done);
+            printf("  Closed!\n");
+          }
 
-           if (entry == NULL) {
-             SU_ERROR("BUG: Unmatched itl_index\n");
-             goto done;
-           } else {
-             client = entry->client;
-             inspmsg->inspector_id = entry->local_inspector_id;
-             printf("  Client: %p\n", client);
-             printf("  Global ID: %d\n", itl_index);
-             printf("  Inspector ID: 0x%08x\n", entry->local_inspector_id);
-           }
-       }
-       break;
+          break;
+
+        case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
+          client = suscli_analyzer_client_list_lookup(
+              &self->client_list,
+              inspmsg->req_id);
+
+          if (client == NULL) {
+            SU_ERROR(
+                "Consistency error! No client with given sfd %d\n",
+                inspmsg->req_id);
+            goto done;
+          }
+
+          printf("(s) Intercept response INVALID CHANNEL\n");
+          suscli_analyzer_client_dec_inspector_open_request(client);
+          break;
+
+        default:
+          printf("(s) Intercept response %s: inspector_id = %d\n",
+                 suscan_analyzer_inspector_msgkind_to_string(inspmsg->kind),
+                 inspmsg->inspector_id);
+
+          /* Translate inspector id to the user-defined inspector id */
+          itl_index = inspmsg->inspector_id;
+
+          entry = suscli_analyzer_client_list_get_itl_entry_unsafe(
+              &self->client_list,
+              itl_index);
+
+          if (entry == NULL) {
+            SU_ERROR("BUG: Unmatched itl_index\n");
+            goto done;
+          } else {
+            client = entry->client;
+            inspmsg->inspector_id = entry->local_inspector_id;
+            printf("  Client: %p\n", client);
+            printf("  Global ID: %d\n", itl_index);
+            printf("  Inspector ID: 0x%08x\n", entry->local_inspector_id);
+          }
+      }
+      break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
       samplemsg = (struct suscan_analyzer_sample_batch_msg *) message;
@@ -170,6 +213,55 @@ done:
   return ok;
 }
 
+SUPRIVATE SUBOOL
+suscli_analyzer_server_on_client_inspector(
+    const suscli_analyzer_client_t *client,
+    void *userdata,
+    SUHANDLE local_handle,
+    SUHANDLE global_handle)
+{
+  suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) userdata;
+
+  printf(" --> Cleanup: Close %d\n", global_handle);
+
+  SU_TRYCATCH(
+      suscan_analyzer_close_async(
+          self->analyzer,
+          global_handle,
+          0),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
+suscli_analyzer_server_cleanup_client_resources(
+    suscli_analyzer_server_t *self,
+    suscli_analyzer_client_t *client)
+{
+  SU_TRYCATCH(
+      suscli_analyzer_client_for_each_inspector_unsafe(
+          client,
+          suscli_analyzer_server_on_client_inspector,
+          self),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
+suscli_analyzer_server_on_broadcast_error(
+    suscli_analyzer_client_t *client,
+    void *userdata,
+    int error)
+{
+  suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) userdata;
+
+  suscli_analyzer_server_kick_client(self, client);
+
+  return SU_TRUE;
+}
+
 SUPRIVATE void *
 suscli_analyzer_server_tx_thread(void *ptr)
 {
@@ -181,8 +273,10 @@ suscli_analyzer_server_tx_thread(void *ptr)
   struct suscan_analyzer_remote_call call = suscan_analyzer_remote_call_INITIALIZER;
 
   while ((message = suscan_analyzer_read(self->analyzer, &type)) != NULL) {
-    if (type == SUSCAN_WORKER_MSG_TYPE_HALT)
+    if (type == SUSCAN_WORKER_MSG_TYPE_HALT) {
+      printf("Analyzer halted. Bye (tx)\n");
       break;
+    }
 
     SU_TRYCATCH(
         suscli_analyzer_server_intercept_message(
@@ -200,11 +294,17 @@ suscli_analyzer_server_tx_thread(void *ptr)
 
     if (client == NULL) {
       /* No specific client: broadcast */
-      suscli_analyzer_client_list_broadcast(&self->client_list, &pdu);
+      suscli_analyzer_client_list_broadcast(
+          &self->client_list,
+          &pdu,
+          suscli_analyzer_server_on_broadcast_error,
+          self);
     } else {
-      SU_TRYCATCH(
-          suscli_analyzer_client_write_buffer(client, &pdu),
-          goto done);
+      if (!suscli_analyzer_client_is_failed(client)) {
+        SU_TRYCATCH(
+            suscli_analyzer_client_write_buffer(client, &pdu),
+            goto done);
+      }
     }
 
     grow_buf_clear(&pdu);
@@ -330,15 +430,10 @@ suscli_analyzer_server_kick_client(
     suscli_analyzer_server_t *self,
     suscli_analyzer_client_t *client)
 {
-  int i;
-
-  if (self->analyzer != NULL)
-      for (i = 0; i < client->inspectors.inspector_count; ++i)
-        if (client->inspectors.inspector_list[i].global_handle >= 0)
-          suscan_analyzer_close_async(
-              self->analyzer,
-              client->inspectors.inspector_list[i].global_handle,
-              0);
+  if (!suscli_analyzer_client_is_failed(client)) {
+    suscli_analyzer_server_cleanup_client_resources(self, client);
+    suscli_analyzer_client_mark_failed(client);
+  }
 }
 
 SUPRIVATE SUBOOL
@@ -639,7 +734,7 @@ suscli_analyzer_server_rx_thread(void *userdata)
 
           if (!suscli_analyzer_client_is_failed(client)) {
             if (!suscli_analyzer_client_read(client)) {
-              suscli_analyzer_client_mark_failed(client);
+              suscli_analyzer_server_kick_client(self, client);
             } else if ((call = suscli_analyzer_client_take_call(client))
                 != NULL) {
               /* Call completed from client, process it and do stuff */

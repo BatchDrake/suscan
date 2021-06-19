@@ -35,6 +35,7 @@ struct suscli_analyzer_client_inspector_entry {
 
 struct suscli_analyzer_client_inspector_list {
   struct suscli_analyzer_client_inspector_entry *inspector_list;
+  unsigned int inspector_alloc;
   unsigned int inspector_count;
   SUHANDLE     inspector_last_free;
   unsigned int inspector_pending_count;
@@ -113,7 +114,7 @@ SUINLINE SUBOOL
 suscli_analyzer_client_has_outstanding_inspectors(
     const suscli_analyzer_client_t *self)
 {
-    return self->inspectors.inspector_last_free >= 0;
+    return self->inspectors.inspector_count > 0;
 }
 
 SUINLINE SUBOOL
@@ -160,7 +161,6 @@ suscli_analyzer_client_mark_failed(suscli_analyzer_client_t *self)
 {
   self->failed = SU_TRUE;
 }
-
 
 suscli_analyzer_client_t *suscli_analyzer_client_new(int sfd);
 
@@ -222,6 +222,7 @@ struct suscli_analyzer_itl_entry {
     uint32_t local_inspector_id;
   };
 
+  SUHANDLE local_handle; /* Needed to close local handle */
   suscli_analyzer_client_t *client; /* Must be null if free */
 };
 
@@ -261,7 +262,12 @@ SUBOOL suscli_analyzer_client_list_append_client(
 
 SUBOOL suscli_analyzer_client_list_broadcast(
     struct suscli_analyzer_client_list *self,
-    const grow_buf_t *buffer);
+    const grow_buf_t *buffer,
+    SUBOOL (*on_client_error) (
+        suscli_analyzer_client_t *client,
+        void *userdata,
+        int error),
+    void *userdata);
 
 suscli_analyzer_client_t *suscli_analyzer_client_list_lookup(
     const struct suscli_analyzer_client_list *self,
@@ -276,6 +282,15 @@ SUBOOL suscli_analyzer_client_list_remove_unsafe(
 
 SUBOOL suscli_analyzer_client_list_attempt_cleanup(
     struct suscli_analyzer_client_list *self);
+
+SUBOOL suscli_analyzer_client_for_each_inspector_unsafe(
+    const suscli_analyzer_client_t *self,
+    SUBOOL (*func) (
+        const suscli_analyzer_client_t *client,
+        void *userdata,
+        SUHANDLE local_handle,
+        SUHANDLE global_handle),
+    void *userdata);
 
 int32_t suscli_analyzer_client_list_alloc_itl_entry_unsafe(
     struct suscli_analyzer_client_list *self,

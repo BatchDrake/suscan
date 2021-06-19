@@ -149,11 +149,11 @@ suscli_analyzer_client_register_inspector_handle(
     SU_TRYCATCH(
         tmp = realloc(
             self->inspectors.inspector_list,
-            (self->inspectors.inspector_count + 1) * sizeof(SUHANDLE)),
+            (self->inspectors.inspector_alloc + 1) * sizeof(SUHANDLE)),
         goto done);
     self->inspectors.inspector_list = tmp;
-    ret = self->inspectors.inspector_count++;
-    printf("%p: Inspector count: %d\n", self, self->inspectors.inspector_count);
+    ret = self->inspectors.inspector_alloc++;
+    printf("%p: Inspector count: %d\n", self, self->inspectors.inspector_alloc);
   } else {
     ret = self->inspectors.inspector_last_free;
     self->inspectors.inspector_last_free =
@@ -164,6 +164,7 @@ suscli_analyzer_client_register_inspector_handle(
 
   self->inspectors.inspector_list[ret].global_handle = global_handle;
   self->inspectors.inspector_list[ret].itl_index     = itl_index;
+  ++self->inspectors.inspector_count;
 
 done:
   return ret;
@@ -174,10 +175,10 @@ suscli_analyzer_client_translate_handle(
     suscli_analyzer_client_t *self,
     SUHANDLE local_handle)
 {
-  printf("%p: Translate %d (%d insp)\n", self, local_handle, self->inspectors.inspector_count);
+  printf("%p: Translate %d (%d insp)\n", self, local_handle, self->inspectors.inspector_alloc);
 
   SU_TRYCATCH(local_handle >= 0, return -1);
-  SU_TRYCATCH(local_handle < self->inspectors.inspector_count, return -1);
+  SU_TRYCATCH(local_handle < self->inspectors.inspector_alloc, return -1);
   SU_TRYCATCH(
       self->inspectors.inspector_list[local_handle].global_handle >= 0,
       return -1);
@@ -191,7 +192,9 @@ suscli_analyzer_client_dispose_inspector_handle(
     SUHANDLE local_handle)
 {
   SU_TRYCATCH(local_handle >= 0, return SU_FALSE);
-  SU_TRYCATCH(local_handle < self->inspectors.inspector_count, return SU_FALSE);
+  SU_TRYCATCH(local_handle < self->inspectors.inspector_alloc, return SU_FALSE);
+
+  SU_TRYCATCH(self->inspectors.inspector_count > 0, return SU_FALSE);
 
   SU_TRYCATCH(
       self->inspectors.inspector_list[local_handle].global_handle >= 0,
@@ -200,6 +203,7 @@ suscli_analyzer_client_dispose_inspector_handle(
   self->inspectors.inspector_list[local_handle].global_handle =
       ~self->inspectors.inspector_last_free;
   self->inspectors.inspector_last_free = local_handle;
+  --self->inspectors.inspector_count;
 
   return SU_TRUE;
 }
@@ -432,6 +436,9 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
   suscan_analyzer_remote_call_finalize(&self->incoming_call);
   suscan_analyzer_remote_call_finalize(&self->outcoming_call);
 
+  if (self->inspectors.inspector_list != NULL)
+    free(self->inspectors.inspector_list);
+
   free(self);
 }
 
@@ -509,6 +516,7 @@ suscli_analyzer_client_list_cleanup_unsafe(
           !suscli_analyzer_client_has_outstanding_inspectors(client)) {
         suscli_analyzer_client_list_remove_unsafe(self, client);
         suscli_analyzer_client_destroy(client);
+        printf("%p: successfully removed!\n", client);
         changed = SU_TRUE;
       }
     }
@@ -516,6 +524,37 @@ suscli_analyzer_client_list_cleanup_unsafe(
   }
 
   return changed;
+}
+
+SUBOOL
+suscli_analyzer_client_for_each_inspector_unsafe(
+    const suscli_analyzer_client_t *self,
+    SUBOOL (*func) (
+        const suscli_analyzer_client_t *client,
+        void *userdata,
+        SUHANDLE local_handle,
+        SUHANDLE global_handle),
+    void *userdata)
+{
+  SUHANDLE i;
+
+  SUHANDLE first_free = self->inspectors.inspector_last_free;
+
+  if (first_free > 0)
+    while (~self->inspectors.inspector_list[first_free].global_handle > 0)
+        first_free = ~self->inspectors.inspector_list[first_free].global_handle;
+
+  for (i = 0; i < self->inspectors.inspector_alloc; ++i)
+    if (i != first_free &&
+        self->inspectors.inspector_list[i].global_handle >= 0)
+      if (!(func) (
+          self,
+          userdata,
+          i,
+          self->inspectors.inspector_list[i].global_handle))
+        return SU_FALSE;
+
+  return SU_TRUE;
 }
 
 SUBOOL
@@ -527,10 +566,11 @@ suscli_analyzer_client_list_attempt_cleanup(
 
   if (pthread_mutex_trylock(&self->client_mutex) == 0) {
     mutex_acquired = SU_TRUE;
-    if (suscli_analyzer_client_list_cleanup_unsafe(self))
+    if (suscli_analyzer_client_list_cleanup_unsafe(self)) {
       SU_TRYCATCH(
           suscli_analyzer_client_list_update_pollfds_unsafe(self),
           goto done);
+    }
   }
 
   ok = SU_TRUE;
@@ -694,7 +734,12 @@ done:
 SUBOOL
 suscli_analyzer_client_list_broadcast(
     struct suscli_analyzer_client_list *self,
-    const grow_buf_t *buffer)
+    const grow_buf_t *buffer,
+    SUBOOL (*on_client_error) (
+        suscli_analyzer_client_t *client,
+        void *userdata,
+        int error),
+    void *userdata)
 {
   suscli_analyzer_client_t *this;
   int error;
@@ -715,7 +760,7 @@ suscli_analyzer_client_list_broadcast(
             "Client[%s]: write failed (%s)\n",
             suscli_analyzer_client_string_addr(this),
             strerror(error));
-        suscli_analyzer_client_mark_failed(this);
+        SU_TRYCATCH((on_client_error) (this, userdata, error), goto done);
       }
     }
 
@@ -851,6 +896,9 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
 
   if (self->client_pfds != NULL)
     free(self->client_pfds);
+
+  if (self->itl_table != NULL)
+    free(self->itl_table);
 
   memset(self, 0, sizeof(struct suscli_analyzer_client_list));
 }
