@@ -195,12 +195,12 @@ set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/analyzer.h)
 
 set(CLI_LIB_HEADERS 
-  ${CLIDIR}/anserv.h
   ${CLIDIR}/audio.h
   ${CLIDIR}/chanloop.h
   ${CLIDIR}/cli.h
   ${CLIDIR}/cmds.h
-  ${CLIDIR}/datasaver.h)
+  ${CLIDIR}/datasaver.h
+  ${CLIDIR}/devserv/devserv.h)
 
 set(CLI_LIB_SOURCES 
   ${CLIDIR}/chanloop.c
@@ -395,7 +395,6 @@ install(TARGETS suscan.status DESTINATION bin)
 set(SUSCLI_HEADERS ${CLI_LIB_HEADERS} ${SRCDIR}/suscan.h)
 
 set(SUSCLI_SOURCES
-  ${CLIDIR}/anserv.c
   ${CLIDIR}/audio.c
   ${CLIDIR}/cli.c
   ${CLIDIR}/cmd/devserv.c
@@ -406,6 +405,8 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/datasavers/mat5.c
   ${CLIDIR}/datasavers/matlab.c
   ${CLIDIR}/datasavers/tcp.c
+  ${CLIDIR}/devserv/client.c
+  ${CLIDIR}/devserv/server.c
   ${SRCDIR}/lib.c
   ${SRCDIR}/suscli.c)
 

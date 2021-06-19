@@ -96,6 +96,11 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call) {
   };
 };
 
+#define suscan_analyzer_remote_call_INITIALIZER         \
+{                                                       \
+  SUSCAN_ANALYZER_REMOTE_NONE /* type */                \
+}
+
 void suscan_analyzer_remote_call_init(
     struct suscan_analyzer_remote_call *self,
     enum suscan_analyzer_remote_type type);

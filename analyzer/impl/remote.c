@@ -719,6 +719,8 @@ suscan_remote_analyzer_connect_to_peer(suscan_remote_analyzer_t *self)
     goto done;
   }
 
+  self->peer.hostaddr = *((struct in_addr *) ent->h_addr_list[0]);
+
   SU_TRYCATCH(
       suscan_analyzer_send_status(
           self->parent,

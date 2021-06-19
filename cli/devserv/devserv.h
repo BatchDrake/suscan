@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2020 Gonzalo José Carracedo Carballal
+  Copyright (C) 2021 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -17,8 +17,8 @@
 
 */
 
-#ifndef _SUSCAN_CLI_ANSERV_H
-#define _SUSCAN_CLI_ANSERV_H
+#ifndef _SUSCAN_CLI_DEVSERV_DEVSERV_H
+#define _SUSCAN_CLI_DEVSERV_DEVSERV_H
 
 #include <analyzer/impl/remote.h>
 #include <util/rbtree.h>
@@ -27,6 +27,18 @@
 #define SUSCLI_ANSERV_LISTEN_FD 0
 #define SUSCLI_ANSERV_CANCEL_FD 1
 #define SUSCLI_ANSERV_FD_OFFSET 2
+
+struct suscli_analyzer_client_inspector_entry {
+  SUHANDLE global_handle;
+  int32_t  itl_index;
+};
+
+struct suscli_analyzer_client_inspector_list {
+  struct suscli_analyzer_client_inspector_entry *inspector_list;
+  unsigned int inspector_count;
+  SUHANDLE     inspector_last_free;
+  unsigned int inspector_pending_count;
+};
 
 struct suscli_analyzer_client {
   int sfd;
@@ -53,11 +65,56 @@ struct suscli_analyzer_client {
 
   uint8_t read_buffer[SUSCAN_REMOTE_READ_BUFFER];
 
+  /* List of opened inspectors. */
+  struct suscli_analyzer_client_inspector_list inspectors;
+
   struct suscli_analyzer_client *next;
   struct suscli_analyzer_client *prev;
 };
 
 typedef struct suscli_analyzer_client suscli_analyzer_client_t;
+
+struct suscli_analyzer_client_interceptors {
+  void *userdata;
+
+  SUBOOL (*inspector_open) (
+      void *userdata,
+      suscli_analyzer_client_t *client,
+      struct suscan_analyzer_inspector_msg *inspmsg);
+
+  SUBOOL (*inspector_set_id) (
+      void *userdata,
+      suscli_analyzer_client_t *client,
+      struct suscan_analyzer_inspector_msg *inspmsg,
+      int32_t itl_index);
+};
+
+SUINLINE void
+suscli_analyzer_client_inc_inspector_open_request(
+    suscli_analyzer_client_t *self)
+{
+  ++self->inspectors.inspector_pending_count;
+}
+
+SUINLINE SUBOOL
+suscli_analyzer_client_dec_inspector_open_request(
+    suscli_analyzer_client_t *self)
+{
+  if (self->inspectors.inspector_pending_count == 0)
+    return SU_FALSE;
+
+  --self->inspectors.inspector_pending_count;
+
+  return SU_TRUE;
+}
+
+
+SUINLINE SUBOOL
+suscli_analyzer_client_has_outstanding_inspectors(
+    const suscli_analyzer_client_t *self)
+{
+    return self->inspectors.inspector_last_free >= 0;
+}
 
 SUINLINE SUBOOL
 suscli_analyzer_client_is_failed(const suscli_analyzer_client_t *self)
@@ -106,14 +163,33 @@ suscli_analyzer_client_mark_failed(suscli_analyzer_client_t *self)
 
 
 suscli_analyzer_client_t *suscli_analyzer_client_new(int sfd);
+
 SUBOOL suscli_analyzer_client_read(suscli_analyzer_client_t *self);
+
 struct suscan_analyzer_remote_call *suscli_analyzer_client_take_call(
     suscli_analyzer_client_t *);
+
 struct suscan_analyzer_remote_call *suscli_analyzer_client_get_outcoming_call(
     suscli_analyzer_client_t *);
+
 void suscli_analyzer_client_return_outcoming_call(
     suscli_analyzer_client_t *self,
     struct suscan_analyzer_remote_call *call);
+
+SUHANDLE suscli_analyzer_client_register_inspector_handle(
+    suscli_analyzer_client_t *self,
+    SUHANDLE global_handle,
+    int32_t itl_index);
+
+SUBOOL suscli_analyzer_client_dispose_inspector_handle(
+    suscli_analyzer_client_t *self,
+    SUHANDLE local_handle);
+
+SUBOOL suscli_analyzer_client_intercept_message(
+    suscli_analyzer_client_t *self,
+    uint32_t type,
+    void *message,
+    const struct suscli_analyzer_client_interceptors *interceptors);
 
 SUBOOL suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self);
 SUBOOL suscli_analyzer_client_deliver_call(suscli_analyzer_client_t *self);
@@ -121,34 +197,78 @@ SUBOOL suscli_analyzer_client_write_buffer(
     suscli_analyzer_client_t *self,
     const grow_buf_t *buffer);
 
+SUBOOL suscli_analyzer_client_send_source_info(
+    suscli_analyzer_client_t *self,
+    const struct suscan_analyzer_source_info *info);
+
 void suscli_analyzer_client_destroy(suscli_analyzer_client_t *self);
 
 struct pollfd;
 
+/*
+ * The inspector translation table works as follows:
+ *
+ * The underlying analyzer keeps its own private SUHANDLE list and their
+ * inspector_ids. In the multiple client scenario, we need to translate these
+ * global inspector_ids into a client reference and a local inspector id. We
+ * do this by keeping a translation table which interprets the inspector_id
+ * as an index. In order to prevent this list from growing up uncontrollably,
+ * we will keep a freelist of table entries and
+ *
+ */
+struct suscli_analyzer_itl_entry {
+  union {
+    int32_t  next_free; /* If this entry is free: index of the next entry */
+    uint32_t local_inspector_id;
+  };
+
+  suscli_analyzer_client_t *client; /* Must be null if free */
+};
+
 struct suscli_analyzer_client_list {
+  /* Actual list */
   suscli_analyzer_client_t *client_head;
+  rbtree_t                 *client_tree;
+
+  /* Data descriptors */
   int cancel_fd;
   int listen_fd;
-  rbtree_t *client_tree;
-  struct pollfd *client_pfds;
-  unsigned int client_pfds_alloc;
-  unsigned int client_count;
-  SUBOOL cleanup_requested;
+
+  /* Polling data */
+  struct pollfd  *client_pfds;
+  unsigned int    client_pfds_alloc;
+  unsigned int    client_count;
+
+  /* Inspector translation table */
+  struct suscli_analyzer_itl_entry *itl_table;
+  unsigned int                      itl_count;
+  int32_t                           itl_last_free;
+
+  SUBOOL          cleanup_requested;
   pthread_mutex_t client_mutex;
-  SUBOOL client_mutex_initialized;
+  SUBOOL          client_mutex_initialized;
 };
+
 
 SUBOOL suscli_analyzer_client_list_init(
     struct suscli_analyzer_client_list *,
     int listen_fd,
     int cancel_fd);
+
 SUBOOL suscli_analyzer_client_list_append_client(
     struct suscli_analyzer_client_list *self,
     suscli_analyzer_client_t *client);
 
+SUBOOL suscli_analyzer_client_list_broadcast(
+    struct suscli_analyzer_client_list *self,
+    const grow_buf_t *buffer);
+
 suscli_analyzer_client_t *suscli_analyzer_client_list_lookup(
     const struct suscli_analyzer_client_list *self,
     int fd);
+
+SUBOOL suscli_analyzer_client_list_force_shutdown(
+    struct suscli_analyzer_client_list *self);
 
 SUBOOL suscli_analyzer_client_list_remove_unsafe(
     struct suscli_analyzer_client_list *self,
@@ -156,6 +276,19 @@ SUBOOL suscli_analyzer_client_list_remove_unsafe(
 
 SUBOOL suscli_analyzer_client_list_attempt_cleanup(
     struct suscli_analyzer_client_list *self);
+
+int32_t suscli_analyzer_client_list_alloc_itl_entry_unsafe(
+    struct suscli_analyzer_client_list *self,
+    suscli_analyzer_client_t *client);
+
+struct suscli_analyzer_itl_entry *
+suscli_analyzer_client_list_get_itl_entry_unsafe(
+    const struct suscli_analyzer_client_list *self,
+    int32_t entry);
+
+SUBOOL suscli_analyzer_client_list_dispose_itl_entry_unsafe(
+    struct suscli_analyzer_client_list *self,
+    int32_t entry);
 
 SUINLINE unsigned int
 suscli_analyzer_client_list_get_count(
@@ -165,7 +298,6 @@ suscli_analyzer_client_list_get_count(
 }
 
 void suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *);
-
 
 struct suscli_analyzer_server {
   struct suscli_analyzer_client_list client_list;
@@ -212,4 +344,4 @@ suscli_analyzer_server_is_running(suscli_analyzer_server_t *self)
 
 void suscli_analyzer_server_destroy(suscli_analyzer_server_t *self);
 
-#endif /* _SUSCAN_CLI_ANSERV_H */
+#endif /* _SUSCAN_CLI_DEVSERV_DEVSERV_H */

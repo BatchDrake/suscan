@@ -540,14 +540,16 @@ suscan_local_analyzer_parse_inspector_msg(
 
   switch (msg->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
-      SU_TRYCATCH(
-          suscan_local_analyzer_open_inspector(
+      if (!suscan_local_analyzer_open_inspector(
               analyzer,
               msg->class_name,
               &msg->channel,
-              msg),
-          goto done);
-      msg->channel.ft = suscan_source_get_freq(analyzer->source);
+              msg)) {
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL;
+      } else {
+        msg->channel.ft = suscan_source_get_freq(analyzer->source);
+      }
+
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:

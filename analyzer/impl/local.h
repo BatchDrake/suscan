@@ -140,7 +140,7 @@ struct suscan_local_analyzer {
   /* Inspector objects */
   PTR_LIST(suscan_inspector_t, inspector); /* This list owns inspectors */
   pthread_mutex_t     inspector_list_mutex; /* Inspector list lock */
-  SUBOOL                inspector_list_init;
+  SUBOOL              inspector_list_init;
   suscan_inspsched_t *sched; /* Inspector scheduler */
   pthread_mutex_t     sched_lock;
   pthread_barrier_t   barrier; /* Sched barrier */

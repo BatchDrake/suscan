@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2020 Gonzalo José Carracedo Carballal
+  Copyright (C) 2021 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -17,12 +17,14 @@
 
 */
 
-#define SU_LOG_DOMAIN "analyzer-server"
+#define SU_LOG_DOMAIN "analyzer-client"
 
-#include "anserv.h"
+#include "devserv.h"
+#include <analyzer/msg.h>
 #include <sigutils/log.h>
 #include <sys/poll.h>
 #include <sys/fcntl.h>
+
 
 /************************** Analyzer Client API *******************************/
 suscli_analyzer_client_t *
@@ -35,6 +37,8 @@ suscli_analyzer_client_new(int sfd)
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_client_t)), goto fail);
 
   new->sfd = -1;
+
+  new->inspectors.inspector_last_free = -1;
 
   gettimeofday(&new->conntime, NULL);
 
@@ -130,6 +134,137 @@ done:
   return ok;
 }
 
+/* Elements in the freelist are negative! */
+SUHANDLE
+suscli_analyzer_client_register_inspector_handle(
+    suscli_analyzer_client_t *self,
+    SUHANDLE global_handle,
+    int32_t itl_index)
+{
+  SUHANDLE ret = -1;
+  struct suscli_analyzer_client_inspector_entry *tmp = NULL;
+
+  if (self->inspectors.inspector_last_free < 0) {
+    /* No "last free". Time to reallocate */
+    SU_TRYCATCH(
+        tmp = realloc(
+            self->inspectors.inspector_list,
+            (self->inspectors.inspector_count + 1) * sizeof(SUHANDLE)),
+        goto done);
+    self->inspectors.inspector_list = tmp;
+    ret = self->inspectors.inspector_count++;
+    printf("%p: Inspector count: %d\n", self, self->inspectors.inspector_count);
+  } else {
+    ret = self->inspectors.inspector_last_free;
+    self->inspectors.inspector_last_free =
+        ~self->inspectors.inspector_list[ret].global_handle;
+    printf("%p: Reuse. Last free now: %d\n", self, self->inspectors.inspector_last_free);
+
+  }
+
+  self->inspectors.inspector_list[ret].global_handle = global_handle;
+  self->inspectors.inspector_list[ret].itl_index     = itl_index;
+
+done:
+  return ret;
+}
+
+SUPRIVATE SUHANDLE
+suscli_analyzer_client_translate_handle(
+    suscli_analyzer_client_t *self,
+    SUHANDLE local_handle)
+{
+  printf("%p: Translate %d (%d insp)\n", self, local_handle, self->inspectors.inspector_count);
+
+  SU_TRYCATCH(local_handle >= 0, return -1);
+  SU_TRYCATCH(local_handle < self->inspectors.inspector_count, return -1);
+  SU_TRYCATCH(
+      self->inspectors.inspector_list[local_handle].global_handle >= 0,
+      return -1);
+
+  return self->inspectors.inspector_list[local_handle].global_handle;
+}
+
+SUBOOL
+suscli_analyzer_client_dispose_inspector_handle(
+    suscli_analyzer_client_t *self,
+    SUHANDLE local_handle)
+{
+  SU_TRYCATCH(local_handle >= 0, return SU_FALSE);
+  SU_TRYCATCH(local_handle < self->inspectors.inspector_count, return SU_FALSE);
+
+  SU_TRYCATCH(
+      self->inspectors.inspector_list[local_handle].global_handle >= 0,
+      return SU_FALSE);
+
+  self->inspectors.inspector_list[local_handle].global_handle =
+      ~self->inspectors.inspector_last_free;
+  self->inspectors.inspector_last_free = local_handle;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscli_analyzer_client_intercept_message(
+    suscli_analyzer_client_t *self,
+    uint32_t type,
+    void *message,
+    const struct suscli_analyzer_client_interceptors *interceptors)
+{
+  struct suscan_analyzer_inspector_msg *inspmsg;
+  SUHANDLE handle;
+  SUBOOL ok = SU_FALSE;
+
+  /*
+   * Some messages must be intercepted prior being delivered to
+   * the analyzer. This is the case for messages setting the inspector_id
+   */
+
+  if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR) {
+    inspmsg = (struct suscan_analyzer_inspector_msg *) message;
+
+    if (inspmsg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
+      printf("(c) [%p] Intercept request OPEN:\n", self);
+      SU_TRYCATCH(
+          (interceptors->inspector_open)(interceptors->userdata, self, inspmsg),
+          goto done);
+    } else {
+      handle = inspmsg->handle;
+      printf(
+          "(c) [%p] Intercept request %s: handle = %d\n",
+          self,
+          suscan_analyzer_inspector_msgkind_to_string(inspmsg->kind),
+          handle);
+
+      if ((inspmsg->handle = suscli_analyzer_client_translate_handle(
+          self,
+          handle)) != -1) {
+        /* This local handle actually refers to something! */
+        if (inspmsg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID) {
+          printf(
+              "  Set ID: forward to global inspector entry %d\n",
+              self->inspectors.inspector_list[handle].itl_index);
+
+          SU_TRYCATCH(
+              (interceptors->inspector_set_id)(
+                  interceptors->userdata,
+                  self,
+                  inspmsg,
+                  self->inspectors.inspector_list[handle].itl_index),
+              goto done);
+        }
+      } else {
+        SU_WARNING("Could not translate handle 0x%x\n", handle);
+      }
+    }
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
 struct suscan_analyzer_remote_call *
 suscli_analyzer_client_take_call(suscli_analyzer_client_t *self)
 {
@@ -163,6 +298,9 @@ struct suscan_analyzer_remote_call *
 suscli_analyzer_client_get_outcoming_call(
     suscli_analyzer_client_t *self)
 {
+  /*
+   * TODO: Make exclusive!!! Or even better, destroy this API
+   */
   return &self->outcoming_call;
 }
 
@@ -297,6 +435,7 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
   free(self);
 }
 
+
 /**************************** Client list API ********************************/
 SUPRIVATE SUBOOL
 suscli_analyzer_client_list_update_pollfds_unsafe(
@@ -366,7 +505,8 @@ suscli_analyzer_client_list_cleanup_unsafe(
   while (this != NULL) {
     if (this->data != NULL) {
       client = this->data;
-      if (suscli_analyzer_client_is_failed(client)) {
+      if (suscli_analyzer_client_is_failed(client) &&
+          !suscli_analyzer_client_has_outstanding_inspectors(client)) {
         suscli_analyzer_client_list_remove_unsafe(self, client);
         suscli_analyzer_client_destroy(client);
         changed = SU_TRUE;
@@ -402,6 +542,65 @@ done:
   return ok;
 }
 
+int32_t
+suscli_analyzer_client_list_alloc_itl_entry_unsafe(
+    struct suscli_analyzer_client_list *self,
+    suscli_analyzer_client_t *client)
+{
+  int32_t ret = -1;
+  struct suscli_analyzer_itl_entry *tmp = NULL;
+
+  SU_TRYCATCH(client != NULL, goto done);
+
+  if (self->itl_last_free < 0) {
+    /* No "last free". Time to reallocate */
+    SU_TRYCATCH(
+        tmp = realloc(
+            self->itl_table,
+            (self->itl_count + 1) * sizeof(struct suscli_analyzer_itl_entry)),
+        goto done);
+
+    self->itl_table = tmp;
+    ret = self->itl_count++;
+  } else {
+    ret = self->itl_last_free;
+    self->itl_last_free = self->itl_table[ret].next_free;
+  }
+
+  self->itl_table[ret].client = client;
+
+done:
+  return ret;
+}
+
+struct suscli_analyzer_itl_entry *
+suscli_analyzer_client_list_get_itl_entry_unsafe(
+    const struct suscli_analyzer_client_list *self,
+    int32_t entry)
+{
+  SU_TRYCATCH(entry >= 0, return NULL);
+  SU_TRYCATCH(entry < self->itl_count, return NULL);
+
+  return self->itl_table + entry;
+}
+
+SUBOOL
+suscli_analyzer_client_list_dispose_itl_entry_unsafe(
+    struct suscli_analyzer_client_list *self,
+    int32_t entry)
+{
+  SU_TRYCATCH(entry >= 0, return SU_FALSE);
+  SU_TRYCATCH(entry < self->itl_count, return SU_FALSE);
+
+  SU_TRYCATCH(self->itl_table[entry].client != NULL, return SU_FALSE);
+
+  self->itl_table[entry].next_free = self->itl_last_free;
+  self->itl_table[entry].client = NULL;
+  self->itl_last_free = entry;
+
+  return SU_TRUE;
+}
+
 SUBOOL
 suscli_analyzer_client_list_init(
     struct suscli_analyzer_client_list *self,
@@ -414,6 +613,8 @@ suscli_analyzer_client_list_init(
 
   self->listen_fd = listen_fd;
   self->cancel_fd = cancel_fd;
+
+  self->itl_last_free = -1;
 
   SU_TRYCATCH(self->client_tree = rbtree_new(), goto done);
 
@@ -572,12 +773,20 @@ suscli_analyzer_client_list_lookup(
     const struct suscli_analyzer_client_list *self,
     int fd)
 {
+  suscli_analyzer_client_t *client;
   struct rbtree_node *node;
 
   if ((node = rbtree_search(self->client_tree, fd, RB_EXACT)) == NULL)
     return NULL;
 
-  return node->data;
+  client = node->data;
+
+  if (client->sfd != fd) {
+    SU_ERROR("client->sfd does not match fd!\n");
+    return NULL;
+  }
+
+  return client;
 }
 
 SUBOOL
@@ -645,565 +854,3 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
 
   memset(self, 0, sizeof(struct suscli_analyzer_client_list));
 }
-
-/***************************** TX Thread **************************************/
-SUPRIVATE void *
-suscli_analyzer_server_tx_thread(void *ptr)
-{
-  suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) ptr;
-  void *message;
-  uint32_t type;
-
-  while ((message = suscan_analyzer_read(self->analyzer, &type)) != NULL) {
-    if (type == SUSCAN_WORKER_MSG_TYPE_HALT)
-      break;
-
-    self->broadcast_call.type     = SUSCAN_ANALYZER_REMOTE_MESSAGE;
-    self->broadcast_call.msg.type = type;
-    self->broadcast_call.msg.ptr  = message;
-
-    grow_buf_clear(&self->broadcast_pdu);
-
-    SU_TRYCATCH(
-        suscan_analyzer_remote_call_serialize(
-            &self->broadcast_call,
-            &self->broadcast_pdu),
-        goto done);
-
-    suscli_analyzer_client_list_broadcast(
-        &self->client_list,
-        &self->broadcast_pdu);
-
-    suscan_analyzer_remote_call_finalize(&self->broadcast_call);
-  }
-
-done:
-  suscan_analyzer_remote_call_finalize(&self->broadcast_call);
-  suscli_analyzer_client_list_force_shutdown(&self->client_list);
-  suscan_analyzer_destroy(self->analyzer);
-  self->analyzer = NULL;
-
-  self->tx_halted = SU_TRUE;
-
-  return NULL;
-}
-
-/***************************** RX Thread **************************************/
-SUPRIVATE SUBOOL
-suscli_analyzer_server_process_auth_message(
-    suscli_analyzer_server_t *self,
-    suscli_analyzer_client_t *client,
-    const struct suscan_analyzer_remote_call *call)
-{
-  SUBOOL ok = SU_FALSE;
-
-  /* Check authentication message */
-
-  client->auth = SU_TRUE;
-  ok = SU_TRUE;
-
-/*done:*/
-  return ok;
-}
-
-SUPRIVATE SUBOOL
-suscli_analyzer_server_start_analyzer(suscli_analyzer_server_t *self)
-{
-  struct suscan_analyzer_params params =
-      suscan_analyzer_params_INITIALIZER;
-  suscan_analyzer_t *analyzer = NULL;
-  SUBOOL ok = SU_FALSE;
-
-  SU_TRYCATCH(self->analyzer == NULL,   goto done);
-  SU_TRYCATCH(!self->tx_thread_running, goto done);
-
-  SU_TRYCATCH(
-      analyzer = suscan_analyzer_new(
-          &params,
-          self->config,
-          &self->mq),
-      goto done);
-
-  self->analyzer = analyzer;
-  self->tx_halted = SU_FALSE;
-
-  SU_TRYCATCH(
-      pthread_create(
-          &self->tx_thread,
-          NULL,
-          suscli_analyzer_server_tx_thread,
-          self) != -1,
-      goto done);
-  self->tx_thread_running = SU_TRUE;
-
-  analyzer = NULL;
-
-  ok = SU_TRUE;
-
-done:
-  if (analyzer != NULL)
-    suscan_analyzer_destroy(analyzer);
-
-  return ok;
-}
-
-SUPRIVATE SUBOOL
-suscli_analyzer_server_deliver_call(
-    suscli_analyzer_server_t *self,
-    suscli_analyzer_client_t *caller,
-    struct suscan_analyzer_remote_call *call)
-{
-  SUBOOL ok = SU_FALSE;
-
-  switch (call->type) {
-    case SUSCAN_ANALYZER_REMOTE_SET_FREQUENCY:
-      SU_TRYCATCH(
-          suscan_analyzer_set_freq(self->analyzer, call->freq, call->lnb),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_SET_GAIN:
-      SU_TRYCATCH(
-          suscan_analyzer_set_gain(
-              self->analyzer,
-              call->gain.name,
-              call->gain.value),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_SET_ANTENNA:
-      SU_TRYCATCH(
-          suscan_analyzer_set_antenna(self->analyzer, call->antenna),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_SET_BANDWIDTH:
-      SU_TRYCATCH(
-          suscan_analyzer_set_bw(self->analyzer, call->bandwidth),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_SET_DC_REMOVE:
-      SU_TRYCATCH(
-          suscan_analyzer_set_dc_remove(self->analyzer, call->dc_remove),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_SET_IQ_REVERSE:
-      SU_TRYCATCH(
-          suscan_analyzer_set_iq_reverse(self->analyzer, call->iq_reverse),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_SET_AGC:
-      SU_TRYCATCH(
-          suscan_analyzer_set_agc(self->analyzer, call->agc),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_FORCE_EOS:
-      if (self->client_list.client_count == 1) {
-        SU_TRYCATCH(
-            suscan_analyzer_force_eos(self->analyzer),
-            goto done);
-      } else {
-        SU_WARNING("Force EOS message ignored (other consumers online)\n");
-        suscli_analyzer_client_shutdown(caller);
-      }
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_SET_SWEEP_STRATEGY:
-      SU_TRYCATCH(
-          suscan_analyzer_set_sweep_stratrgy(
-              self->analyzer,
-              call->sweep_strategy),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_SET_SPECTRUM_PARTITIONING:
-      SU_TRYCATCH(
-          suscan_analyzer_set_spectrum_partitioning(
-              self->analyzer,
-              call->spectrum_partitioning),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_SET_HOP_RANGE:
-      SU_TRYCATCH(
-          suscan_analyzer_set_hop_range(
-              self->analyzer,
-              call->hop_range.min,
-              call->hop_range.max),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_SET_BUFFERING_SIZE:
-      SU_TRYCATCH(
-          suscan_analyzer_set_buffering_size(
-              self->analyzer,
-              call->buffering_size),
-          goto done);
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_MESSAGE:
-      SU_TRYCATCH(
-          suscan_analyzer_write(
-              self->analyzer,
-              call->msg.type,
-              call->msg.ptr),
-          goto done);
-      call->msg.ptr = NULL;
-      break;
-
-    case SUSCAN_ANALYZER_REMOTE_REQ_HALT:
-      /* TODO: Acknowledge something. */
-      if (self->client_list.client_count == 1) {
-        suscan_analyzer_req_halt(self->analyzer);
-      } else {
-        SU_WARNING("Halt message ignored (other consumers online)\n");
-        suscli_analyzer_client_shutdown(caller);
-      }
-      break;
-
-    default:
-      SU_ERROR("Invalid call code %d\n", call->type);
-      goto done;
-  }
-
-  ok = SU_TRUE;
-
-done:
-  return ok;
-}
-
-SUPRIVATE SUBOOL
-suscli_analyzer_server_process_call(
-    suscli_analyzer_server_t *self,
-    suscli_analyzer_client_t *client,
-    struct suscan_analyzer_remote_call *call)
-{
-  SUBOOL ok = SU_FALSE;
-
-  if (suscli_analyzer_client_is_auth(client)) {
-    SU_TRYCATCH(
-        suscli_analyzer_server_deliver_call(self, client, call),
-        goto done);
-  } else {
-    SU_TRYCATCH(
-        suscli_analyzer_server_process_auth_message(self, client, call),
-        goto done);
-
-    if (suscli_analyzer_client_is_auth(client)) {
-      /*
-       * Authentication successful! Now the client is entitled to make
-       * changes in the server. First, ensure the analyzer object is
-       * running.
-       */
-      if (self->analyzer == NULL) {
-        if (!suscli_analyzer_server_start_analyzer(self)) {
-          SU_ERROR("Failed to initialize analyzer. Rejecting client\n");
-          suscli_analyzer_client_shutdown(client);
-
-          /* Yep, no errors. Assume graceful disconnection. */
-          ok = SU_TRUE;
-          goto done;
-        }
-      }
-
-      /*
-       * Now that we are sure that the analyzer object exists, we update
-       * the client with the source information. This is important from the
-       * endpoint perspective in order to be aware of frequency limits, sample
-       * rate, etc
-       */
-      SU_TRYCATCH(
-          suscli_analyzer_client_send_source_info(
-              client,
-              suscan_analyzer_get_source_info(self->analyzer)),
-          goto done);
-    } else {
-      /* Authentication failed. Mark as failed. */
-      SU_ERROR("Authentication failed. Forcing shutdown\n");
-      suscli_analyzer_client_shutdown(client);
-    }
-  }
-
-  ok = SU_TRUE;
-
-done:
-  return ok;
-}
-
-SUPRIVATE SUBOOL
-suscli_analyzer_server_register_clients(suscli_analyzer_server_t *self)
-{
-  int fd;
-  suscli_analyzer_client_t *client = NULL;
-  struct sockaddr_in inaddr;
-  socklen_t len = sizeof(struct sockaddr_in);
-  SUBOOL ok = SU_FALSE;
-
-  while ((fd = accept(
-      self->client_list.listen_fd,
-      (struct sockaddr *) &inaddr,
-      &len)) != -1) {
-    SU_TRYCATCH(client = suscli_analyzer_client_new(fd), goto done);
-    SU_TRYCATCH(
-        suscli_analyzer_client_list_append_client(&self->client_list, client),
-        goto done);
-
-    /* TODO: Send authentication challenge */
-    client = NULL;
-  }
-
-  SU_TRYCATCH(errno == EAGAIN, goto done);
-
-  ok = SU_TRUE;
-
-done:
-  if (!ok)
-    SU_ERROR("errno: %s\n", strerror(errno));
-
-  if (client != NULL)
-    suscli_analyzer_client_destroy(client);
-
-  return ok;
-}
-
-SUPRIVATE void
-suscli_analyzer_server_clean_dead_threads(suscli_analyzer_server_t *self)
-{
-  if (self->tx_thread_running && self->tx_halted) {
-    pthread_join(self->tx_thread, NULL);
-    self->tx_thread_running = SU_FALSE;
-  }
-}
-
-SUPRIVATE void *
-suscli_analyzer_server_rx_thread(void *userdata)
-{
-  suscli_analyzer_server_t *self =
-      (suscli_analyzer_server_t *) userdata;
-  suscli_analyzer_client_t *client = NULL;
-  struct suscan_analyzer_remote_call *call;
-  struct rbtree_node *node;
-  int count;
-  unsigned int i;
-  struct pollfd *pfds;
-  SUBOOL ok = SU_FALSE;
-
-  for (;;) {
-    pfds = self->client_list.client_pfds;
-
-    SU_TRYCATCH(
-        (count = poll(
-            pfds,
-            self->client_list.client_count + SUSCLI_ANSERV_FD_OFFSET,
-            -1)) > 0,
-        goto done);
-
-    suscli_analyzer_server_clean_dead_threads(self);
-
-    if (pfds[SUSCLI_ANSERV_CANCEL_FD].revents & POLLIN) {
-      /* Cancel requested */
-      ok = SU_TRUE;
-      goto done;
-    } else if (pfds[SUSCLI_ANSERV_LISTEN_FD].revents & POLLIN) {
-      /*
-       * New client. We cannot continue inspecting the pfds because they
-       * have been overwritten by update_pollfds.
-       */
-      SU_TRYCATCH(suscli_analyzer_server_register_clients(self), goto done);
-    } else {
-      /* Traverse client list and look for pending messages */
-      for (i = 0; count > 0 && i <= self->client_list.client_count; ++i) {
-        if (pfds[i + SUSCLI_ANSERV_FD_OFFSET].revents && POLLIN) {
-          SU_TRYCATCH(
-              node = rbtree_search(
-                  self->client_list.client_tree,
-                  pfds[i + SUSCLI_ANSERV_FD_OFFSET].fd,
-                  RB_EXACT),
-              goto done);
-          client = node->data;
-
-          SU_TRYCATCH(client != NULL, goto done);
-
-          if (!suscli_analyzer_client_is_failed(client)) {
-            if (!suscli_analyzer_client_read(client)) {
-              suscli_analyzer_client_mark_failed(client);
-            } else if ((call = suscli_analyzer_client_take_call(client))
-                != NULL) {
-              /* Call completed from client, process it and do stuff */
-              SU_TRYCATCH(
-                  suscli_analyzer_server_process_call(self, client, call),
-                  goto done);
-            }
-          }
-          --count;
-        }
-      }
-
-      /* This is actually a consistency condition */
-      SU_TRYCATCH(count == 0, goto done);
-    }
-
-    /* Some sockets may have been marked as dead. Clean them up */
-    SU_TRYCATCH(
-        suscli_analyzer_client_list_attempt_cleanup(&self->client_list),
-        goto done);
-  }
-
-  ok = SU_TRUE;
-
-done:
-  if (!ok)
-    SU_ERROR("errno: %s\n", strerror(errno));
-
-  return NULL;
-}
-
-SUPRIVATE int
-suscli_analyzer_server_create_socket(uint16_t port)
-{
-  struct sockaddr_in addr;
-  int enable = 1;
-  int sfd = -1;
-  int fd = -1;
-  int flags;
-
-  SU_TRYCATCH(
-      (fd = socket(AF_INET, SOCK_STREAM, 0)) != -1,
-      goto done);
-
-  if ((flags = fcntl(fd, F_GETFL)) == -1) {
-    SU_ERROR("Failed to perform fcntl on socket: %s\n", strerror(errno));
-    goto done;
-  }
-
-  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-    SU_ERROR("Failed to make socket non blocking: %s\n", strerror(errno));
-    goto done;
-  }
-
-  SU_TRYCATCH(
-      (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))) != -1,
-      goto done);
-
-  addr.sin_family      = AF_INET;
-  addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  addr.sin_port        = htons(port);
-
-  if (bind(fd, (struct sockaddr *) &addr, sizeof (struct sockaddr_in)) == -1) {
-    SU_ERROR(
-        "failed to bind socket to port %d for listen: %s\n",
-        port,
-        strerror(errno));
-    goto done;
-  }
-
-  if (listen(fd, 5) == -1) {
-    SU_ERROR("failed to listen on socket: %s\n", strerror(errno));
-    goto done;
-  }
-
-  sfd = fd;
-  fd = -1;
-
-done:
-  if (fd != -1)
-    close(fd);
-
-  return sfd;
-}
-
-suscli_analyzer_server_t *
-suscli_analyzer_server_new(suscan_source_config_t *profile, uint16_t port)
-{
-  suscli_analyzer_server_t *new = NULL;
-  int sfd = -1;
-
-  SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_server_t)), goto done);
-
-  new->client_list.listen_fd = -1;
-  new->client_list.cancel_fd = -1;
-
-  new->cancel_pipefd[0] = -1;
-  new->cancel_pipefd[1] = -1;
-
-  new->listen_port = port;
-  SU_TRYCATCH(new->config = suscan_source_config_clone(profile), goto done);
-
-  SU_TRYCATCH(pipe(new->cancel_pipefd) != -1, goto done);
-
-  SU_TRYCATCH(
-      (sfd = suscli_analyzer_server_create_socket(port)) != -1,
-      goto done);
-
-  SU_TRYCATCH(
-      suscli_analyzer_client_list_init(
-          &new->client_list,
-          sfd,
-          new->cancel_pipefd[0]),
-      goto done);
-
-  SU_TRYCATCH(
-      pthread_create(
-          &new->rx_thread,
-          NULL,
-          suscli_analyzer_server_rx_thread,
-          new) != -1,
-      goto done);
-  new->rx_thread_running = SU_TRUE;
-
-  return new;
-
-done:
-  if (new != NULL)
-    suscli_analyzer_server_destroy(new);
-
-  return NULL;
-}
-
-SUPRIVATE void
-suscli_analyzer_server_cancel_rx_thread(suscli_analyzer_server_t *self)
-{
-  char b = 1;
-
-  (void) write(self->cancel_pipefd[1], &b, 1);
-}
-
-void
-suscli_analyzer_server_destroy(suscli_analyzer_server_t *self)
-{
-  if (self->rx_thread_running) {
-    if (self->analyzer != NULL) {
-      suscan_analyzer_req_halt(self->analyzer);
-      if (self->tx_thread_running)
-        pthread_join(self->tx_thread, NULL);
-
-      if (self->analyzer != NULL)
-        suscan_analyzer_destroy(self->analyzer);
-    }
-
-    suscli_analyzer_server_cancel_rx_thread(self);
-    pthread_join(self->rx_thread, NULL);
-  }
-
-  if (self->client_list.listen_fd != -1)
-    close(self->client_list.listen_fd);
-
-  if (self->cancel_pipefd[0] != -1)
-    close(self->cancel_pipefd[0]);
-
-  if (self->cancel_pipefd[1] != -1)
-    close(self->cancel_pipefd[1]);
-
-  suscli_analyzer_client_list_finalize(&self->client_list);
-
-  if (self->config != NULL)
-    suscan_source_config_destroy(self->config);
-
-  free(self);
-}
-
-

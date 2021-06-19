@@ -29,7 +29,7 @@
 #include <string.h>
 #include <pthread.h>
 
-#include <cli/anserv.h>
+#include <cli/devserv/devserv.h>
 #include <cli/cli.h>
 #include <cli/cmds.h>
 
