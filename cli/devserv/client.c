@@ -43,11 +43,18 @@ suscli_analyzer_client_new(int sfd)
   gettimeofday(&new->conntime, NULL);
 
   SU_TRYCATCH(
-      getsockname(sfd, (struct sockaddr *) &sin, &len) != -1,
+      getpeername(sfd, (struct sockaddr *) &sin, &len) != -1,
       goto fail);
 
   new->remote_addr = sin.sin_addr;
   new->sfd = sfd;
+
+  SU_TRYCATCH(
+      new->name = strbuild(
+          "[client %s:%d]",
+          suscli_analyzer_client_string_addr(new),
+          ntohs(sin.sin_port)),
+      goto fail);
 
   return new;
 
@@ -72,17 +79,18 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
 
     ret = read(self->sfd, self->header_bytes + self->header_ptr, chunksize);
 
-    if (ret == 0)
-      SU_WARNING(
-          "Client[%s]: Client left\n",
-          suscli_analyzer_client_string_addr(self));
-    else if (ret == -1)
+    if (ret == 0) {
+      SU_INFO(
+          "%s: client left\n",
+          suscli_analyzer_client_get_name(self));
+    } else if (ret == -1) {
       SU_ERROR(
-          "Client[%s]: Read error: %s\n",
-          suscli_analyzer_client_string_addr(self),
+          "%s: read error: %s\n",
+          suscli_analyzer_client_get_name(self),
           strerror(errno));
-    else
+    } else {
       do_close = SU_FALSE;
+    }
 
     if (do_close)
       goto done;
@@ -153,13 +161,10 @@ suscli_analyzer_client_register_inspector_handle(
         goto done);
     self->inspectors.inspector_list = tmp;
     ret = self->inspectors.inspector_alloc++;
-    printf("%p: Inspector count: %d\n", self, self->inspectors.inspector_alloc);
   } else {
     ret = self->inspectors.inspector_last_free;
     self->inspectors.inspector_last_free =
         ~self->inspectors.inspector_list[ret].global_handle;
-    printf("%p: Reuse. Last free now: %d\n", self, self->inspectors.inspector_last_free);
-
   }
 
   self->inspectors.inspector_list[ret].global_handle = global_handle;
@@ -175,8 +180,6 @@ suscli_analyzer_client_translate_handle(
     suscli_analyzer_client_t *self,
     SUHANDLE local_handle)
 {
-  printf("%p: Translate %d (%d insp)\n", self, local_handle, self->inspectors.inspector_alloc);
-
   SU_TRYCATCH(local_handle >= 0, return -1);
   SU_TRYCATCH(local_handle < self->inspectors.inspector_alloc, return -1);
   SU_TRYCATCH(
@@ -228,27 +231,16 @@ suscli_analyzer_client_intercept_message(
     inspmsg = (struct suscan_analyzer_inspector_msg *) message;
 
     if (inspmsg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
-      printf("(c) [%p] Intercept request OPEN:\n", self);
       SU_TRYCATCH(
           (interceptors->inspector_open)(interceptors->userdata, self, inspmsg),
           goto done);
     } else {
       handle = inspmsg->handle;
-      printf(
-          "(c) [%p] Intercept request %s: handle = %d\n",
-          self,
-          suscan_analyzer_inspector_msgkind_to_string(inspmsg->kind),
-          handle);
-
       if ((inspmsg->handle = suscli_analyzer_client_translate_handle(
           self,
           handle)) != -1) {
         /* This local handle actually refers to something! */
         if (inspmsg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID) {
-          printf(
-              "  Set ID: forward to global inspector entry %d\n",
-              self->inspectors.inspector_list[handle].itl_index);
-
           SU_TRYCATCH(
               (interceptors->inspector_set_id)(
                   interceptors->userdata,
@@ -430,6 +422,9 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
 {
   close(self->sfd);
 
+  if (self->name != NULL)
+    free(self->name);
+
   grow_buf_finalize(&self->incoming_pdu);
   grow_buf_finalize(&self->outcoming_pdu);
 
@@ -515,8 +510,11 @@ suscli_analyzer_client_list_cleanup_unsafe(
       if (suscli_analyzer_client_is_failed(client) &&
           !suscli_analyzer_client_has_outstanding_inspectors(client)) {
         suscli_analyzer_client_list_remove_unsafe(self, client);
+        SU_INFO(
+            "%s: client removed from list (%d outstanding clients)\n",
+            suscli_analyzer_client_get_name(client),
+            self->client_count);
         suscli_analyzer_client_destroy(client);
-        printf("%p: successfully removed!\n", client);
         changed = SU_TRUE;
       }
     }
@@ -757,8 +755,8 @@ suscli_analyzer_client_list_broadcast(
       if (!suscli_analyzer_client_write_buffer(this, buffer)) {
         error = errno;
         SU_WARNING(
-            "Client[%s]: write failed (%s)\n",
-            suscli_analyzer_client_string_addr(this),
+            "%s: write failed (%s)\n",
+            suscli_analyzer_client_get_name(this),
             strerror(error));
         SU_TRYCATCH((on_client_error) (this, userdata, error), goto done);
       }
@@ -795,8 +793,8 @@ suscli_analyzer_client_list_force_shutdown(
       if (!suscli_analyzer_client_shutdown(this)) {
         error = errno;
         SU_WARNING(
-            "Client[%s]: shutdown failed (%s)\n",
-            suscli_analyzer_client_string_addr(this),
+            "%s: shutdown failed (%s)\n",
+            suscli_analyzer_client_get_name(this),
             strerror(error));
       }
     }

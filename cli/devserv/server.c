@@ -52,9 +52,6 @@ suscli_analyzer_server_intercept_message(
 
       switch (inspmsg->kind) {
         case  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
-          SU_INFO("(s) Intercept response OPEN:\n");
-          SU_INFO("  Request ID: %d\n", inspmsg->req_id);
-
           client = suscli_analyzer_client_list_lookup(
               &self->client_list,
               inspmsg->req_id);
@@ -73,8 +70,6 @@ suscli_analyzer_server_intercept_message(
             goto done;
           }
 
-          printf("  Client ref: %p\n", client);
-
           suscli_analyzer_client_dec_inspector_open_request(client);
 
           SU_TRYCATCH(
@@ -82,8 +77,6 @@ suscli_analyzer_server_intercept_message(
                   &self->client_list,
                   client)) != -1,
                   goto done);
-
-          printf("  ITL index: %d\n", itl_index);
 
           entry = suscli_analyzer_client_list_get_itl_entry_unsafe(
               &self->client_list,
@@ -97,15 +90,16 @@ suscli_analyzer_server_intercept_message(
 
           entry->local_handle = local_handle;
 
-          printf("  Global handle: %d\n", inspmsg->handle);
-          printf("  Local handle:  %d\n", local_handle);
-          printf("(s) Opened!\n");
+          SU_INFO(
+              "%s: forwarding inspector 0x%x to client handle 0x%x\n",
+              suscli_analyzer_client_get_name(client),
+              inspmsg->handle,
+              local_handle);
 
           inspmsg->handle = local_handle;
           break;
 
         case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
-          printf("(s) Intercept response CLOSE:\n");
           /* Translate inspector id to the user-defined inspector id */
           itl_index = inspmsg->inspector_id;
 
@@ -119,10 +113,6 @@ suscli_analyzer_server_intercept_message(
           } else {
             client = entry->client;
             inspmsg->inspector_id = entry->local_inspector_id;
-            printf("  Client: %p\n", client);
-            printf("  Global ID: %d\n", itl_index);
-            printf("  Inspector ID: 0x%08x\n", entry->local_inspector_id);
-            printf("  Local ID: %d\n", entry->local_handle);
 
             /* Close local handle */
             SU_TRYCATCH(
@@ -137,9 +127,11 @@ suscli_analyzer_server_intercept_message(
                     &self->client_list,
                     itl_index),
                 goto done);
-            printf("  Closed!\n");
+            SU_INFO(
+                "%s: inspector (handle 0x%x) closed\n",
+                suscli_analyzer_client_get_name(client),
+                entry->local_handle);
           }
-
           break;
 
         case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
@@ -154,15 +146,10 @@ suscli_analyzer_server_intercept_message(
             goto done;
           }
 
-          printf("(s) Intercept response INVALID CHANNEL\n");
           suscli_analyzer_client_dec_inspector_open_request(client);
           break;
 
         default:
-          printf("(s) Intercept response %s: inspector_id = %d\n",
-                 suscan_analyzer_inspector_msgkind_to_string(inspmsg->kind),
-                 inspmsg->inspector_id);
-
           /* Translate inspector id to the user-defined inspector id */
           itl_index = inspmsg->inspector_id;
 
@@ -176,9 +163,6 @@ suscli_analyzer_server_intercept_message(
           } else {
             client = entry->client;
             inspmsg->inspector_id = entry->local_inspector_id;
-            printf("  Client: %p\n", client);
-            printf("  Global ID: %d\n", itl_index);
-            printf("  Inspector ID: 0x%08x\n", entry->local_inspector_id);
           }
       }
       break;
@@ -222,14 +206,27 @@ suscli_analyzer_server_on_client_inspector(
 {
   suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) userdata;
 
-  printf(" --> Cleanup: Close %d\n", global_handle);
+  if (self->tx_thread_running) {
+    SU_INFO(
+          "%s: cleaning up: close handle 0x%x (global 0x%x)\n",
+          suscli_analyzer_client_get_name(client),
+          local_handle,
+          global_handle);
 
-  SU_TRYCATCH(
-      suscan_analyzer_close_async(
-          self->analyzer,
-          global_handle,
-          0),
-      return SU_FALSE);
+    SU_TRYCATCH(
+        suscan_analyzer_close_async(
+            self->analyzer,
+            global_handle,
+            0),
+        return SU_FALSE);
+  } else {
+    /* No analyzer, just remove */
+    SU_TRYCATCH(
+        suscli_analyzer_client_dispose_inspector_handle(
+            (suscli_analyzer_client_t *) client,
+            local_handle),
+        return SU_FALSE);
+  }
 
   return SU_TRUE;
 }
@@ -262,9 +259,6 @@ suscli_analyzer_server_on_broadcast_error(
   return SU_TRUE;
 }
 
-/*
- * The analyzer belongs to the TX thread.
- */
 SUPRIVATE void *
 suscli_analyzer_server_tx_thread(void *ptr)
 {
@@ -276,11 +270,6 @@ suscli_analyzer_server_tx_thread(void *ptr)
   struct suscan_analyzer_remote_call call = suscan_analyzer_remote_call_INITIALIZER;
 
   while ((message = suscan_analyzer_read(self->analyzer, &type)) != NULL) {
-    if (type == SUSCAN_WORKER_MSG_TYPE_HALT) {
-      printf("Analyzer halted. Bye (tx)\n");
-      break;
-    }
-
     SU_TRYCATCH(
         suscli_analyzer_server_intercept_message(
             self,
@@ -314,13 +303,16 @@ suscli_analyzer_server_tx_thread(void *ptr)
     suscan_analyzer_remote_call_finalize(&call);
   }
 
+  if (type == SUSCAN_WORKER_MSG_TYPE_HALT)
+    SU_INFO("TX: Analyzer halted. Bye.\n");
+  else
+    SU_WARNING("TX: Analyzer sent null message (%d)\n", type);
+
 done:
   grow_buf_clear(&pdu);
   suscan_analyzer_remote_call_finalize(&call);
 
   suscli_analyzer_client_list_force_shutdown(&self->client_list);
-  suscan_analyzer_destroy(self->analyzer);
-  self->analyzer = NULL;
 
   self->tx_halted = SU_TRUE;
 
@@ -402,7 +394,12 @@ suscli_analyzer_server_on_open(
 
   inspmsg->req_id = client->sfd;
 
-  printf("  On OPEN: %p request id %d\n", client, client->sfd);
+  SU_INFO(
+        "%s: open request of `%s' inspector on freq %+lg MHz (bw = %g kHz)\n",
+        suscli_analyzer_client_get_name(client),
+        inspmsg->class_name,
+        (inspmsg->channel.fc + inspmsg->channel.ft) * 1e-6,
+        inspmsg->channel.bw * 1e-3);
 
   return SU_TRUE;
 }
@@ -419,7 +416,6 @@ suscli_analyzer_server_on_set_id(
   SU_TRYCATCH(itl_index >= 0, return SU_FALSE);
   SU_TRYCATCH(itl_index < self->client_list.itl_count, return SU_FALSE);
 
-  printf("  Set ID: now ID is 0x%08x\n", inspmsg->inspector_id);
   self->client_list.itl_table[itl_index].local_inspector_id =
       inspmsg->inspector_id;
 
@@ -683,6 +679,12 @@ suscli_analyzer_server_clean_dead_threads(suscli_analyzer_server_t *self)
 {
   if (self->tx_thread_running && self->tx_halted) {
     pthread_join(self->tx_thread, NULL);
+
+    if (self->analyzer != NULL) {
+      suscan_analyzer_destroy(self->analyzer);
+      self->analyzer = NULL;
+    }
+
     self->tx_thread_running = SU_FALSE;
   }
 }
@@ -759,6 +761,9 @@ suscli_analyzer_server_rx_thread(void *userdata)
     SU_TRYCATCH(
         suscli_analyzer_client_list_attempt_cleanup(&self->client_list),
         goto done);
+
+    if (self->tx_thread_running && self->client_list.client_count == 0)
+      suscan_analyzer_req_halt(self->analyzer);
   }
 
   ok = SU_TRUE;

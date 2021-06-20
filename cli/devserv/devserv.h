@@ -53,6 +53,8 @@ struct suscli_analyzer_client {
   SUBOOL have_body;
   uint8_t header_ptr;
 
+  char *name;
+
   grow_buf_t incoming_pdu;
   struct suscan_analyzer_remote_call incoming_call;
 
@@ -135,6 +137,11 @@ suscli_analyzer_client_has_source_info(const suscli_analyzer_client_t *self)
   return self->has_source_info;
 }
 
+SUINLINE const char *
+suscli_analyzer_client_get_name(const suscli_analyzer_client_t *self)
+{
+  return self->name;
+}
 
 SUINLINE const char *
 suscli_analyzer_client_string_addr(const suscli_analyzer_client_t *self)

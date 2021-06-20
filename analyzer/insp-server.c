@@ -246,9 +246,6 @@ suscan_local_analyzer_on_channel_data(
    * by the sched mutex.
    */
   if (task_info->inspector->state != SUSCAN_ASYNC_STATE_RUNNING) {
-    SU_INFO(
-        "Channel not in RUNNING state, setting to HALTED and removing inspector from scheduler\n");
-
     /* Close channel: no FFT filtering will be performed */
     SU_TRYCATCH(
         su_specttuner_close_channel(
@@ -337,6 +334,20 @@ suscan_local_analyzer_dispose_inspector_handle(
   return SU_TRUE;
 }
 
+SUPRIVATE void
+suscan_local_analyzer_cleanup_inspector_list_unsafe(
+    suscan_local_analyzer_t *self)
+{
+  unsigned int i;
+
+  for (i = 0; i < self->inspector_count; ++i)
+    if (self->inspector_list[i] != NULL
+        && self->inspector_list[i]->state == SUSCAN_ASYNC_STATE_HALTED) {
+      suscan_inspector_destroy(self->inspector_list[i]);
+      self->inspector_list[i] = NULL;
+    }
+}
+
 SUPRIVATE SUBOOL
 suscan_local_analyzer_open_inspector(
     suscan_local_analyzer_t *self,
@@ -410,6 +421,8 @@ suscan_local_analyzer_open_inspector(
    */
 
   suscan_local_analyzer_lock_inspector_list(self);
+
+  suscan_local_analyzer_cleanup_inspector_list_unsafe(self);
 
   if ((hnd = PTR_LIST_APPEND_CHECK(self->inspector, new)) == -1)
     goto fail;

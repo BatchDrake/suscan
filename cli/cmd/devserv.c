@@ -26,14 +26,95 @@
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>
 #include <analyzer/discovery.h>
+#include <analyzer/version.h>
 #include <string.h>
 #include <pthread.h>
 
 #include <cli/devserv/devserv.h>
 #include <cli/cli.h>
 #include <cli/cmds.h>
+#include <time.h>
 
 #define SUSCLI_DEVSERV_DEFAULT_PORT_BASE 28000
+SUPRIVATE SUBOOL su_log_cr = SU_TRUE;
+
+SUPRIVATE void
+print_date(void)
+{
+  time_t t;
+  struct tm tm;
+  char mytime[50];
+
+  time(&t);
+  localtime_r(&t, &tm);
+
+  strftime(mytime, sizeof(mytime), "%d %b %Y - %H:%M:%S", &tm);
+
+  printf("%s", mytime);
+}
+
+SUPRIVATE void
+su_log_func(void *private, const struct sigutils_log_message *msg)
+{
+  SUBOOL *cr = (SUBOOL *) private;
+  size_t msglen;
+
+  if (*cr) {
+    print_date();
+
+    switch (msg->severity) {
+      case SU_LOG_SEVERITY_DEBUG:
+        printf("\033[1;30m");
+        printf(" - debug: ");
+        break;
+
+      case SU_LOG_SEVERITY_INFO:
+        print_date();
+        printf(" - ");
+        break;
+
+      case SU_LOG_SEVERITY_WARNING:
+        print_date();
+        printf(" - \033[1;33mwarning[%s]\033[0m: ", msg->domain);
+        break;
+
+      case SU_LOG_SEVERITY_ERROR:
+        print_date();
+        printf(
+            " - \033[1;31merror[%s] in %s:%d\033[0m: ",
+            msg->domain,
+            msg->function,
+            msg->line);
+        break;
+
+      case SU_LOG_SEVERITY_CRITICAL:
+        print_date();
+        printf(
+            " - \033[1;37;41mcritical[%s] in %s:%d\033[0m: ",
+            msg->domain,
+            msg->function,
+            msg->line);
+        break;
+    }
+  }
+
+  msglen = strlen(msg->message);
+
+  *cr = msg->message[msglen - 1] == '\n' || msg->message[msglen - 1] == '\r';
+
+  fputs(msg->message, stdout);
+
+  if (*cr)
+    fputs("\033[0m", stdout);
+}
+
+/* Log config */
+SUPRIVATE struct sigutils_log_config log_config =
+{
+  &su_log_cr, /* private */
+  SU_TRUE, /* exclusive */
+  su_log_func, /* log_func */
+};
 
 struct suscli_devserv_ctx {
   int fd;
@@ -167,6 +248,12 @@ suscli_devserv_ctx_new(const char *iface, const char *mcaddr)
           goto fail);
 
       SU_TRYCATCH(PTR_LIST_APPEND_CHECK(new->server, server) != -1, goto fail);
+
+      SU_INFO(
+          "  Port %d: server `%s'\n",
+          new->port_base + i,
+          suscan_source_config_get_label(cfg));
+
       server = NULL;
     }
   }
@@ -191,6 +278,9 @@ suscli_devserv_announce_thread(void *ptr)
   struct suscan_device_net_discovery_pdu *pdu;
   suscan_source_config_t *cfg;
   size_t len;
+
+
+  SU_INFO("Annouce server start\n");
 
   while (!ctx->halting) {
     for (i = 0; i < ctx->server_count; ++i) {
@@ -237,6 +327,8 @@ suscli_devserv_cb(const hashlist_t *params)
   SUBOOL thread_running = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
+  su_log_init(&log_config);
+
   SU_TRYCATCH(
       suscli_param_read_string(params, "if", &iface, NULL),
       goto done);
@@ -256,14 +348,14 @@ suscli_devserv_cb(const hashlist_t *params)
           SURPC_DISCOVERY_MULTICAST_ADDR),
       goto done);
 
+  SU_INFO("Suscan device server %s\n", SUSCAN_VERSION_STRING);
+
   SU_TRYCATCH(ctx = suscli_devserv_ctx_new(iface, mc), goto done);
 
   SU_TRYCATCH(
       pthread_create(&thread, NULL, suscli_devserv_announce_thread, ctx) != -1,
       goto done);
   thread_running = SU_TRUE;
-
-  printf("Announcing...\n");
 
   for (;;)
     sleep(1);

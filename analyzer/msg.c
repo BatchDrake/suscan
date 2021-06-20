@@ -655,11 +655,12 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
       /* Empty messages */
       break;
 
     default:
-      SU_ERROR("Message kind is not supported\n");
+      SU_ERROR("Inspector message kind=%d is not supported\n", self->kind);
       goto fail;
   }
 
@@ -727,11 +728,12 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
       /* Empty messages */
       break;
 
     default:
-      SU_ERROR("Message kind is not supported\n");
+      SU_ERROR("Inspector message kind = %d is not supported\n", self->kind);
       goto fail;
   }
 
