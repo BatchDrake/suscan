@@ -95,9 +95,6 @@ suscan_local_analyzer_set_gain_cb(
         self->source_info.gain_list[j]->value = request_list[i]->value;
   }
 
-  /* TODO: Protect with mutex, set antenna and deliver source info */
-  suscan_analyzer_send_source_info(self->parent, &self->source_info);
-
 fail:
   if (mutex_acquired)
     pthread_mutex_unlock(&self->hotconf_mutex);
