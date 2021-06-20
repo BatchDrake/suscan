@@ -52,8 +52,8 @@ suscli_analyzer_server_intercept_message(
 
       switch (inspmsg->kind) {
         case  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
-          printf("(s) Intercept response OPEN:\n");
-          printf("  Request ID: %d\n", inspmsg->req_id);
+          SU_INFO("(s) Intercept response OPEN:\n");
+          SU_INFO("  Request ID: %d\n", inspmsg->req_id);
 
           client = suscli_analyzer_client_list_lookup(
               &self->client_list,
@@ -262,6 +262,9 @@ suscli_analyzer_server_on_broadcast_error(
   return SU_TRUE;
 }
 
+/*
+ * The analyzer belongs to the TX thread.
+ */
 SUPRIVATE void *
 suscli_analyzer_server_tx_thread(void *ptr)
 {
@@ -656,7 +659,8 @@ suscli_analyzer_server_register_clients(suscli_analyzer_server_t *self)
         suscli_analyzer_client_list_append_client(&self->client_list, client),
         goto done);
 
-    /* TODO: Send authentication challenge */
+    /* TODO: Send authentication challenge or server HELLO */
+    /* TODO: How about server constraints, auth requirements, etc */
     client = NULL;
   }
 

@@ -23,7 +23,7 @@
 #include <sigutils/types.h>
 
 #define SURPC_DISCOVERY_PROTOCOL_PORT   5555
-#define SURPC_DISCOVERY_MULTICAST_ADDR "239.255.51.63"
+#define SURPC_DISCOVERY_MULTICAST_ADDR "239.255.255.250"
 #define SURPC_DISCOVERY_MAX_PDU_SIZE    4096
 
 struct suscan_device_net_discovery_pdu {
