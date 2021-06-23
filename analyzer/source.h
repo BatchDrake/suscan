@@ -281,6 +281,11 @@ SUSCAN_SERIALIZABLE(suscan_source_config) {
 
 typedef struct suscan_source_config suscan_source_config_t;
 
+SUBOOL suscan_source_config_deserialize_ex(
+    struct suscan_source_config *self,
+    grow_buf_t *buffer,
+    const char *force_host);
+
 SUBOOL suscan_source_config_walk(
     SUBOOL (*function) (suscan_source_config_t *cfg, void *privdata),
     void *privdata);
@@ -426,6 +431,10 @@ suscan_source_config_t *suscan_source_config_new(
 
 suscan_source_config_t *suscan_source_config_clone(
     const suscan_source_config_t *config);
+
+void suscan_source_config_swap(
+    suscan_source_config_t *config1,
+    suscan_source_config_t *config2);
 
 suscan_source_config_t *suscan_source_config_lookup(const char *label);
 

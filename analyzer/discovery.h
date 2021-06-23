@@ -23,13 +23,18 @@
 #include <sigutils/types.h>
 
 #define SURPC_DISCOVERY_PROTOCOL_PORT   5555
-#define SURPC_DISCOVERY_MULTICAST_ADDR "239.255.255.250"
+#define SURPC_DISCOVERY_MULTICAST_ADDR "239.255.255.250" /* Same as UPnP */
 #define SURPC_DISCOVERY_MAX_PDU_SIZE    4096
 
-struct suscan_device_net_discovery_pdu {
-  uint16_t port;
-  char name[0];
-} __attribute__ ((packed));
+SUBOOL suscan_discovered_remote_device_walk(
+    SUBOOL (*function) (
+        void *userdata,
+        const suscan_source_device_t *device,
+        const suscan_source_config_t *config),
+    void *userdata);
+
+suscan_source_config_t *suscan_discovered_remote_device_make_config(
+    const suscan_source_device_t *self);
 
 SUBOOL suscan_device_net_discovery_start(const char *iface);
 

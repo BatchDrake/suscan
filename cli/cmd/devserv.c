@@ -275,45 +275,84 @@ suscli_devserv_announce_thread(void *ptr)
 {
   unsigned int i;
   struct suscli_devserv_ctx *ctx = (struct suscli_devserv_ctx *) ptr;
-  struct suscan_device_net_discovery_pdu *pdu;
-  suscan_source_config_t *cfg;
-  size_t len;
+  grow_buf_t *pdu = NULL;
+  PTR_LIST_LOCAL(grow_buf_t, pdu);
+  suscan_source_config_t *cfg = NULL;
+  suscan_source_device_t *dev = NULL;
+  char strport[8];
+  SoapySDRKwargs args;
+
+  /* Compose announcement PDUs */
+  for (i = 0; i < ctx->server_count; ++i) {
+    SU_TRYCATCH(pdu = calloc(1, sizeof(grow_buf_t)), goto done);
+
+    SU_TRYCATCH(
+        cfg = suscan_source_config_clone(ctx->server_list[i]->config),
+        goto done);
+
+    snprintf(strport, sizeof(strport), "%hu", ctx->server_list[i]->listen_port);
+    SoapySDRKwargs_set(&args, "driver", "tcp");
+    SoapySDRKwargs_set(
+        &args,
+        "label",
+        suscan_source_device_get_desc(suscan_source_config_get_device(cfg)));
+
+    SoapySDRKwargs_set(&args, "host", "localhost");
+    SoapySDRKwargs_set(&args, "port", strport);
 
 
-  SU_INFO("Annouce server start\n");
+    SU_TRYCATCH(
+        dev = suscan_source_device_new(SUSCAN_SOURCE_REMOTE_INTERFACE, &args),
+        goto done);
+
+    SU_TRYCATCH(suscan_source_config_set_device(cfg, dev), goto done);
+
+    SU_TRYCATCH(
+        suscan_source_config_serialize(cfg, pdu),
+        goto done);
+
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(pdu, pdu) != -1, goto done);
+
+    suscan_source_config_destroy(cfg);
+    cfg = NULL;
+    suscan_source_device_destroy(dev);
+    dev = NULL;
+  }
+
+  SU_INFO("Announce server start: %d profiles\n", pdu_count);
 
   while (!ctx->halting) {
-    for (i = 0; i < ctx->server_count; ++i) {
-      cfg = suscli_analyzer_server_get_profile(ctx->server_list[i]);
-      if (cfg != NULL) {
-        len =
-            sizeof (struct suscan_device_net_discovery_pdu)
-            + strlen(suscan_source_config_get_label(cfg))
-            + 1;
-
-        if ((pdu = suscli_devserv_ctx_alloc_pdu(ctx, len)) != NULL) {
-          pdu->port = htons(
-              suscli_analyzer_server_get_port(ctx->server_list[i]));
-          memcpy(
-              pdu->name,
-              suscan_source_config_get_label(cfg),
-              strlen(suscan_source_config_get_label(cfg)) + 1);
-
-          if (sendto(
-              ctx->fd,
-              pdu,
-              len,
-              0,
-              (struct sockaddr *) &ctx->mc_addr,
-              sizeof (struct sockaddr_in)) != len) {
-            SU_ERROR("sendto() failed: %s\n", strerror(errno));
-          }
-        }
+    for (i = 0; i < pdu_count; ++i) {
+      if (sendto(
+          ctx->fd,
+          pdu_list[i]->buffer,
+          pdu_list[i]->size,
+          0,
+          (struct sockaddr *) &ctx->mc_addr,
+          sizeof (struct sockaddr_in)) != pdu_list[i]->size) {
+        SU_ERROR("sendto() failed: %s\n", strerror(errno));
       }
     }
 
     sleep(1);
   }
+
+done:
+  if (cfg != NULL)
+    suscan_source_config_destroy(cfg);
+
+  if (pdu != NULL) {
+    grow_buf_finalize(pdu);
+    free(pdu);
+  }
+
+  for (i = 0; i < pdu_count; ++i) {
+    grow_buf_finalize(pdu_list[i]);
+    free(pdu_list[i]);
+  }
+
+  if (pdu_list != NULL)
+    free(pdu_list);
 
   return NULL;
 }

@@ -629,7 +629,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
     if ((host = SoapySDRKwargs_get(self->soapy_args, "host")) == NULL)
       host = "";
 
-    if ((port_str = SoapySDRKwargs_get(self->soapy_args, "host")) == NULL)
+    if ((port_str = SoapySDRKwargs_get(self->soapy_args, "port")) == NULL)
       port_str = "";
 
     if (sscanf(port_str, "%hu", &port) != 1)
@@ -657,7 +657,11 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
   SUSCAN_PACK_BOILERPLATE_END;
 }
 
-SUSCAN_DESERIALIZER_PROTO(suscan_source_config)
+SUBOOL
+suscan_source_config_deserialize_ex(
+    struct suscan_source_config *self,
+    grow_buf_t *buffer,
+    const char *force_host)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
   struct suscan_source_gain_desc gain_desc, *new_desc = NULL;
@@ -725,10 +729,15 @@ SUSCAN_DESERIALIZER_PROTO(suscan_source_config)
   snprintf(port_str, sizeof(port_str), "%hu", port);
 
   if (strlen(driver) > 0) {
-    SoapySDRKwargs_set(&args, "label", desc);
+    SoapySDRKwargs_set(&args, "label",  desc);
     SoapySDRKwargs_set(&args, "driver", driver);
-    SoapySDRKwargs_set(&args, "host", host);
-    SoapySDRKwargs_set(&args, "port", port_str);
+
+    if (force_host != NULL)
+      SoapySDRKwargs_set(&args, "host",   force_host);
+    else
+      SoapySDRKwargs_set(&args, "host",   host);
+
+    SoapySDRKwargs_set(&args, "port",   port_str);
 
     /* FIXME: Add a remote device deserializer? */
     SU_TRYCATCH(
@@ -776,7 +785,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_source_config)
     /* FIXME: Return g_device_list_mutex!!! */
     device->available = SU_TRUE;
   } else {
-    self->device = NULL;
+    self->device = suscan_source_get_null_device();
   }
 
   SUSCAN_UNPACK_BOILERPLATE_FINALLY;
@@ -806,6 +815,11 @@ SUSCAN_DESERIALIZER_PROTO(suscan_source_config)
     free(gain);
 
   SUSCAN_UNPACK_BOILERPLATE_RETURN;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_source_config)
+{
+  return suscan_source_config_deserialize_ex(self, buffer, NULL);
 }
 
 suscan_source_config_t *
@@ -878,6 +892,18 @@ fail:
   suscan_source_config_destroy(new);
 
   return NULL;
+}
+
+void
+suscan_source_config_swap(
+    suscan_source_config_t *config1,
+    suscan_source_config_t *config2)
+{
+  suscan_source_config_t tmp;
+
+  tmp = *config2;
+  *config2 = *config1;
+  *config1 = tmp;
 }
 
 suscan_source_config_t *

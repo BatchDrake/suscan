@@ -243,7 +243,7 @@ suscan_source_device_build_desc(const char *driver, const char *label)
   else if (strcmp(driver, "null") == 0)
     return strdup("Dummy device");
   else if (strcmp(driver, "tcp") == 0)
-    return strbuild("%s (TCP)", label);
+    return strdup(label);
   return strbuild("%s (%s)", driver, label);
 }
 

@@ -33,18 +33,180 @@
 #include "source.h"
 #include "discovery.h"
 
-SUPRIVATE pthread_t g_discovery_thread;
-SUPRIVATE SUBOOL    g_discovery_running = SU_FALSE;
+struct suscan_discovered_remote_device {
+  const suscan_source_device_t *device;
+  suscan_source_config_t *config;
+};
+
 
 struct suscan_device_net_discovery_ctx {
-  union {
-    void *alloc_buffer;
-    struct suscan_device_net_discovery_pdu *pdu;
-  };
-
+  void *alloc_buffer;
   int fd;
   size_t alloc_size;
 };
+
+SUPRIVATE pthread_t       g_discovery_thread;
+SUPRIVATE SUBOOL          g_discovery_running = SU_FALSE;
+SUPRIVATE pthread_mutex_t g_remote_device_mutex = PTHREAD_MUTEX_INITIALIZER;
+PTR_LIST_PRIVATE(struct suscan_discovered_remote_device, g_remote_device);
+
+SUPRIVATE SUBOOL
+suscan_source_device_equals(
+    const suscan_source_device_t *dev1,
+    const suscan_source_device_t *dev2)
+{
+  unsigned int i;
+  const char *val;
+
+  if (dev1->interface != dev2->interface)
+    return SU_FALSE;
+
+  for (i = 0; i < dev1->args->size; ++i) {
+    val = SoapySDRKwargs_get(dev2->args, dev1->args->keys[i]);
+
+    if (strcmp(val, dev1->args->vals[i]) != 0)
+      return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
+SUPRIVATE struct suscan_discovered_remote_device *
+suscan_discovered_remote_device_lookup_ex_unsafe(
+    const suscan_source_device_t *self)
+{
+  unsigned int i;
+
+  for (i = 0; i < g_remote_device_count; ++i)
+    if (suscan_source_device_equals(self, g_remote_device_list[i]->device))
+      return g_remote_device_list[i];
+
+  return NULL;
+}
+
+suscan_source_config_t *
+suscan_discovered_remote_device_lookup_unsafe(
+    const suscan_source_device_t *self)
+{
+  struct suscan_discovered_remote_device *remdev;
+
+  if ((remdev = suscan_discovered_remote_device_lookup_ex_unsafe(self)) != NULL)
+    return remdev->config;
+
+  return NULL;
+}
+
+suscan_source_config_t *
+suscan_discovered_remote_device_make_config(const suscan_source_device_t *self)
+{
+  struct suscan_discovered_remote_device *remdev;
+  suscan_source_config_t *config = NULL;
+  SUBOOL acquired = SU_FALSE;
+
+  SU_TRYCATCH(
+      pthread_mutex_lock(&g_remote_device_mutex) != -1,
+      goto done);
+  acquired = SU_TRUE;
+
+  if ((remdev = suscan_discovered_remote_device_lookup_ex_unsafe(self))
+      != NULL)
+    SU_TRYCATCH(
+        config = suscan_source_config_clone(remdev->config),
+        goto done);
+
+done:
+  if (acquired)
+    (void) pthread_mutex_unlock(&g_remote_device_mutex);
+
+  return config;
+}
+
+SUBOOL
+suscan_discovered_remote_device_walk(
+    SUBOOL (*function) (
+        void *userdata,
+        const suscan_source_device_t *device,
+        const suscan_source_config_t *config),
+    void *userdata)
+{
+  unsigned int i;
+  SUBOOL acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      pthread_mutex_lock(&g_remote_device_mutex) != -1,
+      goto done);
+  acquired = SU_TRUE;
+
+  for (i = 0; i < g_remote_device_count; ++i)
+    if (g_remote_device_list[i] != NULL)
+      if (!(function) (
+          userdata,
+          g_remote_device_list[i]->device,
+          g_remote_device_list[i]->config))
+        goto done;
+
+  ok = SU_TRUE;
+
+done:
+  if (acquired)
+    (void) pthread_mutex_unlock(&g_remote_device_mutex);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_discovered_remote_device_update(suscan_source_config_t *config)
+{
+  struct suscan_discovered_remote_device *remdev;
+  SUBOOL acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      pthread_mutex_lock(&g_remote_device_mutex) != -1,
+      goto done);
+  acquired = SU_TRUE;
+
+  remdev = suscan_discovered_remote_device_lookup_ex_unsafe(
+      suscan_source_config_get_device(config));
+
+  if (remdev != NULL) {
+    /* A la C++ */
+    suscan_source_config_swap(remdev->config, config);
+    remdev = NULL;
+  } else {
+    SU_TRYCATCH(
+        remdev = calloc(1, sizeof(struct suscan_discovered_remote_device)),
+        goto done);
+
+    remdev->device = suscan_source_config_get_device(config);
+    SU_TRYCATCH(
+        remdev->config =  suscan_source_config_clone(config),
+        goto done);
+
+    SU_TRYCATCH(
+        PTR_LIST_APPEND_CHECK(g_remote_device, remdev) != -1,
+        goto done);
+
+    remdev = NULL;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (remdev != NULL) {
+    if (remdev->config != NULL)
+      suscan_source_config_destroy(remdev->config);
+
+    free(remdev);
+  }
+
+  if (acquired)
+    (void) pthread_mutex_unlock(&g_remote_device_mutex);
+
+  return ok;
+}
+
 
 SUPRIVATE void
 suscan_device_net_discovery_ctx_destroy(
@@ -161,51 +323,74 @@ suscan_device_net_discovery_thread(void *data)
 {
   ssize_t sz;
   socklen_t len = sizeof(struct sockaddr_in);
+  grow_buf_t buf = grow_buf_INITIALIZER;
+  suscan_source_config_t *cfg = NULL;
+  const suscan_source_device_t *dev = NULL;
+  const char *phost;
+  const char *pstrport;
   char *name = NULL;
-  SoapySDRKwargs args = {0, NULL, NULL};
-  char str_port[8];
   struct sockaddr_in addr;
   const char *as_ip;
 
   struct suscan_device_net_discovery_ctx *ctx =
       (struct suscan_device_net_discovery_ctx *) data;
 
-  SOAPYSDR_KWARGS_SET(&args, "driver", "tcp");
+  SU_INFO("Discovery: starting thread, alloc size: %d\n", ctx->alloc_size);
 
-  printf("Entering discovery thread\n");
   while ((sz = recvfrom(
       ctx->fd,
-      ctx->pdu,
+      ctx->alloc_buffer,
       ctx->alloc_size,
       0,
       (struct sockaddr *) &addr,
       &len)) > 0) {
-    if (sz > 2) {
-      as_ip = inet_ntoa(addr.sin_addr);
+
+    grow_buf_init_loan(
+        &buf,
+        ctx->alloc_buffer,
+        sz,
+        ctx->alloc_size);
+
+    SU_TRYCATCH(cfg = suscan_source_config_new_default(), goto done);
+
+    as_ip = inet_ntoa(addr.sin_addr);
+
+    /* New profile! */
+    if (suscan_source_config_deserialize_ex(cfg, &buf, as_ip)) {
+      dev      = suscan_source_config_get_device(cfg);
+      phost    = suscan_source_device_get_param(dev, "host");
+      pstrport = suscan_source_device_get_param(dev, "port");
+
       SU_TRYCATCH(
-          name = strbuild("%s@%s", ctx->pdu->name, as_ip),
+          name = strbuild(
+              "%s (%s:%s)",
+              suscan_source_config_get_label(cfg),
+              phost,
+              pstrport),
           goto done);
 
-      snprintf(str_port, 8, "%u", ntohs(ctx->pdu->port));
-
-      SOAPYSDR_KWARGS_SET(&args, "label", name);
-      SOAPYSDR_KWARGS_SET(&args, "host", as_ip);
-      SOAPYSDR_KWARGS_SET(&args, "port", str_port);
+      suscan_source_config_set_label(cfg, name);
 
       SU_TRYCATCH(
-          suscan_source_device_assert(
-              SUSCAN_SOURCE_REMOTE_INTERFACE,
-              &args) != NULL,
+          suscan_discovered_remote_device_update(cfg),
           goto done);
+
+      SU_INFO("%d profiles\n", g_remote_device_count);
 
       free(name);
       name = NULL;
     }
+
+    suscan_source_config_destroy(cfg);
+    cfg = NULL;
   }
 
-  printf("Loop broken\n");
+  SU_WARNING("Discovery: socket vanished, stopping thread.\n");
 
 done:
+  if (cfg != NULL)
+    suscan_source_config_destroy(cfg);
+
   if (name != NULL)
     free(name);
 
@@ -226,7 +411,6 @@ suscan_device_net_discovery_start(const char *iface)
           SURPC_DISCOVERY_MULTICAST_ADDR),
       return SU_FALSE);
 
-  printf("Creating discovery thread...\n");
   SU_TRYCATCH(
       pthread_create(
           &g_discovery_thread,
