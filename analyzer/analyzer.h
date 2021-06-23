@@ -66,7 +66,7 @@ enum suscan_analyzer_mode {
  * Set of Analyzer parameters passed to the constructor.
  * \author Gonzalo José Carracedo Carballal
  */
-struct suscan_analyzer_params {
+SUSCAN_SERIALIZABLE(suscan_analyzer_params) {
   enum suscan_analyzer_mode mode; /*!< Analyzer mode */
   struct sigutils_channel_detector_params detector_params; /*!< Channel detector parameters */
   SUFLOAT  channel_update_int; /*!< Channel info update interval (seconds) */

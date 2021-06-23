@@ -969,23 +969,24 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 {
   suscan_remote_analyzer_t *new = NULL;
   suscan_source_config_t *config;
-  const char *driver;
   const char *portstr;
   unsigned int port;
 
   config = va_arg(ap, suscan_source_config_t *);
 
-  if ((driver = suscan_source_config_get_param(config, "driver")) == NULL) {
+#if 0
+  if ((driver = suscan_source_config_get_param(config, "transport")) == NULL) {
     SU_ERROR("Cannot initialize remote source: no driver specified\n");
     goto fail;
   }
 
-  if (strcmp(driver, "tcp") != 0) {
+  if (strcmp(driver, "transport") != 0) {
     SU_ERROR(
         "Cannot initialize remote source: unsupported driver `%s'\n",
         driver);
     goto fail;
   }
+#endif
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_remote_analyzer_t)), goto fail);
 

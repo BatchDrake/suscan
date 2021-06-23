@@ -938,6 +938,12 @@ suscan_analyzer_msg_serialize(
           suscan_analyzer_throttle_msg_serialize(ptr, buffer),
           goto fail);
       break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
+      SU_TRYCATCH(
+          suscan_analyzer_params_serialize(ptr, buffer),
+          goto fail);
+      break;
   }
 
   SUSCAN_PACK_BOILERPLATE_END;
@@ -1008,6 +1014,15 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
           goto fail);
       SU_TRYCATCH(
           suscan_analyzer_throttle_msg_serialize(msgptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
+      SU_TRYCATCH(
+          msgptr = calloc(1, sizeof (struct suscan_analyzer_params)),
+          goto fail);
+      SU_TRYCATCH(
+          suscan_analyzer_params_deserialize(msgptr, buffer),
           goto fail);
       break;
 

@@ -65,6 +65,53 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_gain_info)
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
+/* Analyzer params object */
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_params)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(int,   self->mode);
+  SUSCAN_PACK(int,   self->detector_params.window);
+
+  SUSCAN_PACK(uint,  self->detector_params.window_size);
+  SUSCAN_PACK(float, self->detector_params.fc);
+  SUSCAN_PACK(float, self->detector_params.alpha);
+  SUSCAN_PACK(uint,  self->detector_params.decimation);
+  SUSCAN_PACK(uint,  self->detector_params.samp_rate);
+
+  SUSCAN_PACK(float, self->channel_update_int);
+  SUSCAN_PACK(float, self->psd_update_int);
+  SUSCAN_PACK(freq,  self->min_freq);
+  SUSCAN_PACK(freq,  self->max_freq);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_params)
+{
+  int32_t int32;
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(int32,  int32);
+  self->mode = int32;
+
+  SUSCAN_UNPACK(int32,  int32);
+  self->detector_params.window = int32;
+
+  SUSCAN_UNPACK(uint64, self->detector_params.window_size);
+  SUSCAN_UNPACK(float,  self->detector_params.fc);
+  SUSCAN_UNPACK(float,  self->detector_params.alpha);
+  SUSCAN_UNPACK(uint64, self->detector_params.decimation);
+  SUSCAN_UNPACK(uint64, self->detector_params.samp_rate);
+
+  SUSCAN_UNPACK(float,  self->channel_update_int);
+  SUSCAN_UNPACK(float,  self->psd_update_int);
+  SUSCAN_UNPACK(freq,   self->min_freq);
+  SUSCAN_UNPACK(freq,   self->max_freq);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 void
 suscan_analyzer_gain_info_destroy(struct suscan_analyzer_gain_info *self)
 {

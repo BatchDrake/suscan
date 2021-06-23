@@ -748,7 +748,7 @@ suscan_source_config_deserialize_ex(
 
     /* FIXME: Acquire g_device_list_mutex!!! */
     device->available = SU_FALSE;
-    self->device = device;
+    suscan_source_config_set_device(self, device);
 
     SUSCAN_UNPACK(uint32, gain_count);
 
