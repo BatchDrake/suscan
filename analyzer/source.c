@@ -1161,10 +1161,14 @@ suscan_source_config_from_object(const suscan_object_t *object)
     SU_TRYCATCH(suscan_source_config_set_antenna(new, tmp), goto fail);
 
   if ((tmp = suscan_object_get_field_value(object, "interface")) != NULL) {
-    if (strcmp(tmp, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0)
+    if (strcmp(tmp, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0) {
       new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
-    else if (strcmp(tmp, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0)
+    } else if (strcmp(tmp, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0) {
       new->interface = SUSCAN_SOURCE_REMOTE_INTERFACE;
+    } else {
+      SU_WARNING("Invalid interface `%s'. Defaulting to local\n", tmp);
+      new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
+    }
   }
 
   SU_CFGLOAD(float, freq, 0);
