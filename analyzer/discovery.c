@@ -375,8 +375,6 @@ suscan_device_net_discovery_thread(void *data)
           suscan_discovered_remote_device_update(cfg),
           goto done);
 
-      SU_INFO("%d profiles\n", g_remote_device_count);
-
       free(name);
       name = NULL;
     }
