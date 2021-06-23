@@ -22,6 +22,10 @@
 
 #include <sigutils/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #define SURPC_DISCOVERY_PROTOCOL_PORT   5555
 #define SURPC_DISCOVERY_MULTICAST_ADDR "239.255.255.250" /* Same as UPnP */
 #define SURPC_DISCOVERY_MAX_PDU_SIZE    4096
@@ -37,5 +41,9 @@ suscan_source_config_t *suscan_discovered_remote_device_make_config(
     const suscan_source_device_t *self);
 
 SUBOOL suscan_device_net_discovery_start(const char *iface);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _SUSCAN_ANALYZER_DISCOVERY_H */
