@@ -49,6 +49,7 @@
 PTR_LIST(SUPRIVATE suscan_source_config_t, config);
 
 /***************************** Source Config API *****************************/
+
 SUBOOL
 suscan_source_config_walk(
     SUBOOL (*function) (suscan_source_config_t *cfg, void *private),
@@ -378,6 +379,12 @@ suscan_source_config_get_channel(const suscan_source_config_t *config)
   return config->channel;
 }
 
+const char *
+suscan_source_config_get_interface(const suscan_source_config_t *self)
+{
+  return self->interface;
+}
+
 void
 suscan_source_config_set_channel(
     suscan_source_config_t *config,
@@ -553,8 +560,252 @@ suscan_source_config_set_device(
   config->interface = dev->interface;
   config->device = dev;
 
-  /* Fuck off */
   return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_config_set_interface(
+    suscan_source_config_t *self,
+    const char *interface)
+{
+  if (strcmp(interface, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0) {
+    self->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
+  } else if (strcmp(interface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0) {
+    self->interface = SUSCAN_SOURCE_REMOTE_INTERFACE;
+  } else {
+    SU_ERROR("Unsupported interface `%s'\n", interface);
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
+SUSCAN_SERIALIZER_PROTO(suscan_source_config)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+  struct suscan_source_gain_value *gain;
+  unsigned int i;
+  const char *host;
+  const char *port_str;
+  uint16_t port;
+
+  SUSCAN_PACK(str, self->label);
+  SUSCAN_PACK(str, self->interface);
+
+  switch (self->type) {
+    case SUSCAN_SOURCE_TYPE_FILE:
+      SUSCAN_PACK(str, "file");
+      break;
+
+    case SUSCAN_SOURCE_TYPE_SDR:
+      SUSCAN_PACK(str, "sdr");
+      break;
+
+    default:
+      SUSCAN_PACK(str, "unknown");
+  }
+
+  /* We don't set source format, or anything related to the sender system */
+
+  SUSCAN_PACK(freq,  self->freq);
+  SUSCAN_PACK(freq,  self->lnb_freq);
+  SUSCAN_PACK(float, self->bandwidth);
+  SUSCAN_PACK(bool,  self->iq_balance);
+  SUSCAN_PACK(bool,  self->dc_remove);
+  SUSCAN_PACK(uint,  self->samp_rate);
+  SUSCAN_PACK(uint,  self->average);
+
+  SUSCAN_PACK(bool,  self->loop);
+
+  SUSCAN_PACK(str,   self->antenna);
+  SUSCAN_PACK(uint,  self->channel);
+
+  if (self->device == NULL) {
+    SUSCAN_PACK(str, "");
+    SUSCAN_PACK(str, "");
+    SUSCAN_PACK(str, "");
+    SUSCAN_PACK(str, "0");
+  } else {
+    if ((host = SoapySDRKwargs_get(self->soapy_args, "host")) == NULL)
+      host = "";
+
+    if ((port_str = SoapySDRKwargs_get(self->soapy_args, "host")) == NULL)
+      port_str = "";
+
+    if (sscanf(port_str, "%hu", &port) != 1)
+      port = 0;
+
+    SUSCAN_PACK(str,  suscan_source_device_get_desc(self->device));
+    SUSCAN_PACK(str,  suscan_source_device_get_driver(self->device));
+    SUSCAN_PACK(str,  host);
+    SUSCAN_PACK(uint, port);
+
+    SUSCAN_PACK(uint, self->gain_count);
+
+    for (i = 0; i < self->gain_count; ++i) {
+      gain = self->gain_list[i];
+
+      SUSCAN_PACK(str,   gain->desc->name);
+      SUSCAN_PACK(float, gain->desc->min);
+      SUSCAN_PACK(float, gain->desc->max);
+      SUSCAN_PACK(float, gain->desc->step);
+      SUSCAN_PACK(float, gain->desc->def);
+      SUSCAN_PACK(float, gain->val);
+    }
+  }
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_source_config)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  struct suscan_source_gain_desc gain_desc, *new_desc = NULL;
+  struct suscan_source_gain_value *gain = NULL;
+  suscan_source_device_t *device = NULL;
+  SoapySDRKwargs args;
+  char *type = NULL;
+  char *iface = NULL;
+
+  char *driver = NULL;
+  char *desc = NULL;
+
+  char *host = NULL;
+  uint16_t port;
+  char port_str[8];
+  unsigned int gain_count, i;
+
+  memset(&args, 0, sizeof (SoapySDRKwargs));
+  memset(&gain_desc, 0, sizeof (struct suscan_source_gain_desc));
+
+  SUSCAN_UNPACK(str, self->label);
+  SUSCAN_UNPACK(str, iface);
+
+  if (strcmp(iface, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0) {
+    SU_ERROR(
+        "Deserialization of local device profiles is disabled for security reasons\n");
+    goto fail;
+    /* self->interface = SUSCAN_SOURCE_LOCAL_INTERFACE; */
+  } else if (strcmp(iface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0) {
+    self->interface = SUSCAN_SOURCE_REMOTE_INTERFACE;
+  } else {
+    SU_ERROR("Unsupported analyzer interface `%s'\n", iface);
+    goto fail;
+  }
+
+  SUSCAN_UNPACK(str, type);
+
+  if (strcmp(type, "file") == 0) {
+    self->type = SUSCAN_SOURCE_TYPE_FILE;
+  } else if (strcmp(type, "sdr") == 0) {
+    self->type = SUSCAN_SOURCE_TYPE_SDR;
+  } else {
+    SU_ERROR("Invalid source type `%s'\n", type);
+    goto fail;
+  }
+
+  SUSCAN_UNPACK(freq,  self->freq);
+  SUSCAN_UNPACK(freq,  self->lnb_freq);
+  SUSCAN_UNPACK(float, self->bandwidth);
+  SUSCAN_UNPACK(bool,  self->iq_balance);
+  SUSCAN_UNPACK(bool,  self->dc_remove);
+  SUSCAN_UNPACK(uint32,  self->samp_rate);
+  SUSCAN_UNPACK(uint32,  self->average);
+
+  SUSCAN_UNPACK(bool,  self->loop);
+
+  SUSCAN_UNPACK(str,   self->antenna);
+  SUSCAN_UNPACK(uint32,  self->channel);
+
+  SUSCAN_UNPACK(str,    desc);
+  SUSCAN_UNPACK(str,    driver);
+  SUSCAN_UNPACK(str,    host);
+  SUSCAN_UNPACK(uint16, port);
+
+  snprintf(port_str, sizeof(port_str), "%hu", port);
+
+  if (strlen(driver) > 0) {
+    SoapySDRKwargs_set(&args, "label", desc);
+    SoapySDRKwargs_set(&args, "driver", driver);
+    SoapySDRKwargs_set(&args, "host", host);
+    SoapySDRKwargs_set(&args, "port", port_str);
+
+    /* FIXME: Add a remote device deserializer? */
+    SU_TRYCATCH(
+        device = suscan_source_device_assert(
+            self->interface,
+            &args),
+        goto fail);
+
+    /* FIXME: Acquire g_device_list_mutex!!! */
+    device->available = SU_FALSE;
+    self->device = device;
+
+    SUSCAN_UNPACK(uint32, gain_count);
+
+    for (i = 0; i < gain_count; ++i) {
+      SUSCAN_UNPACK(str,   gain_desc.name);
+      SUSCAN_UNPACK(float, gain_desc.min);
+      SUSCAN_UNPACK(float, gain_desc.max);
+      SUSCAN_UNPACK(float, gain_desc.step);
+      SUSCAN_UNPACK(float, gain_desc.def);
+
+      SU_TRYCATCH(
+          new_desc = suscan_source_device_assert_gain_unsafe(
+              device,
+              gain_desc.name,
+              gain_desc.min,
+              gain_desc.max,
+              gain_desc.step),
+          goto fail);
+
+      if (gain_desc.name != NULL)
+        free(gain_desc.name);
+
+      memset(&gain_desc, 0, sizeof (struct suscan_source_gain_desc));
+
+      SU_TRYCATCH(gain = suscan_source_gain_value_new(new_desc, 0), goto fail);
+
+      SUSCAN_UNPACK(float, gain->val);
+
+      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(self->gain, gain) != -1, goto fail);
+
+      gain = NULL;
+    }
+
+    /* FIXME: Return g_device_list_mutex!!! */
+    device->available = SU_TRUE;
+  } else {
+    self->device = NULL;
+  }
+
+  SUSCAN_UNPACK_BOILERPLATE_FINALLY;
+
+  SoapySDRKwargs_clear(&args);
+
+  if (gain_desc.name != NULL)
+    free(gain_desc.name);
+
+  if (type != NULL)
+    free(type);
+
+  if (iface != NULL)
+    free(iface);
+
+  if (driver != NULL)
+    free(driver);
+
+  if (desc != NULL)
+    free(desc);
+
+  if (host != NULL)
+    free(host);
+
+  /* Not a destructor */
+  if (gain != NULL)
+    free(gain);
+
+  SUSCAN_UNPACK_BOILERPLATE_RETURN;
 }
 
 suscan_source_config_t *

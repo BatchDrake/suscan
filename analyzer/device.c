@@ -152,7 +152,7 @@ suscan_source_device_lookup_gain_desc(
   return NULL;
 }
 
-SUPRIVATE void
+void
 suscan_source_device_destroy(suscan_source_device_t *dev)
 {
   unsigned int i;
@@ -247,8 +247,8 @@ suscan_source_device_build_desc(const char *driver, const char *label)
   return strbuild("%s (%s)", driver, label);
 }
 
-SUPRIVATE struct suscan_source_gain_desc *
-suscan_source_device_assert_gain(
+struct suscan_source_gain_desc *
+suscan_source_device_assert_gain_unsafe(
     suscan_source_device_t *dev,
     const char *name,
     SUFLOAT min,
@@ -375,7 +375,7 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
           gain_list[i]);
 
       SU_TRYCATCH(
-          desc = suscan_source_device_assert_gain(
+          desc = suscan_source_device_assert_gain_unsafe(
               dev,
               gain_list[i],
               range.minimum,
@@ -451,32 +451,49 @@ suscan_source_device_get_info(
   info->gain_desc_list = NULL;
   info->gain_desc_count = 0;
 
-  if (!suscan_source_device_is_populated(dev))
-    if (!suscan_source_device_populate_info((suscan_source_device_t *) dev))
-        goto fail;
+  if (strcmp(dev->interface, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0) {
+    if (!suscan_source_device_is_populated(dev))
+        if (!suscan_source_device_populate_info((suscan_source_device_t *) dev))
+            goto fail;
 
-  /*
-   * Populate gain desc info. This is performed by checking the epoch. If
-   * this gain has not been seen in the current device discovery, just omit it.
-   */
-  for (i = 0; i < dev->gain_desc_count; ++i) {
-    if (dev->gain_desc_list[i]->epoch == dev->epoch) {
-      SU_TRYCATCH(
-          PTR_LIST_APPEND_CHECK(
-              info->gain_desc,
-              dev->gain_desc_list[i]) != -1,
-          goto fail);
-    }
+      /*
+       * Populate gain desc info. This is performed by checking the epoch. If
+       * this gain has not been seen in the current device discovery, just omit it.
+       */
+      for (i = 0; i < dev->gain_desc_count; ++i) {
+        if (dev->gain_desc_list[i]->epoch == dev->epoch) {
+          SU_TRYCATCH(
+              PTR_LIST_APPEND_CHECK(
+                  info->gain_desc,
+                  dev->gain_desc_list[i]) != -1,
+              goto fail);
+        }
+      }
+
+      info->antenna_list    = (const char **) dev->antenna_list;
+      info->antenna_count   = dev->antenna_count;
+
+      info->samp_rate_list  = (const double *) dev->samp_rate_list;
+      info->samp_rate_count = dev->samp_rate_count;
+
+      info->freq_min        = dev->freq_min;
+      info->freq_max        = dev->freq_max;
+  } else {
+    /*
+     * In principle, for remote devices we could connect to the server
+     * and retrieve this information. However, this is SLOW and may
+     * fail, particularly if get_info is called amid parameter edition.
+     * We will just keep this list empty, and populate it later.
+     */
+    info->antenna_list    = NULL;
+    info->antenna_count   = 0;
+
+    info->samp_rate_list  = NULL;
+    info->samp_rate_count = 0;
+
+    info->freq_min        = 0;
+    info->freq_max        = 3e9;
   }
-
-  info->antenna_list = (const char **) dev->antenna_list;
-  info->antenna_count = dev->antenna_count;
-
-  info->samp_rate_list = (const double *) dev->samp_rate_list;
-  info->samp_rate_count = dev->samp_rate_count;
-
-  info->freq_min = dev->freq_min;
-  info->freq_max = dev->freq_max;
 
   return SU_TRUE;
 
@@ -484,7 +501,7 @@ fail:
   return SU_FALSE;
 }
 
-SUPRIVATE suscan_source_device_t *
+suscan_source_device_t *
 suscan_source_device_new(const char *interface, const SoapySDRKwargs *args)
 {
   suscan_source_device_t *new = NULL;
@@ -522,6 +539,12 @@ fail:
     suscan_source_device_destroy(new);
 
   return NULL;
+}
+
+suscan_source_device_t *
+suscan_source_device_dup(const suscan_source_device_t *self)
+{
+  return suscan_source_device_new(self->interface, self->args);
 }
 
 SUBOOL

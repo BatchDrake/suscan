@@ -30,6 +30,7 @@ extern "C" {
 #include <SoapySDR/Device.h>
 #include <SoapySDR/Formats.h>
 #include <SoapySDR/Version.h>
+#include <analyzer/serialize.h>
 #include <util/util.h>
 #include <object.h>
 
@@ -180,6 +181,14 @@ const suscan_source_device_t *suscan_source_device_get_by_index(
 const suscan_source_device_t *suscan_source_get_null_device(void);
 
 /* Internal */
+struct suscan_source_gain_desc *suscan_source_device_assert_gain_unsafe(
+    suscan_source_device_t *dev,
+    const char *name,
+    SUFLOAT min,
+    SUFLOAT max,
+    unsigned int step);
+
+/* Internal */
 SUBOOL suscan_source_device_preinit(void);
 
 /* Internal */
@@ -206,6 +215,18 @@ suscan_source_device_t *suscan_source_device_assert(
 /* Internal */
 SUBOOL suscan_source_device_populate_info(suscan_source_device_t *self);
 
+/* Internal */
+suscan_source_device_t *suscan_source_device_new(
+    const char *interface,
+    const SoapySDRKwargs *args);
+
+/* Internal */
+suscan_source_device_t *suscan_source_device_dup(
+    const suscan_source_device_t *self);
+
+/* Internal */
+void suscan_source_device_destroy(suscan_source_device_t *dev);
+
 unsigned int suscan_source_device_get_count(void);
 
 SUBOOL suscan_source_device_get_info(
@@ -230,7 +251,7 @@ struct suscan_source_gain_value {
   SUFLOAT val;
 };
 
-struct suscan_source_config {
+SUSCAN_SERIALIZABLE(suscan_source_config) {
   enum suscan_source_type type;
   enum suscan_source_format format;
   char *label; /* Label for this configuration */
@@ -342,6 +363,10 @@ SUBOOL suscan_source_config_set_average(
 
 unsigned int suscan_source_config_get_channel(
     const suscan_source_config_t *config);
+
+const char *suscan_source_config_get_interface(
+    const suscan_source_config_t *self);
+
 void suscan_source_config_set_channel(
     suscan_source_config_t *config,
     unsigned int channel);
@@ -377,6 +402,10 @@ SUBOOL suscan_source_config_set_gain(
 SUBOOL suscan_source_config_set_device(
     suscan_source_config_t *config,
     const suscan_source_device_t *self);
+
+SUBOOL suscan_source_config_set_interface(
+    suscan_source_config_t *self,
+    const char *interface);
 
 SUINLINE const suscan_source_device_t *
 suscan_source_config_get_device(const suscan_source_config_t *config)
