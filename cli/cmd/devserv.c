@@ -289,6 +289,8 @@ suscli_devserv_announce_thread(void *ptr)
   char strport[8];
   SoapySDRKwargs args;
 
+  memset(&args, 0, sizeof(SoapySDRKwargs));
+
   /* Compose announcement PDUs */
   for (i = 0; i < ctx->server_count; ++i) {
     SU_TRYCATCH(pdu = calloc(1, sizeof(grow_buf_t)), goto done);
