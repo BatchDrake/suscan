@@ -71,7 +71,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_server_hello) {
 
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_hello) {
   SUSCAN_UNPACK_BOILERPLATE_START;
-  size_t size;
+  size_t size = 0;
 
   SUSCAN_UNPACK(str,   self->server_name);
   SUSCAN_UNPACK(uint8, self->protocol_version_major);
@@ -147,7 +147,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_server_client_auth) {
 
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_client_auth) {
   SUSCAN_UNPACK_BOILERPLATE_START;
-  size_t size;
+  size_t size = 0;
 
   SUSCAN_UNPACK(str,   self->client_name);
   SUSCAN_UNPACK(uint8, self->protocol_version_major);
