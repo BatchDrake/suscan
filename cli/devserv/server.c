@@ -206,7 +206,7 @@ suscli_analyzer_server_on_client_inspector(
 {
   suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) userdata;
 
-  if (self->tx_thread_running) {
+  if (self->tx_thread_running && self->client_list.epoch == client->epoch) {
     SU_INFO(
           "%s: cleaning up: close handle 0x%x (global 0x%x)\n",
           suscli_analyzer_client_get_name(client),
@@ -303,6 +303,9 @@ suscli_analyzer_server_tx_thread(void *ptr)
     suscan_analyzer_remote_call_finalize(&call);
   }
 
+  /* The king is dead, long live the king! */
+  suscli_analyzer_client_list_increment_epoch(&self->client_list);
+
   if (type == SUSCAN_WORKER_MSG_TYPE_HALT)
     SU_INFO("TX: Analyzer halted. Bye.\n");
   else
@@ -326,14 +329,61 @@ suscli_analyzer_server_process_auth_message(
     suscli_analyzer_client_t *client,
     const struct suscan_analyzer_remote_call *call)
 {
+  uint8_t auth_token[SHA256_BLOCK_SIZE];
+  char *new_name;
+
   SUBOOL ok = SU_FALSE;
 
-  /* Check authentication message */
+  if (call->type != SUSCAN_ANALYZER_REMOTE_AUTH_INFO) {
+    SU_ERROR(
+        "%s: expected auth info, received type = %d\n",
+        suscli_analyzer_client_get_name(client),
+        call->type);
+    goto done;
+  }
 
-  client->auth = SU_TRUE;
+  SU_INFO(
+      "%s (%s): received authentication tokens from user `%s'\n",
+      suscli_analyzer_client_get_name(client),
+      call->client_auth.client_name,
+      call->client_auth.user);
+
+  suscan_analyzer_server_compute_auth_token(
+        auth_token,
+        self->user,
+        self->password,
+        client->server_hello.sha256salt);
+
+  /* Compare tokens */
+  if (memcmp(
+      call->client_auth.sha256token,
+      auth_token,
+      SHA256_BLOCK_SIZE) != 0) {
+    SU_INFO(
+          "%s (%s): authentication rejected\n",
+          suscli_analyzer_client_get_name(client),
+          call->client_auth.client_name);
+  } else {
+    SU_INFO(
+          "%s (%s): login successful\n",
+          suscli_analyzer_client_get_name(client),
+          call->client_auth.client_name,
+          call->client_auth.user);
+    SU_TRYCATCH(
+        new_name = strbuild(
+            "%s (%s)",
+            suscli_analyzer_client_get_name(client),
+            call->client_auth.client_name),
+        goto done);
+
+    free(client->name);
+    client->name = new_name;
+    client->auth = SU_TRUE;
+  }
+
   ok = SU_TRUE;
 
-/*done:*/
+done:
   return ok;
 }
 
@@ -502,6 +552,7 @@ suscli_analyzer_server_deliver_call(
             goto done);
       } else {
         SU_WARNING("Force EOS message ignored (other consumers online)\n");
+        suscli_analyzer_client_shutdown(caller);
         suscli_analyzer_server_kick_client(self, caller);
       }
       break;
@@ -563,6 +614,7 @@ suscli_analyzer_server_deliver_call(
         suscan_analyzer_req_halt(self->analyzer);
       } else {
         SU_WARNING("Halt message ignored (other consumers online)\n");
+        suscli_analyzer_client_shutdown(caller);
         suscli_analyzer_server_kick_client(self, caller);
       }
       break;
@@ -626,7 +678,8 @@ suscli_analyzer_server_process_call(
           goto done);
     } else {
       /* Authentication failed. Mark as failed. */
-      SU_ERROR("Authentication failed. Forcing shutdown\n");
+      SU_WARNING("Client did not pass the challenge, kicking him\n");
+      suscli_analyzer_client_send_auth_rejected(client);
       suscli_analyzer_server_kick_client(self, client);
     }
   }
@@ -650,13 +703,17 @@ suscli_analyzer_server_register_clients(suscli_analyzer_server_t *self)
       self->client_list.listen_fd,
       (struct sockaddr *) &inaddr,
       &len)) != -1) {
-    SU_TRYCATCH(client = suscli_analyzer_client_new(fd), goto done);
+    SU_TRYCATCH(
+        client = suscli_analyzer_client_new(fd),
+        goto done);
+
     SU_TRYCATCH(
         suscli_analyzer_client_list_append_client(&self->client_list, client),
         goto done);
 
-    /* TODO: Send authentication challenge or server HELLO */
-    /* TODO: How about server constraints, auth requirements, etc */
+    /* Send authentication challenge in client hello */
+    SU_TRYCATCH(suscli_analyzer_client_send_hello(client), goto done);
+
     client = NULL;
   }
 
@@ -830,7 +887,11 @@ done:
 }
 
 suscli_analyzer_server_t *
-suscli_analyzer_server_new(suscan_source_config_t *profile, uint16_t port)
+suscli_analyzer_server_new(
+    suscan_source_config_t *profile,
+    uint16_t port,
+    const char *user,
+    const char *password)
 {
   suscli_analyzer_server_t *new = NULL;
   int sfd = -1;
@@ -842,6 +903,9 @@ suscli_analyzer_server_new(suscan_source_config_t *profile, uint16_t port)
 
   new->cancel_pipefd[0] = -1;
   new->cancel_pipefd[1] = -1;
+
+  SU_TRYCATCH(new->user = strdup(user), goto done);
+  SU_TRYCATCH(new->password = strdup(password), goto done);
 
   new->listen_port = port;
   SU_TRYCATCH(new->config = suscan_source_config_clone(profile), goto done);
@@ -915,6 +979,12 @@ suscli_analyzer_server_destroy(suscli_analyzer_server_t *self)
 
   if (self->config != NULL)
     suscan_source_config_destroy(self->config);
+
+  if (self->user != NULL)
+    free(self->user);
+
+  if (self->password != NULL)
+    free(self->password);
 
   free(self);
 }

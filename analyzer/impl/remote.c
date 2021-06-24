@@ -26,6 +26,7 @@
 
 #include <fcntl.h>
 #include <sys/poll.h>
+#include <analyzer/realtime.h>
 #include <netdb.h>
 
 #ifdef bool
@@ -33,6 +34,14 @@
 #endif /* bool */
 
 SUPRIVATE struct suscan_analyzer_interface *g_remote_analyzer_interface;
+
+enum suscan_remote_analyzer_auth_result {
+  SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_SUCCESS,
+  SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INVALID_SERVER,
+  SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION,
+  SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_REJECTED,
+  SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_DISCONNECTED
+};
 
 #if 0
 void
@@ -47,6 +56,179 @@ grow_buffer_debug(const grow_buf_t *buffer)
 }
 #endif
 
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_server_hello) {
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(str,  self->server_name);
+  SUSCAN_PACK(uint, self->protocol_version_major);
+  SUSCAN_PACK(uint, self->protocol_version_minor);
+  SUSCAN_PACK(uint, self->auth_mode);
+  SUSCAN_PACK(uint, self->enc_type);
+  SUSCAN_PACK(blob, self->sha256buf, SHA256_BLOCK_SIZE);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+};
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_hello) {
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  size_t size;
+
+  SUSCAN_UNPACK(str,   self->server_name);
+  SUSCAN_UNPACK(uint8, self->protocol_version_major);
+  SUSCAN_UNPACK(uint8, self->protocol_version_minor);
+  SUSCAN_UNPACK(uint8, self->auth_mode);
+  SUSCAN_UNPACK(uint8, self->enc_type);
+  SUSCAN_UNPACK(blob,  self->sha256buf, &size);
+
+  if (size != SHA256_BLOCK_SIZE) {
+    SU_ERROR("Invalid salt size %d (expected %d)\n", size, SHA256_BLOCK_SIZE);
+    goto fail;
+  }
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+};
+
+SUBOOL
+suscan_analyzer_server_hello_init(
+    struct suscan_analyzer_server_hello *self,
+    const char *name)
+{
+  SUBOOL ok = SU_FALSE;
+  unsigned int i;
+
+  memset(self, 0, sizeof (struct suscan_analyzer_server_hello));
+
+  SU_TRYCATCH(self->server_name = strdup(name), goto done);
+  SU_TRYCATCH(self->sha256salt  = malloc(SHA256_BLOCK_SIZE), goto done);
+
+  self->protocol_version_major = SUSCAN_REMOTE_PROTOCOL_MAJOR_VERSION;
+  self->protocol_version_minor = SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION;
+
+  self->auth_mode = SUSCAN_REMOTE_AUTH_MODE_USER_PASSWORD;
+  self->enc_type  = SUSCAN_REMOTE_ENC_TYPE_NONE;
+
+  srand(suscan_gettime_raw());
+
+  /* XXX: Find truly random bytes */
+  for (i = 0; i < SHA256_BLOCK_SIZE; ++i)
+    self->sha256salt[i] = rand();
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok)
+    suscan_analyzer_server_hello_finalize(self);
+
+  return ok;
+}
+
+void
+suscan_analyzer_server_hello_finalize(
+    struct suscan_analyzer_server_hello *self)
+{
+  if (self->sha256salt != NULL)
+    free(self->sha256salt);
+
+  if (self->server_name)
+    free(self->server_name);
+}
+
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_server_client_auth) {
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(str,  self->client_name);
+  SUSCAN_PACK(uint, self->protocol_version_major);
+  SUSCAN_PACK(uint, self->protocol_version_minor);
+  SUSCAN_PACK(str,  self->user);
+  SUSCAN_PACK(blob, self->sha256buf, SHA256_BLOCK_SIZE);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_client_auth) {
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  size_t size;
+
+  SUSCAN_UNPACK(str,   self->client_name);
+  SUSCAN_UNPACK(uint8, self->protocol_version_major);
+  SUSCAN_UNPACK(uint8, self->protocol_version_minor);
+  SUSCAN_UNPACK(str,   self->user);
+  SUSCAN_UNPACK(blob,  self->sha256buf, &size);
+
+  if (size != SHA256_BLOCK_SIZE) {
+    SU_ERROR("Invalid token size %d (expected %d)\n", size, SHA256_BLOCK_SIZE);
+    goto fail;
+  }
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+void
+suscan_analyzer_server_compute_auth_token(
+    uint8_t *result,
+    const char *user,
+    const char *password,
+    const uint8_t *sha256salt)
+{
+  SHA256_CTX ctx;
+
+  suscan_sha256_init(&ctx);
+
+  suscan_sha256_update(&ctx, (const BYTE *) user, strlen(user) + 1);
+  suscan_sha256_update(&ctx, (const BYTE *) password, strlen(password) + 1);
+  suscan_sha256_update(&ctx, (const BYTE *) sha256salt, SHA256_BLOCK_SIZE);
+
+  suscan_sha256_final(&ctx, result);
+}
+
+SUBOOL
+suscan_analyzer_server_client_auth_init(
+    struct suscan_analyzer_server_client_auth *self,
+    const struct suscan_analyzer_server_hello *hello,
+    const char *name,
+    const char *user,
+    const char *password)
+{
+  SUBOOL ok = SU_FALSE;
+
+  memset(self, 0, sizeof (struct suscan_analyzer_server_hello));
+
+  SU_TRYCATCH(self->client_name  = strdup(name), goto done);
+  SU_TRYCATCH(self->user         = strdup(user), goto done);
+  SU_TRYCATCH(self->sha256token  = malloc(SHA256_BLOCK_SIZE), goto done);
+
+  self->protocol_version_major = SUSCAN_REMOTE_PROTOCOL_MAJOR_VERSION;
+  self->protocol_version_minor = SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION;
+
+  suscan_analyzer_server_compute_auth_token(
+      self->sha256token,
+      user,
+      password,
+      hello->sha256salt);
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok)
+    suscan_analyzer_server_client_auth_finalize(self);
+
+  return ok;
+}
+
+void
+suscan_analyzer_server_client_auth_finalize(
+    struct suscan_analyzer_server_client_auth *self)
+{
+  if (self->client_name != NULL)
+    free(self->client_name);
+
+  if (self->user != NULL)
+    free(self->user);
+
+  if (self->sha256token != NULL)
+    free(self->sha256token);
+}
+
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
 {
   SUSCAN_PACK_BOILERPLATE_START;
@@ -55,6 +237,11 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
 
   switch (self->type) {
     case SUSCAN_ANALYZER_REMOTE_AUTH_INFO:
+      SU_TRYCATCH(
+          suscan_analyzer_server_client_auth_serialize(
+              &self->client_auth,
+              buffer),
+          goto fail);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
@@ -122,6 +309,9 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
     case SUSCAN_ANALYZER_REMOTE_REQ_HALT:
       break;
 
+    case SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED:
+      break;
+
     default:
       SU_ERROR("Invalid remote call `%d'\n", self->type);
       break;
@@ -138,6 +328,11 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
 
   switch (self->type) {
     case SUSCAN_ANALYZER_REMOTE_AUTH_INFO:
+      SU_TRYCATCH(
+          suscan_analyzer_server_client_auth_deserialize(
+              &self->client_auth,
+              buffer),
+          goto fail);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
@@ -211,6 +406,9 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
       break;
 
     case SUSCAN_ANALYZER_REMOTE_REQ_HALT:
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED:
       break;
 
     default:
@@ -289,6 +487,10 @@ void
 suscan_analyzer_remote_call_finalize(struct suscan_analyzer_remote_call *self)
 {
   switch (self->type) {
+    case SUSCAN_ANALYZER_REMOTE_AUTH_INFO:
+      suscan_analyzer_server_client_auth_finalize(&self->client_auth);
+      break;
+
     case SUSCAN_ANALYZER_REMOTE_SET_GAIN:
       if (self->gain.name != NULL)
         free(self->gain.name);
@@ -480,6 +682,7 @@ suscan_remote_analyzer_receive_call(
   struct suscan_analyzer_remote_call *call = NULL;
   SUBOOL ok = SU_FALSE;
 
+  /* Right now: use control fd only */
   SU_TRYCATCH(
       suscan_remote_read_pdu(
           self->peer.control_fd,
@@ -632,13 +835,38 @@ done:
   return ret;
 }
 
-
-SUPRIVATE SUBOOL
+SUPRIVATE enum suscan_remote_analyzer_auth_result
 suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
 {
   struct suscan_analyzer_remote_call *call;
+  struct suscan_analyzer_server_hello hello;
+  char hostname[64];
   SUBOOL write_ok = SU_FALSE;
-  SUBOOL ok = SU_FALSE;
+  enum suscan_remote_analyzer_auth_result result =
+      SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INVALID_SERVER;
+
+  memset(&hello, 0, sizeof(struct suscan_analyzer_server_hello));
+
+  SU_TRYCATCH(
+      suscan_remote_read_pdu(
+          self->peer.control_fd,
+          self->cancel_pipe[0],
+          &self->peer.read_buffer,
+          SUSCAN_REMOTE_ANALYZER_AUTH_TIMEOUT_MS),
+      goto done);
+
+  SU_TRYCATCH(
+      suscan_analyzer_server_hello_deserialize(&hello, &self->peer.read_buffer),
+      goto done);
+
+  if (hello.protocol_version_major < SUSCAN_REMOTE_PROTOCOL_MAJOR_VERSION) {
+    result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION;
+    SU_ERROR(
+        "Remote server is too old (protocol version %d.%d)\n",
+        hello.protocol_version_major,
+        hello.protocol_version_minor);
+    goto done;
+  }
 
   SU_TRYCATCH(
       call = suscan_remote_analyzer_acquire_call(
@@ -646,9 +874,18 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           SUSCAN_ANALYZER_REMOTE_AUTH_INFO),
       goto done);
 
-  /*
-   * TODO: Put authentication tokens
-   */
+  /* Prepare authentication message */
+  (void) gethostname(hostname, sizeof(hostname));
+  hostname[sizeof(hostname) - 1] = '\0';
+
+  SU_TRYCATCH(
+      suscan_analyzer_server_client_auth_init(
+          &call->client_auth,
+          &hello,
+          hostname,
+          self->peer.user,
+          self->peer.password),
+      goto done);
 
   write_ok = suscan_remote_analyzer_deliver_call(
       self,
@@ -656,11 +893,9 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
       call);
   call = NULL;
 
-  SU_TRYCATCH(write_ok, goto done);
+  result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_DISCONNECTED;
 
-  /*
-   * TODO: Verify server identity
-   */
+  SU_TRYCATCH(write_ok, goto done);
 
   SU_TRYCATCH(
       call = suscan_remote_analyzer_receive_call(
@@ -669,6 +904,11 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           self->cancel_pipe[0],
           SUSCAN_REMOTE_ANALYZER_AUTH_TIMEOUT_MS),
       goto done);
+
+  if (call->type == SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED) {
+    result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_REJECTED;
+    goto done;
+  }
 
   SU_TRYCATCH(call->type == SUSCAN_ANALYZER_REMOTE_SOURCE_INFO, goto done);
   SU_TRYCATCH(
@@ -684,19 +924,22 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
   suscan_remote_analyzer_release_call(self, call);
   call = NULL;
 
-  ok = SU_TRUE;
+  result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_SUCCESS;
 
 done:
   if (call != NULL)
     suscan_remote_analyzer_release_call(self, call);
 
-  return ok;
+  suscan_analyzer_server_hello_finalize(&hello);
+
+  return result;
 }
 
 SUPRIVATE SUBOOL
 suscan_remote_analyzer_connect_to_peer(suscan_remote_analyzer_t *self)
 {
   struct hostent *ent;
+  enum suscan_remote_analyzer_auth_result auth_result;
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(
@@ -757,13 +1000,43 @@ suscan_remote_analyzer_connect_to_peer(suscan_remote_analyzer_t *self)
         self->peer.port),
     goto done);
 
-  if (!suscan_remote_analyzer_auth_peer(self)) {
-    (void) suscan_analyzer_send_status(
-        self->parent,
-        SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
-        SUSCAN_ANALYZER_INIT_FAILURE,
-        "Authentication error. Giving up.\n");
-    goto done;
+  auth_result = suscan_remote_analyzer_auth_peer(self);
+
+  switch (auth_result) {
+    case SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_DISCONNECTED:
+      (void) suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
+          SUSCAN_ANALYZER_INIT_FAILURE,
+          "Connection reset during authentication");
+      goto done;
+
+    case SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION:
+      (void) suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
+          SUSCAN_ANALYZER_INIT_FAILURE,
+          "Incompatible server protocol");
+      goto done;
+
+    case SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INVALID_SERVER:
+      (void) suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
+          SUSCAN_ANALYZER_INIT_FAILURE,
+          "Connection opened, but host is not a valid Suscan device server");
+      goto done;
+
+    case SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_REJECTED:
+      (void) suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
+          SUSCAN_ANALYZER_INIT_FAILURE,
+          "Authentication rejected (wrong user and/or password?)");
+      goto done;
+
+    case SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_SUCCESS:
+      break;
   }
 
   SU_TRYCATCH(
@@ -872,8 +1145,7 @@ suscan_remote_analyzer_tx_thread(void *ptr)
         break;
 
       case SUSCAN_REMOTE_HALT:
-        /* Remote halt */
-        break;
+        goto done;
     }
   }
 
@@ -969,6 +1241,7 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 {
   suscan_remote_analyzer_t *new = NULL;
   suscan_source_config_t *config;
+  const char *val;
   const char *portstr;
   unsigned int port;
 
@@ -990,17 +1263,25 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_remote_analyzer_t)), goto fail);
 
+  /*
+   * We tentatively set this to the configured sample rate. It may change
+   * later but at least it makes the user believe this is a regular analyzer.
+   */
+  new->source_info.source_samp_rate =
+      suscan_source_config_get_samp_rate(config);
+
   new->parent = parent;
   new->peer.control_fd = -1;
   new->peer.data_fd    = -1;
   new->cancel_pipe[0]  = -1;
   new->cancel_pipe[1]  = -1;
 
-  new->peer.hostname = suscan_source_config_get_param(config, "host");
-  if (new->peer.hostname == NULL) {
+  val = suscan_source_config_get_param(config, "host");
+  if (val == NULL) {
     SU_ERROR("Cannot initialize remote source: no remote host provided\n");
     goto fail;
   }
+  SU_TRYCATCH(new->peer.hostname = strdup(val), goto fail);
 
   portstr = suscan_source_config_get_param(config, "port");
   if (portstr == NULL) {
@@ -1013,6 +1294,20 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
     goto fail;
   }
   new->peer.port = port;
+
+  val = suscan_source_config_get_param(config, "user");
+  if (val == NULL) {
+    SU_ERROR("No username provided\n");
+    goto fail;
+  }
+  SU_TRYCATCH(new->peer.user = strdup(val), goto fail);
+
+  val = suscan_source_config_get_param(config, "password");
+  if (val == NULL) {
+    SU_ERROR("No password provided\n");
+    goto fail;
+  }
+  SU_TRYCATCH(new->peer.password = strdup(val), goto fail);
 
   SU_TRYCATCH(pthread_mutex_init(&new->call_mutex, NULL) == 0, goto fail);
   new->call_mutex_initialized = SU_TRUE;
@@ -1052,6 +1347,15 @@ suscan_remote_analyzer_dtor(void *ptr)
     suscan_mq_write(&self->pdu_queue, SUSCAN_REMOTE_HALT, NULL);
     pthread_join(self->tx_thread, NULL);
   }
+
+  if (self->peer.hostname != NULL)
+    free(self->peer.hostname);
+
+  if (self->peer.user != NULL)
+    free(self->peer.user);
+
+  if (self->peer.password != NULL)
+    free(self->peer.password);
 
   if (self->peer.control_fd != -1)
     close(self->peer.control_fd);

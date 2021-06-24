@@ -22,6 +22,7 @@
 
 #include <analyzer/analyzer.h>
 #include <netinet/in.h>
+#include <util/sha256.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,6 +35,15 @@ extern "C" {
 #define SUSCAN_REMOTE_READ_BUFFER                        1400
 
 #define SUSCAN_REMOTE_HALT                                  2
+
+#define SUSCAN_REMOTE_PROTOCOL_TOKEN_SIZE   SHA256_BLOCK_SIZE
+#define SUSCAN_REMOTE_PROTOCOL_MAJOR_VERSION                0
+#define SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION                1
+
+#define SUSCAN_REMOTE_AUTH_MODE_NONE                        0
+#define SUSCAN_REMOTE_AUTH_MODE_USER_PASSWORD               1
+
+#define SUSCAN_REMOTE_ENC_TYPE_NONE                         0
 
 struct suscan_analyzer_remote_pdu_header {
   uint32_t magic;
@@ -58,13 +68,63 @@ enum suscan_analyzer_remote_type {
   SUSCAN_ANALYZER_REMOTE_SET_BUFFERING_SIZE,
   SUSCAN_ANALYZER_REMOTE_MESSAGE,
   SUSCAN_ANALYZER_REMOTE_REQ_HALT,
+  SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED,
 };
+
+SUSCAN_SERIALIZABLE(suscan_analyzer_server_hello) {
+  char    *server_name;
+  uint8_t  protocol_version_major;
+  uint8_t  protocol_version_minor;
+  uint8_t  auth_mode;
+  uint8_t  enc_type;
+
+  union {
+    void    *sha256buf;
+    uint8_t *sha256salt;
+  };
+};
+
+SUBOOL suscan_analyzer_server_hello_init(
+    struct suscan_analyzer_server_hello *self,
+    const char *name);
+
+void suscan_analyzer_server_hello_finalize(
+    struct suscan_analyzer_server_hello *self);
+
+SUSCAN_SERIALIZABLE(suscan_analyzer_server_client_auth) {
+  char    *client_name;
+  uint8_t  protocol_version_major;
+  uint8_t  protocol_version_minor;
+  char    *user;
+
+  union {
+    void    *sha256buf;
+    uint8_t *sha256token;
+  };
+};
+
+void suscan_analyzer_server_compute_auth_token(
+    uint8_t *result,
+    const char *user,
+    const char *password,
+    const uint8_t *sha256salt);
+
+SUBOOL suscan_analyzer_server_client_auth_init(
+    struct suscan_analyzer_server_client_auth *self,
+    const struct suscan_analyzer_server_hello *hello,
+    const char *name,
+    const char *user,
+    const char *password);
+
+void suscan_analyzer_server_client_auth_finalize(
+    struct suscan_analyzer_server_client_auth *self);
 
 SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call) {
   uint32_t type;
 
   union {
     struct suscan_analyzer_source_info source_info;
+    struct suscan_analyzer_server_client_auth client_auth;
     struct {
       SUFREQ freq;
       SUFREQ lnb;
@@ -141,8 +201,12 @@ size_t suscan_remote_read(
     int timeout_ms);
 
 struct suscan_remote_analyzer_peer_info {
-  const char *hostname;
+  char *hostname;
   uint16_t port;
+
+  char *user;
+  char *password;
+
   struct in_addr hostaddr;
 
   int control_fd;
@@ -157,8 +221,9 @@ struct suscan_remote_analyzer {
 
   pthread_mutex_t call_mutex;
   SUBOOL call_mutex_initialized;
-  struct suscan_analyzer_source_info source_info;
-  struct suscan_analyzer_remote_call call;
+
+  struct suscan_analyzer_source_info      source_info;
+  struct suscan_analyzer_remote_call      call;
   struct suscan_remote_analyzer_peer_info peer;
   struct suscan_mq pdu_queue;
 

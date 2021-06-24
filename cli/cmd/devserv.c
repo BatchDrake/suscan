@@ -60,11 +60,10 @@ su_log_func(void *private, const struct sigutils_log_message *msg)
   size_t msglen;
 
   if (*cr) {
-    print_date();
-
     switch (msg->severity) {
       case SU_LOG_SEVERITY_DEBUG:
         printf("\033[1;30m");
+        print_date();
         printf(" - debug: ");
         break;
 
@@ -170,7 +169,11 @@ suscli_devserv_ctx_alloc_pdu(struct suscli_devserv_ctx *self, size_t size)
 }
 
 SUPRIVATE struct suscli_devserv_ctx *
-suscli_devserv_ctx_new(const char *iface, const char *mcaddr)
+suscli_devserv_ctx_new(
+    const char *iface,
+    const char *mcaddr,
+    const char *user,
+    const char *password)
 {
   struct suscli_devserv_ctx *new = NULL;
   suscan_source_config_t *cfg;
@@ -244,7 +247,11 @@ suscli_devserv_ctx_new(const char *iface, const char *mcaddr)
 
     if (cfg != NULL) {
       SU_TRYCATCH(
-          server = suscli_analyzer_server_new(cfg, new->port_base + i),
+          server = suscli_analyzer_server_new(
+              cfg,
+              new->port_base + i,
+              user,
+              password),
           goto fail);
 
       SU_TRYCATCH(PTR_LIST_APPEND_CHECK(new->server, server) != -1, goto fail);
@@ -362,6 +369,8 @@ suscli_devserv_cb(const hashlist_t *params)
 {
   struct suscli_devserv_ctx *ctx = NULL;
   const char *iface, *mc;
+  const char *user, *password;
+
   pthread_t thread;
   SUBOOL thread_running = SU_FALSE;
   SUBOOL ok = SU_FALSE;
@@ -370,6 +379,14 @@ suscli_devserv_cb(const hashlist_t *params)
 
   SU_TRYCATCH(
       suscli_param_read_string(params, "if", &iface, NULL),
+      goto done);
+
+  SU_TRYCATCH(
+      suscli_param_read_string(params, "user", &user, "anonymous"),
+      goto done);
+
+  SU_TRYCATCH(
+      suscli_param_read_string(params, "password", &password, ""),
       goto done);
 
   if (iface == NULL) {
@@ -389,7 +406,9 @@ suscli_devserv_cb(const hashlist_t *params)
 
   SU_INFO("Suscan device server %s\n", SUSCAN_VERSION_STRING);
 
-  SU_TRYCATCH(ctx = suscli_devserv_ctx_new(iface, mc), goto done);
+  SU_TRYCATCH(
+      ctx = suscli_devserv_ctx_new(iface, mc, user, password),
+      goto done);
 
   SU_TRYCATCH(
       pthread_create(&thread, NULL, suscli_devserv_announce_thread, ctx) != -1,

@@ -46,6 +46,8 @@ struct suscli_analyzer_client {
   SUBOOL auth;
   SUBOOL has_source_info;
   SUBOOL failed;
+  SUBOOL closed;
+  unsigned int epoch;
   struct timeval conntime;
   struct in_addr remote_addr;
 
@@ -54,6 +56,8 @@ struct suscli_analyzer_client {
   uint8_t header_ptr;
 
   char *name;
+
+  struct suscan_analyzer_server_hello server_hello;
 
   grow_buf_t incoming_pdu;
   struct suscan_analyzer_remote_call incoming_call;
@@ -199,6 +203,7 @@ SUBOOL suscli_analyzer_client_intercept_message(
     const struct suscli_analyzer_client_interceptors *interceptors);
 
 SUBOOL suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self);
+SUBOOL suscli_analyzer_client_send_hello(suscli_analyzer_client_t *self);
 SUBOOL suscli_analyzer_client_deliver_call(suscli_analyzer_client_t *self);
 SUBOOL suscli_analyzer_client_write_buffer(
     suscli_analyzer_client_t *self,
@@ -207,7 +212,8 @@ SUBOOL suscli_analyzer_client_write_buffer(
 SUBOOL suscli_analyzer_client_send_source_info(
     suscli_analyzer_client_t *self,
     const struct suscan_analyzer_source_info *info);
-
+SUBOOL suscli_analyzer_client_send_auth_rejected(
+    suscli_analyzer_client_t *self);
 void suscli_analyzer_client_destroy(suscli_analyzer_client_t *self);
 
 struct pollfd;
@@ -237,6 +243,7 @@ struct suscli_analyzer_client_list {
   /* Actual list */
   suscli_analyzer_client_t *client_head;
   rbtree_t                 *client_tree;
+  unsigned int              epoch;
 
   /* Data descriptors */
   int cancel_fd;
@@ -257,6 +264,12 @@ struct suscli_analyzer_client_list {
   SUBOOL          client_mutex_initialized;
 };
 
+SUINLINE void
+suscli_analyzer_client_list_increment_epoch(
+    struct suscli_analyzer_client_list *self)
+{
+  ++self->epoch;
+}
 
 SUBOOL suscli_analyzer_client_list_init(
     struct suscli_analyzer_client_list *,
@@ -326,6 +339,9 @@ struct suscli_analyzer_server {
 
   uint16_t listen_port;
 
+  char *user;
+  char *password;
+
   suscan_analyzer_t *analyzer;
   suscan_source_config_t *config;
   struct suscan_mq mq;
@@ -356,7 +372,11 @@ suscli_analyzer_server_get_port(const suscli_analyzer_server_t *self)
 }
 
 suscli_analyzer_server_t *
-suscli_analyzer_server_new(suscan_source_config_t *profile, uint16_t port);
+suscli_analyzer_server_new(
+    suscan_source_config_t *profile,
+    uint16_t port,
+    const char *user,
+    const char *password);
 
 SUINLINE SUBOOL
 suscli_analyzer_server_is_running(suscli_analyzer_server_t *self)

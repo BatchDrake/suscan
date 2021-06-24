@@ -84,6 +84,28 @@ suscan_double_array_be_to_cpu(
 }
 
 SUBOOL
+suscan_pack_blob(
+    grow_buf_t *buffer,
+    const void *data,
+    size_t size)
+{
+  SU_TRYCATCH(cbor_pack_blob(buffer, data, size) == 0, return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_unpack_blob(
+    grow_buf_t *buffer,
+    void **data,
+    size_t *size)
+{
+  SU_TRYCATCH(cbor_unpack_blob(buffer, data, size) == 0, return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_pack_compact_single_array(
     grow_buf_t *buffer,
     const SUSINGLE *array,

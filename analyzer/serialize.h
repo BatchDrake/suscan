@@ -30,60 +30,60 @@
 #  define suscan_unpack_compact_float_array suscan_unpack_compact_double_array
 #endif /* _SU_SINGLE_PRECISION */
 
-#define SUSCAN_SERIALIZER_PROTO(structname)     \
-SUBOOL                                          \
-JOIN(structname, _serialize)(                   \
-    const struct structname *self,              \
-    grow_buf_t *buffer)                         \
+#define SUSCAN_SERIALIZER_PROTO(structname)            \
+SUBOOL                                                 \
+JOIN(structname, _serialize)(                          \
+    const struct structname *self,                     \
+    grow_buf_t *buffer)                                \
 
-#define SUSCAN_DESERIALIZER_PROTO(structname)   \
-SUBOOL                                          \
-JOIN(structname, _deserialize)(                 \
-    struct structname *self,                    \
-    grow_buf_t *buffer)                         \
+#define SUSCAN_DESERIALIZER_PROTO(structname)          \
+SUBOOL                                                 \
+JOIN(structname, _deserialize)(                        \
+    struct structname *self,                           \
+    grow_buf_t *buffer)                                \
 
-#define SUSCAN_SERIALIZABLE(structname)         \
-    struct structname;                          \
-    SUSCAN_SERIALIZER_PROTO(structname);        \
-    SUSCAN_DESERIALIZER_PROTO(structname);      \
+#define SUSCAN_SERIALIZABLE(structname)                \
+    struct structname;                                 \
+    SUSCAN_SERIALIZER_PROTO(structname);               \
+    SUSCAN_DESERIALIZER_PROTO(structname);             \
     struct structname
 
-#define SUSCAN_PACK_BOILERPLATE_START           \
+#define SUSCAN_PACK_BOILERPLATE_START                  \
   SUBOOL ok = SU_FALSE;
 
-#define SUSCAN_PACK_BOILERPLATE_END             \
-  ok = SU_TRUE;                                 \
-                                                \
-fail:                                           \
+#define SUSCAN_PACK_BOILERPLATE_END                    \
+  ok = SU_TRUE;                                        \
+                                                       \
+fail:                                                  \
   return ok
 
-#define SUSCAN_UNPACK_BOILERPLATE_START         \
-  size_t _ptr = grow_buf_ptr(buffer);           \
+#define SUSCAN_UNPACK_BOILERPLATE_START                \
+  size_t _ptr = grow_buf_ptr(buffer);                  \
   SUBOOL ok = SU_FALSE;
 
-#define SUSCAN_UNPACK_BOILERPLATE_FINALLY       \
-    ok = SU_TRUE;                               \
-                                                \
-fail:                                           \
-  if (!ok)                                      \
-    grow_buf_seek(buffer, _ptr, SEEK_SET);      \
-                                                \
+#define SUSCAN_UNPACK_BOILERPLATE_FINALLY              \
+    ok = SU_TRUE;                                      \
+                                                       \
+fail:                                                  \
+  if (!ok)                                             \
+    grow_buf_seek(buffer, _ptr, SEEK_SET);             \
+                                                       \
 
-#define SUSCAN_UNPACK_BOILERPLATE_RETURN        \
+#define SUSCAN_UNPACK_BOILERPLATE_RETURN               \
   return ok;
 
-#define SUSCAN_UNPACK_BOILERPLATE_END           \
-    SUSCAN_UNPACK_BOILERPLATE_FINALLY           \
-    SUSCAN_UNPACK_BOILERPLATE_RETURN            \
+#define SUSCAN_UNPACK_BOILERPLATE_END                  \
+    SUSCAN_UNPACK_BOILERPLATE_FINALLY                  \
+    SUSCAN_UNPACK_BOILERPLATE_RETURN                   \
 
-#define SUSCAN_PACK(t, v)                       \
-    SU_TRYCATCH(                                \
-        JOIN(cbor_pack_, t)(buffer, v) == 0,    \
+#define SUSCAN_PACK(t, v, arg...)                      \
+    SU_TRYCATCH(                                       \
+        JOIN(cbor_pack_, t)(buffer, v, ##arg) == 0,    \
         goto fail)
 
-#define SUSCAN_UNPACK(t, v)                     \
-    SU_TRYCATCH(                                \
-        JOIN(cbor_unpack_, t)(buffer, &v) == 0, \
+#define SUSCAN_UNPACK(t, v, arg...)                    \
+    SU_TRYCATCH(                                       \
+        JOIN(cbor_unpack_, t)(buffer, &v, ##arg) == 0, \
         goto fail)
 
 void suscan_single_array_cpu_to_be(

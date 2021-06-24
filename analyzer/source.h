@@ -542,6 +542,19 @@ suscan_source_config_get_param(
 }
 
 SUINLINE SUBOOL
+suscan_source_config_set_param(
+    const suscan_source_config_t *self,
+    const char *key,
+    const char *value)
+{
+  /* DANGER */
+  SoapySDRKwargs_set(self->soapy_args, key, value);
+  /* DANGER */
+
+  return SU_TRUE;
+}
+
+SUINLINE SUBOOL
 suscan_source_config_is_remote(const suscan_source_config_t *self)
 {
   if (self->interface == NULL)

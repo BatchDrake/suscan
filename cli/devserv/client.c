@@ -21,10 +21,12 @@
 
 #include "devserv.h"
 #include <analyzer/msg.h>
+#include <analyzer/version.h>
 #include <sigutils/log.h>
 #include <sys/poll.h>
 #include <sys/fcntl.h>
 
+#define SUSCLI_ANALYZER_SERVER_NAME "Suscan device server - " SUSCAN_VERSION_STRING
 
 /************************** Analyzer Client API *******************************/
 suscli_analyzer_client_t *
@@ -36,9 +38,15 @@ suscli_analyzer_client_new(int sfd)
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_client_t)), goto fail);
 
-  new->sfd = -1;
+  new->sfd   = -1;
 
   new->inspectors.inspector_last_free = -1;
+
+  SU_TRYCATCH(
+      suscan_analyzer_server_hello_init(
+          &new->server_hello,
+          SUSCLI_ANALYZER_SERVER_NAME),
+      goto fail);
 
   gettimeofday(&new->conntime, NULL);
 
@@ -47,7 +55,6 @@ suscli_analyzer_client_new(int sfd)
       goto fail);
 
   new->remote_addr = sin.sin_addr;
-  new->sfd = sfd;
 
   SU_TRYCATCH(
       new->name = strbuild(
@@ -55,6 +62,8 @@ suscli_analyzer_client_new(int sfd)
           suscli_analyzer_client_string_addr(new),
           ntohs(sin.sin_port)),
       goto fail);
+
+  new->sfd = sfd;
 
   return new;
 
@@ -353,9 +362,36 @@ suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self)
 {
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(!self->failed, goto done);
+  SU_TRYCATCH(!self->failed,   goto done);
+  SU_TRYCATCH(!self->closed,   goto done);
+  SU_TRYCATCH(self->sfd != -1, goto done);
 
   SU_TRYCATCH(shutdown(self->sfd, 2) == 0, goto done);
+
+  self->closed = SU_TRUE;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_send_hello(suscli_analyzer_client_t *self)
+{
+  SUBOOL ok = SU_FALSE;
+
+  grow_buf_clear(&self->outcoming_pdu);
+
+  SU_TRYCATCH(
+      suscan_analyzer_server_hello_serialize(
+          &self->server_hello,
+          &self->outcoming_pdu),
+      goto done);
+
+  SU_TRYCATCH(
+      suscli_analyzer_client_write_buffer(self, &self->outcoming_pdu),
+      goto done);
 
   ok = SU_TRUE;
 
@@ -417,10 +453,34 @@ done:
   return ok;
 }
 
+SUBOOL
+suscli_analyzer_client_send_auth_rejected(suscli_analyzer_client_t *self)
+{
+  struct suscan_analyzer_remote_call *call = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      call = suscli_analyzer_client_get_outcoming_call(self),
+      goto done);
+
+  suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED);
+
+  SU_TRYCATCH(suscli_analyzer_client_deliver_call(self), goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (call != NULL)
+    suscli_analyzer_client_return_outcoming_call(self, call);
+
+  return ok;
+}
+
 void
 suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
 {
-  close(self->sfd);
+  if (self->sfd != -1 && !self->closed)
+    close(self->sfd);
 
   if (self->name != NULL)
     free(self->name);
@@ -428,6 +488,7 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
   grow_buf_finalize(&self->incoming_pdu);
   grow_buf_finalize(&self->outcoming_pdu);
 
+  suscan_analyzer_server_hello_finalize(&self->server_hello);
   suscan_analyzer_remote_call_finalize(&self->incoming_call);
   suscan_analyzer_remote_call_finalize(&self->outcoming_call);
 
@@ -507,8 +568,14 @@ suscli_analyzer_client_list_cleanup_unsafe(
   while (this != NULL) {
     if (this->data != NULL) {
       client = this->data;
+
+      /*
+       * Conditions for removal: either it is marked as failed, or
+       * there are no pending analyzer resources.
+       */
       if (suscli_analyzer_client_is_failed(client) &&
-          !suscli_analyzer_client_has_outstanding_inspectors(client)) {
+          (self->epoch != client->epoch
+              || !suscli_analyzer_client_has_outstanding_inspectors(client))) {
         suscli_analyzer_client_list_remove_unsafe(self, client);
         SU_INFO(
             "%s: client removed from list (%d outstanding clients)\n",
@@ -701,6 +768,7 @@ suscli_analyzer_client_list_append_client(
         goto done);
   }
 
+  client->epoch = self->epoch;
   client->next = self->client_head;
   client->prev = NULL;
 
