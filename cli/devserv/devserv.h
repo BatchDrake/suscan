@@ -58,12 +58,9 @@ struct suscli_analyzer_client {
   char *name;
 
   struct suscan_analyzer_server_hello server_hello;
-
-  grow_buf_t incoming_pdu;
   struct suscan_analyzer_remote_call incoming_call;
 
-  grow_buf_t outcoming_pdu;
-  struct suscan_analyzer_remote_call outcoming_call;
+  grow_buf_t incoming_pdu;  /* Buffer pool: used by RX thread only */
 
   union {
     struct suscan_analyzer_remote_pdu_header header;
@@ -180,13 +177,6 @@ SUBOOL suscli_analyzer_client_read(suscli_analyzer_client_t *self);
 struct suscan_analyzer_remote_call *suscli_analyzer_client_take_call(
     suscli_analyzer_client_t *);
 
-struct suscan_analyzer_remote_call *suscli_analyzer_client_get_outcoming_call(
-    suscli_analyzer_client_t *);
-
-void suscli_analyzer_client_return_outcoming_call(
-    suscli_analyzer_client_t *self,
-    struct suscan_analyzer_remote_call *call);
-
 SUHANDLE suscli_analyzer_client_register_inspector_handle(
     suscli_analyzer_client_t *self,
     SUHANDLE global_handle,
@@ -204,7 +194,10 @@ SUBOOL suscli_analyzer_client_intercept_message(
 
 SUBOOL suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self);
 SUBOOL suscli_analyzer_client_send_hello(suscli_analyzer_client_t *self);
-SUBOOL suscli_analyzer_client_deliver_call(suscli_analyzer_client_t *self);
+SUBOOL suscli_analyzer_client_deliver_call(
+    suscli_analyzer_client_t *self,
+    const struct suscan_analyzer_remote_call *call);
+
 SUBOOL suscli_analyzer_client_write_buffer(
     suscli_analyzer_client_t *self,
     const grow_buf_t *buffer);

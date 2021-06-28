@@ -299,7 +299,7 @@ suscli_analyzer_server_tx_thread(void *ptr)
       }
     }
 
-    grow_buf_clear(&pdu);
+    grow_buf_shrink(&pdu);
     suscan_analyzer_remote_call_finalize(&call);
   }
 

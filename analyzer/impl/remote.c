@@ -702,9 +702,9 @@ suscan_remote_analyzer_receive_call(
   ok = SU_TRUE;
 
 done:
-  if (!ok) {
-    (void) suscan_remote_analyzer_release_call(self, call);
-    call = NULL;
+  if (!ok && call != NULL) {
+      (void) suscan_remote_analyzer_release_call(self, call);
+      call = NULL;
   }
 
   return call;
