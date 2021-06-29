@@ -34,6 +34,9 @@ struct suscli_analyzer_client_inspector_entry {
 };
 
 struct suscli_analyzer_client_inspector_list {
+  pthread_mutex_t inspector_mutex;
+  SUBOOL          inspector_mutex_initialized;
+
   struct suscli_analyzer_client_inspector_entry *inspector_list;
   unsigned int inspector_alloc;
   unsigned int inspector_count;
@@ -57,8 +60,8 @@ struct suscli_analyzer_client {
 
   char *name;
 
-  struct suscan_analyzer_server_hello server_hello;
-  struct suscan_analyzer_remote_call incoming_call;
+  struct suscan_analyzer_server_hello server_hello;  /* Read-only */
+  struct suscan_analyzer_remote_call  incoming_call; /* RX thread only */
 
   grow_buf_t incoming_pdu;  /* Buffer pool: used by RX thread only */
 
@@ -177,12 +180,23 @@ SUBOOL suscli_analyzer_client_read(suscli_analyzer_client_t *self);
 struct suscan_analyzer_remote_call *suscli_analyzer_client_take_call(
     suscli_analyzer_client_t *);
 
+SUHANDLE suscli_analyzer_client_register_inspector_handle_unsafe(
+    suscli_analyzer_client_t *self,
+    SUHANDLE global_handle,
+    int32_t itl_index);
+
+
 SUHANDLE suscli_analyzer_client_register_inspector_handle(
     suscli_analyzer_client_t *self,
     SUHANDLE global_handle,
     int32_t itl_index);
 
-SUBOOL suscli_analyzer_client_dispose_inspector_handle(
+SUBOOL suscli_analyzer_client_dispose_inspector_handle_unsafe(
+    suscli_analyzer_client_t *self,
+    SUHANDLE local_handle);
+
+SUBOOL
+suscli_analyzer_client_dispose_inspector_handle(
     suscli_analyzer_client_t *self,
     SUHANDLE local_handle);
 
@@ -233,6 +247,11 @@ struct suscli_analyzer_itl_entry {
 };
 
 struct suscli_analyzer_client_list {
+  pthread_mutex_t client_mutex;
+  SUBOOL          client_mutex_initialized;
+
+  SUBOOL          cleanup_requested;
+
   /* Actual list */
   suscli_analyzer_client_t *client_head;
   rbtree_t                 *client_tree;
@@ -251,10 +270,6 @@ struct suscli_analyzer_client_list {
   struct suscli_analyzer_itl_entry *itl_table;
   unsigned int                      itl_count;
   int32_t                           itl_last_free;
-
-  SUBOOL          cleanup_requested;
-  pthread_mutex_t client_mutex;
-  SUBOOL          client_mutex_initialized;
 };
 
 SUINLINE void
@@ -273,7 +288,7 @@ SUBOOL suscli_analyzer_client_list_append_client(
     struct suscli_analyzer_client_list *self,
     suscli_analyzer_client_t *client);
 
-SUBOOL suscli_analyzer_client_list_broadcast(
+SUBOOL suscli_analyzer_client_list_broadcast_unsafe(
     struct suscli_analyzer_client_list *self,
     const grow_buf_t *buffer,
     SUBOOL (*on_client_error) (
@@ -282,7 +297,7 @@ SUBOOL suscli_analyzer_client_list_broadcast(
         int error),
     void *userdata);
 
-suscli_analyzer_client_t *suscli_analyzer_client_list_lookup(
+suscli_analyzer_client_t *suscli_analyzer_client_list_lookup_unsafe(
     const struct suscli_analyzer_client_list *self,
     int fd);
 
@@ -298,6 +313,15 @@ SUBOOL suscli_analyzer_client_list_attempt_cleanup(
 
 SUBOOL suscli_analyzer_client_for_each_inspector_unsafe(
     const suscli_analyzer_client_t *self,
+    SUBOOL (*func) (
+        const suscli_analyzer_client_t *client,
+        void *userdata,
+        SUHANDLE local_handle,
+        SUHANDLE global_handle),
+    void *userdata);
+
+SUBOOL suscli_analyzer_client_for_each_inspector(
+    suscli_analyzer_client_t *self,
     SUBOOL (*func) (
         const suscli_analyzer_client_t *client,
         void *userdata,

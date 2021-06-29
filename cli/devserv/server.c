@@ -30,8 +30,12 @@ SUPRIVATE void suscli_analyzer_server_kick_client(
     suscli_analyzer_client_t *client);
 
 /***************************** TX Thread **************************************/
+
+/*
+ * This function is called inside the client list mutex
+ */
 SUPRIVATE SUBOOL
-suscli_analyzer_server_intercept_message(
+suscli_analyzer_server_intercept_message_unsafe(
     suscli_analyzer_server_t *self,
     uint32_t type,
     void *message,
@@ -52,7 +56,7 @@ suscli_analyzer_server_intercept_message(
 
       switch (inspmsg->kind) {
         case  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
-          client = suscli_analyzer_client_list_lookup(
+          client = suscli_analyzer_client_list_lookup_unsafe(
               &self->client_list,
               inspmsg->req_id);
 
@@ -135,7 +139,7 @@ suscli_analyzer_server_intercept_message(
           break;
 
         case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
-          client = suscli_analyzer_client_list_lookup(
+          client = suscli_analyzer_client_list_lookup_unsafe(
               &self->client_list,
               inspmsg->req_id);
 
@@ -222,7 +226,7 @@ suscli_analyzer_server_on_client_inspector(
   } else {
     /* No analyzer, just remove */
     SU_TRYCATCH(
-        suscli_analyzer_client_dispose_inspector_handle(
+        suscli_analyzer_client_dispose_inspector_handle_unsafe(
             (suscli_analyzer_client_t *) client,
             local_handle),
         return SU_FALSE);
@@ -237,7 +241,7 @@ suscli_analyzer_server_cleanup_client_resources(
     suscli_analyzer_client_t *client)
 {
   SU_TRYCATCH(
-      suscli_analyzer_client_for_each_inspector_unsafe(
+      suscli_analyzer_client_for_each_inspector(
           client,
           suscli_analyzer_server_on_client_inspector,
           self),
@@ -266,12 +270,21 @@ suscli_analyzer_server_tx_thread(void *ptr)
   void *message;
   uint32_t type;
   suscli_analyzer_client_t *client = NULL;
+  SUBOOL   mutex_acquired = SU_FALSE;
+
   grow_buf_t pdu = grow_buf_INITIALIZER;
   struct suscan_analyzer_remote_call call = suscan_analyzer_remote_call_INITIALIZER;
 
   while ((message = suscan_analyzer_read(self->analyzer, &type)) != NULL) {
+    /* TODO: How about making this mutex more granular? */
     SU_TRYCATCH(
-        suscli_analyzer_server_intercept_message(
+        pthread_mutex_lock(&self->client_list.client_mutex) != -1,
+        goto done);
+    mutex_acquired = SU_TRUE;
+
+    /* vvvvvvvvvvvvvvvvvvvvv Client list mutex acquired vvvvvvvvvvvvvvvvvvvv */
+    SU_TRYCATCH(
+        suscli_analyzer_server_intercept_message_unsafe(
             self,
             type,
             message,
@@ -284,9 +297,10 @@ suscli_analyzer_server_tx_thread(void *ptr)
 
     SU_TRYCATCH(suscan_analyzer_remote_call_serialize(&call, &pdu), goto done);
 
+    /* FIXME: THIS BLOCKS INSIDE A MUTEX. USE POLL INSTEAD */
     if (client == NULL) {
       /* No specific client: broadcast */
-      suscli_analyzer_client_list_broadcast(
+      suscli_analyzer_client_list_broadcast_unsafe(
           &self->client_list,
           &pdu,
           suscli_analyzer_server_on_broadcast_error,
@@ -298,6 +312,12 @@ suscli_analyzer_server_tx_thread(void *ptr)
             goto done);
       }
     }
+
+    /* ^^^^^^^^^^^^^^^^^^^^^ Client list mutex acquired ^^^^^^^^^^^^^^^^^^^^ */
+    SU_TRYCATCH(
+        pthread_mutex_unlock(&self->client_list.client_mutex) != -1,
+        goto done);
+    mutex_acquired = SU_FALSE;
 
     grow_buf_shrink(&pdu);
     suscan_analyzer_remote_call_finalize(&call);
@@ -312,6 +332,9 @@ suscli_analyzer_server_tx_thread(void *ptr)
     SU_WARNING("TX: Analyzer sent null message (%d)\n", type);
 
 done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->client_list.client_mutex);
+
   grow_buf_clear(&pdu);
   suscan_analyzer_remote_call_finalize(&call);
 
@@ -462,16 +485,31 @@ suscli_analyzer_server_on_set_id(
     int32_t itl_index)
 {
   suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) userdata;
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(itl_index >= 0, return SU_FALSE);
-  SU_TRYCATCH(itl_index < self->client_list.itl_count, return SU_FALSE);
+  SU_TRYCATCH(
+      pthread_mutex_lock(&self->client_list.client_mutex) != -1,
+      goto done);
+  mutex_acquired = SU_TRUE;
+
+  /* vvvvvvvvvvvvvvvvvvvvvvvvvvvv Client mutex vvvvvvvvvvvvvvvvvvvvvvvvvvvvv */
+  SU_TRYCATCH(itl_index >= 0, goto done);
+  SU_TRYCATCH(itl_index < self->client_list.itl_count, goto done);
 
   self->client_list.itl_table[itl_index].local_inspector_id =
       inspmsg->inspector_id;
 
   inspmsg->inspector_id = itl_index;
 
-  return SU_TRUE;
+  ok = SU_TRUE;
+
+done:
+  /* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Client mutex ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->client_list.client_mutex);
+
+  return ok;
 }
 
 SUPRIVATE void
@@ -479,10 +517,23 @@ suscli_analyzer_server_kick_client(
     suscli_analyzer_server_t *self,
     suscli_analyzer_client_t *client)
 {
+  SUBOOL mutex_acquired = SU_FALSE;
+
+  SU_TRYCATCH(
+      pthread_mutex_lock(&self->client_list.client_mutex) != -1,
+      goto done);
+  mutex_acquired = SU_TRUE;
+
+  /* vvvvvvvvvvvvvvvvvvvvvvvvvvvv Client mutex vvvvvvvvvvvvvvvvvvvvvvvvvvvvv */
   if (!suscli_analyzer_client_is_failed(client)) {
     suscli_analyzer_server_cleanup_client_resources(self, client);
     suscli_analyzer_client_mark_failed(client);
   }
+
+done:
+  /* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Client mutex ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->client_list.client_mutex);
 }
 
 SUPRIVATE SUBOOL
@@ -760,6 +811,10 @@ suscli_analyzer_server_rx_thread(void *userdata)
   SUBOOL ok = SU_FALSE;
 
   for (;;) {
+    /*
+     * The PFD list is updated from the RX thread only. This access is safe
+     * We will protect here only write access to the client list.
+     */
     pfds = self->client_list.client_pfds;
 
     SU_TRYCATCH(

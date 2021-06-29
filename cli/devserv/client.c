@@ -43,6 +43,11 @@ suscli_analyzer_client_new(int sfd)
   new->inspectors.inspector_last_free = -1;
 
   SU_TRYCATCH(
+      pthread_mutex_init(&new->inspectors.inspector_mutex, NULL) == 0,
+      goto fail);
+  new->inspectors.inspector_mutex_initialized = SU_TRUE;
+
+  SU_TRYCATCH(
       suscan_analyzer_server_hello_init(
           &new->server_hello,
           SUSCLI_ANALYZER_SERVER_NAME),
@@ -153,7 +158,7 @@ done:
 
 /* Elements in the freelist are negative! */
 SUHANDLE
-suscli_analyzer_client_register_inspector_handle(
+suscli_analyzer_client_register_inspector_handle_unsafe(
     suscli_analyzer_client_t *self,
     SUHANDLE global_handle,
     int32_t itl_index)
@@ -184,8 +189,35 @@ done:
   return ret;
 }
 
+SUHANDLE
+suscli_analyzer_client_register_inspector_handle(
+    suscli_analyzer_client_t *self,
+    SUHANDLE global_handle,
+    int32_t itl_index)
+{
+  SUHANDLE handle = -1;
+  SUBOOL acquired = SU_FALSE;
+
+  SU_TRYCATCH(
+      pthread_mutex_lock(&self->inspectors.inspector_mutex) == 0,
+      goto done);
+
+  acquired = SU_TRUE;
+
+  handle = suscli_analyzer_client_register_inspector_handle_unsafe(
+      self,
+      global_handle,
+      itl_index);
+
+done:
+  if (acquired)
+    pthread_mutex_unlock(&self->inspectors.inspector_mutex);
+
+  return handle;
+}
+
 SUPRIVATE SUHANDLE
-suscli_analyzer_client_translate_handle(
+suscli_analyzer_client_translate_handle_unsafe(
     suscli_analyzer_client_t *self,
     SUHANDLE local_handle)
 {
@@ -199,7 +231,7 @@ suscli_analyzer_client_translate_handle(
 }
 
 SUBOOL
-suscli_analyzer_client_dispose_inspector_handle(
+suscli_analyzer_client_dispose_inspector_handle_unsafe(
     suscli_analyzer_client_t *self,
     SUHANDLE local_handle)
 {
@@ -221,6 +253,57 @@ suscli_analyzer_client_dispose_inspector_handle(
 }
 
 SUBOOL
+suscli_analyzer_client_dispose_inspector_handle(
+    suscli_analyzer_client_t *self,
+    SUHANDLE local_handle)
+{
+  SUBOOL ok = SU_FALSE;
+  SUBOOL acquired = SU_FALSE;
+
+  SU_TRYCATCH(
+      pthread_mutex_lock(&self->inspectors.inspector_mutex) == 0,
+      goto done);
+  acquired = SU_TRUE;
+
+  ok = suscli_analyzer_client_dispose_inspector_handle_unsafe(
+      self,
+      local_handle);
+
+done:
+  if (acquired)
+    pthread_mutex_unlock(&self->inspectors.inspector_mutex);
+
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_for_each_inspector(
+    suscli_analyzer_client_t *self,
+    SUBOOL (*func) (
+        const suscli_analyzer_client_t *client,
+        void *userdata,
+        SUHANDLE local_handle,
+        SUHANDLE global_handle),
+    void *userdata)
+{
+  SUBOOL ok = SU_FALSE;
+  SUBOOL acquired = SU_FALSE;
+
+  SU_TRYCATCH(
+      pthread_mutex_lock(&self->inspectors.inspector_mutex) == 0,
+      goto done);
+  acquired = SU_TRUE;
+
+  ok = suscli_analyzer_client_for_each_inspector_unsafe(self, func, userdata);
+
+done:
+  if (acquired)
+    pthread_mutex_unlock(&self->inspectors.inspector_mutex);
+
+  return ok;
+}
+
+SUBOOL
 suscli_analyzer_client_intercept_message(
     suscli_analyzer_client_t *self,
     uint32_t type,
@@ -228,6 +311,7 @@ suscli_analyzer_client_intercept_message(
     const struct suscli_analyzer_client_interceptors *interceptors)
 {
   struct suscan_analyzer_inspector_msg *inspmsg;
+  SUBOOL mutex_acquired = SU_FALSE;
   SUHANDLE handle;
   SUBOOL ok = SU_FALSE;
 
@@ -239,13 +323,20 @@ suscli_analyzer_client_intercept_message(
   if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR) {
     inspmsg = (struct suscan_analyzer_inspector_msg *) message;
 
+    SU_TRYCATCH(
+          pthread_mutex_lock(&self->inspectors.inspector_mutex) == 0,
+          goto done);
+    mutex_acquired = SU_TRUE;
+
+    /* vvvvvvvvvvvvvvvvvvvvvv Inspector mutex acquired vvvvvvvvvvvvvvvvvvvvv */
     if (inspmsg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
       SU_TRYCATCH(
           (interceptors->inspector_open)(interceptors->userdata, self, inspmsg),
           goto done);
     } else {
       handle = inspmsg->handle;
-      if ((inspmsg->handle = suscli_analyzer_client_translate_handle(
+
+      if ((inspmsg->handle = suscli_analyzer_client_translate_handle_unsafe(
           self,
           handle)) != -1) {
         /* This local handle actually refers to something! */
@@ -262,11 +353,15 @@ suscli_analyzer_client_intercept_message(
         SU_WARNING("Could not translate handle 0x%x\n", handle);
       }
     }
+    /* ^^^^^^^^^^^^^^^^^^^^^^ Inspector mutex acquired ^^^^^^^^^^^^^^^^^^^^^ */
   }
 
   ok = SU_TRUE;
 
 done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&self->inspectors.inspector_mutex);
+
   return ok;
 }
 
@@ -473,6 +568,9 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
 
   if (self->inspectors.inspector_list != NULL)
     free(self->inspectors.inspector_list);
+
+  if (self->inspectors.inspector_mutex_initialized)
+    pthread_mutex_destroy(&self->inspectors.inspector_mutex);
 
   free(self);
 }
@@ -727,7 +825,7 @@ suscli_analyzer_client_list_append_client(
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(pthread_mutex_lock(&self->client_mutex) != -1, goto done);
+  SU_TRYCATCH(pthread_mutex_lock(&self->client_mutex) == 0, goto done);
   mutex_acquired = SU_TRUE;
 
   node = rbtree_search(self->client_tree, client->sfd, RB_EXACT);
@@ -777,7 +875,7 @@ done:
 }
 
 SUBOOL
-suscli_analyzer_client_list_broadcast(
+suscli_analyzer_client_list_broadcast_unsafe(
     struct suscli_analyzer_client_list *self,
     const grow_buf_t *buffer,
     SUBOOL (*on_client_error) (
@@ -788,11 +886,7 @@ suscli_analyzer_client_list_broadcast(
 {
   suscli_analyzer_client_t *this;
   int error;
-  SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
-
-  SU_TRYCATCH(pthread_mutex_lock(&self->client_mutex) != -1, goto done);
-  mutex_acquired = SU_TRUE;
 
   this = self->client_head;
 
@@ -815,9 +909,6 @@ suscli_analyzer_client_list_broadcast(
   ok = SU_TRUE;
 
 done:
-  if (mutex_acquired)
-    (void) pthread_mutex_unlock(&self->client_mutex);
-
   return ok;
 }
 
@@ -830,7 +921,7 @@ suscli_analyzer_client_list_force_shutdown(
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(pthread_mutex_lock(&self->client_mutex) != -1, goto done);
+  SU_TRYCATCH(pthread_mutex_lock(&self->client_mutex) == 0, goto done);
   mutex_acquired = SU_TRUE;
 
   this = self->client_head;
@@ -859,7 +950,7 @@ done:
 }
 
 suscli_analyzer_client_t *
-suscli_analyzer_client_list_lookup(
+suscli_analyzer_client_list_lookup_unsafe(
     const struct suscli_analyzer_client_list *self,
     int fd)
 {
