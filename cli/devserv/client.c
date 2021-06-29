@@ -98,7 +98,7 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
           "%s: client left\n",
           suscli_analyzer_client_get_name(self));
     } else if (ret == -1) {
-      SU_ERROR(
+      SU_INFO(
           "%s: read error: %s\n",
           suscli_analyzer_client_get_name(self),
           strerror(errno));

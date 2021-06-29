@@ -28,6 +28,9 @@
 SUPRIVATE void suscli_analyzer_server_kick_client(
     suscli_analyzer_server_t *self,
     suscli_analyzer_client_t *client);
+SUPRIVATE void suscli_analyzer_server_kick_client_unsafe(
+    suscli_analyzer_server_t *self,
+    suscli_analyzer_client_t *client);
 
 /***************************** TX Thread **************************************/
 
@@ -258,7 +261,7 @@ suscli_analyzer_server_on_broadcast_error(
 {
   suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) userdata;
 
-  suscli_analyzer_server_kick_client(self, client);
+  suscli_analyzer_server_kick_client_unsafe(self, client);
 
   return SU_TRUE;
 }
@@ -307,9 +310,8 @@ suscli_analyzer_server_tx_thread(void *ptr)
           self);
     } else {
       if (!suscli_analyzer_client_is_failed(client)) {
-        SU_TRYCATCH(
-            suscli_analyzer_client_write_buffer(client, &pdu),
-            goto done);
+        if (!suscli_analyzer_client_write_buffer(client, &pdu))
+          suscli_analyzer_server_kick_client_unsafe(self, client);
       }
     }
 
@@ -513,6 +515,17 @@ done:
 }
 
 SUPRIVATE void
+suscli_analyzer_server_kick_client_unsafe(
+    suscli_analyzer_server_t *self,
+    suscli_analyzer_client_t *client)
+{
+  if (!suscli_analyzer_client_is_failed(client)) {
+    suscli_analyzer_server_cleanup_client_resources(self, client);
+    suscli_analyzer_client_mark_failed(client);
+  }
+}
+
+SUPRIVATE void
 suscli_analyzer_server_kick_client(
     suscli_analyzer_server_t *self,
     suscli_analyzer_client_t *client)
@@ -525,10 +538,7 @@ suscli_analyzer_server_kick_client(
   mutex_acquired = SU_TRUE;
 
   /* vvvvvvvvvvvvvvvvvvvvvvvvvvvv Client mutex vvvvvvvvvvvvvvvvvvvvvvvvvvvvv */
-  if (!suscli_analyzer_client_is_failed(client)) {
-    suscli_analyzer_server_cleanup_client_resources(self, client);
-    suscli_analyzer_client_mark_failed(client);
-  }
+  suscli_analyzer_server_kick_client_unsafe(self, client);
 
 done:
   /* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Client mutex ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */
