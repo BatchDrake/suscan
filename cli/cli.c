@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -549,6 +548,13 @@ suscli_init(void)
           suscli_profinfo_cb) != -1,
       goto fail);
 
+  SU_TRYCATCH(
+      suscli_command_register(
+          "devserv",
+          "Start the SuRPC remove device server",
+          SUSCLI_COMMAND_REQ_ALL,
+          suscli_devserv_cb) != -1,
+      goto fail);
   ok = SU_TRUE;
 
 fail:

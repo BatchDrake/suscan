@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,6 +27,7 @@ extern "C" {
 #include <util.h>
 #include <object.h>
 #include <sigutils/sigutils.h>
+#include <analyzer/serialize.h>
 
 enum suscan_field_type {
   SUSCAN_FIELD_TYPE_STRING,
@@ -58,12 +58,14 @@ struct suscan_field {
 };
 
 struct suscan_config_desc {
+  char *global_name;
+  SUBOOL registered;
   PTR_LIST(struct suscan_field, field);
 };
 
 typedef struct suscan_config_desc suscan_config_desc_t;
 
-struct suscan_config {
+SUSCAN_SERIALIZABLE(suscan_config) {
   const suscan_config_desc_t *desc;
   struct suscan_field_value **values;
 };
@@ -93,6 +95,10 @@ suscan_config_t *suscan_config_dup(const suscan_config_t *config);
 
 void suscan_config_desc_destroy(suscan_config_desc_t *cfgdesc);
 
+suscan_config_desc_t *suscan_config_desc_lookup(const char *global_name);
+SUBOOL suscan_config_desc_register(suscan_config_desc_t *);
+
+suscan_config_desc_t *suscan_config_desc_new_ex(const char *global_name);
 suscan_config_desc_t *suscan_config_desc_new(void);
 
 SUBOOL suscan_config_set_integer(

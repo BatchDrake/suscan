@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,6 +28,7 @@
 #include <confdb.h>
 #include "source.h"
 #include "compat.h"
+#include "discovery.h"
 #include <sigutils/taps.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -48,694 +48,8 @@
 /* Private config list */
 PTR_LIST(SUPRIVATE suscan_source_config_t, config);
 
-/* Private device list */
-PTR_LIST(SUPRIVATE suscan_source_device_t, device);
-
-/* Hidden gain list */
-PTR_LIST(SUPRIVATE struct suscan_source_gain_desc, hidden_gain);
-
-/* Null device */
-SUPRIVATE suscan_source_device_t *null_device;
-SUPRIVATE const char *soapysdr_module_path = NULL;
-
-/* Helper global state */
-SUPRIVATE SUBOOL stderr_disabled = SU_FALSE;
-SUPRIVATE int    stderr_copy = -1;
-
-/********************************** Helpers **********************************/
-SUPRIVATE void
-suscan_source_disable_stderr(void)
-{
-  int fd = -1;
-
-  if (!stderr_disabled) {
-    SU_TRYCATCH((fd = open("/dev/null", O_WRONLY)) != -1, goto fail);
-    SU_TRYCATCH((stderr_copy = dup(STDERR_FILENO)) != -1, goto fail);
-    SU_TRYCATCH(dup2(fd, STDERR_FILENO) != -1, goto fail);
-    stderr_disabled = SU_TRUE;
-  }
-
-fail:
-  if (fd != -1)
-    close(fd);
-
-  if (!stderr_disabled) {
-    if (dup2(stderr_copy, STDERR_FILENO) != -1) {
-      close(stderr_copy);
-      stderr_copy = -1;
-    }
-  }
-}
-
-SUPRIVATE void
-suscan_source_enable_stderr(void)
-{
-  if (stderr_disabled) {
-    SU_TRYCATCH(dup2(stderr_copy, STDERR_FILENO) != -1, return);
-    close(stderr_copy);
-    stderr_copy = -1;
-    stderr_disabled = SU_FALSE;
-  }
-}
-
-/******************************* Source devices ******************************/
-SUPRIVATE void
-suscan_source_gain_desc_destroy(struct suscan_source_gain_desc *desc)
-{
-  if (desc->name != NULL)
-    free(desc->name);
-
-  free(desc);
-}
-
-SUPRIVATE struct suscan_source_gain_desc *
-suscan_source_gain_desc_new(const char *name, SUFLOAT min, SUFLOAT max)
-{
-  struct suscan_source_gain_desc *new = NULL;
-
-  SU_TRYCATCH(min <= max, return NULL);
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_source_gain_desc)),
-      goto fail);
-
-  SU_TRYCATCH(new->name = strdup(name), goto fail);
-
-  new->min = min;
-  new->max = max;
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_source_gain_desc_destroy(new);
-
-  return NULL;
-}
-
-/* Create ad-hoc hidden gains. */
-SUPRIVATE const struct suscan_source_gain_desc *
-suscan_source_gain_desc_new_hidden(const char *name, SUFLOAT value)
-{
-  struct suscan_source_gain_desc *new = NULL;
-
-  SU_TRYCATCH(new = suscan_source_gain_desc_new(name, value, value), goto fail);
-
-  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(hidden_gain, new) != -1, goto fail);
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_source_gain_desc_destroy(new);
-
-  return NULL;
-}
-
-SUPRIVATE const struct suscan_source_gain_desc *
-suscan_source_device_lookup_gain_desc(
-    const suscan_source_device_t *dev,
-    const char *name)
-{
-  unsigned int i;
-
-  /* We only provide visibility to current gains. */
-  for (i = 0; i < dev->gain_desc_count; ++i)
-    if (strcmp(dev->gain_desc_list[i]->name, name) == 0
-        && dev->gain_desc_list[i]->epoch == dev->epoch)
-      return dev->gain_desc_list[i];
-
-  return NULL;
-}
-
-SUPRIVATE void
-suscan_source_device_destroy(suscan_source_device_t *dev)
-{
-  unsigned int i;
-
-  for (i = 0; i < dev->antenna_count; ++i)
-    if (dev->antenna_list[i] != NULL)
-      free(dev->antenna_list[i]);
-
-  if (dev->antenna_list != NULL)
-    free(dev->antenna_list);
-
-  for (i = 0; i < dev->gain_desc_count; ++i)
-    if (dev->gain_desc_list[i] != NULL)
-      free(dev->gain_desc_list[i]);
-
-  if (dev->gain_desc_list != NULL)
-    free(dev->gain_desc_list);
-
-  if (dev->samp_rate_list != NULL)
-    free(dev->samp_rate_list);
-
-  if (dev->desc != NULL)
-    free(dev->desc);
-
-  if (dev->args != NULL) {
-    SoapySDRKwargs_clear(dev->args);
-    free(dev->args);
-  }
-
-  free(dev);
-}
-
-void
-suscan_source_device_info_finalize(struct suscan_source_device_info *info)
-{
-  if (info->gain_desc_list != NULL)
-    free(info->gain_desc_list);
-
-  info->gain_desc_list = NULL;
-  info->gain_desc_count = 0;
-}
-
-SUPRIVATE void
-suscan_source_reset_devices(void)
-{
-  unsigned int i, j;
-
-  for (i = 0; i < device_count; ++i)
-    if (device_list[i] != NULL) {
-      ++device_list[i]->epoch;
-      device_list[i]->available = SU_FALSE;
-
-      for (j = 0; j < device_list[i]->antenna_count; ++j)
-        free(device_list[i]->antenna_list[j]);
-
-      device_list[i]->antenna_count = 0;
-      if (device_list[i]->antenna_list != NULL) {
-        free(device_list[i]->antenna_list);
-        device_list[i]->antenna_list = NULL;
-      }
-
-      device_list[i]->samp_rate_count = 0;
-      if (device_list[i]->samp_rate_list != NULL) {
-        free(device_list[i]->samp_rate_list);
-        device_list[i]->samp_rate_list = NULL;
-      }
-    }
-}
-
-SUPRIVATE char *
-suscan_source_device_build_desc(const char *driver, const char *label)
-{
-  if (label == NULL)
-    label = "Unlabeled device";
-
-  if (strcmp(driver, "audio") == 0)
-    return strbuild("Audio input (%s)", label);
-  else if (strcmp(driver, "hackrf") == 0)
-    return strbuild("HackRF One (%s)", label);
-  else if(strcmp(driver, "null") == 0)
-    return strdup("Dummy device");
-  return strbuild("%s (%s)", driver, label);
-}
-
-SUPRIVATE struct suscan_source_gain_desc *
-suscan_source_device_assert_gain(
-    suscan_source_device_t *dev,
-    const char *name,
-    SUFLOAT min,
-    SUFLOAT max,
-    unsigned int step)
-{
-  unsigned int i;
-  struct suscan_source_gain_desc *desc = NULL, *result = NULL;
-
-  for (i = 0; i < dev->gain_desc_count; ++i) {
-    if (strcmp(dev->gain_desc_list[i]->name, name) == 0) {
-      result = dev->gain_desc_list[i];
-      result->min = min;
-      result->max = max;
-      break;
-    }
-  }
-
-  if (result == NULL) {
-    SU_TRYCATCH(
-        desc = suscan_source_gain_desc_new(name, min, max),
-        goto done);
-    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(dev->gain_desc, desc) != -1, goto done);
-    result = desc;
-    desc = NULL;
-  }
-
-  result->step = step;
-  result->epoch = dev->epoch;
-
-done:
-  if (desc != NULL)
-    suscan_source_gain_desc_destroy(desc);
-
-  return result;
-}
-
-SUPRIVATE SUBOOL
-suscan_source_device_populate_info(suscan_source_device_t *dev)
-{
-  SoapySDRDevice *sdev = NULL;
-  SoapySDRRange *freqRanges = NULL;
-  SoapySDRRange range;
-  SUFREQ freq_min = INFINITY;
-  SUFREQ freq_max = -INFINITY;
-  char **antenna_list = NULL;
-  char **gain_list = NULL;
-  char *dup = NULL;
-  double *samp_rate_list = NULL;
-  size_t antenna_count = 0;
-  size_t gain_count = 0;
-  size_t range_count;
-  size_t samp_rate_count;
-  struct suscan_source_gain_desc *desc;
-  unsigned int i;
-
-  SUBOOL ok = SU_FALSE;
-
-  /*
-   * This tends to happen a lot and is an error, but it does not
-   * deserve an error message. A previously seen device being unavailable
-   * during startup limits what you can do with suscan, but it is
-   * not critical. Errors should appear when the user attempts to
-   * load a device that has not been populated.
-   */
-
-  if ((sdev = SoapySDRDevice_make(dev->args)) == NULL)
-    goto done;
-
-  dev->available = SU_TRUE;
-
-  /* Get frequency range */
-  if ((freqRanges = SoapySDRDevice_getFrequencyRange(
-      sdev,
-      SOAPY_SDR_RX,
-      0,
-      &range_count)) != NULL) {
-    for (i = 0; i < range_count; ++i) {
-      if (freqRanges[i].minimum < freq_min)
-        freq_min = freqRanges[i].minimum;
-      if (freqRanges[i].maximum > freq_max)
-        freq_max = freqRanges[i].maximum;
-    }
-
-    if (isinf(freq_min) || isinf(freq_max)) {
-      dev->freq_min = 0;
-      dev->freq_max = 0;
-    } else {
-      dev->freq_min = freq_min;
-      dev->freq_max = freq_max;
-    }
-  }
-
-  /* Duplicate antenna list */
-  if ((antenna_list = SoapySDRDevice_listAntennas(
-          sdev,
-          SOAPY_SDR_RX,
-          0,
-          &antenna_count)) != NULL) {
-    for (i = 0; i < antenna_count; ++i) {
-      SU_TRYCATCH(dup = strdup(antenna_list[i]), goto done);
-      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(dev->antenna, dup) != -1, goto done);
-      dup = NULL;
-    }
-  }
-
-  /* Duplicate gain list */
-  if ((gain_list = SoapySDRDevice_listGains(
-          sdev,
-          SOAPY_SDR_RX,
-          0,
-          &gain_count)) != NULL) {
-    for (i = 0; i < gain_count; ++i) {
-      range = SoapySDRDevice_getGainElementRange(
-          sdev,
-          SOAPY_SDR_RX,
-          0,
-          gain_list[i]);
-
-      SU_TRYCATCH(
-          desc = suscan_source_device_assert_gain(
-              dev,
-              gain_list[i],
-              range.minimum,
-              range.maximum,
-              1), /* This may change in the future */
-          goto done);
-
-      desc->def = SoapySDRDevice_getGainElement(
-          sdev,
-          SOAPY_SDR_RX,
-          0,
-          gain_list[i]);
-    }
-
-    /* Get rates */
-    SU_TRYCATCH(
-        samp_rate_list = SoapySDRDevice_listSampleRates(
-            sdev,
-            SOAPY_SDR_RX,
-            0,
-            &samp_rate_count),
-        goto done);
-
-    if (samp_rate_count == 0)
-      goto done;
-
-    SU_TRYCATCH(
-        dev->samp_rate_list = malloc(samp_rate_count * sizeof(double)),
-        goto done);
-
-    memcpy(
-        dev->samp_rate_list,
-        samp_rate_list,
-        samp_rate_count * sizeof(double));
-    dev->samp_rate_count = samp_rate_count;
-    free(samp_rate_list);
-  }
-
-  ok = SU_TRUE;
-
-done:
-  if (freqRanges != NULL)
-    free(freqRanges);
-
-  if (dup != NULL)
-    free(dup);
-
-  SoapySDRStrings_clear(&antenna_list, antenna_count);
-  SoapySDRStrings_clear(&gain_list, gain_count);
-
-  /*
-   * I literally have no idea what to do with this.
-   */
-
-  /*if (freqRanges != NULL)
-    free(freqRanges); */
-
-  if (sdev != NULL)
-    SoapySDRDevice_unmake(sdev);
-
-  return ok;
-}
-
-/* FIXME: This is awful. Plase change constness of 1st arg ASAP */
-SUBOOL
-suscan_source_device_get_info(
-    const suscan_source_device_t *dev,
-    unsigned int channel,
-    struct suscan_source_device_info *info)
-{
-  int i;
-
-  info->gain_desc_list = NULL;
-  info->gain_desc_count = 0;
-
-  if (!suscan_source_device_is_populated(dev))
-    if (!suscan_source_device_populate_info((suscan_source_device_t *) dev))
-        goto fail;
-
-  /*
-   * Populate gain desc info. This is performed by checking the epoch. If
-   * this gain has not been seen in the current device discovery, just omit it.
-   */
-  for (i = 0; i < dev->gain_desc_count; ++i) {
-    if (dev->gain_desc_list[i]->epoch == dev->epoch) {
-      SU_TRYCATCH(
-          PTR_LIST_APPEND_CHECK(
-              info->gain_desc,
-              dev->gain_desc_list[i]) != -1,
-          goto fail);
-    }
-  }
-
-  info->antenna_list = (const char **) dev->antenna_list;
-  info->antenna_count = dev->antenna_count;
-
-  info->samp_rate_list = (const double *) dev->samp_rate_list;
-  info->samp_rate_count = dev->samp_rate_count;
-
-  info->freq_min = dev->freq_min;
-  info->freq_max = dev->freq_max;
-
-  return SU_TRUE;
-
-fail:
-  return SU_FALSE;
-}
-
-SUPRIVATE suscan_source_device_t *
-suscan_source_device_new(const SoapySDRKwargs *args)
-{
-  suscan_source_device_t *new = NULL;
-  const char *driver;
-  unsigned int i;
-
-  /* Not necessarily an error */
-  if ((driver = SoapySDRKwargs_get((SoapySDRKwargs *) args, "driver")) == NULL)
-    return NULL;
-
-  SU_TRYCATCH(new = calloc(1, sizeof (suscan_source_device_t)), goto fail);
-  SU_TRYCATCH(
-      new->desc = suscan_source_device_build_desc(
-          driver,
-          SoapySDRKwargs_get((SoapySDRKwargs *) args, "label")),
-      goto fail);
-
-  SU_TRYCATCH(new->args = calloc(1, sizeof (SoapySDRKwargs)), goto fail);
-  for (i = 0; i < args->size; ++i) {
-    /* DANGER DANGER DANGER */
-    SoapySDRKwargs_set(new->args, args->keys[i], args->vals[i]);
-    /* DANGER DANGER DANGER */
-  }
-
-  new->driver = driver;
-  new->index = -1;
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_source_device_destroy(new);
-
-  return NULL;
-}
-
-SUBOOL
-suscan_source_device_walk(
-    SUBOOL (*function) (
-        const suscan_source_device_t *dev,
-        unsigned int index,
-        void *private),
-    void *private)
-{
-  unsigned int i;
-
-  for (i = 0; i < device_count; ++i)
-    if (device_list[i] != NULL)
-      if (!(function)(device_list[i], i, private))
-        return SU_FALSE;
-
-  return SU_TRUE;
-}
-
-const suscan_source_device_t *
-suscan_source_device_get_by_index(unsigned int index)
-{
-  if (index >= device_count)
-    return NULL;
-
-  return device_list[index];
-}
-
-unsigned int
-suscan_source_device_get_count(void)
-{
-  return device_count;
-}
-
-
-SUPRIVATE const suscan_source_device_t *
-suscan_source_device_find_first_sdr(void)
-{
-  unsigned int i;
-
-  for (i = 0; i < device_count; ++i)
-    if (device_list[i] != NULL && device_list[i] != null_device)
-      if (device_list[i]->available &&
-          strcmp(device_list[i]->driver, "audio") != 0)
-        return device_list[i];
-
-  return null_device;
-}
-
-#ifdef SUSCAN_DEBUG_KWARGS
-SUPRIVATE void
-debug_kwargs(const SoapySDRKwargs *a)
-{
-  unsigned int i;
-
-  for (i = 0; i < a->size; ++i)
-    printf("%s=%s,", a->keys[i], a->vals[i]);
-
-  putchar(10);
-}
-#endif /* SUSCAN_DEBUG_KWARGS */
-
-SUPRIVATE SUBOOL
-suscan_source_device_soapy_args_are_equal(
-    const SoapySDRKwargs *a,
-    const SoapySDRKwargs *b)
-{
-  const char *val;
-  unsigned int i;
-
-#ifdef SUSCAN_DEBUG_KWARGS
-  printf("Compare: ");
-  debug_kwargs(a);
-  debug_kwargs(b);
-#endif /* SUSCAN_DEBUG_KWARGS */
-
-  if (a->size == b->size) {
-    for (i = 0; i < a->size; ++i) {
-      val = SoapySDRKwargs_get((SoapySDRKwargs *) b, a->keys[i]);
-      if (val == NULL) {
-#ifdef SUSCAN_DEBUG_KWARGS
-        printf("Value %s not present!\n", a->keys[i]);
-#endif /* SUSCAN_DEBUG_KWARGS */
-        return SU_FALSE;
-      }
-      if (strcmp(a->vals[i], val) != 0) {
-#ifdef SUSCAN_DEBUG_KWARGS
-        printf("Value %s is different (%s and %s)!\n", a->keys[i], a->vals[i], val);
-#endif /* SUSCAN_DEBUG_KWARGS */
-        return SU_FALSE;
-      }
-    }
-
-    /* All of them are equal, consider a the same as b */
-    return SU_TRUE;
-  }
-
-  return SU_FALSE;
-}
-
-SUPRIVATE int
-suscan_source_device_assert_index(const SoapySDRKwargs *args)
-{
-  int i;
-  suscan_source_device_t *dev = NULL;
-
-  if (args->size == 0)
-    return null_device->index;
-
-  for (i = 0; i < device_count; ++i)
-    if (suscan_source_device_soapy_args_are_equal(device_list[i]->args, args))
-      goto done;
-
-  i = -1;
-
-  if ((dev = suscan_source_device_new(args)) != NULL) {
-    SU_TRYCATCH(
-        (i = dev->index = PTR_LIST_APPEND_CHECK(device, dev)) != -1,
-        goto done);
-    dev = NULL;
-  }
-
-done:
-  if (dev != NULL)
-    suscan_source_device_destroy(dev);
-
-  return i;
-}
-
-SUPRIVATE suscan_source_device_t *
-suscan_source_device_assert(const SoapySDRKwargs *args)
-{
-  int index;
-
-  if ((index = suscan_source_device_assert_index(args)) == -1)
-    return NULL;
-
-  return device_list[index];
-}
-
-SUPRIVATE SUBOOL
-suscan_source_register_null_device(void)
-{
-  SoapySDRKwargs args;
-  suscan_source_device_t *dev;
-
-  char *keys[] = {"driver"};
-  char *vals[] = {"null"};
-
-  args.size = 1;
-  args.keys = keys;
-  args.vals = vals;
-
-  SU_TRYCATCH(dev = suscan_source_device_assert(&args), return SU_FALSE);
-
-  null_device = dev;
-
-  return SU_TRUE;
-}
-
-SUBOOL
-suscan_source_detect_devices(void)
-{
-  SoapySDRKwargs *soapy_dev_list = NULL;
-  suscan_source_device_t *dev = NULL;
-  size_t soapy_dev_len;
-  unsigned int i;
-  SUBOOL ok = SU_FALSE;
-
-  suscan_source_reset_devices();
-
-  if (soapysdr_module_path == NULL)
-    soapysdr_module_path = suscan_bundle_get_soapysdr_module_path();
-
-  if (soapysdr_module_path != NULL) {
-    setenv("SOAPY_SDR_PLUGIN_PATH", soapysdr_module_path, SU_TRUE);
-  }
-
-  suscan_source_disable_stderr();
-
-  SU_TRYCATCH(
-      soapy_dev_list = SoapySDRDevice_enumerate(NULL, &soapy_dev_len),
-      goto done);
-
-  for (i = 0; i < soapy_dev_len; ++i) {
-    SU_TRYCATCH(
-        dev = suscan_source_device_assert(soapy_dev_list + i),
-        goto done);
-
-    /*
-     * Populate device info. If this fails, don't pass exception:
-     * there may be a problem with this device, but not with the rest of them.
-     */
-    if (!suscan_source_device_is_populated(dev)) {
-      SU_TRYCATCH(suscan_source_device_populate_info(dev), continue);
-    }
-  }
-
-  ok = SU_TRUE;
-
-done:
-  suscan_source_enable_stderr();
-
-  if (soapy_dev_list != NULL)
-    SoapySDRKwargsList_clear(soapy_dev_list, soapy_dev_len);
-
-  return ok;
-}
-
-const suscan_source_device_t *
-suscan_source_get_null_device(void)
-{
-  return null_device;
-}
-
 /***************************** Source Config API *****************************/
+
 SUBOOL
 suscan_source_config_walk(
     SUBOOL (*function) (suscan_source_config_t *cfg, void *private),
@@ -852,7 +166,9 @@ suscan_source_config_destroy(suscan_source_config_t *config)
 
 /* Getters & Setters */
 SUBOOL
-suscan_source_config_set_label(suscan_source_config_t *config, const char *label)
+suscan_source_config_set_label(
+    suscan_source_config_t *config,
+    const char *label)
 {
   char *dup = NULL;
 
@@ -1063,6 +379,12 @@ suscan_source_config_get_channel(const suscan_source_config_t *config)
   return config->channel;
 }
 
+const char *
+suscan_source_config_get_interface(const suscan_source_config_t *self)
+{
+  return self->interface;
+}
+
 void
 suscan_source_config_set_channel(
     suscan_source_config_t *config,
@@ -1109,6 +431,25 @@ suscan_source_config_walk_gains(
         private,
         config->hidden_gain_list[i]->desc->name,
         config->hidden_gain_list[i]->val))
+      return SU_FALSE;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_config_walk_gains_ex(
+    const suscan_source_config_t *config,
+    SUBOOL (*gain_cb) (void *private, struct suscan_source_gain_value *),
+    void *private)
+{
+  unsigned int i;
+
+  for (i = 0; i < config->gain_count; ++i)
+    if (!(gain_cb) (private, config->gain_list[i]))
+      return SU_FALSE;
+
+  for (i = 0; i < config->hidden_gain_count; ++i)
+    if (!(gain_cb) (private, config->hidden_gain_list[i]))
       return SU_FALSE;
 
   return SU_TRUE;
@@ -1216,10 +557,269 @@ suscan_source_config_set_device(
     /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
   }
 
+  config->interface = dev->interface;
   config->device = dev;
 
-  /* Fuck off */
   return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_config_set_interface(
+    suscan_source_config_t *self,
+    const char *interface)
+{
+  if (strcmp(interface, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0) {
+    self->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
+  } else if (strcmp(interface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0) {
+    self->interface = SUSCAN_SOURCE_REMOTE_INTERFACE;
+  } else {
+    SU_ERROR("Unsupported interface `%s'\n", interface);
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
+SUSCAN_SERIALIZER_PROTO(suscan_source_config)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+  struct suscan_source_gain_value *gain;
+  unsigned int i;
+  const char *host;
+  const char *port_str;
+  uint16_t port;
+
+  SUSCAN_PACK(str, self->label);
+  SUSCAN_PACK(str, self->interface);
+
+  switch (self->type) {
+    case SUSCAN_SOURCE_TYPE_FILE:
+      SUSCAN_PACK(str, "file");
+      break;
+
+    case SUSCAN_SOURCE_TYPE_SDR:
+      SUSCAN_PACK(str, "sdr");
+      break;
+
+    default:
+      SUSCAN_PACK(str, "unknown");
+  }
+
+  /* We don't set source format, or anything related to the sender system */
+
+  SUSCAN_PACK(freq,  self->freq);
+  SUSCAN_PACK(freq,  self->lnb_freq);
+  SUSCAN_PACK(float, self->bandwidth);
+  SUSCAN_PACK(bool,  self->iq_balance);
+  SUSCAN_PACK(bool,  self->dc_remove);
+  SUSCAN_PACK(uint,  self->samp_rate);
+  SUSCAN_PACK(uint,  self->average);
+
+  SUSCAN_PACK(bool,  self->loop);
+
+  SUSCAN_PACK(str,   self->antenna);
+  SUSCAN_PACK(uint,  self->channel);
+
+  if (self->device == NULL) {
+    SUSCAN_PACK(str, "");
+    SUSCAN_PACK(str, "");
+    SUSCAN_PACK(str, "");
+    SUSCAN_PACK(str, "0");
+  } else {
+    if ((host = SoapySDRKwargs_get(self->soapy_args, "host")) == NULL)
+      host = "";
+
+    if ((port_str = SoapySDRKwargs_get(self->soapy_args, "port")) == NULL)
+      port_str = "";
+
+    if (sscanf(port_str, "%hu", &port) != 1)
+      port = 0;
+
+    SUSCAN_PACK(str,  suscan_source_device_get_desc(self->device));
+    SUSCAN_PACK(str,  suscan_source_device_get_driver(self->device));
+    SUSCAN_PACK(str,  host);
+    SUSCAN_PACK(uint, port);
+
+    SUSCAN_PACK(uint, self->gain_count);
+
+    for (i = 0; i < self->gain_count; ++i) {
+      gain = self->gain_list[i];
+
+      SUSCAN_PACK(str,   gain->desc->name);
+      SUSCAN_PACK(float, gain->desc->min);
+      SUSCAN_PACK(float, gain->desc->max);
+      SUSCAN_PACK(float, gain->desc->step);
+      SUSCAN_PACK(float, gain->desc->def);
+      SUSCAN_PACK(float, gain->val);
+    }
+  }
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUBOOL
+suscan_source_config_deserialize_ex(
+    struct suscan_source_config *self,
+    grow_buf_t *buffer,
+    const char *force_host)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  struct suscan_source_gain_desc gain_desc, *new_desc = NULL;
+  struct suscan_source_gain_value *gain = NULL;
+  suscan_source_device_t *device = NULL;
+  SoapySDRKwargs args;
+  char *type = NULL;
+  char *iface = NULL;
+
+  char *driver = NULL;
+  char *desc = NULL;
+
+  char *host = NULL;
+  uint16_t port;
+  char port_str[8];
+  unsigned int gain_count, i;
+
+  memset(&args, 0, sizeof (SoapySDRKwargs));
+  memset(&gain_desc, 0, sizeof (struct suscan_source_gain_desc));
+
+  SUSCAN_UNPACK(str, self->label);
+  SUSCAN_UNPACK(str, iface);
+
+  if (strcmp(iface, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0) {
+    SU_ERROR(
+        "Deserialization of local device profiles is disabled for security reasons\n");
+    goto fail;
+    /* self->interface = SUSCAN_SOURCE_LOCAL_INTERFACE; */
+  } else if (strcmp(iface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0) {
+    self->interface = SUSCAN_SOURCE_REMOTE_INTERFACE;
+  } else {
+    SU_ERROR("Unsupported analyzer interface `%s'\n", iface);
+    goto fail;
+  }
+
+  SUSCAN_UNPACK(str, type);
+
+  if (strcmp(type, "file") == 0) {
+    self->type = SUSCAN_SOURCE_TYPE_FILE;
+  } else if (strcmp(type, "sdr") == 0) {
+    self->type = SUSCAN_SOURCE_TYPE_SDR;
+  } else {
+    SU_ERROR("Invalid source type `%s'\n", type);
+    goto fail;
+  }
+
+  SUSCAN_UNPACK(freq,  self->freq);
+  SUSCAN_UNPACK(freq,  self->lnb_freq);
+  SUSCAN_UNPACK(float, self->bandwidth);
+  SUSCAN_UNPACK(bool,  self->iq_balance);
+  SUSCAN_UNPACK(bool,  self->dc_remove);
+  SUSCAN_UNPACK(uint32,  self->samp_rate);
+  SUSCAN_UNPACK(uint32,  self->average);
+
+  SUSCAN_UNPACK(bool,  self->loop);
+
+  SUSCAN_UNPACK(str,   self->antenna);
+  SUSCAN_UNPACK(uint32,  self->channel);
+
+  SUSCAN_UNPACK(str,    desc);
+  SUSCAN_UNPACK(str,    driver);
+  SUSCAN_UNPACK(str,    host);
+  SUSCAN_UNPACK(uint16, port);
+
+  snprintf(port_str, sizeof(port_str), "%hu", port);
+
+  if (strlen(driver) > 0) {
+    SoapySDRKwargs_set(&args, "label",  desc);
+    SoapySDRKwargs_set(&args, "driver", driver);
+
+    if (force_host != NULL)
+      SoapySDRKwargs_set(&args, "host",   force_host);
+    else
+      SoapySDRKwargs_set(&args, "host",   host);
+
+    SoapySDRKwargs_set(&args, "port",   port_str);
+
+    /* FIXME: Add a remote device deserializer? */
+    SU_TRYCATCH(
+        device = suscan_source_device_assert(
+            self->interface,
+            &args),
+        goto fail);
+
+    /* FIXME: Acquire g_device_list_mutex!!! */
+    device->available = SU_FALSE;
+    suscan_source_config_set_device(self, device);
+
+    SUSCAN_UNPACK(uint32, gain_count);
+
+    for (i = 0; i < gain_count; ++i) {
+      SUSCAN_UNPACK(str,   gain_desc.name);
+      SUSCAN_UNPACK(float, gain_desc.min);
+      SUSCAN_UNPACK(float, gain_desc.max);
+      SUSCAN_UNPACK(float, gain_desc.step);
+      SUSCAN_UNPACK(float, gain_desc.def);
+
+      SU_TRYCATCH(
+          new_desc = suscan_source_device_assert_gain_unsafe(
+              device,
+              gain_desc.name,
+              gain_desc.min,
+              gain_desc.max,
+              gain_desc.step),
+          goto fail);
+
+      if (gain_desc.name != NULL)
+        free(gain_desc.name);
+
+      memset(&gain_desc, 0, sizeof (struct suscan_source_gain_desc));
+
+      SU_TRYCATCH(gain = suscan_source_gain_value_new(new_desc, 0), goto fail);
+
+      SUSCAN_UNPACK(float, gain->val);
+
+      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(self->gain, gain) != -1, goto fail);
+
+      gain = NULL;
+    }
+
+    /* FIXME: Return g_device_list_mutex!!! */
+    device->available = SU_TRUE;
+  } else {
+    self->device = suscan_source_get_null_device();
+  }
+
+  SUSCAN_UNPACK_BOILERPLATE_FINALLY;
+
+  SoapySDRKwargs_clear(&args);
+
+  if (gain_desc.name != NULL)
+    free(gain_desc.name);
+
+  if (type != NULL)
+    free(type);
+
+  if (iface != NULL)
+    free(iface);
+
+  if (driver != NULL)
+    free(driver);
+
+  if (desc != NULL)
+    free(desc);
+
+  if (host != NULL)
+    free(host);
+
+  /* Not a destructor */
+  if (gain != NULL)
+    free(gain);
+
+  SUSCAN_UNPACK_BOILERPLATE_RETURN;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_source_config)
+{
+  return suscan_source_config_deserialize_ex(self, buffer, NULL);
 }
 
 suscan_source_config_t *
@@ -1235,6 +835,7 @@ suscan_source_config_new(
   new->format = format;
   new->average = 1;
   new->dc_remove = SU_TRUE;
+  new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
   new->loop = SU_TRUE;
   
   SU_TRYCATCH(new->soapy_args = calloc(1, sizeof(SoapySDRKwargs)), goto fail);
@@ -1293,6 +894,18 @@ fail:
   return NULL;
 }
 
+void
+suscan_source_config_swap(
+    suscan_source_config_t *config1,
+    suscan_source_config_t *config2)
+{
+  suscan_source_config_t tmp;
+
+  tmp = *config2;
+  *config2 = *config1;
+  *config1 = tmp;
+}
+
 suscan_source_config_t *
 suscan_source_config_clone(const suscan_source_config_t *config)
 {
@@ -1310,6 +923,7 @@ suscan_source_config_clone(const suscan_source_config_t *config)
         goto fail);
 
   new->device = config->device;
+  new->interface = config->interface;
 
   for (i = 0; i < config->gain_count; ++i)
     SU_TRYCATCH(
@@ -1468,6 +1082,9 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   if (cfg->antenna != NULL)
     SU_CFGSAVE(value, antenna);
 
+  if (cfg->interface != NULL)
+    SU_CFGSAVE(value, interface);
+
   /* XXX: This is terrible. Either change this or define SUFREQ as uint64_t */
   SU_CFGSAVE(float, freq);
   SU_CFGSAVE(float, lnb_freq);
@@ -1569,6 +1186,17 @@ suscan_source_config_from_object(const suscan_object_t *object)
   if ((tmp = suscan_object_get_field_value(object, "antenna")) != NULL)
     SU_TRYCATCH(suscan_source_config_set_antenna(new, tmp), goto fail);
 
+  if ((tmp = suscan_object_get_field_value(object, "interface")) != NULL) {
+    if (strcmp(tmp, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0) {
+      new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
+    } else if (strcmp(tmp, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0) {
+      new->interface = SUSCAN_SOURCE_REMOTE_INTERFACE;
+    } else {
+      SU_WARNING("Invalid interface `%s'. Defaulting to local\n", tmp);
+      new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
+    }
+  }
+
   SU_CFGLOAD(float, freq, 0);
   SU_CFGLOAD(float, lnb_freq, 0);
   SU_CFGLOAD(float, bandwidth, 0);
@@ -1599,7 +1227,9 @@ suscan_source_config_from_object(const suscan_object_t *object)
 
         /* New device added. Assert it. */
         SU_TRYCATCH(
-            new->device = device = suscan_source_device_assert(new->soapy_args),
+            new->device = device = suscan_source_device_assert(
+                new->interface,
+                new->soapy_args),
             goto fail);
 
         /* This step is not critical, but we must try it anyways */
@@ -1628,7 +1258,9 @@ suscan_source_config_from_object(const suscan_object_t *object)
 
         /* New device added. Assert it. */
         SU_TRYCATCH(
-            new->device = device = suscan_source_device_assert(new->soapy_args),
+            new->device = device = suscan_source_device_assert(
+                new->interface,
+                new->soapy_args),
             goto fail);
 
         /* This step is not critical, but we must try it anyways */
@@ -2552,10 +2184,22 @@ fail:
 SUBOOL
 suscan_init_sources(void)
 {
+  const char *mcif;
+
+  /* TODO: Register analyzer interfaces? */
+  SU_TRYCATCH(suscan_source_device_preinit(), return SU_FALSE);
   SU_TRYCATCH(suscan_source_register_null_device(), return SU_FALSE);
   SU_TRYCATCH(suscan_confdb_use("sources"), return SU_FALSE);
   SU_TRYCATCH(suscan_source_detect_devices(), return SU_FALSE);
   SU_TRYCATCH(suscan_load_sources(), return SU_FALSE);
+
+  if ((mcif = getenv("SUSCAN_DISCOVERY_IF")) != NULL && strlen(mcif) > 0) {
+    printf("Discovery mode started\n");
+    if (!suscan_device_net_discovery_start(mcif)) {
+      SU_ERROR("Failed to initialize remote device discovery.\n");
+      SU_ERROR("SuRPC services will be disabled.\n");
+    }
+  }
 
   return SU_TRUE;
 }

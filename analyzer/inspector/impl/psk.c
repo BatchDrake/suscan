@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,6 +26,8 @@
 #include <sigutils/pll.h>
 #include <sigutils/clock.h>
 #include <sigutils/equalizer.h>
+
+#include <analyzer/version.h>
 
 #include "inspector/interface.h"
 #include "inspector/params.h"
@@ -479,7 +480,8 @@ SUBOOL
 suscan_psk_inspector_register(void)
 {
   SU_TRYCATCH(
-      iface.cfgdesc = suscan_config_desc_new(),
+      iface.cfgdesc = suscan_config_desc_new_ex(
+          "psk-params-desc-" SUSCAN_VERSION_STRING),
       return SU_FALSE);
 
   /* Add all configuration parameters */
@@ -488,6 +490,8 @@ suscan_psk_inspector_register(void)
   SU_TRYCATCH(suscan_config_desc_add_mf_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_eq_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_br_params(iface.cfgdesc), return SU_FALSE);
+
+  SU_TRYCATCH(suscan_config_desc_register(iface.cfgdesc), return SU_FALSE);
 
   /* Add some estimators */
   (void) suscan_inspector_interface_add_estimator(&iface, "baud-fac");

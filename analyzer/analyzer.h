@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,6 +32,8 @@
 #include "throttle.h"
 #include "inspector/inspector.h"
 #include "inspsched.h"
+#include "serialize.h"
+
 #include "mq.h"
 
 #ifdef __cplusplus
@@ -43,6 +44,8 @@ extern "C" {
 #define SUSCAN_ANALYZER_FS_MEASURE_INTERVAL   1.0
 #define SUSCAN_ANALYZER_READ_SIZE             512
 #define SUSCAN_ANALYZER_MIN_POST_HOP_FFTS     7
+
+struct suscan_analyzer;
 
 /*!
  * \brief Analyzer object mode.
@@ -63,7 +66,7 @@ enum suscan_analyzer_mode {
  * Set of Analyzer parameters passed to the constructor.
  * \author Gonzalo José Carracedo Carballal
  */
-struct suscan_analyzer_params {
+SUSCAN_SERIALIZABLE(suscan_analyzer_params) {
   enum suscan_analyzer_mode mode; /*!< Analyzer mode */
   struct sigutils_channel_detector_params detector_params; /*!< Channel detector parameters */
   SUFLOAT  channel_update_int; /*!< Channel info update interval (seconds) */
@@ -81,47 +84,51 @@ struct suscan_analyzer_params {
   0,                                            /* max_freq */              \
 }
 
-/*!
- * \brief Function pointer to baseband filter
- *
- * Convenience typedef of the prototype of baseband filter functions
- * \author Gonzalo José Carracedo Carballal
- */
-typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
-      void *privdata,
-      struct suscan_analyzer *analyzer,
-      const SUCOMPLEX *samples,
-      SUSCOUNT length);
-
-/*!
- * \brief Baseband filter description
- *
- * Structure holding a pointer to a function that would perform some kind
- * of baseband processing (i.e. before channelization).
- * \author Gonzalo José Carracedo Carballal
- */
-struct suscan_analyzer_baseband_filter {
-  suscan_analyzer_baseband_filter_func_t func;
-  void *privdata;
-};
-
-struct suscan_analyzer_gain_request {
+SUSCAN_SERIALIZABLE(suscan_analyzer_gain_info) {
   char *name;
+  SUFLOAT min;
+  SUFLOAT max;
+  SUFLOAT step;
   SUFLOAT value;
 };
 
-struct suscan_inspector_overridable_request
-{
-  suscan_inspector_t *insp;
+/*!
+ * Constructor for gain info objects.
+ * \param value gain value object describing this gain element
+ * \return a pointer to the created object or NULL on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+struct suscan_analyzer_gain_info *suscan_analyzer_gain_info_new(
+    const struct suscan_source_gain_value *value);
 
-  SUBOOL  dead;
-  SUBOOL  freq_request;
-  SUFREQ  new_freq;
-  SUBOOL  bandwidth_request;
-  SUFLOAT new_bandwidth;
+/*!
+ * Constructor for gain info objects (value only).
+ * \param name name of the gain element
+ * \param value value of this gain in dBs
+ * \return a pointer to the created object or NULL on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+struct suscan_analyzer_gain_info *
+suscan_analyzer_gain_info_new_value_only(
+    const char *name,
+    SUFLOAT value);
 
-  struct suscan_inspector_overridable_request *next;
-};
+/*!
+ * Copy-constructor for gain info objects.
+ * \param old existing gain info object
+ * \return a pointer to the created object or NULL on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+struct suscan_analyzer_gain_info *
+suscan_analyzer_gain_info_dup(
+    const struct suscan_analyzer_gain_info *old);
+
+/*!
+ * Destructor of the gain info object.
+ * \param self pointer to the gain info object
+ * \author Gonzalo José Carracedo Carballal
+ */
+void suscan_analyzer_gain_info_destroy(struct suscan_analyzer_gain_info *self);
 
 /*!
  * \brief Wideband analyzer sweep strategy
@@ -164,101 +171,111 @@ struct suscan_analyzer_sweep_params {
   SUSCOUNT fft_min_samples; /* Minimum number of FFT frames before updating */
 };
 
+/*!
+ * \brief Function pointer to baseband filter
+ *
+ * Convenience typedef of the prototype of baseband filter functions
+ * \author Gonzalo José Carracedo Carballal
+ */
+typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
+      void *privdata,
+      struct suscan_analyzer *analyzer,
+      const SUCOMPLEX *samples,
+      SUSCOUNT length);
+
+SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
+  SUSCOUNT source_samp_rate;
+  SUSCOUNT effective_samp_rate;
+  SUFLOAT  measured_samp_rate;
+
+  SUFREQ   frequency;
+  SUFREQ   freq_min;
+  SUFREQ   freq_max;
+  SUFREQ   lnb;
+
+  SUFLOAT  bandwidth;
+  char    *antenna;
+  SUBOOL   dc_remove;
+  SUBOOL   iq_reverse;
+  SUBOOL   agc;
+  PTR_LIST(struct suscan_analyzer_gain_info, gain);
+};
+
+/*!
+ * Initialize a source information structure
+ * \param self a pointer to the source info structure
+ * \author Gonzalo José Carracedo Carballal
+ */
+void suscan_analyzer_source_info_init(
+    struct suscan_analyzer_source_info *self);
+
+/*!
+ * Initialize a source information structure from an existing
+ * source information
+ * \param self a pointer to the source info structure to be initialized
+ * \param origin a pointer to the source info structure to copy
+ * \return SU_TRUE on success, SU_FALSE on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_source_info_init_copy(
+    struct suscan_analyzer_source_info *self,
+    const struct suscan_analyzer_source_info *origin);
+
+/*!
+ * Release allocated resources in the source information structure
+ * \param self a pointer to the source info structure
+ * \author Gonzalo José Carracedo Carballal
+ */
+void suscan_analyzer_source_info_finalize(
+    struct suscan_analyzer_source_info *self);
+
+struct suscan_analyzer_interface {
+  const char *name;
+  void  *(*ctor) (struct suscan_analyzer *, va_list);
+  void   (*dtor) (void *);
+
+  /* Source-related methods */
+  SUBOOL   (*set_frequency) (void *, SUFREQ freq, SUFREQ lnb);
+  SUBOOL   (*set_gain) (void *, const char *name, SUFLOAT value);
+  SUBOOL   (*set_antenna) (void *, const char *);
+  SUBOOL   (*set_bandwidth) (void *, SUFLOAT);
+  SUBOOL   (*set_dc_remove) (void *, SUBOOL);
+  SUBOOL   (*set_iq_reverse) (void *, SUBOOL);
+  SUBOOL   (*set_agc) (void *, SUBOOL);
+  SUBOOL   (*force_eos) (void *);
+  SUBOOL   (*is_real_time) (const void *);
+  unsigned (*get_samp_rate) (const void *);
+  SUFLOAT  (*get_measured_samp_rate) (const void *);
+
+  struct suscan_analyzer_source_info *(*get_source_info_pointer) (const void *);
+  SUBOOL   (*commit_source_info) (void *);
+
+  /* Worker-specific methods */
+  SUBOOL   (*set_sweep_strategy) (void *, enum suscan_analyzer_sweep_strategy);
+  SUBOOL   (*set_spectrum_partitioning) (void *, enum suscan_analyzer_spectrum_partitioning);
+  SUBOOL   (*set_hop_range) (void *, SUFREQ, SUFREQ);
+  SUBOOL   (*set_buffering_size) (void *, SUSCOUNT);
+
+  /* Fast methods */
+  SUBOOL   (*set_inspector_frequency) (void *, SUHANDLE, SUFREQ);
+  SUBOOL   (*set_inspector_bandwidth) (void *, SUHANDLE, SUFLOAT);
+
+  /* Mesage passing */
+  SUBOOL   (*write) (void *, uint32_t, void *);
+
+  /* Loop management */
+  void     (*req_halt) (void *);
+};
+
 struct suscan_analyzer {
   struct suscan_analyzer_params params;
-  struct suscan_mq mq_in;   /* To-thread messages */
   struct suscan_mq *mq_out; /* From-thread messages */
+  const struct suscan_analyzer_interface *iface;
+  void  *impl;
+
   SUBOOL running;
   SUBOOL halt_requested;
   SUBOOL eos;
-
-  /* Source members */
-  suscan_source_t *source;
-  SUBOOL loop_init;
-  pthread_mutex_t loop_mutex;
-  suscan_throttle_t throttle; /* For non-realtime sources */
-  SUBOOL throttle_mutex_init;
-  pthread_mutex_t throttle_mutex;
-  SUSCOUNT effective_samp_rate; /* Used for GUI */
-  SUFLOAT  measured_samp_rate; /* Used for statistics */
-  SUSCOUNT measured_samp_count;
-  uint64_t last_measure;
-  SUBOOL   iq_rev;
-
-  /* Periodic updates */
-  SUFLOAT  interval_channels;
-  SUFLOAT  interval_psd;
-  SUSCOUNT det_count;
-  SUSCOUNT det_num_psd;
-
-  /* This mutex shall protect hot-config requests */
-  /* XXX: This is cumbersome. Create a hotconf object to handle these things */
-  pthread_mutex_t hotconf_mutex;
-
-  /* Frequency request */
-  SUBOOL freq_req;
-  SUFREQ freq_req_value;
-  SUFREQ lnb_req_value;
-
-  /* XXX: Define list for inspector frequency set */
-  SUBOOL   inspector_freq_req;
-  SUHANDLE inspector_freq_req_handle;
-  SUFREQ   inspector_freq_req_value;
-
-  SUBOOL   inspector_bw_req;
-  SUHANDLE inspector_bw_req_handle;
-  SUFLOAT  inspector_bw_req_value;
-
-  /* Bandwidth request */
-  SUBOOL  bw_req;
-  SUFLOAT bw_req_value;
-
-  /* Gain request */
-  SUBOOL gain_req_mutex_init;
-  PTR_LIST(struct suscan_analyzer_gain_request, gain_request);
-
-  /* Atenna request */
-  char *antenna_req;
-
-  /* Usage statistics (CPU, etc) */
-  SUFLOAT cpu_usage;
-  uint64_t read_start;
-  uint64_t process_start;
-  uint64_t process_end;
-  uint64_t last_psd;
-  uint64_t last_channels;
-
-  /* Source worker objects */
-  su_channel_detector_t *detector; /* Channel detector */
-  suscan_worker_t *source_wk; /* Used by one source only */
-  suscan_worker_t *slow_wk; /* Worker for slow operations */
-  SUCOMPLEX *read_buf;
-  SUSCOUNT   read_size;
-  PTR_LIST(struct suscan_analyzer_baseband_filter, bbfilt);
-
-  /* Spectral tuner */
-  su_specttuner_t    *stuner;
-
-  /* Wide sweep parameters */
-  SUBOOL sweep_params_requested;
-  struct suscan_analyzer_sweep_params current_sweep_params;
-  struct suscan_analyzer_sweep_params pending_sweep_params;
-  SUFREQ   curr_freq;
-  SUSCOUNT part_ndx;
-  SUSCOUNT fft_samples; /* Number of FFT frames */
-
-  /* Inspector objects */
-  PTR_LIST(suscan_inspector_t, inspector); /* This list owns inspectors */
-  pthread_mutex_t     inspector_list_mutex; /* Inspector list lock */
-  SUBOOL                inspector_list_init;
-  suscan_inspsched_t *sched; /* Inspector scheduler */
-  pthread_mutex_t     sched_lock;
-  pthread_barrier_t   barrier; /* Sched barrier */
-
-  struct suscan_inspector_overridable_request *insp_overridable;
-
-  /* Analyzer thread */
-  pthread_t thread;
 };
 
 /*!
@@ -293,6 +310,14 @@ suscan_analyzer_t *suscan_analyzer_new(
  */
 void suscan_analyzer_destroy(suscan_analyzer_t *analyzer);
 
+/*!
+ * Returns whether the analyzer performs local processing
+ * \param self a pointer to the analyzer object
+ * \return SU_TRUE if the analyzer runs in the local machine, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_is_local(const suscan_analyzer_t *self);
+
 /******************************* Inlined methods ******************************/
 
 /*!
@@ -301,9 +326,9 @@ void suscan_analyzer_destroy(suscan_analyzer_t *analyzer);
  * \author Gonzalo José Carracedo Carballal
  */
 SUINLINE SUBOOL
-suscan_analyzer_is_real_time(const suscan_analyzer_t *analyzer)
+suscan_analyzer_is_real_time(const suscan_analyzer_t *self)
 {
-  return suscan_source_get_type(analyzer->source) == SUSCAN_SOURCE_TYPE_SDR;
+  return (self->iface->is_real_time) (self->impl);
 }
 
 /*!
@@ -313,9 +338,9 @@ suscan_analyzer_is_real_time(const suscan_analyzer_t *analyzer)
  * \author Gonzalo José Carracedo Carballal
  */
 SUINLINE unsigned int
-suscan_analyzer_get_samp_rate(const suscan_analyzer_t *analyzer)
+suscan_analyzer_get_samp_rate(const suscan_analyzer_t *self)
 {
-  return suscan_source_get_samp_rate(analyzer->source);
+  return (self->iface->get_samp_rate) (self->impl);
 }
 
 /*!
@@ -327,7 +352,20 @@ suscan_analyzer_get_samp_rate(const suscan_analyzer_t *analyzer)
 SUINLINE SUFLOAT
 suscan_analyzer_get_measured_samp_rate(const suscan_analyzer_t *self)
 {
-  return self->measured_samp_rate;
+  return (self->iface->get_measured_samp_rate) (self->impl);
+}
+
+/*!
+ * Return a pointer to the current source information structure. This pointer
+ * is analyzer-owned, i.e. the user must not attempt to free it after usage.
+ * \param analyzer a pointer to the analyzer object
+ * \return a pointer to the source information structure
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUINLINE struct suscan_analyzer_source_info *
+suscan_analyzer_get_source_info(const suscan_analyzer_t *self)
+{
+  return (self->iface->get_source_info_pointer) (self->impl);
 }
 
 /*!
@@ -485,9 +523,6 @@ SUBOOL suscan_analyzer_set_iq_reverse(suscan_analyzer_t *analyzer, SUBOOL val);
  */
 SUBOOL suscan_analyzer_set_agc(suscan_analyzer_t *analyzer, SUBOOL val);
 
-/* Internal */
-void suscan_analyzer_destroy_slow_worker_data(suscan_analyzer_t *);
-
 /*!
  * Read a message sent by the analyzer object, blocking until a message is
  * received. Equivalent to suscan_analyzer_read_timeout(analyzer, type, NULL).
@@ -612,78 +647,6 @@ void suscan_analyzer_req_halt(suscan_analyzer_t *analyzer);
  */
 SUBOOL suscan_analyzer_halt_worker(suscan_worker_t *worker);
 
-/*!
- * Acquire a pointer to an inspector-specific overridable request.
- * \param self pointer to the analyzer object
- * \param handle inspector handle
- * \return pointer to the overridable request or NULL on failure
- * \author Gonzalo José Carracedo Carballal
- */
-struct suscan_inspector_overridable_request *
-suscan_analyzer_acquire_overridable(
-    suscan_analyzer_t *self,
-    SUHANDLE handle);
-
-/*!
- * Release the pointer to an inspector-specific overridable request.
- * \param self pointer to the analyzer object
- * \param rq pointer to the previously-acquired overridable request
- * \return SU_TRUE for success or SU_FALSE on failure
- * \author Gonzalo José Carracedo Carballal
- */
-SUBOOL suscan_analyzer_release_overridable(
-    suscan_analyzer_t *self,
-    struct suscan_inspector_overridable_request *rq);
-
-/*!
- * Get a pointer to the inspector object identified by a handle
- * \param analyzer pointer to the analyzer object
- * \param rq pointer to the previously-acquired overridable request
- * \return SU_TRUE for success or SU_FALSE on failure
- * \author Gonzalo José Carracedo Carballal
- */
-suscan_inspector_t *suscan_analyzer_get_inspector(
-    const suscan_analyzer_t *analyzer,
-    SUHANDLE handle);
-
-/*!
- * Acquires the analyzer's loop mutex
- * \param analyzer pointer to the analyzer object
- * \return SU_TRUE for success or SU_FALSE on failure
- * \author Gonzalo José Carracedo Carballal
- */
-SUBOOL suscan_analyzer_lock_loop(suscan_analyzer_t *analyzer);
-
-/*!
- * Releases the analyzer's loop mutex
- * \param analyzer pointer to the analyzer object
- * \author Gonzalo José Carracedo Carballal
- */
-void suscan_analyzer_unlock_loop(suscan_analyzer_t *analyzer);
-
-/*!
- * Acquires the analyzer's inspector list mutex
- * \param analyzer pointer to the analyzer object
- * \return SU_TRUE for success or SU_FALSE on failure
- * \author Gonzalo José Carracedo Carballal
- */
-SUBOOL suscan_analyzer_lock_inspector_list(suscan_analyzer_t *analyzer);
-
-/*!
- * Releases the analyzer's inspector list mutex
- * \param analyzer pointer to the analyzer object
- * \author Gonzalo José Carracedo Carballal
- */
-void suscan_analyzer_unlock_inspector_list(suscan_analyzer_t *analyzer);
-
-/* Internal */
-void suscan_analyzer_source_barrier(suscan_analyzer_t *analyzer);
-
-/* Internal */
-void suscan_analyzer_enter_sched(suscan_analyzer_t *analyzer);
-
-/* Internal */
-void suscan_analyzer_leave_sched(suscan_analyzer_t *analyzer);
 
 /*!
  * Registers a baseband filter given by a processing function and a pointer to
@@ -699,42 +662,7 @@ SUBOOL suscan_analyzer_register_baseband_filter(
     suscan_analyzer_baseband_filter_func_t func,
     void *privdata);
 
-/* Internal */
-su_specttuner_channel_t *suscan_analyzer_open_channel_ex(
-    suscan_analyzer_t *analyzer,
-    const struct sigutils_channel *chan_info,
-    SUBOOL precise,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata);
-
-/* Internal */
-su_specttuner_channel_t *suscan_analyzer_open_channel(
-    suscan_analyzer_t *analyzer,
-    const struct sigutils_channel *chan_info,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata);
-
-/* Internal */
-SUBOOL suscan_analyzer_close_channel(
-    suscan_analyzer_t *analyzer,
-    su_specttuner_channel_t *channel);
-
-/* Internal */
-SUBOOL suscan_analyzer_bind_inspector_to_channel(
-    suscan_analyzer_t *analyzer,
-    su_specttuner_channel_t *channel,
-    suscan_inspector_t *insp);
-
 /************************ Client interface methods ****************************/
-
 /*
  * The following methods are wrappers to the message-based analyzer client
  * interface. These methods compose a message object that is delivered to the
@@ -1010,6 +938,13 @@ SUBOOL suscan_analyzer_reset_equalizer_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     uint32_t req_id);
+
+/***************************** Internal methods ******************************/
+const struct suscan_analyzer_interface *
+suscan_local_analyzer_get_interface(void);
+
+const struct suscan_analyzer_interface *
+suscan_remote_analyzer_get_interface(void);
 
 #ifdef __cplusplus
 }

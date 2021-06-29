@@ -5,8 +5,7 @@
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU Lesser General Public License as
-#  published by the Free Software Foundation, either version 3 of the
-#  License, or (at your option) any later version.
+#  published by the Free Software Foundation, version 3.
 #
 #  This program is distributed in the hope that it will be useful, but
 #  WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -132,6 +131,7 @@ set(RSRC_CONFIG_FILES
   ${RSRCDIR}/frequency_allocations.xml)
   
 set(UTIL_HEADERS
+  ${UTILDIR}/cbor.h
   ${UTILDIR}/compat.h
   ${UTILDIR}/hashlist.h
   ${UTILDIR}/macos-barriers.h
@@ -139,9 +139,11 @@ set(UTIL_HEADERS
   ${UTILDIR}/confdb.h
   ${UTILDIR}/cfg.h
   ${UTILDIR}/object.h 
-  ${UTILDIR}/rbtree.h)
+  ${UTILDIR}/rbtree.h
+  ${UTILDIR}/sha256.h)
   
 set(UTIL_SOURCES
+  ${UTILDIR}/cbor.c
   ${UTILDIR}/cfg.c
   ${UTILDIR}/compat.c
   ${UTILDIR}/confdb.c
@@ -149,7 +151,8 @@ set(UTIL_SOURCES
   ${UTILDIR}/hashlist.c
   ${UTILDIR}/object.c
   ${UTILDIR}/rbtree.c
-  ${UTILDIR}/serialize.c)
+  ${UTILDIR}/serialize.c
+  ${UTILDIR}/sha256.c)
 
 set(VERSION_HEADERS ${VERSIONDIR}/version.h)
 
@@ -177,12 +180,16 @@ set(CODEC_LIB_SOURCES
   ${CODECDIR}/diff.c)
 
 set(ANALYZER_LIB_HEADERS
+  ${ANALYZERDIR}/discovery.h
   ${ANALYZERDIR}/realtime.h
   ${ANALYZERDIR}/msg.h
+  ${ANALYZERDIR}/impl/local.h
+  ${ANALYZERDIR}/impl/remote.h
   ${ANALYZERDIR}/inspsched.h
   ${ANALYZERDIR}/spectsrc.h
   ${ANALYZERDIR}/worker.h
   ${ANALYZERDIR}/estimator.h
+  ${ANALYZERDIR}/serialize.h
   ${ANALYZERDIR}/source.h
   ${ANALYZERDIR}/symbuf.h
   ${ANALYZERDIR}/mq.h
@@ -194,7 +201,8 @@ set(CLI_LIB_HEADERS
   ${CLIDIR}/chanloop.h
   ${CLIDIR}/cli.h
   ${CLIDIR}/cmds.h
-  ${CLIDIR}/datasaver.h)
+  ${CLIDIR}/datasaver.h
+  ${CLIDIR}/devserv/devserv.h)
 
 set(CLI_LIB_SOURCES 
   ${CLIDIR}/chanloop.c
@@ -221,11 +229,16 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/analyzer.c
   ${ANALYZERDIR}/bufpool.c
   ${ANALYZERDIR}/client.c
+  ${ANALYZERDIR}/device.c
+  ${ANALYZERDIR}/discovery.c
   ${ANALYZERDIR}/estimator.c
+  ${ANALYZERDIR}/impl/local.c
+  ${ANALYZERDIR}/impl/remote.c
   ${ANALYZERDIR}/inspsched.c
   ${ANALYZERDIR}/insp-server.c
   ${ANALYZERDIR}/mq.c
   ${ANALYZERDIR}/msg.c
+  ${ANALYZERDIR}/serialize.c
   ${ANALYZERDIR}/slow.c
   ${ANALYZERDIR}/source.c
   ${ANALYZERDIR}/spectsrc.c
@@ -386,6 +399,7 @@ set(SUSCLI_HEADERS ${CLI_LIB_HEADERS} ${SRCDIR}/suscan.h)
 set(SUSCLI_SOURCES
   ${CLIDIR}/audio.c
   ${CLIDIR}/cli.c
+  ${CLIDIR}/cmd/devserv.c
   ${CLIDIR}/cmd/profiles.c
   ${CLIDIR}/cmd/radio.c
   ${CLIDIR}/cmd/rms.c
@@ -393,6 +407,8 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/datasavers/mat5.c
   ${CLIDIR}/datasavers/matlab.c
   ${CLIDIR}/datasavers/tcp.c
+  ${CLIDIR}/devserv/client.c
+  ${CLIDIR}/devserv/server.c
   ${SRCDIR}/lib.c
   ${SRCDIR}/suscli.c)
 
