@@ -441,9 +441,9 @@ suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self)
   SU_TRYCATCH(!self->closed,   goto done);
   SU_TRYCATCH(self->sfd != -1, goto done);
 
-  SU_TRYCATCH(shutdown(self->sfd, 2) == 0, goto done);
-
   self->closed = SU_TRUE;
+
+  SU_TRYCATCH(shutdown(self->sfd, 2) == 0, goto done);
 
   ok = SU_TRUE;
 
@@ -891,7 +891,7 @@ suscli_analyzer_client_list_broadcast_unsafe(
   this = self->client_head;
 
   while (this != NULL) {
-    if (!suscli_analyzer_client_is_failed(this)
+    if (suscli_analyzer_client_can_write(this)
         && suscli_analyzer_client_has_source_info(this)) {
       if (!suscli_analyzer_client_write_buffer(this, buffer)) {
         error = errno;

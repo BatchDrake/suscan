@@ -130,6 +130,18 @@ suscli_analyzer_client_is_failed(const suscli_analyzer_client_t *self)
 }
 
 SUINLINE SUBOOL
+suscli_analyzer_client_is_closed(const suscli_analyzer_client_t *self)
+{
+  return self->closed;
+}
+
+SUINLINE SUBOOL
+suscli_analyzer_client_can_write(const suscli_analyzer_client_t *self)
+{
+  return !self->closed && !self->failed;
+}
+
+SUINLINE SUBOOL
 suscli_analyzer_client_is_auth(const suscli_analyzer_client_t *self)
 {
   return self->auth;

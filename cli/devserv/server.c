@@ -309,7 +309,7 @@ suscli_analyzer_server_tx_thread(void *ptr)
           suscli_analyzer_server_on_broadcast_error,
           self);
     } else {
-      if (!suscli_analyzer_client_is_failed(client)) {
+      if (suscli_analyzer_client_can_write(client)) {
         if (!suscli_analyzer_client_write_buffer(client, &pdu))
           suscli_analyzer_server_kick_client_unsafe(self, client);
       }
@@ -519,6 +519,9 @@ suscli_analyzer_server_kick_client_unsafe(
     suscli_analyzer_server_t *self,
     suscli_analyzer_client_t *client)
 {
+  if (!suscli_analyzer_client_is_closed(client))
+    suscli_analyzer_client_shutdown(client);
+
   if (!suscli_analyzer_client_is_failed(client)) {
     suscli_analyzer_server_cleanup_client_resources(self, client);
     suscli_analyzer_client_mark_failed(client);
@@ -613,7 +616,6 @@ suscli_analyzer_server_deliver_call(
             goto done);
       } else {
         SU_WARNING("Force EOS message ignored (other consumers online)\n");
-        suscli_analyzer_client_shutdown(caller);
         suscli_analyzer_server_kick_client(self, caller);
       }
       break;
@@ -675,7 +677,6 @@ suscli_analyzer_server_deliver_call(
         suscan_analyzer_req_halt(self->analyzer);
       } else {
         SU_WARNING("Halt message ignored (other consumers online)\n");
-        suscli_analyzer_client_shutdown(caller);
         suscli_analyzer_server_kick_client(self, caller);
       }
       break;
