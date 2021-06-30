@@ -191,8 +191,8 @@ suscan_ask_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
   SU_TRYCATCH(
       su_iir_rrc_init(
           &new->mf,
-          suscan_ask_inspector_mf_span(6 * tau),
-          tau,
+          SU_CEIL(suscan_ask_inspector_mf_span(6 * tau)),
+          SU_CEIL(tau),
           new->cur_params.mf.mf_rolloff),
       goto fail);
 
@@ -318,8 +318,8 @@ suscan_ask_inspector_commit_config(void *private)
   if (mf_changed && sym_period > 0) {
     if (!su_iir_rrc_init(
         &mf,
-        suscan_ask_inspector_mf_span(6 * sym_period),
-        sym_period,
+        SU_CEIL(suscan_ask_inspector_mf_span(6 * sym_period)),
+        SU_CEIL(sym_period),
         insp->cur_params.mf.mf_rolloff)) {
       SU_ERROR("No memory left to update matched filter!\n");
     } else {

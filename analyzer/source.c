@@ -535,6 +535,17 @@ suscan_source_config_set_gain(
   return SU_TRUE;
 }
 
+SUFLOAT
+suscan_source_config_get_ppm(const suscan_source_config_t *config)
+{
+  return config->ppm;
+}
+
+void suscan_source_config_set_ppm(suscan_source_config_t *config, SUFLOAT ppm)
+{
+  config->ppm = ppm;
+}
+
 SUBOOL
 suscan_source_config_set_device(
     suscan_source_config_t *config,
@@ -612,9 +623,9 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
   SUSCAN_PACK(float, self->bandwidth);
   SUSCAN_PACK(bool,  self->iq_balance);
   SUSCAN_PACK(bool,  self->dc_remove);
+  SUSCAN_PACK(float, self->ppm);
   SUSCAN_PACK(uint,  self->samp_rate);
   SUSCAN_PACK(uint,  self->average);
-
   SUSCAN_PACK(bool,  self->loop);
 
   SUSCAN_PACK(str,   self->antenna);
@@ -708,18 +719,19 @@ suscan_source_config_deserialize_ex(
     goto fail;
   }
 
-  SUSCAN_UNPACK(freq,  self->freq);
-  SUSCAN_UNPACK(freq,  self->lnb_freq);
-  SUSCAN_UNPACK(float, self->bandwidth);
-  SUSCAN_UNPACK(bool,  self->iq_balance);
-  SUSCAN_UNPACK(bool,  self->dc_remove);
-  SUSCAN_UNPACK(uint32,  self->samp_rate);
-  SUSCAN_UNPACK(uint32,  self->average);
+  SUSCAN_UNPACK(freq,   self->freq);
+  SUSCAN_UNPACK(freq,   self->lnb_freq);
+  SUSCAN_UNPACK(float,  self->bandwidth);
+  SUSCAN_UNPACK(bool,   self->iq_balance);
+  SUSCAN_UNPACK(bool,   self->dc_remove);
+  SUSCAN_UNPACK(float,  self->ppm);
+  SUSCAN_UNPACK(uint32, self->samp_rate);
+  SUSCAN_UNPACK(uint32, self->average);
 
-  SUSCAN_UNPACK(bool,  self->loop);
+  SUSCAN_UNPACK(bool,   self->loop);
 
-  SUSCAN_UNPACK(str,   self->antenna);
-  SUSCAN_UNPACK(uint32,  self->channel);
+  SUSCAN_UNPACK(str,    self->antenna);
+  SUSCAN_UNPACK(uint32, self->channel);
 
   SUSCAN_UNPACK(str,    desc);
   SUSCAN_UNPACK(str,    driver);
@@ -960,6 +972,7 @@ suscan_source_config_clone(const suscan_source_config_t *config)
   new->dc_remove = config->dc_remove;
   new->samp_rate = config->samp_rate;
   new->average = config->average;
+  new->ppm     = config->ppm;
   new->channel = config->channel;
   new->loop = config->loop;
   new->device = config->device;
@@ -1091,6 +1104,7 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   SU_CFGSAVE(float, bandwidth);
   SU_CFGSAVE(bool,  iq_balance);
   SU_CFGSAVE(bool,  dc_remove);
+  SU_CFGSAVE(float, ppm);
   SU_CFGSAVE(bool,  loop);
   SU_CFGSAVE(uint,  samp_rate);
   SU_CFGSAVE(uint,  average);
@@ -1200,11 +1214,12 @@ suscan_source_config_from_object(const suscan_object_t *object)
   SU_CFGLOAD(float, freq, 0);
   SU_CFGLOAD(float, lnb_freq, 0);
   SU_CFGLOAD(float, bandwidth, 0);
-  SU_CFGLOAD(bool, iq_balance, SU_FALSE);
-  SU_CFGLOAD(bool, dc_remove, SU_FALSE);
-  SU_CFGLOAD(bool, loop, SU_FALSE);
-  SU_CFGLOAD(uint, samp_rate, 1.8e6);
-  SU_CFGLOAD(uint, channel, 0);
+  SU_CFGLOAD(bool,  iq_balance, SU_FALSE);
+  SU_CFGLOAD(bool,  dc_remove, SU_FALSE);
+  SU_CFGLOAD(float, ppm, 0);
+  SU_CFGLOAD(bool,  loop, SU_FALSE);
+  SU_CFGLOAD(uint,  samp_rate, 1.8e6);
+  SU_CFGLOAD(uint,  channel, 0);
 
   SU_TRYCATCH(SU_CFGLOAD(uint, average, 1), goto fail);
 
@@ -1564,6 +1579,17 @@ suscan_source_open_sdr(suscan_source_t *source)
       source->config->bandwidth) != 0) {
     SU_ERROR(
         "Failed to set SDR IF bandwidth: %s\n",
+        SoapySDRDevice_lastError());
+    return SU_FALSE;
+  }
+
+  if (SoapySDRDevice_setFrequencyCorrection(
+      source->sdr,
+      SOAPY_SDR_RX,
+      source->config->channel,
+      source->config->ppm) != 0) {
+    SU_ERROR(
+        "Failed to set SDR frequency correction: %s\n",
         SoapySDRDevice_lastError());
     return SU_FALSE;
   }
@@ -1945,6 +1971,33 @@ suscan_source_set_freq(suscan_source_t *source, SUFREQ freq)
       NULL) != 0) {
     SU_ERROR(
         "Failed to set SDR frequency: %s\n",
+        SoapySDRDevice_lastError());
+    return SU_FALSE;
+  }
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_set_ppm(suscan_source_t *source, SUFLOAT ppm)
+{
+  if (!source->capturing)
+    return SU_FALSE;
+
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
+    return SU_FALSE;
+
+  /* Update config */
+  suscan_source_config_set_ppm(source->config, ppm);
+
+  /* Set device frequency */
+  if (SoapySDRDevice_setFrequencyCorrection(
+      source->sdr,
+      SOAPY_SDR_RX,
+      source->config->channel,
+      ppm) != 0) {
+    SU_ERROR(
+        "Failed to set SDR frequency correction: %s\n",
         SoapySDRDevice_lastError());
     return SU_FALSE;
   }

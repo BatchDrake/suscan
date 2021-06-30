@@ -591,6 +591,12 @@ suscli_analyzer_server_deliver_call(
           goto done);
       break;
 
+    case SUSCAN_ANALYZER_REMOTE_SET_PPM:
+      SU_TRYCATCH(
+          suscan_analyzer_set_ppm(self->analyzer, call->ppm),
+          goto done);
+      break;
+
     case SUSCAN_ANALYZER_REMOTE_SET_DC_REMOVE:
       SU_TRYCATCH(
           suscan_analyzer_set_dc_remove(self->analyzer, call->dc_remove),

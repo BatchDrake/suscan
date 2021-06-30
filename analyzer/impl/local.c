@@ -767,6 +767,7 @@ suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
   info->lnb = suscan_source_config_get_lnb_freq(config);
   info->bandwidth = suscan_source_config_get_bandwidth(config);
   info->dc_remove = suscan_source_config_get_dc_remove(config);
+  info->ppm       = suscan_source_config_get_ppm(config);
   info->iq_reverse = self->iq_rev;
   info->agc = SU_FALSE;
 
@@ -1102,6 +1103,14 @@ suscan_local_analyzer_set_bandwidth(void *ptr, SUFLOAT value)
 }
 
 SUPRIVATE SUBOOL
+suscan_local_analyzer_set_ppm(void *ptr, SUFLOAT ppm)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
+
+  return suscan_local_analyzer_slow_set_ppm(self, ppm);
+}
+
+SUPRIVATE SUBOOL
 suscan_local_analyzer_set_dc_remove(void *ptr, SUBOOL value)
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
@@ -1352,6 +1361,7 @@ suscan_local_analyzer_get_interface(void)
     SET_CALLBACK(set_gain);
     SET_CALLBACK(set_antenna);
     SET_CALLBACK(set_bandwidth);
+    SET_CALLBACK(set_ppm);
     SET_CALLBACK(set_dc_remove);
     SET_CALLBACK(set_iq_reverse);
     SET_CALLBACK(set_agc);

@@ -211,6 +211,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_PACK(freq,  self->freq_max);
   SUSCAN_PACK(freq,  self->lnb);
   SUSCAN_PACK(float, self->bandwidth);
+  SUSCAN_PACK(float, self->ppm);
   SUSCAN_PACK(str,   self->antenna);
   SUSCAN_PACK(bool,  self->dc_remove);
   SUSCAN_PACK(bool,  self->iq_reverse);
@@ -240,6 +241,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_UNPACK(freq,   self->freq_max);
   SUSCAN_UNPACK(freq,   self->lnb);
   SUSCAN_UNPACK(float,  self->bandwidth);
+  SUSCAN_UNPACK(float,  self->ppm);
   SUSCAN_UNPACK(str,    self->antenna);
   SUSCAN_UNPACK(bool,   self->dc_remove);
   SUSCAN_UNPACK(bool,   self->iq_reverse);
@@ -295,6 +297,7 @@ suscan_analyzer_source_info_init_copy(
   self->freq_max            = origin->freq_max;
   self->lnb                 = origin->lnb;
   self->bandwidth           = origin->bandwidth;
+  self->ppm                 = origin->ppm;
 
   if (origin->antenna != NULL)
     SU_TRYCATCH(self->antenna = strdup(origin->antenna), goto done);
@@ -523,6 +526,12 @@ SUBOOL
 suscan_analyzer_set_bw(suscan_analyzer_t *self, SUFLOAT bw)
 {
   return (self->iface->set_bandwidth) (self->impl, bw);
+}
+
+SUBOOL
+suscan_analyzer_set_ppm(suscan_analyzer_t *self, SUFLOAT ppm)
+{
+  return (self->iface->set_ppm) (self->impl, ppm);
 }
 
 SUBOOL

@@ -268,6 +268,10 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
       SUSCAN_PACK(float, self->bandwidth);
       break;
 
+    case SUSCAN_ANALYZER_REMOTE_SET_PPM:
+      SUSCAN_PACK(float, self->ppm);
+      break;
+
     case SUSCAN_ANALYZER_REMOTE_SET_DC_REMOVE:
       SUSCAN_PACK(bool, self->dc_remove);
       break;
@@ -357,6 +361,10 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
 
     case SUSCAN_ANALYZER_REMOTE_SET_BANDWIDTH:
       SUSCAN_UNPACK(float, self->bandwidth);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_PPM:
+      SUSCAN_UNPACK(float, self->ppm);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_DC_REMOVE:
@@ -1493,6 +1501,34 @@ done:
 }
 
 SUPRIVATE SUBOOL
+suscan_remote_analyzer_set_ppm(void *ptr, SUFLOAT value)
+{
+  suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+  struct suscan_analyzer_remote_call *call = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      call = suscan_remote_analyzer_acquire_call(
+          self,
+          SUSCAN_ANALYZER_REMOTE_SET_PPM),
+      goto done);
+
+  call->ppm = value;
+
+  SU_TRYCATCH(
+      suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
+      goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (call != NULL)
+    suscan_remote_analyzer_release_call(self, call);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
 suscan_remote_analyzer_set_dc_remove(void *ptr, SUBOOL value)
 {
   suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
@@ -1829,6 +1865,7 @@ suscan_remote_analyzer_get_interface(void)
     SET_CALLBACK(set_gain);
     SET_CALLBACK(set_antenna);
     SET_CALLBACK(set_bandwidth);
+    SET_CALLBACK(set_ppm);
     SET_CALLBACK(set_dc_remove);
     SET_CALLBACK(set_iq_reverse);
     SET_CALLBACK(set_agc);

@@ -212,6 +212,31 @@ suscan_local_analyzer_set_bw_cb(
 }
 
 SUPRIVATE SUBOOL
+suscan_local_analyzer_set_ppm_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  SUFLOAT ppm;
+
+  if (analyzer->ppm_req) {
+    ppm = analyzer->ppm_req_value;
+    if (suscan_source_set_ppm(analyzer->source, ppm)) {
+      /* Source info changed. Notify update */
+      analyzer->source_info.ppm = ppm;
+
+      suscan_analyzer_send_source_info(
+          analyzer->parent,
+          &analyzer->source_info);
+    }
+    analyzer->ppm_req = analyzer->ppm_req_value != ppm;
+  }
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
 suscan_local_analyzer_set_freq_cb(
     struct suscan_mq *mq_out,
     void *wk_private,
@@ -470,6 +495,20 @@ suscan_local_analyzer_slow_set_bw(suscan_local_analyzer_t *analyzer, SUFLOAT bw)
   return suscan_worker_push(
       analyzer->slow_wk,
       suscan_local_analyzer_set_bw_cb,
+      NULL);
+}
+
+SUBOOL
+suscan_local_analyzer_slow_set_ppm(
+    suscan_local_analyzer_t *analyzer,
+    SUFLOAT ppm)
+{
+  analyzer->ppm_req_value = ppm;
+  analyzer->ppm_req = SU_TRUE;
+
+  return suscan_worker_push(
+      analyzer->slow_wk,
+      suscan_local_analyzer_set_ppm_cb,
       NULL);
 }
 

@@ -194,6 +194,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
   SUFREQ   lnb;
 
   SUFLOAT  bandwidth;
+  SUFLOAT  ppm;
   char    *antenna;
   SUBOOL   dc_remove;
   SUBOOL   iq_reverse;
@@ -239,6 +240,7 @@ struct suscan_analyzer_interface {
   SUBOOL   (*set_gain) (void *, const char *name, SUFLOAT value);
   SUBOOL   (*set_antenna) (void *, const char *);
   SUBOOL   (*set_bandwidth) (void *, SUFLOAT);
+  SUBOOL   (*set_ppm) (void *, SUFLOAT);
   SUBOOL   (*set_dc_remove) (void *, SUBOOL);
   SUBOOL   (*set_iq_reverse) (void *, SUBOOL);
   SUBOOL   (*set_agc) (void *, SUBOOL);
@@ -467,6 +469,16 @@ SUBOOL suscan_analyzer_set_freq(
  * \author Gonzalo José Carracedo Carballal
  */
 SUBOOL suscan_analyzer_set_bw(suscan_analyzer_t *analyzer, SUFLOAT bw);
+
+/*!
+ * Convenience method to set the signal source's frequency correction in PPM..
+ * Note not all devices support this feature.
+ * \param analyzer a pointer to the analyzer object
+ * \param ppm frequency correction in parts per million
+ * \return SU_TRUE for success or SU_FALSE on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_set_ppm(suscan_analyzer_t *self, SUFLOAT ppm);
 
 /*!
  * Convenience method to set the gain of a gain element (usually a VGA or an

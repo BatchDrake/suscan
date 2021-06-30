@@ -262,6 +262,7 @@ SUSCAN_SERIALIZABLE(suscan_source_config) {
   SUFLOAT bandwidth;
   SUBOOL  iq_balance;
   SUBOOL  dc_remove;
+  SUFLOAT ppm;
   unsigned int samp_rate;
   unsigned int average;
 
@@ -404,6 +405,12 @@ SUBOOL suscan_source_config_set_gain(
     const char *name,
     SUFLOAT value);
 
+SUFLOAT suscan_source_config_get_ppm(const suscan_source_config_t *config);
+
+void suscan_source_config_set_ppm(
+    suscan_source_config_t *config,
+    SUFLOAT ppm);
+
 SUBOOL suscan_source_config_set_device(
     suscan_source_config_t *config,
     const suscan_source_device_t *self);
@@ -486,6 +493,7 @@ SUBOOL suscan_source_start_capture(suscan_source_t *source);
 SUBOOL suscan_source_set_agc(suscan_source_t *source, SUBOOL set);
 SUBOOL suscan_source_set_dc_remove(suscan_source_t *source, SUBOOL remove);
 SUBOOL suscan_source_set_freq(suscan_source_t *source, SUFREQ freq);
+SUBOOL suscan_source_set_ppm(suscan_source_t *source, SUFLOAT ppm);
 SUBOOL suscan_source_set_lnb_freq(suscan_source_t *source, SUFREQ freq);
 SUBOOL suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb);
 

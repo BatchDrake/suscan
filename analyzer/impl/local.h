@@ -103,6 +103,10 @@ struct suscan_local_analyzer {
   SUBOOL  bw_req;
   SUFLOAT bw_req_value;
 
+  /* PPM request */
+  SUBOOL  ppm_req;
+  SUFLOAT ppm_req_value;
+
   /* Gain request */
   SUBOOL gain_req_mutex_init;
   PTR_LIST(struct suscan_analyzer_gain_info, gain_request);
@@ -273,6 +277,12 @@ SUBOOL suscan_local_analyzer_slow_set_antenna(
 SUBOOL suscan_local_analyzer_slow_set_bw(
     suscan_local_analyzer_t *analyzer,
     SUFLOAT bw);
+
+/* Internal */
+SUBOOL
+suscan_local_analyzer_slow_set_ppm(
+    suscan_local_analyzer_t *analyzer,
+    SUFLOAT ppm);
 
 /* Internal */
 SUBOOL suscan_local_analyzer_slow_set_gain(
