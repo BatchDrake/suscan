@@ -1597,8 +1597,8 @@ suscan_source_open_sdr(suscan_source_t *source)
 #else
   SU_WARNING(
       "SoapySDR "
-      + SOAPY_SDR_ABI_VERSION
-      + " does not support frequency correction\n");
+      SOAPY_SDR_ABI_VERSION
+      " does not support frequency correction\n");
 #endif /* SOAPY_SDR_API_VERSION >= 0x00060000 */
 
   if (!suscan_source_set_sample_rate_near(source))
@@ -2012,8 +2012,8 @@ suscan_source_set_ppm(suscan_source_t *source, SUFLOAT ppm)
 #else
   SU_WARNING(
       "SoapySDR "
-      + SOAPY_SDR_ABI_VERSION
-      + " does not support frequency correction\n");
+      SOAPY_SDR_ABI_VERSION
+      " does not support frequency correction\n");
 #endif /* SOAPY_SDR_API_VERSION >= 0x00060000 */
   return SU_TRUE;
 }
