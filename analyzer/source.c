@@ -596,6 +596,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
   SUSCAN_PACK_BOILERPLATE_START;
   struct suscan_source_gain_value *gain;
   unsigned int i;
+  char *dup = NULL;
   const char *host;
   const char *port_str;
   uint16_t port;
@@ -646,7 +647,13 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
     if (sscanf(port_str, "%hu", &port) != 1)
       port = 0;
 
-    SUSCAN_PACK(str,  suscan_source_device_get_desc(self->device));
+    if (self->type == SUSCAN_SOURCE_TYPE_FILE) {
+      SU_TRYCATCH(dup = strdup(self->path), goto fail);
+      SUSCAN_PACK(str, basename(dup));
+    } else {
+      SUSCAN_PACK(str,  suscan_source_device_get_desc(self->device));
+    }
+
     SUSCAN_PACK(str,  suscan_source_device_get_driver(self->device));
     SUSCAN_PACK(str,  host);
     SUSCAN_PACK(uint, port);
@@ -665,7 +672,12 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
     }
   }
 
-  SUSCAN_PACK_BOILERPLATE_END;
+  SUSCAN_PACK_BOILERPLATE_FINALLY;
+
+  if (dup != NULL)
+    free(dup);
+
+  SUSCAN_PACK_BOILERPLATE_RETURN;
 }
 
 SUBOOL

@@ -231,10 +231,23 @@ done:
 }
 
 SUPRIVATE char *
-suscan_source_device_build_desc(const char *driver, const char *label)
+suscan_source_device_build_desc(const char *driver, const SoapySDRKwargs *args)
 {
+  const char *label;
+  const char *host, *port;
+
+  label = SoapySDRKwargs_get((SoapySDRKwargs *) args, "label");
+  host  = SoapySDRKwargs_get((SoapySDRKwargs *) args, "host");
+  port  = SoapySDRKwargs_get((SoapySDRKwargs *) args, "port");
+
   if (label == NULL)
     label = "Unlabeled device";
+
+  if (host == NULL)
+    host = "<invalid host>";
+
+  if (port == NULL)
+    port = "<invalid port>";
 
   if (strcmp(driver, "audio") == 0)
     return strbuild("Audio input (%s)", label);
@@ -243,7 +256,7 @@ suscan_source_device_build_desc(const char *driver, const char *label)
   else if (strcmp(driver, "null") == 0)
     return strdup("Dummy device");
   else if (strcmp(driver, "tcp") == 0)
-    return strdup(label);
+    return strbuild("%s:%s (%s)\n", host, port, label);
   return strbuild("%s (%s)", driver, label);
 }
 
@@ -517,9 +530,7 @@ suscan_source_device_new(const char *interface, const SoapySDRKwargs *args)
   new->interface = interface;
 
   SU_TRYCATCH(
-      new->desc = suscan_source_device_build_desc(
-          driver,
-          SoapySDRKwargs_get((SoapySDRKwargs *) args, "label")),
+      new->desc = suscan_source_device_build_desc(driver, args),
       goto fail);
 
   SU_TRYCATCH(new->args = calloc(1, sizeof (SoapySDRKwargs)), goto fail);

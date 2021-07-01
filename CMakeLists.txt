@@ -399,6 +399,7 @@ set(SUSCLI_HEADERS ${CLI_LIB_HEADERS} ${SRCDIR}/suscan.h)
 set(SUSCLI_SOURCES
   ${CLIDIR}/audio.c
   ${CLIDIR}/cli.c
+  ${CLIDIR}/cmd/devices.c
   ${CLIDIR}/cmd/devserv.c
   ${CLIDIR}/cmd/profiles.c
   ${CLIDIR}/cmd/radio.c

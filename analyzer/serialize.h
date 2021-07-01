@@ -51,11 +51,17 @@ JOIN(structname, _deserialize)(                        \
 #define SUSCAN_PACK_BOILERPLATE_START                  \
   SUBOOL ok = SU_FALSE;
 
-#define SUSCAN_PACK_BOILERPLATE_END                    \
+#define SUSCAN_PACK_BOILERPLATE_FINALLY                \
   ok = SU_TRUE;                                        \
                                                        \
-fail:                                                  \
+fail:
+
+#define SUSCAN_PACK_BOILERPLATE_RETURN                 \
   return ok
+
+#define SUSCAN_PACK_BOILERPLATE_END                    \
+    SUSCAN_PACK_BOILERPLATE_FINALLY                    \
+    SUSCAN_PACK_BOILERPLATE_RETURN                     \
 
 #define SUSCAN_UNPACK_BOILERPLATE_START                \
   size_t _ptr = grow_buf_ptr(buffer);                  \

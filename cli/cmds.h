@@ -28,5 +28,6 @@ SUBOOL suscli_profiles_cb(const hashlist_t *params);
 SUBOOL suscli_rms_cb(const hashlist_t *params);
 SUBOOL suscli_profinfo_cb(const hashlist_t *params);
 SUBOOL suscli_radio_cb(const hashlist_t *params);
+SUBOOL suscli_devices_cb(const hashlist_t *params);
 
 #endif /* _CLI_CMDS_H */
