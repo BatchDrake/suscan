@@ -401,6 +401,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/cli.c
   ${CLIDIR}/cmd/devices.c
   ${CLIDIR}/cmd/devserv.c
+  ${CLIDIR}/cmd/makeprof.c
   ${CLIDIR}/cmd/profiles.c
   ${CLIDIR}/cmd/radio.c
   ${CLIDIR}/cmd/rms.c

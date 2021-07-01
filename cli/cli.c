@@ -558,6 +558,14 @@ suscli_init(void)
 
   SU_TRYCATCH(
       suscli_command_register(
+          "makeprof",
+          "Generate profiles from detected devices",
+          SUSCLI_COMMAND_REQ_SOURCES,
+          suscli_makeprof_cb) != -1,
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_command_register(
           "devserv",
           "Start the SuRPC remove device server",
           SUSCLI_COMMAND_REQ_ALL,

@@ -87,6 +87,12 @@ suscan_config_context_set_on_save(
   ctx->userdata = userdata;
 }
 
+SUINLINE const char *
+suscan_config_context_get_save_file(const suscan_config_context_t *self)
+{
+  return self->save_file;
+}
+
 SUBOOL suscan_confdb_scan_all(void);
 
 SUBOOL suscan_confdb_save_all(void);
