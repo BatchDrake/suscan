@@ -1583,6 +1583,7 @@ suscan_source_open_sdr(suscan_source_t *source)
     return SU_FALSE;
   }
 
+#if SOAPY_SDR_API_VERSION >= 0x00060000
   if (SoapySDRDevice_setFrequencyCorrection(
       source->sdr,
       SOAPY_SDR_RX,
@@ -1593,6 +1594,12 @@ suscan_source_open_sdr(suscan_source_t *source)
         SoapySDRDevice_lastError());
     return SU_FALSE;
   }
+#else
+  SU_WARNING(
+      "SoapySDR "
+      + SOAPY_SDR_ABI_VERSION
+      + " does not support frequency correction\n");
+#endif /* SOAPY_SDR_API_VERSION >= 0x00060000 */
 
   if (!suscan_source_set_sample_rate_near(source))
     return SU_FALSE;
@@ -1991,6 +1998,7 @@ suscan_source_set_ppm(suscan_source_t *source, SUFLOAT ppm)
   suscan_source_config_set_ppm(source->config, ppm);
 
   /* Set device frequency */
+#if SOAPY_SDR_API_VERSION >= 0x00060000
   if (SoapySDRDevice_setFrequencyCorrection(
       source->sdr,
       SOAPY_SDR_RX,
@@ -2001,7 +2009,12 @@ suscan_source_set_ppm(suscan_source_t *source, SUFLOAT ppm)
         SoapySDRDevice_lastError());
     return SU_FALSE;
   }
-
+#else
+  SU_WARNING(
+      "SoapySDR "
+      + SOAPY_SDR_ABI_VERSION
+      + " does not support frequency correction\n");
+#endif /* SOAPY_SDR_API_VERSION >= 0x00060000 */
   return SU_TRUE;
 }
 
