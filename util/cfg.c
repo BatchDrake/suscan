@@ -26,7 +26,7 @@
 #include "cfg.h"
 
 PTR_LIST_PRIVATE(suscan_config_desc_t, g_config_desc);
-SUPRIVATE pthread_mutex_t g_config_desc_mutex;
+SUPRIVATE pthread_mutex_t g_config_desc_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 SUPRIVATE suscan_config_desc_t *
 suscan_config_desc_lookup_unsafe(const char *global_name)
