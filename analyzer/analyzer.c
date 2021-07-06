@@ -231,7 +231,8 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
   SUBOOL end_required = SU_FALSE;
-  size_t i, nelem;
+  size_t i;
+  uint64_t nelem;
 
   SUSCAN_UNPACK(uint64, self->source_samp_rate);
   SUSCAN_UNPACK(uint64, self->effective_samp_rate);
@@ -252,7 +253,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
       goto fail);
   SU_TRYCATCH(!end_required, goto fail);
 
-  self->gain_count = nelem;
+  self->gain_count = (unsigned int) nelem;
   SU_TRYCATCH(
       self->gain_list = calloc(
           nelem,

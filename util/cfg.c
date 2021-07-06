@@ -1002,7 +1002,7 @@ suscan_config_desc_populate_from_cbor(
   SUFLOAT real;
   char *key = NULL;
   char *string = NULL;
-  size_t i, npairs = 0;
+  uint64_t i, npairs = 0;
   SUBOOL end_required = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
@@ -1118,7 +1118,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_config)
   suscan_config_desc_t *desc = NULL;
   const struct suscan_field *field = NULL;
   SUBOOL creative_mode = SU_FALSE;
-  size_t i, npairs = 0;
+  uint64_t i, npairs = 0;
   SUBOOL end_required = SU_FALSE;
 
   /* Serialized configurations must have a name */

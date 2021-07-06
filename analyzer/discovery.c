@@ -158,7 +158,7 @@ done:
 SUPRIVATE SUBOOL
 suscan_discovered_remote_device_update(suscan_source_config_t *config)
 {
-  struct suscan_discovered_remote_device *remdev;
+  struct suscan_discovered_remote_device *remdev = NULL;
   SUBOOL acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 

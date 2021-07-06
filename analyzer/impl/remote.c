@@ -846,7 +846,7 @@ done:
 SUPRIVATE enum suscan_remote_analyzer_auth_result
 suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
 {
-  struct suscan_analyzer_remote_call *call;
+  struct suscan_analyzer_remote_call *call = NULL;
   struct suscan_analyzer_server_hello hello;
   char hostname[64];
   SUBOOL write_ok = SU_FALSE;
