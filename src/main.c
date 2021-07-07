@@ -36,7 +36,7 @@ version(void)
       sigutils_api_version(),
       sigutils_pkgversion());
 
-  fprintf(stderr, "Copyright © 2020 Gonzalo José Carracedo Carballal\n");
+  fprintf(stderr, "Copyright © 2021 Gonzalo José Carracedo Carballal\n");
   fprintf(
       stderr,
       "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n");
@@ -53,7 +53,7 @@ help(const char *argv0)
   fprintf(stderr, "Options:\n\n");
   fprintf(stderr, "     -v, --version         Print library version\n");
   fprintf(stderr, "     -h, --help            This help\n\n");
-  fprintf(stderr, "(c) 2020 Gonzalo J. Caracedo <BatchDrake@gmail.com>\n");
+  fprintf(stderr, "(c) 2021 Gonzalo J. Caracedo <BatchDrake@gmail.com>\n");
 }
 
 int

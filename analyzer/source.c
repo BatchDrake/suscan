@@ -128,11 +128,35 @@ fail:
   return NULL;
 }
 
-void
-suscan_source_config_destroy(suscan_source_config_t *config)
+SUPRIVATE void
+suscan_source_config_clear_gains(suscan_source_config_t *self)
 {
   unsigned int i;
 
+  for (i = 0; i < self->gain_count; ++i)
+    if (self->gain_list[i] != NULL)
+      suscan_source_gain_value_destroy(self->gain_list[i]);
+
+  if (self->gain_list != NULL)
+    free(self->gain_list);
+
+  self->gain_count = 0;
+  self->gain_list = NULL;
+
+  for (i = 0; i < self->hidden_gain_count; ++i)
+    if (self->hidden_gain_list[i] != NULL)
+      suscan_source_gain_value_destroy(self->hidden_gain_list[i]);
+
+  if (self->hidden_gain_list != NULL)
+    free(self->hidden_gain_list);
+
+  self->hidden_gain_count = 0;
+  self->hidden_gain_list = NULL;
+}
+
+void
+suscan_source_config_destroy(suscan_source_config_t *config)
+{
   if (config->label != NULL)
     free(config->label);
 
@@ -147,19 +171,7 @@ suscan_source_config_destroy(suscan_source_config_t *config)
   if (config->antenna != NULL)
     free(config->antenna);
 
-  for (i = 0; i < config->gain_count; ++i)
-    if (config->gain_list[i] != NULL)
-      suscan_source_gain_value_destroy(config->gain_list[i]);
-
-  if (config->gain_list != NULL)
-    free(config->gain_list);
-
-  for (i = 0; i < config->hidden_gain_count; ++i)
-    if (config->hidden_gain_list[i] != NULL)
-      suscan_source_gain_value_destroy(config->hidden_gain_list[i]);
-
-  if (config->hidden_gain_list != NULL)
-    free(config->hidden_gain_list);
+  suscan_source_config_clear_gains(config);
 
   free(config);
 }
@@ -546,6 +558,54 @@ void suscan_source_config_set_ppm(suscan_source_config_t *config, SUFLOAT ppm)
   config->ppm = ppm;
 }
 
+SUPRIVATE SUBOOL
+suscan_source_config_set_gains_from_device(
+    suscan_source_config_t *config,
+    const suscan_source_device_t *dev)
+{
+  unsigned int i;
+  struct suscan_source_gain_value *gain = NULL;
+  PTR_LIST_LOCAL(struct suscan_source_gain_value, gain);
+  SUBOOL ok = SU_FALSE;
+
+  for (i = 0; i < dev->gain_desc_count; ++i) {
+    SU_TRYCATCH(
+        gain = suscan_source_gain_value_new(
+            dev->gain_desc_list[i],
+            dev->gain_desc_list[i]->def),
+        goto done);
+
+    SU_TRYCATCH(
+        PTR_LIST_APPEND_CHECK(gain, gain) != -1,
+        goto done);
+
+    gain = NULL;
+  }
+
+  /* TODO: How about a little swap here */
+  suscan_source_config_clear_gains(config);
+
+  config->gain_list  = gain_list;
+  config->gain_count = gain_count;
+
+  gain_list  = NULL;
+  gain_count = 0;
+
+  ok = SU_TRUE;
+
+done:
+  if (gain != NULL)
+    suscan_source_gain_value_destroy(gain);
+
+  for (i = 0; i < gain_count; ++i)
+    suscan_source_gain_value_destroy(gain_list[i]);
+
+  if (gain_list != NULL)
+    free(gain_list);
+
+  return ok;
+}
+
 SUBOOL
 suscan_source_config_set_device(
     suscan_source_config_t *config,
@@ -567,6 +627,10 @@ suscan_source_config_set_device(
         dev->args->vals[i]);
     /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
   }
+
+  SU_TRYCATCH(
+      suscan_source_config_set_gains_from_device(config, dev),
+      return SU_FALSE);
 
   config->interface = dev->interface;
   config->device = dev;
@@ -949,13 +1013,14 @@ suscan_source_config_clone(const suscan_source_config_t *config)
   new->device = config->device;
   new->interface = config->interface;
 
-  for (i = 0; i < config->gain_count; ++i)
+  for (i = 0; i < config->gain_count; ++i) {
     SU_TRYCATCH(
         suscan_source_config_set_gain(
             new,
             config->gain_list[i]->desc->name,
             config->gain_list[i]->val),
         goto fail);
+  }
 
   /* Copy hidden gains too */
   for (i = 0; i < config->hidden_gain_count; ++i)
@@ -2272,7 +2337,7 @@ suscan_init_sources(void)
   SU_TRYCATCH(suscan_load_sources(), return SU_FALSE);
 
   if ((mcif = getenv("SUSCAN_DISCOVERY_IF")) != NULL && strlen(mcif) > 0) {
-    printf("Discovery mode started\n");
+    SU_INFO("Discovery mode started\n");
     if (!suscan_device_net_discovery_start(mcif)) {
       SU_ERROR("Failed to initialize remote device discovery.\n");
       SU_ERROR("SuRPC services will be disabled.\n");
