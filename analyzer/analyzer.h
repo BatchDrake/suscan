@@ -200,6 +200,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
   SUBOOL   iq_reverse;
   SUBOOL   agc;
   PTR_LIST(struct suscan_analyzer_gain_info, gain);
+  PTR_LIST(char, antenna);
 };
 
 /*!

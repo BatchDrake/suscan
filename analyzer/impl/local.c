@@ -750,8 +750,13 @@ SUPRIVATE SUBOOL
 suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
 {
   struct suscan_analyzer_source_info *info = &self->source_info;
+  const suscan_source_device_t *dev = NULL;
+  struct suscan_source_device_info dev_info =
+      suscan_source_device_info_INITIALIZER;
   const suscan_source_config_t *config = suscan_source_get_config(self->source);
   const char *ant = suscan_source_config_get_antenna(config);
+  unsigned int i;
+  char *dup = NULL;
   SUBOOL ok = SU_FALSE;
 
   info->source_samp_rate = suscan_source_get_samp_rate(self->source);
@@ -784,11 +789,25 @@ suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
             suscan_local_analyzer_source_info_add_gain,
             info),
         goto done);
+
+    dev = suscan_source_config_get_device(config);
+    if (suscan_source_device_get_info(dev, 0, &dev_info)) {
+      for (i = 0; i < dev_info.antenna_count; ++i) {
+        SU_TRYCATCH(dup = strdup(dev_info.antenna_list[i]), goto done);
+        SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->antenna, dup) != -1, goto done);
+        dup = NULL;
+      }
+    }
   }
 
   ok = SU_TRUE;
 
 done:
+  if (dup != NULL)
+    free(dup);
+
+  suscan_source_device_info_finalize(&dev_info);
+
   return ok;
 }
 

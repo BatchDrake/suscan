@@ -218,11 +218,14 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_PACK(bool,  self->agc);
 
   SU_TRYCATCH(cbor_pack_map_start(buffer, self->gain_count) == 0, goto fail);
-
   for (i = 0; i < self->gain_count; ++i)
     SU_TRYCATCH(
         suscan_analyzer_gain_info_serialize(self->gain_list[i], buffer),
         goto fail);
+
+  SU_TRYCATCH(cbor_pack_map_start(buffer, self->gain_count) == 0, goto fail);
+  for (i = 0; i < self->antenna_count; ++i)
+    SUSCAN_PACK(str, self->antenna_list[i]);
 
   SUSCAN_PACK_BOILERPLATE_END;
 }
@@ -248,6 +251,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_UNPACK(bool,   self->iq_reverse);
   SUSCAN_UNPACK(bool,   self->agc);
 
+  /* Deserialize gains */
   SU_TRYCATCH(
       cbor_unpack_map_start(buffer, &nelem, &end_required) == 0,
       goto fail);
@@ -270,6 +274,18 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
         goto fail);
   }
 
+  /* Deserialize antennas */
+  SU_TRYCATCH(
+      cbor_unpack_map_start(buffer, &nelem, &end_required) == 0,
+      goto fail);
+  SU_TRYCATCH(!end_required, goto fail);
+
+  self->antenna_count = (unsigned int) nelem;
+  SU_TRYCATCH(self->antenna_list = calloc(nelem, sizeof (char *)), goto fail);
+
+  for (i = 0; i < self->antenna_count; ++i)
+    SUSCAN_UNPACK(str, self->antenna_list[i]);
+
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
@@ -285,6 +301,7 @@ suscan_analyzer_source_info_init_copy(
     const struct suscan_analyzer_source_info *origin)
 {
   struct suscan_analyzer_gain_info *gi = NULL;
+  char *dup = NULL;
   unsigned int i;
   SUBOOL ok = SU_FALSE;
 
@@ -316,11 +333,18 @@ suscan_analyzer_source_info_init_copy(
     gi = NULL;
   }
 
-  ok = SU_TRUE;
+  for (i = 0; i < origin->antenna_count; ++i) {
+    SU_TRYCATCH(dup = strdup(origin->antenna_list[i]), goto done);
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(self->antenna, dup) != -1, goto done);
+    dup = NULL;
+  }
 
 done:
   if (gi != NULL)
     suscan_analyzer_gain_info_destroy(gi);
+
+  if (dup != NULL)
+    free(dup);
 
   if (!ok)
     suscan_analyzer_source_info_finalize(self);
@@ -339,6 +363,13 @@ suscan_analyzer_source_info_finalize(struct suscan_analyzer_source_info *self)
 
   if (self->gain_list != NULL)
     free(self->gain_list);
+
+  for (i = 0; i < self->antenna_count; ++i)
+    if (self->antenna_list[i] != NULL)
+      free(self->antenna_list[i]);
+
+  if (self->antenna_list != NULL)
+    free(self->antenna_list);
 
   memset(self, 0, sizeof(struct suscan_analyzer_source_info));
 }
