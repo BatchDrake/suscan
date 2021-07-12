@@ -22,6 +22,7 @@
 
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
+#include <sigutils/smoothpsd.h>
 #include <pthread.h>
 
 #define _COMPAT_BARRIERS

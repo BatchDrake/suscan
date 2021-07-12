@@ -342,6 +342,21 @@ suscan_local_analyzer_set_inspector_freq_cb(
   return SU_FALSE;
 }
 
+SUPRIVATE SUBOOL
+suscan_local_analyzer_set_psd_params_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+
+  if (analyzer->psd_params_req) {
+    analyzer->psd_params_req = SU_FALSE;
+    (void) su_smoothpsd_set_params(analyzer->smooth_psd, &analyzer->sp_params);
+  }
+
+  return SU_FALSE;
+}
 
 SUPRIVATE SUBOOL
 suscan_local_analyzer_set_inspector_bandwidth_cb(
@@ -399,6 +414,45 @@ suscan_local_analyzer_set_inspector_bandwidth_overridable(
   return suscan_worker_push(
       self->slow_wk,
       suscan_local_analyzer_set_inspector_bandwidth_cb,
+      NULL);
+}
+
+SUBOOL
+suscan_local_analyzer_set_analyzer_params_overridable(
+    suscan_local_analyzer_t *self,
+    const struct suscan_analyzer_params *params)
+{
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  self->sp_params.fft_size     = params->detector_params.window_size;
+  self->sp_params.window       = params->detector_params.window;
+  self->sp_params.refresh_rate = 1. / params->psd_update_int;
+
+  self->psd_params_req = SU_TRUE;
+
+  return suscan_worker_push(
+      self->slow_wk,
+      suscan_local_analyzer_set_psd_params_cb,
+      NULL);
+}
+
+SUBOOL
+suscan_local_analyzer_set_psd_samp_rate_overridable(
+    suscan_local_analyzer_t *self,
+    SUSCOUNT throttle)
+{
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  self->sp_params.samp_rate = throttle;
+  self->psd_params_req = SU_TRUE;
+
+  return suscan_worker_push(
+      self->slow_wk,
+      suscan_local_analyzer_set_psd_params_cb,
       NULL);
 }
 

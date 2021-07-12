@@ -226,6 +226,38 @@ suscan_analyzer_psd_msg_destroy(struct suscan_analyzer_psd_msg *msg)
 }
 
 struct suscan_analyzer_psd_msg *
+suscan_analyzer_psd_msg_new_from_data(
+    SUFLOAT samp_rate,
+    const SUFLOAT *psd_data,
+    SUSCOUNT psd_size)
+{
+  struct suscan_analyzer_psd_msg *new = NULL;
+
+  SU_TRYCATCH(
+      new = calloc(1, sizeof(struct suscan_analyzer_psd_msg)),
+      goto fail);
+
+  new->psd_size = psd_size;
+  new->samp_rate = samp_rate;
+
+  new->fc = 0;
+
+  SU_TRYCATCH(
+      new->psd_data = malloc(sizeof(SUFLOAT) * new->psd_size),
+      goto fail);
+
+  memcpy(new->psd_data, psd_data, psd_size * sizeof(SUFLOAT));
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_analyzer_psd_msg_destroy(new);
+
+  return NULL;
+}
+
+struct suscan_analyzer_psd_msg *
 suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
 {
   struct suscan_analyzer_psd_msg *new = NULL;
@@ -1224,6 +1256,58 @@ suscan_analyzer_send_psd(
   msg->measured_samp_rate = suscan_analyzer_get_measured_samp_rate(self);
 
   msg->N0 = detector->N0;
+
+  if (!suscan_mq_write(
+      self->mq_out,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_PSD,
+      msg)) {
+    suscan_analyzer_send_status(
+        self,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
+        -1,
+        "Cannot write message: %s",
+        strerror(errno));
+    goto done;
+  }
+
+  /* Message queued, forget about it */
+  msg = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_PSD, msg);
+
+  return ok;
+}
+
+SUBOOL
+suscan_analyzer_send_psd_from_smoothpsd(
+    suscan_analyzer_t *self,
+    const su_smoothpsd_t *smoothpsd)
+{
+  struct suscan_analyzer_psd_msg *msg = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  if ((msg = suscan_analyzer_psd_msg_new_from_data(
+      suscan_analyzer_get_source_info(self)->source_samp_rate,
+      su_smoothpsd_get_last_psd(smoothpsd),
+      su_smoothpsd_get_fft_size(smoothpsd))) == NULL) {
+    suscan_analyzer_send_status(
+        self,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL,
+        -1,
+        "Cannot create message: %s",
+        strerror(errno));
+    goto done;
+  }
+
+  /* In wide spectrum mode, frequency is given by curr_freq */
+  msg->fc = suscan_analyzer_get_source_info(self)->frequency;
+  msg->measured_samp_rate = suscan_analyzer_get_measured_samp_rate(self);
+
+  msg->N0 = 0;
 
   if (!suscan_mq_write(
       self->mq_out,

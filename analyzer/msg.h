@@ -208,6 +208,10 @@ SUBOOL suscan_analyzer_send_psd(
     suscan_analyzer_t *analyzer,
     const su_channel_detector_t *detector);
 
+SUBOOL suscan_analyzer_send_psd_from_smoothpsd(
+    suscan_analyzer_t *self,
+    const su_smoothpsd_t *smoothpsd);
+
 SUBOOL suscan_analyzer_send_source_info(
     suscan_analyzer_t *self,
     const struct suscan_analyzer_source_info *info);
@@ -242,6 +246,12 @@ void suscan_analyzer_inspector_msg_destroy(
     struct suscan_analyzer_inspector_msg *msg);
 
 /* Spectrum update message */
+struct suscan_analyzer_psd_msg *
+suscan_analyzer_psd_msg_new_from_data(
+    SUFLOAT samp_rate,
+    const SUFLOAT *psd_data,
+    SUSCOUNT psd_size);
+
 struct suscan_analyzer_psd_msg *suscan_analyzer_psd_msg_new(
     const su_channel_detector_t *cd);
 

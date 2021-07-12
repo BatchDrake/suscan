@@ -21,6 +21,7 @@
 #define _SUSCAN_ANALYZER_IMPL_LOCAL_H
 
 #include <analyzer/analyzer.h>
+#include <sigutils/smoothpsd.h>
 
 #define SUSCAN_LOCAL_ANALYZER_MIN_RADIO_FREQ -3e11
 #define SUSCAN_LOCAL_ANALYZER_MAX_RADIO_FREQ +3e11
@@ -76,6 +77,7 @@ struct suscan_local_analyzer {
   SUBOOL   iq_rev;
 
   /* Periodic updates */
+  struct sigutils_smoothpsd_params sp_params;
   SUFLOAT  interval_channels;
   SUFLOAT  interval_psd;
   SUSCOUNT det_count;
@@ -111,6 +113,9 @@ struct suscan_local_analyzer {
   SUBOOL gain_req_mutex_init;
   PTR_LIST(struct suscan_analyzer_gain_info, gain_request);
 
+  /* PSD request */
+  SUBOOL   psd_params_req;
+
   /* Atenna request */
   char *antenna_req;
 
@@ -124,6 +129,7 @@ struct suscan_local_analyzer {
 
   /* Source worker objects */
   su_channel_detector_t *detector; /* Channel detector */
+  su_smoothpsd_t  *smooth_psd;
   suscan_worker_t *source_wk; /* Used by one source only */
   suscan_worker_t *slow_wk; /* Worker for slow operations */
   SUCOMPLEX *read_buf;
@@ -245,6 +251,16 @@ SUBOOL suscan_local_analyzer_set_inspector_bandwidth_overridable(
     suscan_local_analyzer_t *self,
     SUHANDLE handle,
     SUFLOAT bw);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_set_analyzer_params_overridable(
+    suscan_local_analyzer_t *self,
+    const struct suscan_analyzer_params *params);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_set_psd_samp_rate_overridable(
+    suscan_local_analyzer_t *self,
+    SUSCOUNT throttle);
 
 /* Internal */
 SUBOOL suscan_local_analyzer_set_inspector_freq_overridable(

@@ -305,6 +305,8 @@ SUBOOL suscan_source_channel_wk_cb(
     void *wk_private,
     void *cb_private);
 
+SUBOOL suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self);
+
 SUPRIVATE void *
 suscan_analyzer_thread(void *data)
 {
@@ -405,7 +407,17 @@ suscan_analyzer_thread(void *data)
             SU_TRYCATCH(
                 suscan_local_analyzer_reset_throttle(self),
                 goto done);
+            SU_TRYCATCH(
+                suscan_local_analyzer_set_psd_samp_rate_overridable(
+                    self,
+                    self->effective_samp_rate),
+                goto done);
           } else {
+            SU_TRYCATCH(
+                suscan_local_analyzer_set_psd_samp_rate_overridable(
+                    self,
+                    throttle->samp_rate),
+                goto done);
             SU_TRYCATCH(
                 suscan_local_analyzer_override_throttle(
                     self,
@@ -421,41 +433,51 @@ suscan_analyzer_thread(void *data)
            * through the source's params_mutex
            */
 
-          SU_TRYCATCH(
-              pthread_mutex_lock(&self->loop_mutex) != -1,
-              goto done);
-          mutex_acquired = SU_TRUE;
-
-          /* vvvvvvvvvvvvvvv Source parameters update start vvvvvvvvvvvvv */
           new_params = (const struct suscan_analyzer_params *) private;
 
-          /* Attempt to update detector parameters */
-          new_det_params = self->detector->params; /* Not all parameters are allowed */
+          if (self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL) {
+              SU_TRYCATCH(
+                  suscan_local_analyzer_set_analyzer_params_overridable(
+                      self,
+                      new_params),
+                  goto done);
+          }  else {
+            SU_TRYCATCH(
+                pthread_mutex_lock(&self->loop_mutex) != -1,
+                goto done);
+            mutex_acquired = SU_TRUE;
 
-          new_det_params.window_size = new_params->detector_params.window_size;
-          new_det_params.window = new_params->detector_params.window;
-          new_det_params.fc = new_params->detector_params.fc;
-          su_channel_params_adjust(&new_det_params);
+            /* vvvvvvvvvvvvvvv Source parameters update start vvvvvvvvvvvvv */
 
-          SU_TRYCATCH(
-              suscan_local_analyzer_readjust_detector(self, &new_det_params),
-              goto done);
+            /* Attempt to update detector parameters */
+            new_det_params = self->detector->params; /* Not all parameters are allowed */
 
-          self->interval_channels = new_params->channel_update_int;
+            new_det_params.window_size = new_params->detector_params.window_size;
+            new_det_params.window = new_params->detector_params.window;
+            new_det_params.fc = new_params->detector_params.fc;
+            su_channel_params_adjust(&new_det_params);
+
+            SU_TRYCATCH(
+                suscan_local_analyzer_readjust_detector(self, &new_det_params),
+                goto done);
+
+            self->interval_channels = new_params->channel_update_int;
 
 
-          if (sufcmp(self->interval_psd, new_params->psd_update_int, 1e-6)) {
-            self->interval_psd = new_params->psd_update_int;
-            self->det_num_psd = 0;
-            self->last_psd = suscan_gettime_coarse();
+            if (sufcmp(self->interval_psd, new_params->psd_update_int, 1e-6)) {
+              self->interval_psd = new_params->psd_update_int;
+              self->det_num_psd = 0;
+              self->last_psd = suscan_gettime_coarse();
+            }
+
+            /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
+
+            SU_TRYCATCH(
+                pthread_mutex_unlock(&self->loop_mutex) != -1,
+                goto done);
+            mutex_acquired = SU_FALSE;
+
           }
-
-          /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
-
-          SU_TRYCATCH(
-              pthread_mutex_unlock(&self->loop_mutex) != -1,
-              goto done);
-          mutex_acquired = SU_FALSE;
 
           break;
       }
@@ -853,15 +875,9 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->last_psd          = suscan_gettime_coarse();
   new->last_channels     = suscan_gettime_coarse();
 
-
   /* Create channel detector */
   (void) pthread_mutex_init(&new->loop_mutex, NULL); /* Always succeeds */
   new->loop_init = SU_TRUE;
-  det_params = parent->params.detector_params;
-  suscan_local_analyzer_init_detector_params(new, &det_params);
-  SU_TRYCATCH(
-      new->detector = su_channel_detector_new(&det_params),
-      goto fail);
 
   /* Create source worker */
   if ((new->source_wk = suscan_worker_new(&new->mq_in, new))
@@ -882,7 +898,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->gain_req_mutex_init = SU_TRUE;
 
   /* Create spectral tuner, with matching read size */
-  st_params.window_size = det_params.window_size;
+  st_params.window_size = parent->params.detector_params.window_size;
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
 
   /* Create inspector scheduler and barrier */
@@ -928,24 +944,30 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 
   new->effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
 
-  /*
-   * In case the source rejected our initial sample rate configuration, we
-   * update the detector accordingly.
-   *
-   * We do this here and not in the header thread because, although this
-   * can be slower, we ensure this way we can provide an accurate value of the
-   * sample rate right after the analyzer object is created.
-   */
-  if (new->effective_samp_rate != new->detector->params.samp_rate) {
-    det_params = new->detector->params;
-    det_params.samp_rate = new->effective_samp_rate;
-    SU_TRYCATCH(
-        suscan_local_analyzer_readjust_detector(new, &det_params),
-        goto fail);
-  }
-
   /* In wide spectrum mode, additional tests are required */
   if (parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
+    det_params = parent->params.detector_params;
+    suscan_local_analyzer_init_detector_params(new, &det_params);
+    SU_TRYCATCH(
+        new->detector = su_channel_detector_new(&det_params),
+        goto fail);
+
+    /*
+     * In case the source rejected our initial sample rate configuration, we
+     * update the detector accordingly.
+     *
+     * We do this here and not in the header thread because, although this
+     * can be slower, we ensure this way we can provide an accurate value of the
+     * sample rate right after the analyzer object is created.
+     */
+    if (new->effective_samp_rate != new->detector->params.samp_rate) {
+      det_params = new->detector->params;
+      det_params.samp_rate = new->effective_samp_rate;
+      SU_TRYCATCH(
+          suscan_local_analyzer_readjust_detector(new, &det_params),
+          goto fail);
+    }
+
     SU_TRYCATCH(
         parent->params.max_freq - parent->params.min_freq >=
         suscan_local_analyzer_get_samp_rate(new),
@@ -954,6 +976,10 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
             SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
     new->current_sweep_params.max_freq = parent->params.max_freq;
     new->current_sweep_params.min_freq = parent->params.min_freq;
+  } else {
+    SU_TRYCATCH(
+        suscan_local_analyzer_init_channel_worker(new),
+        goto fail);
   }
 
   /* Populate source info. */
@@ -1028,6 +1054,9 @@ suscan_local_analyzer_dtor(void *ptr)
   /* Free channel detector */
   if (self->detector != NULL)
     su_channel_detector_destroy(self->detector);
+
+  if (self->smooth_psd != NULL)
+    su_smoothpsd_destroy(self->smooth_psd);
 
   if (self->loop_init)
     pthread_mutex_destroy(&self->loop_mutex);

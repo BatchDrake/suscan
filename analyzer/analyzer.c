@@ -339,6 +339,8 @@ suscan_analyzer_source_info_init_copy(
     dup = NULL;
   }
 
+  ok = SU_TRUE;
+
 done:
   if (gi != NULL)
     suscan_analyzer_gain_info_destroy(gi);

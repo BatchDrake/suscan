@@ -212,6 +212,43 @@ done:
   return ok;
 }
 
+SUPRIVATE SUBOOL
+suscan_local_analyzer_on_psd(
+    void *userdata,
+    const SUFLOAT *psd,
+    unsigned int size)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) userdata;
+
+  SU_TRYCATCH(
+      suscan_analyzer_send_psd_from_smoothpsd(self->parent, self->smooth_psd),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self)
+{
+  struct sigutils_smoothpsd_params sp_params =
+      sigutils_smoothpsd_params_INITIALIZER;
+  /* Create smooth PSD */
+  sp_params.fft_size     = self->parent->params.detector_params.window_size;
+  sp_params.samp_rate    = self->effective_samp_rate;
+  sp_params.refresh_rate = 1. / self->interval_psd;
+
+  self->sp_params = sp_params;
+
+  SU_TRYCATCH(
+      self->smooth_psd = su_smoothpsd_new(
+          &sp_params,
+          suscan_local_analyzer_on_psd,
+          self),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
 SUBOOL
 suscan_source_channel_wk_cb(
     struct suscan_mq *mq_out,
@@ -221,8 +258,6 @@ suscan_source_channel_wk_cb(
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
   SUSDIFF got;
   SUSCOUNT read_size;
-  SUSCOUNT psd_win_size =
-      su_channel_detector_get_window_size(self->detector);
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
   SUFLOAT seconds;
@@ -276,32 +311,9 @@ suscan_source_channel_wk_cb(
             got),
         goto done);
 
-    if (self->det_num_psd > 0) {
-      /* Feed channel detector! */
-      SU_TRYCATCH(
-          su_channel_detector_feed_bulk(
-              self->detector,
-              self->read_buf,
-              got) == got,
-          goto done);
-      self->det_count += got;
-      if (self->det_count >= psd_win_size) {
-        SU_TRYCATCH(
-            suscan_analyzer_send_psd(self->parent, self->detector),
-            goto done);
-        su_channel_detector_rewind(self->detector);
-        self->last_psd = self->read_start;
-        self->det_count = 0;
-        --self->det_num_psd;
-      }
-    }
-
-    if (self->interval_psd > 0 && self->det_num_psd == 0) {
-      seconds = (self->read_start - self->last_psd) * 1e-9;
-
-      if (seconds >= self->interval_psd)
-        self->det_num_psd = SU_ROUND(seconds / self->interval_psd);
-    }
+    SU_TRYCATCH(
+        su_smoothpsd_feed(self->smooth_psd, self->read_buf, got),
+        goto done);
 
     if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {
       seconds = (self->read_start - self->last_measure) * 1e-9;
