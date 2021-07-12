@@ -195,8 +195,10 @@ suscan_local_analyzer_set_bw_cb(
   if (analyzer->bw_req) {
     bw = analyzer->bw_req_value;
     if (suscan_source_set_bandwidth(analyzer->source, bw)) {
-      /* XXX: Use a proper frequency adjust method */
-      analyzer->detector->params.bw = bw;
+      if (analyzer->parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
+        /* XXX: Use a proper frequency adjust method */
+        analyzer->detector->params.bw = bw;
+      }
 
       /* Source info changed. Notify update */
       analyzer->source_info.bandwidth = bw;
@@ -250,8 +252,10 @@ suscan_local_analyzer_set_freq_cb(
     freq = analyzer->freq_req_value;
     lnb_freq = analyzer->lnb_req_value;
     if (suscan_source_set_freq2(analyzer->source, freq, lnb_freq)) {
-      /* XXX: Use a proper frequency adjust method */
-      analyzer->detector->params.fc = freq;
+      if (analyzer->parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
+        /* XXX: Use a proper frequency adjust method */
+        analyzer->detector->params.fc = freq;
+      }
 
       /* Source info changed. Notify update */
       analyzer->source_info.frequency = freq;
