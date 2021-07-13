@@ -848,15 +848,6 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 
   new->parent = parent;
 
-  /* Allocate read buffer */
-  new->read_size = SUSCAN_ANALYZER_READ_SIZE; /* params->detector_params.window_size; */
-
-  if ((new->read_buf = malloc(
-      new->read_size * sizeof(SUCOMPLEX))) == NULL) {
-    SU_ERROR("Failed to allocate read buffer\n");
-    goto fail;
-  }
-
   /* Create input message queue */
   if (!suscan_mq_init(&new->mq_in)) {
     SU_ERROR("Cannot allocate input MQ\n");
@@ -933,16 +924,22 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 
   SU_TRYCATCH(suscan_source_start_capture(new->source), goto fail);
 
-  if (new->read_size < new->source->mtu) {
-    new->read_size = new->source->mtu;
-    SUCOMPLEX *temp;
-    SU_TRYCATCH(
-        temp = realloc(new->read_buf, new->read_size * sizeof(SUCOMPLEX)),
-        goto fail);
-    new->read_buf = temp;
-  }
-
   new->effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
+
+  /* Allocate read buffer */
+  new->read_size =
+      new->effective_samp_rate <= SUSCAN_ANALYZER_SLOW_RATE
+      ? SUSCAN_ANALYZER_SLOW_READ_SIZE
+      : SUSCAN_ANALYZER_FAST_READ_SIZE;
+
+  if (new->read_size < new->source->mtu)
+    new->read_size = new->source->mtu;
+
+  if ((new->read_buf = malloc(
+      new->read_size * sizeof(SUCOMPLEX))) == NULL) {
+    SU_ERROR("Failed to allocate read buffer\n");
+    goto fail;
+  }
 
   /* In wide spectrum mode, additional tests are required */
   if (parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
