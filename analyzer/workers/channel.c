@@ -160,9 +160,8 @@ suscan_local_analyzer_parse_overridable(suscan_local_analyzer_t *self)
   if (self->insp_overridable != NULL) {
     SU_TRYCATCH(suscan_local_analyzer_lock_inspector_list(self), goto done);
 
-    while (self->insp_overridable != NULL) {
-      this = self->insp_overridable;
-      next = self->insp_overridable->next;
+    while ((this = self->insp_overridable) != NULL) {
+      next = this->next;
 
       if (!this->dead) {
         /* Acknowledged */
@@ -200,6 +199,7 @@ suscan_local_analyzer_parse_overridable(suscan_local_analyzer_t *self)
         }
       }
 
+      suscan_inspector_overridable_request_destroy(this);
       self->insp_overridable = next;
     }
 

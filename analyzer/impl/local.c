@@ -38,7 +38,7 @@ suscan_analyzer_is_local(const suscan_analyzer_t *self)
 }
 
 /************************ Overridable request API ****************************/
-SUPRIVATE void
+void
 suscan_inspector_overridable_request_destroy(
     struct suscan_inspector_overridable_request *self)
 {
@@ -1104,6 +1104,9 @@ suscan_local_analyzer_dtor(void *ptr)
 
   if (self->bbfilt_list != NULL)
     free(self->bbfilt_list);
+
+  /* Finalize source info */
+  suscan_analyzer_source_info_finalize(&self->source_info);
 
   /* Consume any pending messages */
   suscan_analyzer_consume_mq(&self->mq_in);

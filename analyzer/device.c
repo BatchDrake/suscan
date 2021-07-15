@@ -425,6 +425,7 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
         samp_rate_count * sizeof(double));
     dev->samp_rate_count = samp_rate_count;
     free(samp_rate_list);
+    samp_rate_list = NULL;
   }
 
   ok = SU_TRUE;
@@ -438,6 +439,9 @@ done:
 
   SoapySDRStrings_clear(&antenna_list, antenna_count);
   SoapySDRStrings_clear(&gain_list, gain_count);
+
+  if (samp_rate_list != NULL)
+    free(samp_rate_list);
 
   /*
    * I literally have no idea what to do with this.

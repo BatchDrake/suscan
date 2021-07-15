@@ -1084,7 +1084,9 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_INTERNAL:
       suscan_analyzer_status_msg_destroy(ptr);
       break;
 

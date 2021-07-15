@@ -359,6 +359,9 @@ suscan_analyzer_source_info_finalize(struct suscan_analyzer_source_info *self)
 {
   unsigned int i;
 
+  if (self->antenna != NULL)
+    free(self->antenna);
+
   for (i = 0; i < self->gain_count; ++i)
     if (self->gain_list[i] != NULL)
       suscan_analyzer_gain_info_destroy(self->gain_list[i]);

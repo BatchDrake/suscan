@@ -239,6 +239,10 @@ suscan_local_analyzer_acquire_overridable(
     SUHANDLE handle);
 
 /* Internal */
+void suscan_inspector_overridable_request_destroy(
+    struct suscan_inspector_overridable_request *self);
+
+/* Internal */
 SUBOOL suscan_local_analyzer_release_overridable(
     suscan_local_analyzer_t *self,
     struct suscan_inspector_overridable_request *rq);
