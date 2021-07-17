@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,6 +22,8 @@
 #define SU_LOG_DOMAIN "cyclo-spectsrc"
 
 #include "spectsrc.h"
+
+#define SU_CYCLO_GAIN 1e6
 
 void *
 suscan_spectsrc_cyclo_ctor(suscan_spectsrc_t *src)
@@ -45,7 +46,7 @@ suscan_spectsrc_cyclo_preproc(
   for (i = 0; i < size; ++i) {
     diff = buffer[i] * SU_C_CONJ(prev);
     prev = buffer[i];
-    buffer[i] = diff;
+    buffer[i] = SU_CYCLO_GAIN * diff;
   }
 
   *last = prev;

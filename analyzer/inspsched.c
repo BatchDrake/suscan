@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,7 +24,7 @@
 
 #include "inspsched.h"
 
-#include "analyzer.h"
+#include <analyzer/impl/local.h>
 #include "msg.h"
 
 SUPRIVATE SUBOOL
@@ -37,7 +36,6 @@ suscan_inpsched_task_cb(
   suscan_inspsched_t *sched = (suscan_inspsched_t *) wk_private;
   struct suscan_inspector_task_info *task_info =
       (struct suscan_inspector_task_info *) cb_private;
-  unsigned int i;
 
   /*
    * We just process the incoming data. If we broke something,
@@ -48,7 +46,7 @@ suscan_inpsched_task_cb(
           task_info->inspector,
           task_info->data,
           task_info->size,
-          sched->analyzer->mq_out),
+          sched->analyzer->parent->mq_out),
       goto fail);
 
   /* Feed all enabled estimators */
@@ -57,7 +55,7 @@ suscan_inpsched_task_cb(
           task_info->inspector,
           task_info->data,
           task_info->size,
-          sched->analyzer->mq_out),
+          sched->analyzer->parent->mq_out),
       goto fail);
 
   /* Feed spectrum */
@@ -66,7 +64,7 @@ suscan_inpsched_task_cb(
           task_info->inspector,
           task_info->data,
           task_info->size,
-          sched->analyzer->mq_out),
+          sched->analyzer->parent->mq_out),
       goto fail);
 
   return SU_FALSE;
@@ -85,7 +83,7 @@ suscan_inpsched_barrier_cb(
 {
   suscan_inspsched_t *sched = (suscan_inspsched_t *) wk_private;
 
-  suscan_analyzer_source_barrier(sched->analyzer);
+  suscan_local_analyzer_source_barrier(sched->analyzer);
 
   return SU_FALSE;
 }
@@ -199,7 +197,7 @@ suscan_inspsched_sync(suscan_inspsched_t *sched)
         return SU_FALSE);
 
   /* Wait for all threads */
-  suscan_analyzer_source_barrier(sched->analyzer);
+  suscan_local_analyzer_source_barrier(sched->analyzer);
 
   return SU_TRUE;
 }
@@ -240,10 +238,10 @@ suscan_inspsched_destroy(suscan_inspsched_t *sched)
 
 
 suscan_inspsched_t *
-suscan_inspsched_new(suscan_analyzer_t *analyzer)
+suscan_inspsched_new(suscan_local_analyzer_t *analyzer)
 {
   suscan_inspsched_t *new = NULL;
-  suscan_worker_t *worker;
+  suscan_worker_t *worker = NULL;
 
   unsigned int i, count;
 

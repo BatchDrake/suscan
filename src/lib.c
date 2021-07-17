@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -193,7 +192,9 @@ suscan_sigutils_init(enum suscan_mode mode)
   struct sigutils_log_config config = sigutils_log_config_INITIALIZER;
   struct sigutils_log_config *config_p = NULL;
 
-  if (mode != SUSCAN_MODE_FINGERPRINT) {
+  SIGUTILS_ABI_CHECK();
+
+  if (mode != SUSCAN_MODE_IMMEDIATE) {
     config.exclusive = SU_FALSE; /* We handle concurrency manually */
     config.log_func = suscan_log_func;
 

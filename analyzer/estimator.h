@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -89,6 +88,8 @@ SUBOOL suscan_estimator_fac_register(void);
 SUBOOL suscan_estimator_nonlinear_register(void);
 
 SUBOOL suscan_init_estimators(void);
+
+SUBOOL suscan_estimators_initialized(void);
 
 #ifdef __cplusplus
 }

@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,85 +28,76 @@
 
 #include <sigutils/sigutils.h>
 #include "throttle.h"
+#include "realtime.h"
 
 void
-suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate)
+suscan_throttle_init(suscan_throttle_t *self, SUSCOUNT samp_rate)
 {
-  memset(throttle, 0, sizeof(suscan_throttle_t));
-  throttle->samp_rate = samp_rate;
+  SUSCOUNT delta_s;
+  SUFLOAT  delta_t;
 
-  clock_gettime(CLOCK_MONOTONIC_RAW, &throttle->t0);
+  memset(self, 0, sizeof(suscan_throttle_t));
 
-  /*
-   * In some circumstances, if both calls to clock_gettime happen
-   * almost simultaneously, the difference in t0 is below the clock
-   * resolution, entering in a full speed read that will hog the
-   * CPU. This is definitely a bug, and this a workaround.
-   */
-  usleep(100000);
+  self->t0 = suscan_gettime_raw();
+
+  delta_t = SU_MAX(
+      SUSCAN_THROTTLE_CHECKPOINT_DURATION_NS,
+      suscan_getres_raw());
+
+  delta_s = samp_rate * (delta_t * SUSCAN_REALTIME_NS);
+
+  if (delta_s < SUSCAN_THROTTLE_MIN_BLOCK_SIZE) {
+    delta_s = SUSCAN_THROTTLE_MIN_BLOCK_SIZE;
+    delta_t = delta_s / (samp_rate * SUSCAN_REALTIME_NS);
+  }
+
+  self->delta_s = delta_s;
+  self->delta_t = delta_t;
+
+  self->avail = self->delta_s;
 }
 
 SUSCOUNT
-suscan_throttle_get_portion(suscan_throttle_t *throttle, SUSCOUNT h)
+suscan_throttle_get_portion(suscan_throttle_t *self, SUSCOUNT h)
 {
-  struct timespec tn;
   struct timespec sleep_time;
-  struct timespec sub;
-  SUSCOUNT samps;
-  SUSDIFF  nsecs;
-  SUSDIFF  avail;
-  SUBOOL  retry;
+  uint64_t sleep_nsec;
+  uint64_t skipped;
+  uint64_t t = suscan_gettime_raw();
+  uint64_t delta_t = t - self->t0;
 
-  if (h > 0) {
-    do {
-      retry = SU_FALSE;
-      clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+  /*
+   * FIXME: CLOCK OVERFLOW HAS NOT BEEN CONSIDERED HERE.
+   */
+  if (delta_t < self->delta_t) {
+    /* We are reading between the last and the next checkpoint */
+    if (self->avail == 0) {
+      self->t0   += self->delta_t;
+      self->avail = self->delta_s;
 
-      timespecsub(&tn, &throttle->t0, &sub);
+      sleep_nsec  = self->delta_t - delta_t;
 
-      if (sub.tv_sec > 0) {
-        /* Reader is really late, get a rough estimate */
-        avail = throttle->samp_rate * sub.tv_sec - throttle->samp_count;
-      } else {
-        nsecs = sub.tv_sec * 1000000000ll + sub.tv_nsec;
-        avail = (throttle->samp_rate * nsecs) / 1000000000ll
-            - throttle->samp_count;
-      }
+      sleep_time.tv_sec  = sleep_nsec / 1000000000;
+      sleep_time.tv_nsec = sleep_nsec % 1000000000;
 
-      if (avail == 0) {
-        /*
-         * Stream exhausted. We wait a fraction of the time it would take
-         * for h samples to be available, then we try again.
-         */
-        throttle->samp_count = 0;
-        throttle->t0 = tn;
-
-        samps = SUSCAN_THROTTLE_MAX_READ_UNIT_FRAC * h;
-        nsecs = (samps * 1000000000) / throttle->samp_rate;
-
-        sleep_time.tv_sec  = nsecs / 1000000000;
-        sleep_time.tv_nsec = nsecs % 1000000000;
-
-        (void) nanosleep(&sleep_time, NULL);
-
-        retry = SU_TRUE;
-      } else {
-        /* Check to avoid slow readers to overflow the available counter */
-        if (avail > SUSCAN_THROTTLE_RESET_THRESHOLD) {
-          throttle->samp_count = 0;
-          throttle->t0 = tn;
-        }
-
-        h = MIN(avail, h);
-      }
-    } while (retry);
+      (void) nanosleep(&sleep_time, NULL);
+    }
+  } else if (delta_t < SUSCAN_THROTTLE_LATE_DELAY_NS) {
+    /* We are multiple checkpoints behind */
+    skipped      = delta_t / self->delta_t;
+    self->t0    += skipped * self->delta_t;
+    self->avail += skipped * self->delta_s;
+  } else {
+    /* Late reader. Reset clock. */
+    self->t0 = t;
+    self->avail = self->delta_s;
   }
 
-  return h;
+  return SU_MIN(h, self->avail);
 }
 
 void
 suscan_throttle_advance(suscan_throttle_t *throttle, SUSCOUNT got)
 {
-  throttle->samp_count += got;
+  throttle->avail -= SU_MIN(throttle->avail, got);
 }

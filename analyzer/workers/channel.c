@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,39 +32,36 @@
 
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
+#include <analyzer/impl/local.h>
 
-#include "analyzer.h"
+#include "realtime.h"
 
 #include "mq.h"
 #include "msg.h"
 
 /*********************** Performance measurement *****************************/
 SUINLINE void
-suscan_analyzer_read_start(suscan_analyzer_t *analyzer)
+suscan_local_analyzer_read_start(suscan_local_analyzer_t *analyzeryzer)
 {
-  clock_gettime(CLOCK_MONOTONIC_RAW, &analyzer->read_start);
+  analyzeryzer->read_start = suscan_gettime_coarse();
 }
 
 SUINLINE void
-suscan_analyzer_process_start(suscan_analyzer_t *analyzer)
+suscan_local_analyzer_process_start(suscan_local_analyzer_t *analyzer)
 {
-  clock_gettime(CLOCK_MONOTONIC_RAW, &analyzer->process_start);
+  analyzer->process_start = suscan_gettime_coarse();
 }
 
 SUINLINE void
-suscan_analyzer_process_end(suscan_analyzer_t *analyzer)
+suscan_local_analyzer_process_end(suscan_local_analyzer_t *analyzer)
 {
-  struct timespec sub;
   uint64_t total, cpu;
 
-  clock_gettime(CLOCK_MONOTONIC_RAW, &analyzer->process_end);
+  analyzer->process_end = suscan_gettime_coarse();
 
-  if (analyzer->read_start.tv_sec > 0) {
-    timespecsub(&analyzer->process_end, &analyzer->read_start, &sub);
-    total = sub.tv_sec * 1000000000 + sub.tv_nsec;
-
-    timespecsub(&analyzer->process_end, &analyzer->process_start, &sub);
-    cpu = sub.tv_sec * 1000000000 + sub.tv_nsec;
+  if (analyzer->read_start != 0) {
+    total = analyzer->process_end - analyzer->read_start;
+    cpu = analyzer->process_end - analyzer->process_start;
 
     /* Update CPU usage */
     if (total == 0)
@@ -82,8 +78,8 @@ suscan_analyzer_process_end(suscan_analyzer_t *analyzer)
 
 /********************* Related channel analyzer funcs ************************/
 SUPRIVATE SUBOOL
-suscan_analyzer_feed_baseband_filters(
-    suscan_analyzer_t *analyzer,
+suscan_local_analyzer_feed_baseband_filters(
+    suscan_local_analyzer_t *analyzer,
     const SUCOMPLEX *samples,
     SUSCOUNT length)
 {
@@ -93,7 +89,7 @@ suscan_analyzer_feed_baseband_filters(
     if (analyzer->bbfilt_list[i] != NULL)
       if (!analyzer->bbfilt_list[i]->func(
           analyzer->bbfilt_list[i]->privdata,
-          analyzer,
+          analyzer->parent,
           samples,
           length))
         return SU_FALSE;
@@ -102,8 +98,8 @@ suscan_analyzer_feed_baseband_filters(
 }
 
 SUPRIVATE SUBOOL
-suscan_analyzer_feed_inspectors(
-    suscan_analyzer_t *analyzer,
+suscan_local_analyzer_feed_inspectors(
+    suscan_local_analyzer_t *analyzer,
     const SUCOMPLEX *data,
     SUSCOUNT size)
 {
@@ -125,7 +121,7 @@ suscan_analyzer_feed_inspectors(
      * Must be protected from access by the analyzer thread: right now,
      * only the source worker can access the tuner.
      */
-    suscan_analyzer_enter_sched(analyzer);
+    suscan_local_analyzer_enter_sched(analyzer);
     got = su_specttuner_feed_bulk_single(analyzer->stuner, data, size);
 
     if (su_specttuner_new_data(analyzer->stuner)) {
@@ -140,7 +136,7 @@ suscan_analyzer_feed_inspectors(
       su_specttuner_ack_data(analyzer->stuner);
     }
 
-    suscan_analyzer_leave_sched(analyzer);
+    suscan_local_analyzer_leave_sched(analyzer);
 
     if (got == -1)
       ok = SU_FALSE;
@@ -153,133 +149,201 @@ suscan_analyzer_feed_inspectors(
 }
 
 /******************** Source worker for channel mode *************************/
+SUPRIVATE SUBOOL
+suscan_local_analyzer_parse_overridable(suscan_local_analyzer_t *self)
+{
+  struct suscan_inspector_overridable_request *this, *next;
+  SUBOOL ok = SU_FALSE;
+  SUFLOAT f0;
+  SUFLOAT relbw;
+
+  if (self->insp_overridable != NULL) {
+    SU_TRYCATCH(suscan_local_analyzer_lock_inspector_list(self), goto done);
+
+    while ((this = self->insp_overridable) != NULL) {
+      next = this->next;
+
+      if (!this->dead) {
+        /* Acknowledged */
+        suscan_inspector_set_userdata(this->insp, NULL);
+
+        /* Parse this request */
+        if (this->freq_request) {
+          f0 = SU_NORM2ANG_FREQ(
+                SU_ABS2NORM_FREQ(
+                    suscan_analyzer_get_samp_rate(self->parent),
+                    this->new_freq));
+
+          if (f0 < 0)
+            f0 += 2 * PI;
+
+          su_specttuner_set_channel_freq(
+              self->stuner,
+              suscan_inspector_get_channel(this->insp),
+              f0);
+        }
+
+        /* Set bandwidth request */
+        if (this->bandwidth_request) {
+          relbw = SU_NORM2ANG_FREQ(
+                SU_ABS2NORM_FREQ(
+                    suscan_analyzer_get_samp_rate(self->parent),
+                    this->new_bandwidth));
+          su_specttuner_set_channel_bandwidth(
+              self->stuner,
+              suscan_inspector_get_channel(this->insp),
+              relbw);
+          SU_TRYCATCH(
+              suscan_inspector_notify_bandwidth(this->insp, this->new_bandwidth),
+              goto done);
+        }
+      }
+
+      suscan_inspector_overridable_request_destroy(this);
+      self->insp_overridable = next;
+    }
+
+    suscan_local_analyzer_unlock_inspector_list(self);
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_local_analyzer_on_psd(
+    void *userdata,
+    const SUFLOAT *psd,
+    unsigned int size)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) userdata;
+
+  SU_TRYCATCH(
+      suscan_analyzer_send_psd_from_smoothpsd(self->parent, self->smooth_psd),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self)
+{
+  struct sigutils_smoothpsd_params sp_params =
+      sigutils_smoothpsd_params_INITIALIZER;
+  /* Create smooth PSD */
+  sp_params.fft_size     = self->parent->params.detector_params.window_size;
+  sp_params.samp_rate    = self->effective_samp_rate;
+  sp_params.refresh_rate = 1. / self->interval_psd;
+
+  self->sp_params = sp_params;
+
+  SU_TRYCATCH(
+      self->smooth_psd = su_smoothpsd_new(
+          &sp_params,
+          suscan_local_analyzer_on_psd,
+          self),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
 SUBOOL
 suscan_source_channel_wk_cb(
     struct suscan_mq *mq_out,
     void *wk_private,
     void *cb_private)
 {
-  suscan_analyzer_t *analyzer = (suscan_analyzer_t *) wk_private;
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
   SUSDIFF got;
   SUSCOUNT read_size;
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
-  unsigned int i;
-  struct timespec sub;
   SUFLOAT seconds;
 
-  SU_TRYCATCH(suscan_analyzer_lock_loop(analyzer), goto done);
+  SU_TRYCATCH(suscan_local_analyzer_lock_loop(self), goto done);
   mutex_acquired = SU_TRUE;
 
   /* With non-real time sources, use throttle to control CPU usage */
-  if (suscan_analyzer_is_real_time(analyzer)) {
-    read_size = analyzer->read_size;
+  if (suscan_local_analyzer_is_real_time_ex(self)) {
+    read_size = self->read_size;
   } else {
     SU_TRYCATCH(
-        pthread_mutex_lock(&analyzer->throttle_mutex) != -1,
+        pthread_mutex_lock(&self->throttle_mutex) != -1,
         goto done);
     read_size = suscan_throttle_get_portion(
-        &analyzer->throttle,
-        analyzer->read_size);
+        &self->throttle,
+        self->read_size);
     SU_TRYCATCH(
-        pthread_mutex_unlock(&analyzer->throttle_mutex) != -1,
+        pthread_mutex_unlock(&self->throttle_mutex) != -1,
         goto done);
   }
 
+  SU_TRYCATCH(suscan_local_analyzer_parse_overridable(self), goto done);
+
   /* Ready to read */
-  suscan_analyzer_read_start(analyzer);
+  suscan_local_analyzer_read_start(self);
 
   if ((got = suscan_source_read(
-      analyzer->source,
-      analyzer->read_buf,
+      self->source,
+      self->read_buf,
       read_size)) > 0) {
-    suscan_analyzer_process_start(analyzer);
+    suscan_local_analyzer_process_start(self);
 
-    if (analyzer->iq_rev)
-      suscan_analyzer_do_iq_rev(analyzer->read_buf, got);
+    if (self->iq_rev)
+      suscan_analyzer_do_iq_rev(self->read_buf, got);
 
-    if (!suscan_analyzer_is_real_time(analyzer)) {
+    if (!suscan_local_analyzer_is_real_time_ex(self)) {
       SU_TRYCATCH(
-          pthread_mutex_lock(&analyzer->throttle_mutex) != -1,
+          pthread_mutex_lock(&self->throttle_mutex) != -1,
           goto done);
-      suscan_throttle_advance(&analyzer->throttle, got);
+      suscan_throttle_advance(&self->throttle, got);
       SU_TRYCATCH(
-          pthread_mutex_unlock(&analyzer->throttle_mutex) != -1,
+          pthread_mutex_unlock(&self->throttle_mutex) != -1,
           goto done);
     }
 
     SU_TRYCATCH(
-        suscan_analyzer_feed_baseband_filters(
-            analyzer,
-            analyzer->read_buf,
+        suscan_local_analyzer_feed_baseband_filters(
+            self,
+            self->read_buf,
             got),
         goto done);
 
-    /* Feed channel detector! */
     SU_TRYCATCH(
-        su_channel_detector_feed_bulk(
-            analyzer->detector,
-            analyzer->read_buf,
-            got) == got,
+        su_smoothpsd_feed(self->smooth_psd, self->read_buf, got),
         goto done);
 
-    /* Check channel update */
-    if (analyzer->interval_channels > 0) {
-      timespecsub(&analyzer->read_start, &analyzer->last_channels, &sub);
-      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
-
-      if (seconds >= analyzer->interval_channels) {
-        SU_TRYCATCH(
-            suscan_analyzer_send_detector_channels(
-                analyzer,
-                analyzer->detector),
-            goto done);
-        analyzer->last_channels = analyzer->read_start;
-      }
-    }
-
-    if (analyzer->interval_psd > 0) {
-      timespecsub(&analyzer->read_start, &analyzer->last_psd, &sub);
-      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
-
-      if (seconds >= analyzer->interval_psd) {
-        SU_TRYCATCH(
-            suscan_analyzer_send_psd(analyzer, analyzer->detector),
-            goto done);
-        analyzer->last_psd = analyzer->read_start;
-      }
-    }
-
     if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {
-      timespecsub(&analyzer->read_start, &analyzer->last_measure, &sub);
-      seconds = sub.tv_sec + sub.tv_nsec * 1e-9;
+      seconds = (self->read_start - self->last_measure) * 1e-9;
 
       if (seconds >= SUSCAN_ANALYZER_FS_MEASURE_INTERVAL) {
-        analyzer->measured_samp_rate =
-            analyzer->measured_samp_count / seconds;
-        analyzer->measured_samp_count = 0;
-        analyzer->last_measure = analyzer->read_start;
+        self->measured_samp_rate =
+            self->measured_samp_count / seconds;
+        self->measured_samp_count = 0;
+        self->last_measure = self->read_start;
 #ifdef SUSCAN_DEBUG_THROTTLE
-        printf("Read rate: %g\n", analyzer->measured_samp_rate);
+        printf("Read rate: %g\n", self->measured_samp_rate);
 #endif /* SUSCAN_DEBUG_THROTTLE */
       }
 
-      analyzer->measured_samp_count += got;
+      self->measured_samp_count += got;
     }
 
     /* Feed inspectors! */
     SU_TRYCATCH(
-        suscan_analyzer_feed_inspectors(analyzer, analyzer->read_buf, got),
+        suscan_local_analyzer_feed_inspectors(self, self->read_buf, got),
         goto done);
 
   } else {
-    analyzer->eos = SU_TRUE;
-    analyzer->cpu_usage = 0;
+    self->parent->eos = SU_TRUE; /* TODO: Use force_eos? */
+    self->cpu_usage = 0;
 
     switch (got) {
       case SU_BLOCK_PORT_READ_END_OF_STREAM:
         suscan_analyzer_send_status(
-            analyzer,
+            self->parent,
             SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
             got,
             "End of stream reached");
@@ -287,7 +351,7 @@ suscan_source_channel_wk_cb(
 
       case SU_BLOCK_PORT_READ_ERROR_NOT_INITIALIZED:
         suscan_analyzer_send_status(
-            analyzer,
+            self->parent,
             SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
             got,
             "Port not initialized");
@@ -295,7 +359,7 @@ suscan_source_channel_wk_cb(
 
       case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
         suscan_analyzer_send_status(
-            analyzer,
+            self->parent,
             SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR,
             got,
             "Acquire failed (source I/O error)");
@@ -303,7 +367,7 @@ suscan_source_channel_wk_cb(
 
       case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
         suscan_analyzer_send_status(
-            analyzer,
+            self->parent,
             SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
             got,
             "Port desync");
@@ -311,7 +375,7 @@ suscan_source_channel_wk_cb(
 
       default:
         suscan_analyzer_send_status(
-            analyzer,
+            self->parent,
             SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
             got,
             "Unexpected read result %d", got);
@@ -321,13 +385,13 @@ suscan_source_channel_wk_cb(
   }
 
   /* Finish processing */
-  suscan_analyzer_process_end(analyzer);
+  suscan_local_analyzer_process_end(self);
 
   restart = SU_TRUE;
 
 done:
   if (mutex_acquired)
-    (void) suscan_analyzer_unlock_loop(analyzer);
+    (void) suscan_local_analyzer_unlock_loop(self);
 
   return restart;
 }

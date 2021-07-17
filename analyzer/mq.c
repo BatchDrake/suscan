@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -131,6 +130,17 @@ suscan_mq_wait_unsafe(struct suscan_mq *mq)
   pthread_cond_wait(&mq->acquire_cond, &mq->acquire_lock);
 }
 
+SUPRIVATE SUBOOL
+suscan_mq_timedwait_unsafe(
+    struct suscan_mq *mq,
+    const struct timespec *ts)
+{
+  return pthread_cond_timedwait(
+      &mq->acquire_cond,
+      &mq->acquire_lock,
+      ts) == 0;
+}
+
 void
 suscan_mq_wait(struct suscan_mq *mq)
 {
@@ -139,6 +149,20 @@ suscan_mq_wait(struct suscan_mq *mq)
   suscan_mq_wait_unsafe(mq);
 
   suscan_mq_leave(mq);
+}
+
+SUBOOL
+suscan_mq_timedwait(struct suscan_mq *mq, const struct timespec *ts)
+{
+  SUBOOL result;
+
+  suscan_mq_enter(mq);
+
+  result = suscan_mq_timedwait_unsafe(mq, ts);
+
+  suscan_mq_leave(mq);
+
+  return result;
 }
 
 SUPRIVATE struct suscan_msg *
@@ -235,20 +259,55 @@ SUPRIVATE struct suscan_msg *
 suscan_mq_read_msg_internal(
     struct suscan_mq *mq,
     SUBOOL with_type,
-    uint32_t type)
+    uint32_t type,
+    const struct timeval *timeout)
 {
-  struct suscan_msg *msg;
+  struct suscan_msg *msg = NULL;
+  struct timespec ts;
+  struct timeval now;
+  struct timeval future;
 
-  suscan_mq_enter(mq);
+  if (timeout != NULL) {
+    gettimeofday(&now, NULL);
 
-  if (with_type)
-    while ((msg = suscan_mq_pop_w_type(mq, type)) == NULL)
-      suscan_mq_wait_unsafe(mq);
-  else
-    while ((msg = suscan_mq_pop(mq)) == NULL)
-      suscan_mq_wait_unsafe(mq);
+    timeradd(&now, timeout, &future);
 
-  suscan_mq_leave(mq);
+    ts.tv_sec  = future.tv_sec;
+    ts.tv_nsec = future.tv_usec * 1000;
+
+    /*
+     * When timedwaits are used, the wait() operation may fail,
+     * indicating a timeout.
+     */
+    suscan_mq_enter(mq);
+
+    if (with_type) {
+      while ((msg = suscan_mq_pop_w_type(mq, type)) == NULL)
+        if (!suscan_mq_timedwait_unsafe(mq, &ts)) {
+          msg = NULL;
+          break;
+        }
+    } else {
+      while ((msg = suscan_mq_pop(mq)) == NULL)
+        if (!suscan_mq_timedwait_unsafe(mq, &ts)) {
+          msg = NULL;
+          break;
+        }
+    }
+
+    suscan_mq_leave(mq);
+  } else {
+    suscan_mq_enter(mq);
+
+    if (with_type)
+      while ((msg = suscan_mq_pop_w_type(mq, type)) == NULL)
+        suscan_mq_wait_unsafe(mq);
+    else
+      while ((msg = suscan_mq_pop(mq)) == NULL)
+        suscan_mq_wait_unsafe(mq);
+
+    suscan_mq_leave(mq);
+  }
 
   return msg;
 }
@@ -257,12 +316,18 @@ SUPRIVATE void *
 suscan_mq_read_internal(
     struct suscan_mq *mq,
     uint32_t *ptype,
-    uint32_t type)
+    uint32_t type,
+    const struct timeval *timeout)
 {
   struct suscan_msg *msg;
   void *private;
 
-  msg = suscan_mq_read_msg_internal(mq, ptype == NULL, type);
+  if ((msg = suscan_mq_read_msg_internal(
+      mq,
+      ptype == NULL,
+      type,
+      timeout)) == NULL)
+    return NULL;
 
   private = msg->privdata;
 
@@ -277,25 +342,59 @@ suscan_mq_read_internal(
 void *
 suscan_mq_read(struct suscan_mq *mq, uint32_t *type)
 {
-  return suscan_mq_read_internal(mq, type, 0);
+  return suscan_mq_read_internal(mq, type, 0, NULL);
+}
+
+void *
+suscan_mq_read_timeout(
+    struct suscan_mq *mq,
+    uint32_t *type,
+    const struct timeval *timeout)
+{
+  return suscan_mq_read_internal(mq, type, 0, timeout);
 }
 
 void *
 suscan_mq_read_w_type(struct suscan_mq *mq, uint32_t type)
 {
-  return suscan_mq_read_internal(mq, NULL, type);
+  return suscan_mq_read_internal(mq, NULL, type, NULL);
 }
+
+void *
+suscan_mq_read_w_type_timeout(
+    struct suscan_mq *mq,
+    uint32_t type,
+    const struct timeval *timeout)
+{
+  return suscan_mq_read_internal(mq, NULL, type, timeout);
+}
+
 
 struct suscan_msg *
 suscan_mq_read_msg(struct suscan_mq *mq)
 {
-  return suscan_mq_read_msg_internal(mq, SU_FALSE, 0);
+  return suscan_mq_read_msg_internal(mq, SU_FALSE, 0, NULL);
+}
+
+struct suscan_msg *
+suscan_mq_read_msg_timeout(struct suscan_mq *mq, const struct timeval *timeout)
+{
+  return suscan_mq_read_msg_internal(mq, SU_FALSE, 0, timeout);
 }
 
 struct suscan_msg *
 suscan_mq_read_msg_w_type(struct suscan_mq *mq, uint32_t type)
 {
-  return suscan_mq_read_msg_internal(mq, SU_TRUE, type);
+  return suscan_mq_read_msg_internal(mq, SU_TRUE, type, NULL);
+}
+
+struct suscan_msg *
+suscan_mq_read_msg_w_type_timeout(
+    struct suscan_mq *mq,
+    uint32_t type,
+    const struct timeval *timeout)
+{
+  return suscan_mq_read_msg_internal(mq, SU_TRUE, type, timeout);
 }
 
 struct suscan_msg *

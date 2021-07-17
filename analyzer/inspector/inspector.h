@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -52,14 +51,15 @@ struct suscan_inspector {
   /* Specific inspector interface being used */
   const struct suscan_inspector_interface *iface;
   void *privdata;
+  void *userdata;
 
   struct suscan_inspector_sampling_info samp_info; /* Sampling information */
 
   /* Spectrum and estimator state */
   SUFLOAT  interval_estimator;
   SUFLOAT  interval_spectrum;
-  struct timespec last_estimator;
-  struct timespec last_spectrum;
+  uint64_t last_estimator;
+  uint64_t last_spectrum;
 
   uint32_t spectsrc_index;
 
@@ -77,6 +77,18 @@ struct suscan_inspector {
 };
 
 typedef struct suscan_inspector suscan_inspector_t;
+
+SUINLINE void
+suscan_inspector_set_userdata(suscan_inspector_t *insp, void *userdata)
+{
+  insp->userdata = userdata;
+}
+
+SUINLINE void *
+suscan_inspector_get_userdata(const suscan_inspector_t *insp)
+{
+  return insp->userdata;
+}
 
 SUINLINE SUBOOL
 suscan_inspector_set_msg_watermark(suscan_inspector_t *insp, SUSCOUNT wm)
@@ -122,6 +134,18 @@ SUINLINE suscan_config_t *
 suscan_inspector_create_config(const suscan_inspector_t *insp)
 {
   return suscan_config_new(insp->iface->cfgdesc);
+}
+
+SUINLINE SUFLOAT
+suscan_inspector_get_equiv_fs(const suscan_inspector_t *insp)
+{
+  return insp->samp_info.equiv_fs;
+}
+
+SUINLINE SUFLOAT
+suscan_inspector_get_equiv_bw(const suscan_inspector_t *insp)
+{
+  return insp->samp_info.bw;
 }
 
 SUINLINE su_specttuner_channel_t *
@@ -170,6 +194,7 @@ SUBOOL suscan_ask_inspector_register(void);
 SUBOOL suscan_fsk_inspector_register(void);
 SUBOOL suscan_psk_inspector_register(void);
 SUBOOL suscan_audio_inspector_register(void);
+SUBOOL suscan_raw_inspector_register(void);
 
 #ifdef __cplusplus
 }

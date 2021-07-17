@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,6 +25,8 @@
 #include <sigutils/taps.h>
 
 PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc_class);
+
+SUPRIVATE SUBOOL spectsrcs_init = SU_FALSE;
 
 const struct suscan_spectsrc_class *
 suscan_spectsrc_class_lookup(const char *name)
@@ -111,7 +112,6 @@ suscan_spectsrc_new(
     enum sigutils_channel_detector_window window_type)
 {
   suscan_spectsrc_t *new = NULL;
-  unsigned int i;
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_spectsrc_t)), goto fail);
 
@@ -246,6 +246,12 @@ suscan_spectsrc_destroy(suscan_spectsrc_t *spectsrc)
 }
 
 SUBOOL
+suscan_spectsrcs_initialized(void)
+{
+  return spectsrcs_init;
+}
+
+SUBOOL
 suscan_init_spectsrcs(void)
 {
   SU_TRYCATCH(suscan_spectsrc_psd_register(), return SU_FALSE);
@@ -257,6 +263,8 @@ suscan_init_spectsrcs(void)
   SU_TRYCATCH(suscan_spectsrc_exp_2_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_spectsrc_exp_4_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_spectsrc_exp_8_register(), return SU_FALSE);
+
+  spectsrcs_init = SU_TRUE;
 
   return SU_TRUE;
 }

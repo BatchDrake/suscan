@@ -16,6 +16,7 @@
 #include <confdb.h>
 #include <suscan.h>
 #include <codec/codec.h>
+#include <analyzer/version.h>
 
 SUPRIVATE struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},
@@ -23,6 +24,23 @@ SUPRIVATE struct option long_options[] = {
 };
 
 extern int optind;
+
+SUPRIVATE void
+version(void)
+{
+  fprintf(stderr, "suscan " SUSCAN_VERSION_STRING "\n");
+  fprintf(stderr, "pkgversion: %s\n", suscan_pkgversion());
+  fprintf(
+      stderr,
+      "Using sigutils version %s (%s)\n\n",
+      sigutils_api_version(),
+      sigutils_pkgversion());
+
+  fprintf(stderr, "Copyright © 2021 Gonzalo José Carracedo Carballal\n");
+  fprintf(
+      stderr,
+      "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n");
+}
 
 SUPRIVATE void
 help(const char *argv0)
@@ -33,8 +51,9 @@ help(const char *argv0)
       stderr,
       "This command will attempt to load Suscan library and display load errors.\n\n");
   fprintf(stderr, "Options:\n\n");
+  fprintf(stderr, "     -v, --version         Print library version\n");
   fprintf(stderr, "     -h, --help            This help\n\n");
-  fprintf(stderr, "(c) 2019 Gonzalo J. Caracedo <BatchDrake@gmail.com>\n");
+  fprintf(stderr, "(c) 2021 Gonzalo J. Caracedo <BatchDrake@gmail.com>\n");
 }
 
 int
@@ -43,7 +62,6 @@ main(int argc, char *argv[], char *envp[])
   struct timeval tv;
   int exit_code = EXIT_FAILURE;
   char *msgs;
-  unsigned int i;
   int c;
   int index;
 
@@ -51,10 +69,15 @@ main(int argc, char *argv[], char *envp[])
   mtrace();
 #endif
 
-  while ((c = getopt_long(argc, argv, "h", long_options, &index)) != -1) {
+  while ((c = getopt_long(argc, argv, "hv", long_options, &index)) != -1) {
     switch (c) {
       case 'h':
         help(argv[0]);
+        exit(EXIT_SUCCESS);
+        break;
+
+      case 'v':
+        version();
         exit(EXIT_SUCCESS);
         break;
 
@@ -70,7 +93,7 @@ main(int argc, char *argv[], char *envp[])
 
   gettimeofday(&tv, NULL);
 
-  if (!suscan_sigutils_init(SUSCAN_MODE_GTK_UI)) {
+  if (!suscan_sigutils_init(SUSCAN_MODE_DELAYED_LOG)) {
     fprintf(stderr, "%s: failed to initialize sigutils library\n", argv[0]);
     goto done;
   }

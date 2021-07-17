@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -49,8 +48,6 @@ void
 suscan_fingerprint_report_destroy(
     struct suscan_fingerprint_report *report)
 {
-  unsigned int i;
-
   if (report->results != NULL)
     free(report->results);
 
@@ -118,7 +115,6 @@ suscan_close_all_channels(
     struct suscan_fingerprint_report *report)
 {
   unsigned int i;
-  SUHANDLE handle;
 
   for (i = 0; i < report->result_count; ++i)
     if (report->results[i].br_handle >= 0)
@@ -133,7 +129,6 @@ suscan_get_all_baudrates(
     struct suscan_fingerprint_report *report)
 {
   unsigned int i;
-  SUHANDLE handle;
 
   for (i = 0; i < report->result_count; ++i) {
     /* TODO: Implement */
@@ -184,8 +179,6 @@ suscan_perform_fingerprint(struct suscan_source_config *config)
   const struct suscan_analyzer_status_msg  *st_msg;
   struct suscan_fingerprint_report *report = NULL;
   unsigned int chskip = SUSCAN_CHLIST_SKIP_CHANNELS;
-  unsigned int i;
-  unsigned int n = 0;
   SUBOOL running = SU_TRUE;
   SUBOOL ok = SU_FALSE;
 

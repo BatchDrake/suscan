@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,10 +37,10 @@ struct suscan_inspector_task_info {
   SUSCOUNT size;
 };
 
-struct suscan_analyzer;
+struct suscan_local_analyzer;
 
 struct suscan_inspsched {
-  struct suscan_analyzer *analyzer;
+  struct suscan_local_analyzer *analyzer;
 
   /* Inspector task info */
   PTR_LIST(struct suscan_inspector_task_info, task_info);
@@ -59,7 +58,7 @@ suscan_inspsched_get_num_workers(const suscan_inspsched_t *sched)
   return sched->worker_count;
 }
 
-SUINLINE struct suscan_analyzer *
+SUINLINE struct suscan_local_analyzer *
 suscan_inspsched_get_analyzer(const suscan_inspsched_t *sched)
 {
   return sched->analyzer;
@@ -85,7 +84,7 @@ SUBOOL suscan_inspsched_queue_task(
 
 SUBOOL suscan_inspsched_sync(suscan_inspsched_t *sched);
 
-suscan_inspsched_t *suscan_inspsched_new(struct suscan_analyzer *analyzer);
+suscan_inspsched_t *suscan_inspsched_new(struct suscan_local_analyzer *analyzer);
 
 SUBOOL suscan_inspsched_destroy(suscan_inspsched_t *sched);
 

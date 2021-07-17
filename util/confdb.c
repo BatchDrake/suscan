@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,19 +29,33 @@
 
 #include <sigutils/log.h>
 #include "confdb.h"
+#include "compat.h"
 
 PTR_LIST(SUPRIVATE suscan_config_context_t, context);
 
-SUPRIVATE const char *confdb_system_path = PKGDATADIR "/config";
+SUPRIVATE const char *confdb_system_path;
 SUPRIVATE const char *confdb_user_path;
 
 const char *
 suscan_confdb_get_system_path(void)
 {
   const char *path = NULL;
-
-  if ((path = getenv("SUSCAN_CONFIG_PATH")) != NULL)
-    confdb_system_path = path;
+  
+  if (confdb_system_path == NULL) {
+    if ((path = getenv("SUSCAN_CONFIG_PATH")) != NULL) {
+      confdb_system_path = path;
+    } else {
+      /*
+       * In some distributions, config files are retrieved from an
+       * application bundle (like MacOS).
+       */
+      path = suscan_bundle_get_confdb_path();
+      if (path != NULL)
+        confdb_system_path = path;
+      else
+        confdb_system_path = PKGDATADIR "/config";
+    }
+  }
 
   return confdb_system_path;
 }
@@ -123,6 +136,8 @@ suscan_config_context_new(const char *name)
   SU_TRYCATCH(new->name = strdup(name), goto fail);
   SU_TRYCATCH(new->save_file = strbuild("%s.xml", name), goto fail);
   SU_TRYCATCH(new->list = suscan_object_new(SUSCAN_OBJECT_TYPE_SET), goto fail);
+
+  new->save = SU_TRUE;
 
   return new;
 
@@ -236,7 +251,6 @@ suscan_config_context_scan(suscan_config_context_t *context)
   void *mmap_base = (void *) -1;
   suscan_object_t *set = NULL;
   struct stat sbuf;
-  size_t size;
 
   SUBOOL ok = SU_FALSE;
 
@@ -304,9 +318,17 @@ done:
   return ok;
 }
 
+void
+suscan_config_context_set_save(
+    suscan_config_context_t *ctx,
+    SUBOOL save)
+{
+  ctx->save = save;
+}
+
 /*
  * TODO: This code is not robust. Save to a temporary file and
- * then move it to the right destionation.
+ * then move it to the right destination.
  */
 
 SUPRIVATE SUBOOL
@@ -315,11 +337,12 @@ suscan_config_context_save(suscan_config_context_t *context)
   char *path = NULL;
   unsigned int i;
   int fd = -1;
-  suscan_object_t *set = NULL;
   size_t size;
   void *data = NULL;
-
   SUBOOL ok = SU_FALSE;
+
+  if (!context->save)
+    return SU_TRUE;
 
   if (context->on_save != NULL)
     SU_TRYCATCH((context->on_save)(context, context->userdata), goto done);

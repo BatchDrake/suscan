@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -37,6 +36,7 @@ const char *suscan_confdb_get_local_path(void);
 struct suscan_config_context {
   char *name;
   char *save_file;
+  SUBOOL save;
 
   PTR_LIST(char, path);
 
@@ -50,6 +50,10 @@ typedef struct suscan_config_context suscan_config_context_t;
 
 suscan_config_context_t *suscan_config_context_lookup(const char *name);
 suscan_config_context_t *suscan_config_context_assert(const char *name);
+
+void suscan_config_context_set_save(
+    suscan_config_context_t *ctx,
+    SUBOOL save);
 
 SUBOOL suscan_config_context_add_path(
     suscan_config_context_t *ctx,
@@ -81,6 +85,12 @@ suscan_config_context_set_on_save(
 {
   ctx->on_save = on_save;
   ctx->userdata = userdata;
+}
+
+SUINLINE const char *
+suscan_config_context_get_save_file(const suscan_config_context_t *self)
+{
+  return self->save_file;
 }
 
 SUBOOL suscan_confdb_scan_all(void);

@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,6 +26,8 @@
 #include <sigutils/pll.h>
 #include <sigutils/clock.h>
 #include <sigutils/equalizer.h>
+
+#include <analyzer/version.h>
 
 #include "inspector/interface.h"
 #include "inspector/params.h"
@@ -103,6 +104,8 @@ suscan_psk_inspector_params_initialize(
   params->br.br_ctrl    = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
   params->br.br_alpha   = SU_PREFERED_CLOCK_ALPHA;
   params->br.br_beta    = SU_PREFERED_CLOCK_BETA;
+  params->br.baud       = SU_NORM2ABS_BAUD(sinfo->equiv_fs, .5 * sinfo->bw);
+;
 
   params->fc.fc_ctrl    = SUSCAN_INSPECTOR_CARRIER_CONTROL_MANUAL;
   params->fc.fc_loopbw  = sinfo->equiv_fs / 200; /* Experimental result */
@@ -181,8 +184,8 @@ suscan_psk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
   SU_TRYCATCH(
       su_iir_rrc_init(
           &new->mf,
-          suscan_psk_inspector_mf_span(6 * tau),
-          tau,
+          SU_CEIL(suscan_psk_inspector_mf_span(6 * tau)),
+          SU_CEIL(tau),
           new->cur_params.mf.mf_rolloff),
       goto fail);
 
@@ -204,7 +207,12 @@ suscan_psk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
   SU_TRYCATCH(su_equalizer_init(&new->eq, &eq_params), goto fail);
 
   /* Initialize sampler */
-  SU_TRYCATCH(su_sampler_init(&new->sampler, tau), goto fail);
+  SU_TRYCATCH(
+      su_sampler_init(&new->sampler,
+          new->cur_params.br.br_running
+          ?  SU_ABS2NORM_BAUD(sinfo->equiv_fs, new->cur_params.br.baud)
+          : 0),
+      goto fail);
 
   return new;
 
@@ -256,7 +264,9 @@ suscan_psk_inspector_parse_config(void *private, const suscan_config_t *config)
 {
   struct suscan_psk_inspector *insp = (struct suscan_psk_inspector *) private;
 
-  suscan_psk_inspector_params_initialize(&insp->req_params, &insp->samp_info);
+  suscan_psk_inspector_params_initialize(
+      &insp->req_params,
+      &insp->samp_info);
 
   SU_TRYCATCH(
       suscan_inspector_gc_params_parse(&insp->req_params.gc, config),
@@ -292,7 +302,6 @@ suscan_psk_inspector_commit_config(void *private)
   SUFLOAT actual_baud;
   SUFLOAT sym_period;
   su_costas_t costas;
-  enum sigutils_costas_kind kind;
 
   su_iir_filt_t mf = su_iir_filt_INITIALIZER;
   struct suscan_psk_inspector *insp = (struct suscan_psk_inspector *) private;
@@ -337,8 +346,8 @@ suscan_psk_inspector_commit_config(void *private)
   if (mf_changed && sym_period > 0) {
     if (!su_iir_rrc_init(
         &mf,
-        suscan_psk_inspector_mf_span(6 * sym_period),
-        sym_period,
+        SU_CEIL(suscan_psk_inspector_mf_span(6 * sym_period)),
+        SU_CEIL(sym_period),
         insp->cur_params.mf.mf_rolloff)) {
       SU_ERROR("No memory left to update matched filter!\n");
     } else {
@@ -392,8 +401,6 @@ suscan_psk_inspector_feed(
     SUSCOUNT count)
 {
   SUSCOUNT i;
-  SUSCOUNT osize = 0;
-  SUFLOAT alpha;
   SUCOMPLEX det_x;
   SUCOMPLEX output;
   SUBOOL new_sample = SU_FALSE;
@@ -473,7 +480,8 @@ SUBOOL
 suscan_psk_inspector_register(void)
 {
   SU_TRYCATCH(
-      iface.cfgdesc = suscan_config_desc_new(),
+      iface.cfgdesc = suscan_config_desc_new_ex(
+          "psk-params-desc-" SUSCAN_VERSION_STRING),
       return SU_FALSE);
 
   /* Add all configuration parameters */
@@ -483,47 +491,22 @@ suscan_psk_inspector_register(void)
   SU_TRYCATCH(suscan_config_desc_add_eq_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_br_params(iface.cfgdesc), return SU_FALSE);
 
-  /* Add some estimators */
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_estimator(&iface, "baud-fac"),
-      return SU_FALSE);
+  SU_TRYCATCH(suscan_config_desc_register(iface.cfgdesc), return SU_FALSE);
 
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_estimator(&iface, "baud-nonlinear"),
-      return SU_FALSE);
+  /* Add some estimators */
+  (void) suscan_inspector_interface_add_estimator(&iface, "baud-fac");
+  (void) suscan_inspector_interface_add_estimator(&iface, "baud-nonlinear");
 
   /* Add applicable spectrum sources */
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "psd"),
-      return SU_FALSE);
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "psd");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "pmspect");
 
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "pmspect"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "timediff"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "abstimediff"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "cyclo"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "exp_2"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "exp_4"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "exp_8"),
-      return SU_FALSE);
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "timediff");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "abstimediff");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "cyclo");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "exp_2");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "exp_4");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "exp_8");
 
   /* Register inspector interface */
   SU_TRYCATCH(suscan_inspector_interface_register(&iface), return SU_FALSE);

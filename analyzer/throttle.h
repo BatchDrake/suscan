@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,36 +22,18 @@
 
 #include <sigutils/sigutils.h>
 
-/*
- * Throttle reset threshold. If the number of available samples keeps growing,
- * it means that the reader is slower than the declared sample rate. In that
- * case, we just reset t0 and set sample_count to 0.
- */
-#define SUSCAN_THROTTLE_RESET_THRESHOLD 1000000000ll
-#define SUSCAN_THROTTLE_MAX_READ_UNIT_FRAC .25
+#define SUSCAN_THROTTLE_LATE_DELAY_NS        5000000000ull
+#define SUSCAN_THROTTLE_MIN_BLOCK_SIZE                   1
+#define SUSCAN_THROTTLE_CHECKPOINT_DURATION_NS 10000000ull
 
 struct suscan_throttle {
-  SUSCOUNT samp_rate;
-  SUSCOUNT samp_count;
-  struct timespec t0;
+  uint64_t t0; /* Last checkpoint time */
+  SUSCOUNT avail; /* Samples available until next checkpoint */
+  SUSCOUNT delta_s; /* Samples per checkpoint */
+  SUSCOUNT delta_t; /* Nanoseconds per checkpoint */
 };
 
 typedef struct suscan_throttle suscan_throttle_t;
-
-SUINLINE void
-timespecsub(
-    struct timespec *a,
-    struct timespec *b,
-    struct timespec *sub)
-{
-  sub->tv_sec = a->tv_sec - b->tv_sec;
-  sub->tv_nsec = a->tv_nsec - b->tv_nsec;
-
-  if (sub->tv_nsec < 0) {
-    sub->tv_nsec += 1000000000;
-    --sub->tv_sec;
-  }
-}
 
 void suscan_throttle_init(suscan_throttle_t *throttle, SUSCOUNT samp_rate);
 

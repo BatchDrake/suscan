@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,7 +25,8 @@
 #include <sigutils/agc.h>
 #include <sigutils/pll.h>
 #include <sigutils/clock.h>
-#include <sigutils/equalizer.h>
+
+#include <analyzer/version.h>
 
 #include "inspector/interface.h"
 #include "inspector/params.h"
@@ -89,7 +89,8 @@ suscan_fsk_inspector_mf_span(SUSCOUNT span)
 
 SUPRIVATE void
 suscan_fsk_inspector_params_initialize(
-    struct suscan_fsk_inspector_params *params)
+    struct suscan_fsk_inspector_params *params,
+    const struct suscan_inspector_sampling_info *sinfo)
 {
   memset(params, 0, sizeof (struct suscan_fsk_inspector_params));
 
@@ -99,13 +100,14 @@ suscan_fsk_inspector_params_initialize(
   params->br.br_ctrl  = SUSCAN_INSPECTOR_BAUDRATE_CONTROL_MANUAL;
   params->br.br_alpha = SU_PREFERED_CLOCK_ALPHA;
   params->br.br_beta  = SU_PREFERED_CLOCK_BETA;
+  params->br.baud     = SU_NORM2ABS_BAUD(sinfo->equiv_fs, .5 * sinfo->bw);
 
   params->mf.mf_conf  = SUSCAN_INSPECTOR_MATCHED_FILTER_BYPASS;
   params->mf.mf_rolloff = SUSCAN_FSK_INSPECTOR_DEFAULT_ROLL_OFF;
 
   params->fsk.bits_per_tone = 1;
   params->fsk.quad_demod    = SU_FALSE;
-  params->fsk.phase         = PI;
+  params->fsk.phase         = 0;
 }
 
 SUPRIVATE void
@@ -126,8 +128,6 @@ SUPRIVATE struct suscan_fsk_inspector *
 suscan_fsk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
 {
   struct suscan_fsk_inspector *new = NULL;
-  struct sigutils_equalizer_params eq_params =
-      sigutils_equalizer_params_INITIALIZER;
   struct su_agc_params agc_params = su_agc_params_INITIALIZER;
   SUFLOAT bw, tau;
 
@@ -135,7 +135,7 @@ suscan_fsk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
 
   new->samp_info = *sinfo;
 
-  suscan_fsk_inspector_params_initialize(&new->cur_params);
+  suscan_fsk_inspector_params_initialize(&new->cur_params, sinfo);
 
   bw = sinfo->bw;
   tau = 1. /  bw; /* Approximate samples per symbol */
@@ -150,7 +150,12 @@ suscan_fsk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
       goto fail);
 
   /* Fixed baudrate sampler */
-  SU_TRYCATCH(su_sampler_init(&new->sampler, tau), goto fail);
+  SU_TRYCATCH(
+      su_sampler_init(&new->sampler,
+          new->cur_params.br.br_running
+          ?  SU_ABS2NORM_BAUD(sinfo->equiv_fs, new->cur_params.br.baud)
+          : 0),
+      goto fail);
 
   /* Initialize local oscillator */
   su_ncqo_init(&new->lo, 0);
@@ -175,15 +180,10 @@ suscan_fsk_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
   SU_TRYCATCH(
       su_iir_rrc_init(
           &new->mf,
-          suscan_fsk_inspector_mf_span(6 * tau),
-          tau,
+          SU_CEIL(suscan_fsk_inspector_mf_span(6 * tau)),
+          SU_CEIL(tau),
           new->cur_params.mf.mf_rolloff),
       goto fail);
-
-
-  /* Initialize equalizer */
-  eq_params.mu = SUSCAN_FSK_INSPECTOR_DEFAULT_EQ_MU;
-  eq_params.length = SUSCAN_FSK_INSPECTOR_DEFAULT_EQ_LENGTH;
 
   return new;
 
@@ -231,7 +231,9 @@ suscan_fsk_inspector_parse_config(void *private, const suscan_config_t *config)
 {
   struct suscan_fsk_inspector *insp = (struct suscan_fsk_inspector *) private;
 
-  suscan_fsk_inspector_params_initialize(&insp->req_params);
+  suscan_fsk_inspector_params_initialize(
+      &insp->req_params,
+      &insp->samp_info);
 
   SU_TRYCATCH(
       suscan_inspector_gc_params_parse(&insp->req_params.gc, config),
@@ -292,8 +294,8 @@ suscan_fsk_inspector_commit_config(void *private)
   if (mf_changed && sym_period > 0) {
     if (!su_iir_rrc_init(
         &mf,
-        suscan_fsk_inspector_mf_span(6 * sym_period),
-        sym_period,
+        SU_CEIL(suscan_fsk_inspector_mf_span(6 * sym_period)),
+        SU_CEIL(sym_period),
         insp->cur_params.mf.mf_rolloff)) {
       SU_ERROR("No memory left to update matched filter!\n");
     } else {
@@ -311,9 +313,7 @@ suscan_fsk_inspector_feed(
     SUSCOUNT count)
 {
   SUSCOUNT i;
-  SUSCOUNT osize = 0;
-  SUFLOAT alpha;
-  SUCOMPLEX const_gain;
+  SUCOMPLEX const_gain = 0;
   SUCOMPLEX det_x;
   SUCOMPLEX output;
   SUBOOL new_sample = SU_FALSE;
@@ -395,7 +395,8 @@ SUBOOL
 suscan_fsk_inspector_register(void)
 {
   SU_TRYCATCH(
-      iface.cfgdesc = suscan_config_desc_new(),
+      iface.cfgdesc = suscan_config_desc_new_ex(
+          "fsk-params-desc-" SUSCAN_VERSION_STRING),
       return SU_FALSE);
 
   /* Add all configuration parameters */
@@ -404,35 +405,18 @@ suscan_fsk_inspector_register(void)
   SU_TRYCATCH(suscan_config_desc_add_mf_params(iface.cfgdesc), return SU_FALSE);
   SU_TRYCATCH(suscan_config_desc_add_br_params(iface.cfgdesc), return SU_FALSE);
 
+  SU_TRYCATCH(suscan_config_desc_register(iface.cfgdesc), return SU_FALSE);
+
   /* Add estimator */
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_estimator(&iface, "baud-nonlinear"),
-      return SU_FALSE);
+  (void) suscan_inspector_interface_add_estimator(&iface, "baud-nonlinear");
 
   /* Add applicable spectrum sources */
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "psd"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "cyclo"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "fmcyclo"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "fmspect"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "timediff"),
-      return SU_FALSE);
-
-  SU_TRYCATCH(
-      suscan_inspector_interface_add_spectsrc(&iface, "abstimediff"),
-      return SU_FALSE);
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "psd");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "cyclo");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "fmcyclo");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "fmspect");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "timediff");
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "abstimediff");
 
   /* Register inspector interface */
   SU_TRYCATCH(suscan_inspector_interface_register(&iface), return SU_FALSE);

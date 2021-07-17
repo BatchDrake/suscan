@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,12 +24,13 @@
 #include <stdint.h>
 
 #include "analyzer.h"
+#include "serialize.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-#define SUSCAN_ANALYZER_MESSAGE_TYPE_KEYBOARD      0x0
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO   0x0
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT   0x1
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL       0x2
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_EOS           0x3
@@ -44,11 +44,13 @@ extern "C" {
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xb /* Analyzer params */
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
+#define SUSCAN_ANALYZER_INIT_PROGRESS              1
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
 
+
 /* Generic status message */
-struct suscan_analyzer_status_msg {
-  int code;
+SUSCAN_SERIALIZABLE(suscan_analyzer_status_msg) {
+  int32_t code;
   char *err_msg;
   const suscan_analyzer_t *sender;
 };
@@ -61,25 +63,26 @@ struct suscan_analyzer_channel_msg {
 };
 
 /* Throttle parameters */
-struct suscan_analyzer_throttle_msg {
+SUSCAN_SERIALIZABLE(suscan_analyzer_throttle_msg) {
   SUSCOUNT samp_rate; /* Samp rate == 0: reset */
 };
 
 /* Channel spectrum message */
-struct suscan_analyzer_psd_msg {
-  uint64_t fc;
+SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
+  int64_t fc;
   uint32_t inspector_id;
   SUFLOAT  samp_rate;
+  SUFLOAT  measured_samp_rate;
+  SUFLOAT  N0;
   SUSCOUNT psd_size;
   SUFLOAT *psd_data;
-  SUFLOAT  N0;
 };
 
 /* Channel sample batch */
-struct suscan_analyzer_sample_batch_msg {
-  uint32_t     inspector_id;
-  SUCOMPLEX   *samples;
-  unsigned int sample_count;
+SUSCAN_SERIALIZABLE(suscan_analyzer_sample_batch_msg) {
+  uint32_t   inspector_id;
+  SUCOMPLEX *samples;
+  SUSCOUNT   sample_count;
 };
 
 /*
@@ -95,22 +98,43 @@ enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
-  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INFO,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_FREQ,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_BANDWIDTH,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_WATERMARK,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_OBJECT,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT,
-  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_COUNT
 };
 
-struct suscan_analyzer_inspector_msg {
-  enum suscan_analyzer_inspector_msgkind kind;
+SUINLINE const char *
+suscan_analyzer_inspector_msgkind_to_string(
+    enum suscan_analyzer_inspector_msgkind kind)
+{
+  const char *names[] = {
+      "OPEN", "SET_ID", "GET_CONFIG", "SET_CONFIG", "ESTIMATOR",
+      "SPECTRUM", "RESET_EQUALIZER", "CLOSE", "SET_FREQ", "SET_BANDWIDTH",
+      "SET_WATERMARK", "WRONG_HANDLE", "WRONG_OBJECT", "INVALID_ARGUMENT",
+      "WRONG_KIND", "INVALID_CHANNEL" };
+
+  if (kind < 0 || kind >= SUSCAN_ANALYZER_INSPECTOR_MSGKIND_COUNT)
+    return "UNKNOWN";
+  else
+    return names[kind];
+}
+
+SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
+  union {
+    enum suscan_analyzer_inspector_msgkind kind;
+    uint32_t int32_kind;
+  };
+
   uint32_t inspector_id; /* Per-inspector identifier */
   uint32_t req_id;       /* Per-request identifier */
   uint32_t handle;       /* Handle */
-  int status;
+  int32_t  status;
 
   union {
     struct {
@@ -118,7 +142,7 @@ struct suscan_analyzer_inspector_msg {
       struct sigutils_channel channel;
       suscan_config_t *config;
       SUBOOL precise;
-      unsigned int fs;  /* Baseband rate */
+      uint32_t fs;  /* Baseband rate */
       SUFLOAT equiv_fs; /* Channel rate */
       SUFLOAT bandwidth;
       SUFLOAT lo;
@@ -137,12 +161,11 @@ struct suscan_analyzer_inspector_msg {
       SUFLOAT  *spectrum_data;
       SUSCOUNT  spectrum_size;
       SUSCOUNT  samp_rate;
-      SUFLOAT   fc;
+      SUFREQ    fc;
       SUFLOAT   N0;
     };
 
     SUSCOUNT watermark;
-    struct suscan_analyzer_params params;
   };
 };
 
@@ -185,10 +208,13 @@ SUBOOL suscan_analyzer_send_psd(
     suscan_analyzer_t *analyzer,
     const su_channel_detector_t *detector);
 
-/************************* Message parsing methods ***************************/
-SUBOOL suscan_analyzer_parse_inspector_msg(
-    suscan_analyzer_t *analyzer,
-    struct suscan_analyzer_inspector_msg *msg);
+SUBOOL suscan_analyzer_send_psd_from_smoothpsd(
+    suscan_analyzer_t *self,
+    const su_smoothpsd_t *smoothpsd);
+
+SUBOOL suscan_analyzer_send_source_info(
+    suscan_analyzer_t *self,
+    const struct suscan_analyzer_source_info *info);
 
 /***************** Message constructors and destructors **********************/
 /* Status message */
@@ -220,6 +246,12 @@ void suscan_analyzer_inspector_msg_destroy(
     struct suscan_analyzer_inspector_msg *msg);
 
 /* Spectrum update message */
+struct suscan_analyzer_psd_msg *
+suscan_analyzer_psd_msg_new_from_data(
+    SUFLOAT samp_rate,
+    const SUFLOAT *psd_data,
+    SUSCOUNT psd_size);
+
 struct suscan_analyzer_psd_msg *suscan_analyzer_psd_msg_new(
     const su_channel_detector_t *cd);
 
@@ -236,8 +268,22 @@ struct suscan_analyzer_sample_batch_msg *suscan_analyzer_sample_batch_msg_new(
 void suscan_analyzer_sample_batch_msg_destroy(
     struct suscan_analyzer_sample_batch_msg *msg);
 
+/* Generic serializer / deserializer */
+SUBOOL
+suscan_analyzer_msg_serialize(
+    uint32_t type,
+    const void *ptr,
+    grow_buf_t *buffer);
+
+SUBOOL
+suscan_analyzer_msg_deserialize(
+    uint32_t *type,
+    void **ptr,
+    grow_buf_t *buffer);
+
 /* Generic message disposer */
 void suscan_analyzer_dispose_message(uint32_t type, void *ptr);
+
 
 #ifdef __cplusplus
 }

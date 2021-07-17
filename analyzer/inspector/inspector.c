@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,6 +29,7 @@
 #include <sigutils/sampling.h>
 
 #include "inspector/inspector.h"
+#include "realtime.h"
 
 void
 suscan_inspector_lock(suscan_inspector_t *insp)
@@ -218,8 +218,8 @@ suscan_inspector_new(
   new->interval_spectrum  = .1;
 
   /* Initialize clocks */
-  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_estimator);
-  clock_gettime(CLOCK_MONOTONIC_RAW, &new->last_spectrum);
+  new->last_estimator = suscan_gettime();
+  new->last_spectrum = suscan_gettime();
 
   /* All set to call specific inspector */
   new->iface = iface;
@@ -261,6 +261,7 @@ suscan_init_inspectors(void)
   SU_TRYCATCH(suscan_psk_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_fsk_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_audio_inspector_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_raw_inspector_register(), return SU_FALSE);
 
   return SU_TRUE;
 }

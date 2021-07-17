@@ -4,8 +4,7 @@
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
-  published by the Free Software Foundation, either version 3 of the
-  License, or (at your option) any later version.
+  published by the Free Software Foundation, version 3.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -174,6 +173,8 @@ struct suscan_inspector_audio_params {
   enum suscan_inspector_audio_demod demod;
   SUFLOAT cutoff; /* Cutoff frequency for audio filter */
   SUFLOAT volume;
+  SUBOOL  squelch;
+  SUFLOAT squelch_level;
 };
 
 SUBOOL suscan_config_desc_add_audio_params(suscan_config_desc_t *desc);
