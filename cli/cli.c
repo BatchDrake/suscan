@@ -137,7 +137,7 @@ suscli_param_read_profile(
             NULL),
         return SU_FALSE);
     if ((profile = suscli_lookup_profile(profile_name)) == NULL) {
-        SU_ERROR("Profile `%d' does not exist.\n", profile_name);
+        SU_ERROR("Profile `%s' does not exist.\n", profile_name);
         return SU_FALSE;
     }
   }
