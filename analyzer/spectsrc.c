@@ -45,7 +45,6 @@ suscan_spectsrc_class_register(const struct suscan_spectsrc_class *class)
 {
   SU_TRYCATCH(class->name    != NULL, return SU_FALSE);
   SU_TRYCATCH(class->desc    != NULL, return SU_FALSE);
-  SU_TRYCATCH(class->preproc != NULL, return SU_FALSE);
   SU_TRYCATCH(class->ctor    != NULL, return SU_FALSE);
   SU_TRYCATCH(class->dtor    != NULL, return SU_FALSE);
 
@@ -60,89 +59,64 @@ suscan_spectsrc_class_register(const struct suscan_spectsrc_class *class)
   return SU_TRUE;
 }
 
-SUINLINE SUBOOL
-suscan_spectsrc_init_window_func(suscan_spectsrc_t *src)
+SUPRIVATE SUBOOL
+suscan_spectsrc_on_psd_data(
+    void *userdata,
+    const SUFLOAT *data,
+    unsigned int size)
 {
-  unsigned int i;
+  suscan_spectsrc_t *self = (suscan_spectsrc_t *) userdata;
+  SUBOOL ok = SU_FALSE;
 
-  for (i = 0; i < src->window_size; ++i)
-    src->window_func[i] = 1;
+  SU_TRYCATCH(
+      (self->on_spectrum) (self->userdata, data, size),
+      goto done);
 
-  switch (src->window_type) {
-    case SU_CHANNEL_DETECTOR_WINDOW_NONE:
-      /* Do nothing. */
-      break;
+  ok = SU_TRUE;
 
-    case SU_CHANNEL_DETECTOR_WINDOW_HAMMING:
-      su_taps_apply_hamming_complex(
-          src->window_func,
-          src->window_size);
-      break;
-
-    case SU_CHANNEL_DETECTOR_WINDOW_HANN:
-      su_taps_apply_hann_complex(
-          src->window_func,
-          src->window_size);
-      break;
-
-    case SU_CHANNEL_DETECTOR_WINDOW_FLAT_TOP:
-      su_taps_apply_flat_top_complex(
-          src->window_func,
-          src->window_size);
-      break;
-
-    case SU_CHANNEL_DETECTOR_WINDOW_BLACKMANN_HARRIS:
-      su_taps_apply_blackmann_harris_complex(
-          src->window_func,
-          src->window_size);
-      break;
-
-    default:
-      SU_WARNING("Unsupported window function %d\n", src->window_type);
-      return SU_FALSE;
-  }
-
-  return SU_TRUE;
+done:
+  return ok;
 }
 
 suscan_spectsrc_t *
 suscan_spectsrc_new(
-    const struct suscan_spectsrc_class *class,
+    const struct suscan_spectsrc_class *classdef,
+    SUFLOAT  samp_rate,
+    SUFLOAT  spectrum_rate,
     SUSCOUNT size,
-    enum sigutils_channel_detector_window window_type)
+    enum sigutils_channel_detector_window window_type,
+    SUBOOL (*on_spectrum) (void *userdata, const SUFLOAT *data, SUSCOUNT size),
+    void *userdata)
 {
   suscan_spectsrc_t *new = NULL;
+  struct sigutils_smoothpsd_params params =
+      sigutils_smoothpsd_params_INITIALIZER;
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_spectsrc_t)), goto fail);
 
-  new->classptr = class;
-  new->window_type = window_type;
-  new->window_size = size;
+  new->classptr = classdef;
+  new->on_spectrum = on_spectrum;
+  new->userdata = userdata;
 
-  if (window_type != SU_CHANNEL_DETECTOR_WINDOW_NONE) {
-    SU_TRYCATCH(
-        new->window_func = malloc(size * sizeof(SUCOMPLEX)),
-        goto fail);
-    SU_TRYCATCH(
-        suscan_spectsrc_init_window_func(new),
-        goto fail);
+  if (classdef->preproc != NULL) {
+    SU_TRYCATCH(new->buffer = malloc(size * sizeof(SUCOMPLEX)), goto fail);
+    new->buffer_size = size;
   }
 
+  params.fft_size = size;
+  params.samp_rate = samp_rate;
+  params.refresh_rate = spectrum_rate;
+  params.window = window_type;
+
   SU_TRYCATCH(
-      new->window_buffer = SU_FFTW(_malloc)(size * sizeof(SU_FFTW(_complex))),
+      new->smooth_psd = su_smoothpsd_new(
+          &params,
+          suscan_spectsrc_on_psd_data,
+          new),
       goto fail);
 
   SU_TRYCATCH(
-      new->privdata = (class->ctor) (new),
-      goto fail);
-
-  SU_TRYCATCH(
-      (new->fft_plan = SU_FFTW(_plan_dft_1d)(
-          new->window_size,
-          new->window_buffer,
-          new->window_buffer,
-          FFTW_FORWARD,
-          FFTW_MEASURE)),
+      new->privdata = (classdef->ctor) (new),
       goto fail);
 
   return new;
@@ -154,95 +128,52 @@ fail:
   return NULL;
 }
 
-SUBOOL
-suscan_spectsrc_drop(suscan_spectsrc_t *src)
-{
-  SU_TRYCATCH(src->window_ptr == src->window_size, return SU_FALSE);
-
-  src->window_ptr = 0;
-
-  return SU_TRUE;
-}
-
-SUBOOL
-suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result)
-{
-  unsigned int i;
-
-  SU_TRYCATCH(src->window_ptr == src->window_size, return SU_FALSE);
-
-  src->window_ptr = 0;
-
-  if (src->classptr->preproc != NULL)
-    SU_TRYCATCH(
-        (src->classptr->preproc) (
-            src,
-            src->privdata,
-            src->window_buffer,
-            src->window_size),
-        return SU_FALSE);
-
-  /* Apply window function first */
-  if (src->window_type != SU_CHANNEL_DETECTOR_WINDOW_NONE)
-    for (i = 0; i < src->window_size; ++i)
-      src->window_buffer[i] *= src->window_func[i];
-
-  /* Apply FFT */
-  SU_FFTW(_execute)(src->fft_plan);
-
-  /* Apply postprocessing */
-  SU_TRYCATCH(
-      (src->classptr->postproc) (
-          src,
-          src->privdata,
-          src->window_buffer,
-          src->window_size),
-      return SU_FALSE);
-
-  /* Convert to absolute value */
-  for (i = 0; i < src->window_size; ++i)
-    result[i] =
-        SU_C_REAL(src->window_buffer[i] * SU_C_CONJ(src->window_buffer[i]));
-
-  return SU_TRUE;
-}
 
 SUSCOUNT
 suscan_spectsrc_feed(
-    suscan_spectsrc_t *spectsrc,
+    suscan_spectsrc_t *self,
     const SUCOMPLEX *data,
     SUSCOUNT size)
 {
-  SUSCOUNT i;
-  SUSCOUNT avail = spectsrc->window_size - spectsrc->window_ptr;
+  if (self->classptr->preproc != NULL) {
+    /* Spectrum source has a preprocessing routine. Apply data to it */
+    if (size > self->buffer_size)
+      size = self->buffer_size;
 
-  if (size > avail)
-    size = avail;
+    memcpy(self->buffer, data, size * sizeof(SUCOMPLEX));
+    SU_TRYCATCH(
+        (self->classptr->preproc) (
+            self,
+            self->privdata,
+            self->buffer,
+            size),
+        return SU_FALSE);
 
-  for (i = 0; i < size; ++i)
-    spectsrc->window_buffer[spectsrc->window_ptr + i] = data[i];
-
-  spectsrc->window_ptr += size;
+    SU_TRYCATCH(
+        su_smoothpsd_feed(self->smooth_psd, self->buffer, size),
+        return -1);
+  } else {
+    SU_TRYCATCH(
+        su_smoothpsd_feed(self->smooth_psd, data, size),
+        return -1);
+  }
 
   return size;
 }
 
 void
-suscan_spectsrc_destroy(suscan_spectsrc_t *spectsrc)
+suscan_spectsrc_destroy(suscan_spectsrc_t *self)
 {
-  if (spectsrc != NULL)
-    (spectsrc->classptr->dtor) (spectsrc->privdata);
+  if (self != NULL)
+    (self->classptr->dtor) (self->privdata);
 
-  if (spectsrc->fft_plan != NULL)
-    SU_FFTW(_destroy_plan)(spectsrc->fft_plan);
+  if (self->buffer != NULL)
+    free(self->buffer);
 
-  if (spectsrc->window_func != NULL)
-    free(spectsrc->window_func);
+  if (self->smooth_psd != NULL)
+    su_smoothpsd_destroy(self->smooth_psd);
 
-  if (spectsrc->window_buffer != NULL)
-    SU_FFTW(_free)(spectsrc->window_buffer);
-
-  free(spectsrc);
+  free(self);
 }
 
 SUBOOL

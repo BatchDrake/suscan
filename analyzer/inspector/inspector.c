@@ -30,6 +30,7 @@
 
 #include "inspector/inspector.h"
 #include "realtime.h"
+#include "msg.h"
 
 void
 suscan_inspector_lock(suscan_inspector_t *insp)
@@ -155,6 +156,53 @@ fail:
   return SU_FALSE;
 }
 
+
+SUPRIVATE SUBOOL
+suscan_inspector_on_spectrum_data(
+    void *userdata,
+    const SUFLOAT *spectrum,
+    SUSCOUNT size)
+{
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  suscan_inspector_t *insp = (suscan_inspector_t *) userdata;
+
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      msg = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM,
+          rand()),
+      goto done);
+
+  msg->inspector_id  = insp->inspector_id;
+  msg->spectsrc_id   = insp->spectsrc_index;
+  msg->samp_rate     = insp->samp_info.equiv_fs;
+  msg->spectrum_size = size;
+
+  SU_TRYCATCH(
+      msg->spectrum_data = malloc(size * sizeof(SUFLOAT)),
+      goto done);
+
+  memcpy(msg->spectrum_data, spectrum, size * sizeof(SUFLOAT));
+
+  SU_TRYCATCH(
+      suscan_mq_write(
+          insp->mq_out,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+          msg),
+      goto done);
+
+  msg = NULL; /* We don't own this anymore */
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+
+  return ok;
+}
+
 SUPRIVATE SUBOOL
 suscan_inspector_add_spectsrc(
     suscan_inspector_t *insp,
@@ -165,10 +213,13 @@ suscan_inspector_add_spectsrc(
   SU_TRYCATCH(
       src = suscan_spectsrc_new(
           class,
+          insp->samp_info.equiv_fs,
+          1. / insp->interval_spectrum,
           SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE,
-          SU_CHANNEL_DETECTOR_WINDOW_BLACKMANN_HARRIS),
+          SU_CHANNEL_DETECTOR_WINDOW_BLACKMANN_HARRIS,
+          suscan_inspector_on_spectrum_data,
+          insp),
       goto fail);
-
 
   SU_TRYCATCH(PTR_LIST_APPEND_CHECK(insp->spectsrc, src) != -1, goto fail);
 
@@ -190,7 +241,8 @@ suscan_inspector_t *
 suscan_inspector_new(
     const char *name,
     SUFLOAT fs,
-    su_specttuner_channel_t *channel)
+    su_specttuner_channel_t *channel,
+    struct suscan_mq *mq_out)
 {
   suscan_inspector_t *new = NULL;
   const struct suscan_inspector_interface *iface = NULL;
@@ -204,6 +256,7 @@ suscan_inspector_new(
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
 
   new->state = SUSCAN_ASYNC_STATE_CREATED;
+  new->mq_out = mq_out;
 
   SU_TRYCATCH(pthread_mutex_init(&new->mutex, NULL) != -1, goto fail);
 

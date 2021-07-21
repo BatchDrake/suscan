@@ -88,6 +88,7 @@ fail:
   return SU_FALSE;
 }
 
+
 SUBOOL
 suscan_inspector_spectrum_loop(
     suscan_inspector_t *insp,
@@ -95,62 +96,16 @@ suscan_inspector_spectrum_loop(
     SUSCOUNT samp_count,
     struct suscan_mq *mq_out)
 {
-  struct suscan_analyzer_inspector_msg *msg = NULL;
   suscan_spectsrc_t *src = NULL;
-  unsigned int i;
-  uint64_t now;
-  SUFLOAT N0;
   SUSDIFF fed;
-  SUFLOAT seconds;
 
   if (insp->spectsrc_index > 0) {
     src = insp->spectsrc_list[insp->spectsrc_index - 1];
+
     while (samp_count > 0) {
       fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
-      if (fed < samp_count) {
-        now = suscan_gettime();
-        seconds = (now - insp->last_spectrum) * 1e-9;
-        if (seconds >= insp->interval_spectrum) {
-          insp->last_spectrum = now;
-          SU_TRYCATCH(
-              msg = suscan_analyzer_inspector_msg_new(
-                  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM,
-                  rand()),
-              goto fail);
 
-          msg->inspector_id = insp->inspector_id;
-          msg->spectsrc_id = insp->spectsrc_index;
-          msg->samp_rate = insp->samp_info.equiv_fs;
-          msg->spectrum_size = SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE;
-
-          SU_TRYCATCH(
-              msg->spectrum_data = malloc(msg->spectrum_size * sizeof(SUFLOAT)),
-              goto fail);
-
-          SU_TRYCATCH(
-              suscan_spectsrc_calculate(src, msg->spectrum_data),
-              goto fail);
-
-          /* Use signal floor as noise level */
-          N0 = msg->spectrum_data[0];
-          for (i = 1; i < msg->spectrum_size; ++i)
-            if (N0 > msg->spectrum_data[i])
-              N0 = msg->spectrum_data[i];
-
-          msg->N0 = N0;
-
-          SU_TRYCATCH(
-              suscan_mq_write(
-                  mq_out,
-                  SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
-                  msg),
-              goto fail);
-
-          msg = NULL; /* We don't own this anymore */
-        } else {
-          SU_TRYCATCH(suscan_spectsrc_drop(src), goto fail);
-        }
-      }
+      SU_TRYCATCH(fed >= 0, goto fail);
 
       samp_buf   += fed;
       samp_count -= fed;
@@ -160,9 +115,6 @@ suscan_inspector_spectrum_loop(
   return SU_TRUE;
 
 fail:
-  if (msg != NULL)
-    suscan_analyzer_inspector_msg_destroy(msg);
-
   return SU_FALSE;
 }
 
@@ -392,7 +344,8 @@ suscan_local_analyzer_open_inspector(
       new = suscan_inspector_new(
           class,
           suscan_analyzer_get_samp_rate(self->parent),
-          schan),
+          schan,
+          self->parent->mq_out),
       goto fail);
 
   /************************* POPULATE MESSAGE ********************************/

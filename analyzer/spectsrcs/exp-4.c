@@ -44,16 +44,6 @@ suscan_spectsrc_exp_4_preproc(
   return SU_TRUE;
 }
 
-SUBOOL
-suscan_spectsrc_exp_4_postproc(
-    suscan_spectsrc_t *src,
-    void *private,
-    SUCOMPLEX *buffer,
-    SUSCOUNT size)
-{
-  return SU_TRUE;
-}
-
 void
 suscan_spectsrc_exp_4_dtor(void *private)
 {
@@ -68,7 +58,6 @@ suscan_spectsrc_exp_4_register(void)
     .desc = "Signal exponentiation (^4)",
     .ctor = suscan_spectsrc_exp_4_ctor,
     .preproc  = suscan_spectsrc_exp_4_preproc,
-    .postproc = suscan_spectsrc_exp_4_postproc,
     .dtor = suscan_spectsrc_exp_4_dtor
   };
 

@@ -29,26 +29,6 @@ suscan_spectsrc_psd_ctor(suscan_spectsrc_t *src)
   return src; /* Anynon-NULL works */
 }
 
-SUBOOL
-suscan_spectsrc_psd_preproc(
-    suscan_spectsrc_t *src,
-    void *private,
-    SUCOMPLEX *buffer,
-    SUSCOUNT size)
-{
-  return SU_TRUE;
-}
-
-SUBOOL
-suscan_spectsrc_psd_postproc(
-    suscan_spectsrc_t *src,
-    void *private,
-    SUCOMPLEX *buffer,
-    SUSCOUNT size)
-{
-  return SU_TRUE;
-}
-
 void
 suscan_spectsrc_psd_dtor(void *private)
 {
@@ -62,8 +42,7 @@ suscan_spectsrc_psd_register(void)
     .name = "psd",
     .desc = "Power spectrum",
     .ctor = suscan_spectsrc_psd_ctor,
-    .preproc  = suscan_spectsrc_psd_preproc,
-    .postproc = suscan_spectsrc_psd_postproc,
+    .preproc = NULL,
     .dtor = suscan_spectsrc_psd_dtor
   };
 
