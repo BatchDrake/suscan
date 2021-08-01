@@ -56,6 +56,7 @@ enum cbor_major_type {
   CMT_MAP   = 5,
   CMT_TAG   = 6,
   CMT_FLOAT = 7,
+  CMT_INVALID = 8, // enum for invalid value
 };
 
 #define CBOR_ADDL_UINT8        24
