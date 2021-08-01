@@ -1082,7 +1082,7 @@ suscli_analyzer_server_cancel_rx_thread(suscli_analyzer_server_t *self)
 {
   char b = 1;
 
-  (void) write(self->cancel_pipefd[1], &b, 1);
+  IGNORE_RESULT(int, write(self->cancel_pipefd[1], &b, 1));
 }
 
 void
@@ -1129,5 +1129,3 @@ suscli_analyzer_server_destroy(suscli_analyzer_server_t *self)
 
   free(self);
 }
-
-
