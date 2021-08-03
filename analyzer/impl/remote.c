@@ -919,6 +919,8 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
   }
 
   SU_TRYCATCH(call->type == SUSCAN_ANALYZER_REMOTE_SOURCE_INFO, goto done);
+  SU_INFO("Authentication successful, source info received\n");
+
   SU_TRYCATCH(
       suscan_analyzer_remote_call_take_source_info(
           call,

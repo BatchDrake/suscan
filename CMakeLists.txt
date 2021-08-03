@@ -411,6 +411,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/datasavers/tcp.c
   ${CLIDIR}/devserv/client.c
   ${CLIDIR}/devserv/server.c
+  ${CLIDIR}/devserv/tx.c
   ${SRCDIR}/lib.c
   ${SRCDIR}/suscli.c)
 

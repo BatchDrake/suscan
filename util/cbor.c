@@ -373,11 +373,15 @@ unpack_cbor_int(
   int ret;
 
   ret = read_cbor_type(buffer, &type, &extra);
-  if (ret)
+  if (ret) {
+    printf("Read type failed!\n");
     return ret;
+  }
 
-  if (expected_type != type)
+  if (expected_type != type) {
+    printf("ILSEQ (%d != %d)\n", expected_type, type);
     return -EILSEQ;
+  }
 
   return get_addl_bytes(buffer, extra, out);
 }

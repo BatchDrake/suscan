@@ -300,7 +300,6 @@ suscli_analyzer_server_tx_thread(void *ptr)
 
     SU_TRYCATCH(suscan_analyzer_remote_call_serialize(&call, &pdu), goto done);
 
-    /* FIXME: THIS BLOCKS INSIDE A MUTEX. USE POLL INSTEAD */
     if (client == NULL) {
       /* No specific client: broadcast */
       suscli_analyzer_client_list_broadcast_unsafe(
@@ -310,7 +309,7 @@ suscli_analyzer_server_tx_thread(void *ptr)
           self);
     } else {
       if (suscli_analyzer_client_can_write(client)) {
-        if (!suscli_analyzer_client_write_buffer(client, &pdu))
+        if (!suscli_analyzer_client_write_buffer_zerocopy(client, &pdu))
           suscli_analyzer_server_kick_client_unsafe(self, client);
       }
     }

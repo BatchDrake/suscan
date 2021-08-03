@@ -44,6 +44,37 @@ struct suscli_analyzer_client_inspector_list {
   unsigned int inspector_pending_count;
 };
 
+#define SUSCLI_ANALYZER_CLIENT_TX_MESSAGE 0
+#define SUSCLI_ANALYZER_CLIENT_TX_CANCEL  1
+
+struct suscli_analyzer_client_tx_thread {
+  struct suscan_mq  pool;
+  SUBOOL            pool_initialized;
+  struct suscan_mq  queue;
+  SUBOOL            queue_initialized;
+  int               fd;
+  int               cancel_pipefd[2];
+  pthread_t         thread;
+  SUBOOL            thread_cancelled;
+  SUBOOL            thread_finished;
+  SUBOOL            thread_running;
+};
+
+void suscli_analyzer_client_tx_thread_finalize(
+    struct suscli_analyzer_client_tx_thread *self);
+
+SUBOOL suscli_analyzer_client_tx_thread_push(
+    struct suscli_analyzer_client_tx_thread *self,
+    const grow_buf_t *pdu);
+
+SUBOOL suscli_analyzer_client_tx_thread_push_zerocopy(
+    struct suscli_analyzer_client_tx_thread *self,
+    grow_buf_t *pdu);
+
+SUBOOL suscli_analyzer_client_tx_thread_initialize(
+    struct suscli_analyzer_client_tx_thread *self,
+    int fd);
+
 struct suscli_analyzer_client {
   int sfd;
   SUBOOL auth;
@@ -60,6 +91,7 @@ struct suscli_analyzer_client {
 
   char *name;
 
+  struct suscli_analyzer_client_tx_thread tx;
   struct suscan_analyzer_server_hello server_hello;  /* Read-only */
   struct suscan_analyzer_remote_call  incoming_call; /* RX thread only */
 
@@ -227,6 +259,10 @@ SUBOOL suscli_analyzer_client_deliver_call(
 SUBOOL suscli_analyzer_client_write_buffer(
     suscli_analyzer_client_t *self,
     const grow_buf_t *buffer);
+
+SUBOOL suscli_analyzer_client_write_buffer_zerocopy(
+    suscli_analyzer_client_t *self,
+    grow_buf_t *buffer);
 
 SUBOOL suscli_analyzer_client_send_source_info(
     suscli_analyzer_client_t *self,

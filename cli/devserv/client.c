@@ -68,6 +68,10 @@ suscli_analyzer_client_new(int sfd)
           ntohs(sin.sin_port)),
       goto fail);
 
+  SU_TRYCATCH(
+      suscli_analyzer_client_tx_thread_initialize(&new->tx, sfd),
+      goto fail);
+
   new->sfd = sfd;
 
   return new;
@@ -395,41 +399,27 @@ done:
 }
 
 SUBOOL
+suscli_analyzer_client_write_buffer_zerocopy(
+    suscli_analyzer_client_t *self,
+    grow_buf_t *buffer)
+{
+  SU_TRYCATCH(
+      suscli_analyzer_client_tx_thread_push_zerocopy(&self->tx, buffer),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscli_analyzer_client_write_buffer(
     suscli_analyzer_client_t *self,
     const grow_buf_t *buffer)
 {
-  struct suscan_analyzer_remote_pdu_header header;
-  const uint8_t *data;
-  size_t size, chunksize;
-  SUBOOL ok = SU_FALSE;
+  SU_TRYCATCH(
+      suscli_analyzer_client_tx_thread_push(&self->tx, buffer),
+      return SU_FALSE);
 
-  data = grow_buf_get_buffer(buffer);
-  size = grow_buf_get_size(buffer);
-
-  header.magic = htonl(SUSCAN_REMOTE_PDU_HEADER_MAGIC);
-  header.size  = htonl(size);
-
-  chunksize = sizeof(struct suscan_analyzer_remote_pdu_header);
-
-  SU_TRYCATCH(write(self->sfd, &header, chunksize) == chunksize, goto done);
-
-  /* Calls can be extremely big, so we better send them in small chunks */
-  while (size > 0) {
-    chunksize = size;
-    if (chunksize > SUSCAN_REMOTE_READ_BUFFER)
-      chunksize = SUSCAN_REMOTE_READ_BUFFER;
-
-    SU_TRYCATCH(write(self->sfd, data, chunksize) == chunksize, goto done);
-
-    data += chunksize;
-    size -= chunksize;
-  }
-
-  ok = SU_TRUE;
-
-done:
-  return ok;
+  return SU_TRUE;
 }
 
 SUBOOL
@@ -443,7 +433,7 @@ suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self)
 
   self->closed = SU_TRUE;
 
-  SU_TRYCATCH(shutdown(self->sfd, 2) == 0, goto done);
+  (void) shutdown(self->sfd, 2);
 
   ok = SU_TRUE;
 
@@ -555,6 +545,8 @@ done:
 void
 suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
 {
+  suscli_analyzer_client_tx_thread_finalize(&self->tx);
+
   if (self->sfd != -1 && !self->closed)
     close(self->sfd);
 
