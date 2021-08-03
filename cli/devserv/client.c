@@ -35,6 +35,9 @@ suscli_analyzer_client_new(int sfd)
   struct sockaddr_in sin;
   socklen_t len = sizeof(struct sockaddr_in);
   suscli_analyzer_client_t *new = NULL;
+#ifdef SO_NOSIGPIPE
+  int set = 1;
+#endif /* SO_NOSIGPIPE */
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_client_t)), goto fail);
 
@@ -71,6 +74,17 @@ suscli_analyzer_client_new(int sfd)
   SU_TRYCATCH(
       suscli_analyzer_client_tx_thread_initialize(&new->tx, sfd),
       goto fail);
+
+#ifdef SO_NOSIGPIPE
+  SU_TRYCATCH(
+      setsockopt(
+          sfd,
+          SOL_SOCKET,
+          SO_NOSIGPIPE,
+          (void *) &set,
+          sizeof(int)) != -1,
+      goto fail);
+#endif /* SO_NOSIGPIPE */
 
   new->sfd = sfd;
 
@@ -175,7 +189,8 @@ suscli_analyzer_client_register_inspector_handle_unsafe(
     SU_TRYCATCH(
         tmp = realloc(
             self->inspectors.inspector_list,
-            (self->inspectors.inspector_alloc + 1) * sizeof(SUHANDLE)),
+            (self->inspectors.inspector_alloc + 1)
+            * sizeof(struct suscli_analyzer_client_inspector_entry)),
         goto done);
     self->inspectors.inspector_list = tmp;
     ret = self->inspectors.inspector_alloc++;

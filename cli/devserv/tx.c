@@ -23,6 +23,10 @@
 #include <sys/poll.h>
 #include <sys/fcntl.h>
 
+#ifndef MSG_NOSIGNAL
+#  define MSG_NOSIGNAL 0
+#endif
+
 SUPRIVATE void
 suscli_analyzer_client_tx_thread_dispose_buffer(
     struct suscli_analyzer_client_tx_thread *self,
@@ -70,7 +74,9 @@ suscli_analyzer_client_tx_thread_write_buffer(
 
   chunksize = sizeof(struct suscan_analyzer_remote_pdu_header);
 
-  SU_TRYCATCH(send(self->fd, &header, chunksize, 0) == chunksize, goto done);
+  SU_TRYCATCH(
+      send(self->fd, &header, chunksize, MSG_NOSIGNAL) == chunksize,
+      goto done);
 
   /*
    * Calls can be extremely big, so we better send them in small chunks. Also,
@@ -84,7 +90,9 @@ suscli_analyzer_client_tx_thread_write_buffer(
     if (chunksize > SUSCAN_REMOTE_READ_BUFFER)
       chunksize = SUSCAN_REMOTE_READ_BUFFER;
 
-    SU_TRYCATCH(send(self->fd, data, chunksize, 0) == chunksize, goto done);
+    SU_TRYCATCH(
+        send(self->fd, data, chunksize, MSG_NOSIGNAL) == chunksize,
+        goto done);
 
     data += chunksize;
     size -= chunksize;
