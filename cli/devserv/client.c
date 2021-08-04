@@ -238,34 +238,35 @@ done:
 SUPRIVATE SUHANDLE
 suscli_analyzer_client_translate_handle_unsafe(
     suscli_analyzer_client_t *self,
-    SUHANDLE local_handle)
+    SUHANDLE private_handle)
 {
-  SU_TRYCATCH(local_handle >= 0, return -1);
-  SU_TRYCATCH(local_handle < self->inspectors.inspector_alloc, return -1);
+  if (private_handle < 0 || private_handle >= self->inspectors.inspector_alloc)
+    return -1;
+
   SU_TRYCATCH(
-      self->inspectors.inspector_list[local_handle].global_handle >= 0,
+      self->inspectors.inspector_list[private_handle].global_handle >= 0,
       return -1);
 
-  return self->inspectors.inspector_list[local_handle].global_handle;
+  return self->inspectors.inspector_list[private_handle].global_handle;
 }
 
 SUBOOL
 suscli_analyzer_client_dispose_inspector_handle_unsafe(
     suscli_analyzer_client_t *self,
-    SUHANDLE local_handle)
+    SUHANDLE private_handle)
 {
-  SU_TRYCATCH(local_handle >= 0, return SU_FALSE);
-  SU_TRYCATCH(local_handle < self->inspectors.inspector_alloc, return SU_FALSE);
+  if (private_handle < 0 || private_handle >= self->inspectors.inspector_alloc)
+      return -1;
 
   SU_TRYCATCH(self->inspectors.inspector_count > 0, return SU_FALSE);
 
   SU_TRYCATCH(
-      self->inspectors.inspector_list[local_handle].global_handle >= 0,
+      self->inspectors.inspector_list[private_handle].global_handle >= 0,
       return SU_FALSE);
 
-  self->inspectors.inspector_list[local_handle].global_handle =
+  self->inspectors.inspector_list[private_handle].global_handle =
       ~self->inspectors.inspector_last_free;
-  self->inspectors.inspector_last_free = local_handle;
+  self->inspectors.inspector_last_free = private_handle;
   --self->inspectors.inspector_count;
 
   return SU_TRUE;
@@ -274,7 +275,7 @@ suscli_analyzer_client_dispose_inspector_handle_unsafe(
 SUBOOL
 suscli_analyzer_client_dispose_inspector_handle(
     suscli_analyzer_client_t *self,
-    SUHANDLE local_handle)
+    SUHANDLE private_handle)
 {
   SUBOOL ok = SU_FALSE;
   SUBOOL acquired = SU_FALSE;
@@ -286,7 +287,7 @@ suscli_analyzer_client_dispose_inspector_handle(
 
   ok = suscli_analyzer_client_dispose_inspector_handle_unsafe(
       self,
-      local_handle);
+      private_handle);
 
 done:
   if (acquired)
@@ -369,7 +370,15 @@ suscli_analyzer_client_intercept_message(
               goto done);
         }
       } else {
-        SU_WARNING("Could not translate handle 0x%x\n", handle);
+        SU_TRYCATCH(
+            (interceptors->inspector_wrong_handle)(
+                interceptors->userdata,
+                self,
+                inspmsg->kind,
+                handle,
+                inspmsg->req_id),
+            goto done);
+        goto done;
       }
     }
     /* ^^^^^^^^^^^^^^^^^^^^^^ Inspector mutex acquired ^^^^^^^^^^^^^^^^^^^^^ */

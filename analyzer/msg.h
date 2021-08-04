@@ -113,16 +113,31 @@ SUINLINE const char *
 suscan_analyzer_inspector_msgkind_to_string(
     enum suscan_analyzer_inspector_msgkind kind)
 {
-  const char *names[] = {
-      "OPEN", "SET_ID", "GET_CONFIG", "SET_CONFIG", "ESTIMATOR",
-      "SPECTRUM", "RESET_EQUALIZER", "CLOSE", "SET_FREQ", "SET_BANDWIDTH",
-      "SET_WATERMARK", "WRONG_HANDLE", "WRONG_OBJECT", "INVALID_ARGUMENT",
-      "WRONG_KIND", "INVALID_CHANNEL" };
+#define SUSCAN_COMP_MSGKIND(kind) \
+  case JOIN(SUSCAN_ANALYZER_INSPECTOR_MSGKIND_, kind): \
+    return STRINGIFY(kind)
 
-  if (kind < 0 || kind >= SUSCAN_ANALYZER_INSPECTOR_MSGKIND_COUNT)
-    return "UNKNOWN";
-  else
-    return names[kind];
+  switch (kind) {
+    SUSCAN_COMP_MSGKIND(OPEN);
+    SUSCAN_COMP_MSGKIND(SET_ID);
+    SUSCAN_COMP_MSGKIND(GET_CONFIG);
+    SUSCAN_COMP_MSGKIND(SET_CONFIG);
+    SUSCAN_COMP_MSGKIND(ESTIMATOR);
+    SUSCAN_COMP_MSGKIND(SPECTRUM);
+    SUSCAN_COMP_MSGKIND(RESET_EQUALIZER);
+    SUSCAN_COMP_MSGKIND(CLOSE);
+    SUSCAN_COMP_MSGKIND(SET_FREQ);
+    SUSCAN_COMP_MSGKIND(SET_BANDWIDTH);
+    SUSCAN_COMP_MSGKIND(SET_WATERMARK);
+    SUSCAN_COMP_MSGKIND(WRONG_HANDLE);
+    SUSCAN_COMP_MSGKIND(WRONG_OBJECT);
+    SUSCAN_COMP_MSGKIND(INVALID_ARGUMENT);
+    SUSCAN_COMP_MSGKIND(WRONG_KIND);
+    SUSCAN_COMP_MSGKIND(INVALID_CHANNEL);
+
+    default:
+      return "UNKNOWN";
+  }
 }
 
 SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
@@ -235,6 +250,9 @@ void suscan_analyzer_channel_msg_take_channels(
 void suscan_analyzer_channel_msg_destroy(struct suscan_analyzer_channel_msg *msg);
 
 /* Channel inspector commands */
+const char *suscan_analyzer_inspector_msgkind_to_str(
+    enum suscan_analyzer_inspector_msgkind kind);
+
 struct suscan_analyzer_inspector_msg *suscan_analyzer_inspector_msg_new(
     enum suscan_analyzer_inspector_msgkind kind,
     uint32_t req_id);

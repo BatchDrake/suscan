@@ -410,7 +410,6 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
               &self->msg.ptr,
               buffer),
           goto fail);
-
       break;
 
     case SUSCAN_ANALYZER_REMOTE_REQ_HALT:

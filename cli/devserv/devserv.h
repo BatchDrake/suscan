@@ -28,6 +28,8 @@
 #define SUSCLI_ANSERV_CANCEL_FD 1
 #define SUSCLI_ANSERV_FD_OFFSET 2
 
+enum suscan_analyzer_inspector_msgkind;
+
 struct suscli_analyzer_client_inspector_entry {
   SUHANDLE global_handle;
   int32_t  itl_index;
@@ -126,6 +128,13 @@ struct suscli_analyzer_client_interceptors {
       suscli_analyzer_client_t *client,
       struct suscan_analyzer_inspector_msg *inspmsg,
       int32_t itl_index);
+
+  SUBOOL (*inspector_wrong_handle) (
+      void *userdata,
+      suscli_analyzer_client_t *client,
+      enum suscan_analyzer_inspector_msgkind kind,
+      SUHANDLE handle,
+      uint32_t req_id);
 };
 
 SUINLINE void
@@ -290,7 +299,7 @@ struct suscli_analyzer_itl_entry {
     uint32_t local_inspector_id;
   };
 
-  SUHANDLE local_handle; /* Needed to close local handle */
+  SUHANDLE private_handle; /* Needed to close private handle */
   suscli_analyzer_client_t *client; /* Must be null if free */
 };
 
@@ -364,7 +373,7 @@ SUBOOL suscli_analyzer_client_for_each_inspector_unsafe(
     SUBOOL (*func) (
         const suscli_analyzer_client_t *client,
         void *userdata,
-        SUHANDLE local_handle,
+        SUHANDLE private_handle,
         SUHANDLE global_handle),
     void *userdata);
 
@@ -373,7 +382,7 @@ SUBOOL suscli_analyzer_client_for_each_inspector(
     SUBOOL (*func) (
         const suscli_analyzer_client_t *client,
         void *userdata,
-        SUHANDLE local_handle,
+        SUHANDLE private_handle,
         SUHANDLE global_handle),
     void *userdata);
 
@@ -410,6 +419,7 @@ struct suscli_analyzer_server {
   suscan_analyzer_t *analyzer;
   suscan_source_config_t *config;
   struct suscan_mq mq;
+  SUBOOL mq_init;
 
   pthread_t rx_thread; /* Poll on client_pfds */
   pthread_t tx_thread; /* Wait on suscan_mq_read */
