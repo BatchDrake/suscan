@@ -155,6 +155,10 @@ suscli_analyzer_server_intercept_message_unsafe(
           suscli_analyzer_client_dec_inspector_open_request(client);
           break;
 
+        case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
+        case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE:
+          break;
+
         default:
           /* Translate inspector id to the user-defined inspector id */
           itl_index = inspmsg->inspector_id;
@@ -164,7 +168,10 @@ suscli_analyzer_server_intercept_message_unsafe(
               itl_index);
 
           if (entry == NULL) {
-            SU_ERROR("BUG: Unmatched itl_index (type %d)\n", inspmsg->kind);
+            SU_ERROR(
+                "BUG: Unmatched itl_index 0x%x (type %s)\n",
+                itl_index,
+                suscan_analyzer_inspector_msgkind_to_string(inspmsg->kind));
             goto done;
           } else {
             client = entry->client;
@@ -541,8 +548,8 @@ suscli_analyzer_server_on_wrong_handle(
   newmsg->handle = handle;
 
   SU_TRYCATCH(
-      suscan_analyzer_write(
-          self->analyzer,
+      suscan_mq_write(
+          &self->mq,
           SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
           newmsg),
       goto done);
