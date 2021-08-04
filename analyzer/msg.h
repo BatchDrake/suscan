@@ -42,6 +42,7 @@ extern "C" {
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES       0x9 /* Sample batch */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE      0xa /* Set throttle */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xb /* Analyzer params */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS    0xc
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_PROGRESS              1

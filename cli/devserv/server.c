@@ -791,6 +791,12 @@ suscli_analyzer_server_process_call(
               client,
               suscan_analyzer_get_source_info(self->analyzer)),
           goto done);
+
+      /* We locally request a global update of params */
+      suscan_analyzer_write(
+          self->analyzer,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS,
+          "LOCAL");
     } else {
       /* Authentication failed. Mark as failed. */
       SU_WARNING("Client did not pass the challenge, kicking him\n");

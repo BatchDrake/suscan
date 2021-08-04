@@ -352,11 +352,18 @@ suscan_local_analyzer_set_psd_params_cb(
     void *wk_private,
     void *cb_private)
 {
-  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
 
-  if (analyzer->psd_params_req) {
-    analyzer->psd_params_req = SU_FALSE;
-    (void) su_smoothpsd_set_params(analyzer->smooth_psd, &analyzer->sp_params);
+  if (self->psd_params_req) {
+    self->psd_params_req = SU_FALSE;
+
+    /* This alters detector params */
+    self->parent->params.detector_params.window_size = self->sp_params.fft_size;
+    self->parent->params.detector_params.window = self->sp_params.window;
+    self->interval_psd = 1. / self->sp_params.refresh_rate;
+
+    (void) su_smoothpsd_set_params(self->smooth_psd, &self->sp_params);
+    SU_TRYCATCH(suscan_local_analyzer_notify_params(self), return SU_FALSE);
   }
 
   return SU_FALSE;

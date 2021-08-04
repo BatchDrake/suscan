@@ -223,6 +223,9 @@ SUBOOL suscan_local_analyzer_lock_inspector_list(suscan_local_analyzer_t *analyz
 void suscan_local_analyzer_unlock_inspector_list(suscan_local_analyzer_t *analyzer);
 
 /* Internal */
+SUBOOL suscan_local_analyzer_notify_params(suscan_local_analyzer_t *self);
+
+/* Internal */
 SUBOOL suscan_local_analyzer_parse_inspector_msg(
     suscan_local_analyzer_t *analyzer,
     struct suscan_analyzer_inspector_msg *msg);
