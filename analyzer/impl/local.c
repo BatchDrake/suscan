@@ -72,12 +72,15 @@ suscan_local_analyzer_acquire_overridable(
 {
   struct suscan_inspector_overridable_request *req = NULL;
   struct suscan_inspector_overridable_request *own_req = NULL;
+  SUBOOL list_locked = SU_FALSE;
   suscan_inspector_t *insp = NULL;
 
   /*
    * TODO: Maybe acquire scheduler mutex?
    */
   SU_TRYCATCH(suscan_local_analyzer_lock_inspector_list(self), goto done);
+  list_locked = SU_TRUE;
+
   SU_TRYCATCH(
       insp = suscan_local_analyzer_get_inspector(self, handle),
       goto done);
@@ -86,12 +89,14 @@ suscan_local_analyzer_acquire_overridable(
   if ((req = suscan_inspector_get_userdata(insp)) == NULL) {
     /* No userdata. Release mutex, create object and lock again. */
     suscan_local_analyzer_unlock_inspector_list(self);
-
+    list_locked = SU_FALSE;
+  
     SU_TRYCATCH(
         own_req = suscan_inspector_overridable_request_new(insp),
         goto done);
 
     SU_TRYCATCH(suscan_local_analyzer_lock_inspector_list(self), goto done);
+    list_locked = SU_TRUE;
 
     /* Many things may have happened here */
     SU_TRYCATCH(handle >= 0 && handle < self->inspector_count, goto done);
@@ -112,6 +117,9 @@ suscan_local_analyzer_acquire_overridable(
 done:
   if (own_req != NULL)
     suscan_inspector_overridable_request_destroy(own_req);
+
+  if (req == NULL && list_locked)
+    (void) suscan_local_analyzer_unlock_inspector_list(self);
 
   return req;
 }
