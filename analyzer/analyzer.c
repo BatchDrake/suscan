@@ -223,7 +223,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_source_info)
         suscan_analyzer_gain_info_serialize(self->gain_list[i], buffer),
         goto fail);
 
-  SU_TRYCATCH(cbor_pack_map_start(buffer, self->gain_count) == 0, goto fail);
+  SU_TRYCATCH(cbor_pack_map_start(buffer, self->antenna_count) == 0, goto fail);
   for (i = 0; i < self->antenna_count; ++i)
     SUSCAN_PACK(str, self->antenna_list[i]);
 
@@ -235,7 +235,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_UNPACK_BOILERPLATE_START;
   SUBOOL end_required = SU_FALSE;
   size_t i;
-  uint64_t nelem;
+  uint64_t nelem = 0;
 
   SUSCAN_UNPACK(uint64, self->source_samp_rate);
   SUSCAN_UNPACK(uint64, self->effective_samp_rate);

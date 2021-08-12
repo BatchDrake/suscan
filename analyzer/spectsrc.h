@@ -22,6 +22,7 @@
 
 #include <sigutils/sigutils.h>
 #include <sigutils/detect.h>
+#include <sigutils/smoothpsd.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,12 +42,6 @@ struct suscan_spectsrc_class {
       SUCOMPLEX *buffer,
       SUSCOUNT size);
 
-  SUBOOL (*postproc) (
-      struct suscan_spectsrc *src,
-      void *privdata,
-      SUCOMPLEX *buffer,
-      SUSCOUNT size);
-
   void (*dtor) (void *privdata);
 };
 
@@ -60,28 +55,24 @@ struct suscan_spectsrc {
   const struct suscan_spectsrc_class *classptr;
   void *privdata;
 
-  enum sigutils_channel_detector_window window_type;
-  SUFLOAT           *output_buf;
-  SUCOMPLEX         *window_func;
-  SUSCOUNT           window_size;
-  SUSCOUNT           window_ptr;
+  SUSCOUNT        buffer_size;
+  SUCOMPLEX      *buffer;
+  su_smoothpsd_t *smooth_psd;
 
-  SU_FFTW(_plan)     fft_plan;
-  SU_FFTW(_complex) *window_buffer;
-
-  SUBOOL             spectrum_avail;
+  SUBOOL (*on_spectrum) (void *userdata, const SUFLOAT *data, SUSCOUNT size);
+  void *userdata;
 };
 
 typedef struct suscan_spectsrc suscan_spectsrc_t;
 
 suscan_spectsrc_t *suscan_spectsrc_new(
     const struct suscan_spectsrc_class *classdef,
+    SUFLOAT  samp_rate,
+    SUFLOAT  spectrum_rate,
     SUSCOUNT size,
-    enum sigutils_channel_detector_window window_type);
-
-SUBOOL suscan_spectsrc_calculate(suscan_spectsrc_t *src, SUFLOAT *result);
-
-SUBOOL suscan_spectsrc_drop(suscan_spectsrc_t *src);
+    enum sigutils_channel_detector_window window_type,
+    SUBOOL (*on_spectrum) (void *userdata, const SUFLOAT *data, SUSCOUNT size),
+    void *userdata);
 
 SUSCOUNT suscan_spectsrc_feed(
     suscan_spectsrc_t *src,

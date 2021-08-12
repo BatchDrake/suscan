@@ -368,16 +368,20 @@ unpack_cbor_int(
     enum cbor_major_type expected_type,
     uint64_t *out)
 {
-  enum cbor_major_type type;
-  uint8_t extra;
+  enum cbor_major_type type = CMT_INVALID;
+  uint8_t extra = 0;
   int ret;
 
   ret = read_cbor_type(buffer, &type, &extra);
-  if (ret)
+  if (ret) {
+    printf("Read type failed!\n");
     return ret;
+  }
 
-  if (expected_type != type)
+  if (expected_type != type) {
+    printf("ILSEQ (%d != %d)\n", expected_type, type);
     return -EILSEQ;
+  }
 
   return get_addl_bytes(buffer, extra, out);
 }
@@ -386,7 +390,7 @@ unpack_cbor_int(
 SUPRIVATE int
 unpack_cbor_float(grow_buf_t *buffer, uint8_t *extra)
 {
-  enum cbor_major_type type;
+  enum cbor_major_type type = CMT_INVALID;
   int ret;
 
   ret = read_cbor_type(buffer, &type, extra);
@@ -414,8 +418,8 @@ unpack_cbor_arraymap_start(grow_buf_t *buffer,
         enum cbor_major_type exp_type, uint8_t indef,
         uint64_t *len, SUBOOL *end_required)
 {
-  enum cbor_major_type type;
-  uint8_t extra;
+  enum cbor_major_type type = CMT_INVALID;
+  uint8_t extra = 0;
   int ret;
 
   ret = read_cbor_type(buffer, &type, &extra);
@@ -712,8 +716,8 @@ int
 cbor_unpack_double(grow_buf_t *buffer, SUDOUBLE *value)
 {
   grow_buf_t tmp;
-  int64_t as_int;
-  uint8_t extra;
+  int64_t as_int = 0;
+  uint8_t extra = 0;
   int ret;
 
   grow_buf_init_loan(

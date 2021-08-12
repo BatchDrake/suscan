@@ -50,7 +50,7 @@ suscli_analyzer_server_intercept_message_unsafe(
   int32_t itl_index;
   suscli_analyzer_client_t *client = NULL;
   struct suscli_analyzer_itl_entry *entry = NULL;
-  SUHANDLE local_handle;
+  SUHANDLE private_handle;
   SUBOOL ok = SU_FALSE;
 
   switch (type) {
@@ -90,20 +90,19 @@ suscli_analyzer_server_intercept_message_unsafe(
               itl_index);
 
           /* Time to create a new handle */
-          local_handle = suscli_analyzer_client_register_inspector_handle(
+          private_handle = suscli_analyzer_client_register_inspector_handle(
               client,
               inspmsg->handle,
               itl_index);
 
-          entry->local_handle = local_handle;
+          entry->private_handle = private_handle;
 
           SU_INFO(
-              "%s: forwarding inspector 0x%x to client handle 0x%x\n",
+              "%s: inspector (handle 0x%x) opened\n",
               suscli_analyzer_client_get_name(client),
-              inspmsg->handle,
-              local_handle);
+              private_handle);
 
-          inspmsg->handle = local_handle;
+          inspmsg->handle = private_handle;
           break;
 
         case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE:
@@ -125,7 +124,7 @@ suscli_analyzer_server_intercept_message_unsafe(
             SU_TRYCATCH(
                 suscli_analyzer_client_dispose_inspector_handle(
                     client,
-                    entry->local_handle),
+                    entry->private_handle),
                 goto done);
 
             /* Remove entry from ITL */
@@ -137,7 +136,7 @@ suscli_analyzer_server_intercept_message_unsafe(
             SU_INFO(
                 "%s: inspector (handle 0x%x) closed\n",
                 suscli_analyzer_client_get_name(client),
-                entry->local_handle);
+                entry->private_handle);
           }
           break;
 
@@ -156,6 +155,10 @@ suscli_analyzer_server_intercept_message_unsafe(
           suscli_analyzer_client_dec_inspector_open_request(client);
           break;
 
+        case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
+        case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE:
+          break;
+
         default:
           /* Translate inspector id to the user-defined inspector id */
           itl_index = inspmsg->inspector_id;
@@ -165,7 +168,10 @@ suscli_analyzer_server_intercept_message_unsafe(
               itl_index);
 
           if (entry == NULL) {
-            SU_ERROR("BUG: Unmatched itl_index\n");
+            SU_ERROR(
+                "BUG: Unmatched itl_index 0x%x (type %s)\n",
+                itl_index,
+                suscan_analyzer_inspector_msgkind_to_string(inspmsg->kind));
             goto done;
           } else {
             client = entry->client;
@@ -208,7 +214,7 @@ SUPRIVATE SUBOOL
 suscli_analyzer_server_on_client_inspector(
     const suscli_analyzer_client_t *client,
     void *userdata,
-    SUHANDLE local_handle,
+    SUHANDLE private_handle,
     SUHANDLE global_handle)
 {
   suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) userdata;
@@ -217,7 +223,7 @@ suscli_analyzer_server_on_client_inspector(
     SU_INFO(
           "%s: cleaning up: close handle 0x%x (global 0x%x)\n",
           suscli_analyzer_client_get_name(client),
-          local_handle,
+          private_handle,
           global_handle);
 
     SU_TRYCATCH(
@@ -231,7 +237,7 @@ suscli_analyzer_server_on_client_inspector(
     SU_TRYCATCH(
         suscli_analyzer_client_dispose_inspector_handle_unsafe(
             (suscli_analyzer_client_t *) client,
-            local_handle),
+            private_handle),
         return SU_FALSE);
   }
 
@@ -300,7 +306,6 @@ suscli_analyzer_server_tx_thread(void *ptr)
 
     SU_TRYCATCH(suscan_analyzer_remote_call_serialize(&call, &pdu), goto done);
 
-    /* FIXME: THIS BLOCKS INSIDE A MUTEX. USE POLL INSTEAD */
     if (client == NULL) {
       /* No specific client: broadcast */
       suscli_analyzer_client_list_broadcast_unsafe(
@@ -310,7 +315,7 @@ suscli_analyzer_server_tx_thread(void *ptr)
           self);
     } else {
       if (suscli_analyzer_client_can_write(client)) {
-        if (!suscli_analyzer_client_write_buffer(client, &pdu))
+        if (!suscli_analyzer_client_write_buffer_zerocopy(client, &pdu))
           suscli_analyzer_server_kick_client_unsafe(self, client);
       }
     }
@@ -447,8 +452,10 @@ suscli_analyzer_server_start_analyzer(suscli_analyzer_server_t *self)
   ok = SU_TRUE;
 
 done:
-  if (analyzer != NULL)
+  if (analyzer != NULL) {
     suscan_analyzer_destroy(analyzer);
+    suscan_analyzer_consume_mq(&self->mq);
+  }
 
   return ok;
 }
@@ -514,6 +521,52 @@ done:
   return ok;
 }
 
+SUPRIVATE SUBOOL
+suscli_analyzer_server_on_wrong_handle(
+    void *userdata,
+    suscli_analyzer_client_t *client,
+    enum suscan_analyzer_inspector_msgkind kind,
+    SUHANDLE handle,
+    uint32_t req_id)
+{
+  suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) userdata;
+  struct suscan_analyzer_inspector_msg *newmsg = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_INFO(
+      "%s: %s: wrong inspector handle 0x%x\n",
+      suscli_analyzer_client_get_name(client),
+      suscan_analyzer_inspector_msgkind_to_string(kind),
+      handle);
+
+  SU_TRYCATCH(
+      newmsg = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE,
+          req_id),
+      goto done);
+
+  newmsg->handle = handle;
+
+  SU_TRYCATCH(
+      suscan_mq_write(
+          &self->mq,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+          newmsg),
+      goto done);
+
+  newmsg = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (newmsg != NULL)
+    suscan_analyzer_dispose_message(
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+        newmsg);
+
+  return ok;
+}
+
 SUPRIVATE void
 suscli_analyzer_server_kick_client_unsafe(
     suscli_analyzer_server_t *self,
@@ -558,9 +611,10 @@ suscli_analyzer_server_deliver_call(
   SUBOOL ok = SU_FALSE;
 
   struct suscli_analyzer_client_interceptors interceptors = {
-      .userdata         = self,
-      .inspector_set_id = suscli_analyzer_server_on_set_id,
-      .inspector_open   = suscli_analyzer_server_on_open
+      .userdata               = self,
+      .inspector_set_id       = suscli_analyzer_server_on_set_id,
+      .inspector_open         = suscli_analyzer_server_on_open,
+      .inspector_wrong_handle = suscli_analyzer_server_on_wrong_handle
   };
 
   switch (call->type) {
@@ -744,6 +798,12 @@ suscli_analyzer_server_process_call(
               client,
               suscan_analyzer_get_source_info(self->analyzer)),
           goto done);
+
+      /* We locally request a global update of params */
+      suscan_analyzer_write(
+          self->analyzer,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS,
+          "LOCAL");
     } else {
       /* Authentication failed. Mark as failed. */
       SU_WARNING("Client did not pass the challenge, kicking him\n");
@@ -807,6 +867,7 @@ suscli_analyzer_server_clean_dead_threads(suscli_analyzer_server_t *self)
 
     if (self->analyzer != NULL) {
       suscan_analyzer_destroy(self->analyzer);
+      suscan_analyzer_consume_mq(&self->mq);
       self->analyzer = NULL;
     }
 
@@ -976,6 +1037,9 @@ suscli_analyzer_server_new(
   new->cancel_pipefd[0] = -1;
   new->cancel_pipefd[1] = -1;
 
+  SU_TRYCATCH(suscan_mq_init(&new->mq), goto done);
+  new->mq_init = SU_TRUE;
+
   SU_TRYCATCH(new->user = strdup(user), goto done);
   SU_TRYCATCH(new->password = strdup(password), goto done);
 
@@ -1030,8 +1094,10 @@ suscli_analyzer_server_destroy(suscli_analyzer_server_t *self)
       if (self->tx_thread_running)
         pthread_join(self->tx_thread, NULL);
 
-      if (self->analyzer != NULL)
+      if (self->analyzer != NULL) {
         suscan_analyzer_destroy(self->analyzer);
+        suscan_analyzer_consume_mq(&self->mq);
+      }
     }
 
     suscli_analyzer_server_cancel_rx_thread(self);
@@ -1057,6 +1123,9 @@ suscli_analyzer_server_destroy(suscli_analyzer_server_t *self)
 
   if (self->password != NULL)
     free(self->password);
+
+  if (self->mq_init)
+    suscan_mq_finalize(&self->mq);
 
   free(self);
 }

@@ -256,7 +256,7 @@ suscan_source_device_build_desc(const char *driver, const SoapySDRKwargs *args)
   else if (strcmp(driver, "null") == 0)
     return strdup("Dummy device");
   else if (strcmp(driver, "tcp") == 0)
-    return strbuild("%s:%s (%s)\n", host, port, label);
+    return strbuild("%s:%s (%s)", host, port, label);
   return strbuild("%s (%s)", driver, label);
 }
 

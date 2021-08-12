@@ -315,6 +315,39 @@ SUBOOL suscan_source_channel_wk_cb(
 
 SUBOOL suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self);
 
+SUBOOL
+suscan_local_analyzer_notify_params(suscan_local_analyzer_t *self)
+{
+  struct suscan_analyzer_params *dup = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      dup = calloc(1, sizeof (struct suscan_analyzer_params)),
+      goto done);
+
+  *dup = self->parent->params;
+
+  dup->channel_update_int = self->interval_channels;
+  dup->psd_update_int     = self->interval_psd;
+
+  SU_TRYCATCH(
+      suscan_mq_write(
+          self->parent->mq_out,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS,
+          dup),
+      goto done);
+
+  dup = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (dup != NULL)
+    free(dup);
+
+  return ok;
+}
+
 SUPRIVATE void *
 suscan_analyzer_thread(void *data)
 {
@@ -471,23 +504,37 @@ suscan_analyzer_thread(void *data)
 
             self->interval_channels = new_params->channel_update_int;
 
-
             if (sufcmp(self->interval_psd, new_params->psd_update_int, 1e-6)) {
               self->interval_psd = new_params->psd_update_int;
               self->det_num_psd = 0;
               self->last_psd = suscan_gettime_coarse();
             }
 
-            /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
+            self->parent->params.detector_params = new_det_params;
 
+            SU_TRYCATCH(suscan_local_analyzer_notify_params(self), goto done);
+
+            /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
             SU_TRYCATCH(
                 pthread_mutex_unlock(&self->loop_mutex) != -1,
                 goto done);
             mutex_acquired = SU_FALSE;
 
           }
-
           break;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS:
+          SU_TRYCATCH(
+              pthread_mutex_lock(&self->loop_mutex) != -1,
+              goto done);
+          mutex_acquired = SU_TRUE;
+
+          SU_TRYCATCH(suscan_local_analyzer_notify_params(self), goto done);
+
+          SU_TRYCATCH(
+              pthread_mutex_unlock(&self->loop_mutex) != -1,
+              goto done);
+          mutex_acquired = SU_FALSE;
       }
 
       if (private != NULL) {

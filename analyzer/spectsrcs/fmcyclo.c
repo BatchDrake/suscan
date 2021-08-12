@@ -62,16 +62,6 @@ suscan_spectsrc_fmcyclo_preproc(
   return SU_TRUE;
 }
 
-SUBOOL
-suscan_spectsrc_fmcyclo_postproc(
-    suscan_spectsrc_t *src,
-    void *private,
-    SUCOMPLEX *buffer,
-    SUSCOUNT size)
-{
-  return SU_TRUE;
-}
-
 void
 suscan_spectsrc_fmcyclo_dtor(void *private)
 {
@@ -86,7 +76,6 @@ suscan_spectsrc_fmcyclo_register(void)
     .desc = "FM cyclostationary analysis",
     .ctor = suscan_spectsrc_fmcyclo_ctor,
     .preproc  = suscan_spectsrc_fmcyclo_preproc,
-    .postproc = suscan_spectsrc_fmcyclo_postproc,
     .dtor = suscan_spectsrc_fmcyclo_dtor
   };
 

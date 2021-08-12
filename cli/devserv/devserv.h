@@ -28,6 +28,8 @@
 #define SUSCLI_ANSERV_CANCEL_FD 1
 #define SUSCLI_ANSERV_FD_OFFSET 2
 
+enum suscan_analyzer_inspector_msgkind;
+
 struct suscli_analyzer_client_inspector_entry {
   SUHANDLE global_handle;
   int32_t  itl_index;
@@ -43,6 +45,37 @@ struct suscli_analyzer_client_inspector_list {
   SUHANDLE     inspector_last_free;
   unsigned int inspector_pending_count;
 };
+
+#define SUSCLI_ANALYZER_CLIENT_TX_MESSAGE 0
+#define SUSCLI_ANALYZER_CLIENT_TX_CANCEL  1
+
+struct suscli_analyzer_client_tx_thread {
+  struct suscan_mq  pool;
+  SUBOOL            pool_initialized;
+  struct suscan_mq  queue;
+  SUBOOL            queue_initialized;
+  int               fd;
+  int               cancel_pipefd[2];
+  pthread_t         thread;
+  SUBOOL            thread_cancelled;
+  SUBOOL            thread_finished;
+  SUBOOL            thread_running;
+};
+
+void suscli_analyzer_client_tx_thread_finalize(
+    struct suscli_analyzer_client_tx_thread *self);
+
+SUBOOL suscli_analyzer_client_tx_thread_push(
+    struct suscli_analyzer_client_tx_thread *self,
+    const grow_buf_t *pdu);
+
+SUBOOL suscli_analyzer_client_tx_thread_push_zerocopy(
+    struct suscli_analyzer_client_tx_thread *self,
+    grow_buf_t *pdu);
+
+SUBOOL suscli_analyzer_client_tx_thread_initialize(
+    struct suscli_analyzer_client_tx_thread *self,
+    int fd);
 
 struct suscli_analyzer_client {
   int sfd;
@@ -60,6 +93,7 @@ struct suscli_analyzer_client {
 
   char *name;
 
+  struct suscli_analyzer_client_tx_thread tx;
   struct suscan_analyzer_server_hello server_hello;  /* Read-only */
   struct suscan_analyzer_remote_call  incoming_call; /* RX thread only */
 
@@ -94,6 +128,13 @@ struct suscli_analyzer_client_interceptors {
       suscli_analyzer_client_t *client,
       struct suscan_analyzer_inspector_msg *inspmsg,
       int32_t itl_index);
+
+  SUBOOL (*inspector_wrong_handle) (
+      void *userdata,
+      suscli_analyzer_client_t *client,
+      enum suscan_analyzer_inspector_msgkind kind,
+      SUHANDLE handle,
+      uint32_t req_id);
 };
 
 SUINLINE void
@@ -228,6 +269,10 @@ SUBOOL suscli_analyzer_client_write_buffer(
     suscli_analyzer_client_t *self,
     const grow_buf_t *buffer);
 
+SUBOOL suscli_analyzer_client_write_buffer_zerocopy(
+    suscli_analyzer_client_t *self,
+    grow_buf_t *buffer);
+
 SUBOOL suscli_analyzer_client_send_source_info(
     suscli_analyzer_client_t *self,
     const struct suscan_analyzer_source_info *info);
@@ -254,7 +299,7 @@ struct suscli_analyzer_itl_entry {
     uint32_t local_inspector_id;
   };
 
-  SUHANDLE local_handle; /* Needed to close local handle */
+  SUHANDLE private_handle; /* Needed to close private handle */
   suscli_analyzer_client_t *client; /* Must be null if free */
 };
 
@@ -328,7 +373,7 @@ SUBOOL suscli_analyzer_client_for_each_inspector_unsafe(
     SUBOOL (*func) (
         const suscli_analyzer_client_t *client,
         void *userdata,
-        SUHANDLE local_handle,
+        SUHANDLE private_handle,
         SUHANDLE global_handle),
     void *userdata);
 
@@ -337,7 +382,7 @@ SUBOOL suscli_analyzer_client_for_each_inspector(
     SUBOOL (*func) (
         const suscli_analyzer_client_t *client,
         void *userdata,
-        SUHANDLE local_handle,
+        SUHANDLE private_handle,
         SUHANDLE global_handle),
     void *userdata);
 
@@ -374,6 +419,7 @@ struct suscli_analyzer_server {
   suscan_analyzer_t *analyzer;
   suscan_source_config_t *config;
   struct suscan_mq mq;
+  SUBOOL mq_init;
 
   pthread_t rx_thread; /* Poll on client_pfds */
   pthread_t tx_thread; /* Wait on suscan_mq_read */

@@ -976,6 +976,9 @@ suscan_analyzer_msg_serialize(
           suscan_analyzer_params_serialize(ptr, buffer),
           goto fail);
       break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS:
+      break;
   }
 
   SUSCAN_PACK_BOILERPLATE_END;
@@ -1058,6 +1061,10 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
           goto fail);
       break;
 
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS:
+      msgptr = "REMOTE";
+      break;
+
     default:
       SU_WARNING("Unknown message type `%d'\n", *type);
       goto fail;
@@ -1106,6 +1113,7 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
       suscan_analyzer_sample_batch_msg_destroy(ptr);
       break;
 
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
       free(ptr);
       break;

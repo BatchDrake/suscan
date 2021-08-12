@@ -35,6 +35,9 @@ suscli_analyzer_client_new(int sfd)
   struct sockaddr_in sin;
   socklen_t len = sizeof(struct sockaddr_in);
   suscli_analyzer_client_t *new = NULL;
+#ifdef SO_NOSIGPIPE
+  int set = 1;
+#endif /* SO_NOSIGPIPE */
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_client_t)), goto fail);
 
@@ -67,6 +70,21 @@ suscli_analyzer_client_new(int sfd)
           suscli_analyzer_client_string_addr(new),
           ntohs(sin.sin_port)),
       goto fail);
+
+  SU_TRYCATCH(
+      suscli_analyzer_client_tx_thread_initialize(&new->tx, sfd),
+      goto fail);
+
+#ifdef SO_NOSIGPIPE
+  SU_TRYCATCH(
+      setsockopt(
+          sfd,
+          SOL_SOCKET,
+          SO_NOSIGPIPE,
+          (void *) &set,
+          sizeof(int)) != -1,
+      goto fail);
+#endif /* SO_NOSIGPIPE */
 
   new->sfd = sfd;
 
@@ -171,7 +189,8 @@ suscli_analyzer_client_register_inspector_handle_unsafe(
     SU_TRYCATCH(
         tmp = realloc(
             self->inspectors.inspector_list,
-            (self->inspectors.inspector_alloc + 1) * sizeof(SUHANDLE)),
+            (self->inspectors.inspector_alloc + 1)
+            * sizeof(struct suscli_analyzer_client_inspector_entry)),
         goto done);
     self->inspectors.inspector_list = tmp;
     ret = self->inspectors.inspector_alloc++;
@@ -219,34 +238,35 @@ done:
 SUPRIVATE SUHANDLE
 suscli_analyzer_client_translate_handle_unsafe(
     suscli_analyzer_client_t *self,
-    SUHANDLE local_handle)
+    SUHANDLE private_handle)
 {
-  SU_TRYCATCH(local_handle >= 0, return -1);
-  SU_TRYCATCH(local_handle < self->inspectors.inspector_alloc, return -1);
+  if (private_handle < 0 || private_handle >= self->inspectors.inspector_alloc)
+    return -1;
+
   SU_TRYCATCH(
-      self->inspectors.inspector_list[local_handle].global_handle >= 0,
+      self->inspectors.inspector_list[private_handle].global_handle >= 0,
       return -1);
 
-  return self->inspectors.inspector_list[local_handle].global_handle;
+  return self->inspectors.inspector_list[private_handle].global_handle;
 }
 
 SUBOOL
 suscli_analyzer_client_dispose_inspector_handle_unsafe(
     suscli_analyzer_client_t *self,
-    SUHANDLE local_handle)
+    SUHANDLE private_handle)
 {
-  SU_TRYCATCH(local_handle >= 0, return SU_FALSE);
-  SU_TRYCATCH(local_handle < self->inspectors.inspector_alloc, return SU_FALSE);
+  if (private_handle < 0 || private_handle >= self->inspectors.inspector_alloc)
+      return -1;
 
   SU_TRYCATCH(self->inspectors.inspector_count > 0, return SU_FALSE);
 
   SU_TRYCATCH(
-      self->inspectors.inspector_list[local_handle].global_handle >= 0,
+      self->inspectors.inspector_list[private_handle].global_handle >= 0,
       return SU_FALSE);
 
-  self->inspectors.inspector_list[local_handle].global_handle =
+  self->inspectors.inspector_list[private_handle].global_handle =
       ~self->inspectors.inspector_last_free;
-  self->inspectors.inspector_last_free = local_handle;
+  self->inspectors.inspector_last_free = private_handle;
   --self->inspectors.inspector_count;
 
   return SU_TRUE;
@@ -255,7 +275,7 @@ suscli_analyzer_client_dispose_inspector_handle_unsafe(
 SUBOOL
 suscli_analyzer_client_dispose_inspector_handle(
     suscli_analyzer_client_t *self,
-    SUHANDLE local_handle)
+    SUHANDLE private_handle)
 {
   SUBOOL ok = SU_FALSE;
   SUBOOL acquired = SU_FALSE;
@@ -267,7 +287,7 @@ suscli_analyzer_client_dispose_inspector_handle(
 
   ok = suscli_analyzer_client_dispose_inspector_handle_unsafe(
       self,
-      local_handle);
+      private_handle);
 
 done:
   if (acquired)
@@ -350,7 +370,15 @@ suscli_analyzer_client_intercept_message(
               goto done);
         }
       } else {
-        SU_WARNING("Could not translate handle 0x%x\n", handle);
+        SU_TRYCATCH(
+            (interceptors->inspector_wrong_handle)(
+                interceptors->userdata,
+                self,
+                inspmsg->kind,
+                handle,
+                inspmsg->req_id),
+            goto done);
+        goto done;
       }
     }
     /* ^^^^^^^^^^^^^^^^^^^^^^ Inspector mutex acquired ^^^^^^^^^^^^^^^^^^^^^ */
@@ -395,41 +423,27 @@ done:
 }
 
 SUBOOL
+suscli_analyzer_client_write_buffer_zerocopy(
+    suscli_analyzer_client_t *self,
+    grow_buf_t *buffer)
+{
+  SU_TRYCATCH(
+      suscli_analyzer_client_tx_thread_push_zerocopy(&self->tx, buffer),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscli_analyzer_client_write_buffer(
     suscli_analyzer_client_t *self,
     const grow_buf_t *buffer)
 {
-  struct suscan_analyzer_remote_pdu_header header;
-  const uint8_t *data;
-  size_t size, chunksize;
-  SUBOOL ok = SU_FALSE;
+  SU_TRYCATCH(
+      suscli_analyzer_client_tx_thread_push(&self->tx, buffer),
+      return SU_FALSE);
 
-  data = grow_buf_get_buffer(buffer);
-  size = grow_buf_get_size(buffer);
-
-  header.magic = htonl(SUSCAN_REMOTE_PDU_HEADER_MAGIC);
-  header.size  = htonl(size);
-
-  chunksize = sizeof(struct suscan_analyzer_remote_pdu_header);
-
-  SU_TRYCATCH(write(self->sfd, &header, chunksize) == chunksize, goto done);
-
-  /* Calls can be extremely big, so we better send them in small chunks */
-  while (size > 0) {
-    chunksize = size;
-    if (chunksize > SUSCAN_REMOTE_READ_BUFFER)
-      chunksize = SUSCAN_REMOTE_READ_BUFFER;
-
-    SU_TRYCATCH(write(self->sfd, data, chunksize) == chunksize, goto done);
-
-    data += chunksize;
-    size -= chunksize;
-  }
-
-  ok = SU_TRUE;
-
-done:
-  return ok;
+  return SU_TRUE;
 }
 
 SUBOOL
@@ -443,7 +457,7 @@ suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self)
 
   self->closed = SU_TRUE;
 
-  SU_TRYCATCH(shutdown(self->sfd, 2) == 0, goto done);
+  (void) shutdown(self->sfd, 2);
 
   ok = SU_TRUE;
 
@@ -555,6 +569,8 @@ done:
 void
 suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
 {
+  suscli_analyzer_client_tx_thread_finalize(&self->tx);
+
   if (self->sfd != -1 && !self->closed)
     close(self->sfd);
 

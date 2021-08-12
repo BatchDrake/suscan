@@ -33,7 +33,7 @@ extern "C" {
 
 #define SUSCAN_INSPECTOR_TUNER_BUF_SIZE    SU_BLOCK_STREAM_BUFFER_SIZE
 #define SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE  SU_BLOCK_STREAM_BUFFER_SIZE
-#define SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE 2048
+#define SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE 8192
 
 enum suscan_aync_state {
   SUSCAN_ASYNC_STATE_CREATED,
@@ -46,6 +46,7 @@ enum suscan_aync_state {
 struct suscan_inspector {
   pthread_mutex_t mutex;
   uint32_t inspector_id;        /* Set by client */
+  struct suscan_mq *mq_out;     /* Non-owned */
   enum suscan_aync_state state; /* Used to remove analyzer from queue */
 
   /* Specific inspector interface being used */
@@ -180,7 +181,8 @@ SUBOOL suscan_inspector_get_config(
 suscan_inspector_t *suscan_inspector_new(
     const char *name,
     SUFLOAT fs,
-    su_specttuner_channel_t *channel);
+    su_specttuner_channel_t *channel,
+    struct suscan_mq *mq_out);
 
 SUSDIFF suscan_inspector_feed_bulk(
     suscan_inspector_t *insp,
