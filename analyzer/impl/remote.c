@@ -23,7 +23,7 @@
 
 #include "remote.h"
 #include "msg.h"
-
+#include <zlib.h>
 #include <fcntl.h>
 #include <sys/poll.h>
 #include <analyzer/realtime.h>
@@ -639,7 +639,7 @@ done:
 }
 
 SUBOOL
-suscan_remote_write_pdu(
+suscan_remote_write_full_pdu(
     int sfd,
     const grow_buf_t *buffer)
 {
@@ -674,6 +674,126 @@ suscan_remote_write_pdu(
   }
 
   return SU_TRUE;
+}
+
+SUBOOL
+suscan_remote_write_compressed_pdu(
+    int sfd,
+    const grow_buf_t *buffer)
+{
+  z_stream stream;
+  uint8_t *buffer_bytes  = grow_buf_get_buffer(buffer);
+  size_t   buffer_size   = grow_buf_get_size(buffer);
+  uint8_t *zbuffer_bytes = NULL;
+  uint8_t *tmp = NULL;
+  size_t   zbuffer_size  = 0;
+  size_t   zbuffer_avail = sizeof(uint32_t) + buffer_size + 5;
+  size_t   chunksize;
+  SUBOOL   deflate_init  = SU_TRUE;
+  int      last_err      = Z_OK;
+  int      flush         = Z_NO_FLUSH;
+
+  struct suscan_analyzer_remote_pdu_header header;
+
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(zbuffer_bytes = malloc(zbuffer_avail), goto done);
+
+  /* Step 1: allocate and compress */
+  stream.zalloc   = Z_NULL;
+  stream.zfree    = Z_NULL;
+  stream.opaque   = Z_NULL;
+
+  SU_TRYCATCH(
+    deflateInit(&stream, Z_DEFAULT_COMPRESSION) == Z_OK,
+    goto done);
+
+  deflate_init     = SU_TRUE;
+  stream.next_in   = buffer_bytes;
+  stream.next_out  = zbuffer_bytes + sizeof(uint32_t);
+
+  stream.avail_in  = buffer_size;
+  stream.avail_out = zbuffer_avail;
+
+  /* Begin compression */
+  while ((last_err = deflate(&stream, flush)) == Z_OK) { 
+    if (last_err != Z_OK)
+      break;
+
+    if (stream.total_in < buffer_size) {
+      /* Buffer was not completely consumed, reallocate */
+      if (zbuffer_avail > 4 * buffer_size) {
+        SU_ERROR("Compressed buffer grew beyond a reasonable size.\n");
+        goto done;
+      }
+
+      SU_TRYCATCH(
+        tmp = realloc(zbuffer_bytes, zbuffer_avail << 1), 
+        goto done);
+
+      /* Update stream properties */
+      zbuffer_bytes   = tmp;
+      stream.next_out = sizeof(uint32_t) + zbuffer_bytes + stream.total_out;
+      zbuffer_avail   <<= 1;
+      tmp             = NULL;
+    } else {
+      /* Complete, time to finish */
+      flush = Z_FINISH;
+    }
+  }
+
+  SU_TRYCATCH(last_err == Z_STREAM_END, goto done);
+
+  /* Step 2: create PDU */
+  zbuffer_size  = stream.total_out + sizeof(uint32_t);
+  header.magic  = htonl(SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC);
+  header.size   = htonl(zbuffer_size);
+  
+  /* Write header */
+  if (write(sfd, &header, sizeof(struct suscan_analyzer_remote_pdu_header))
+      != sizeof(struct suscan_analyzer_remote_pdu_header)) {
+    SU_ERROR("PDU header write error\n");
+    goto done;
+  }
+
+  /* Write compressed buffer size. First, we update the first 4 bytes 
+     of zbuffer with the inflated size */
+  *(uint32_t *) zbuffer_bytes = buffer_size;
+  tmp = zbuffer_bytes;
+
+  while (zbuffer_size > 0) {
+    chunksize = zbuffer_size;
+
+    if (chunksize > SUSCAN_REMOTE_READ_BUFFER)
+      chunksize = SUSCAN_REMOTE_READ_BUFFER;
+
+    if (write(sfd, zbuffer_bytes, chunksize) != chunksize) {
+      SU_ERROR("PDU body write error\n");
+      goto done;
+    }
+
+    zbuffer_size  -= chunksize;
+    zbuffer_bytes += chunksize;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (tmp != NULL)
+    free(tmp);
+
+  if (deflate_init)
+    deflateEnd(&stream);
+
+  return ok;
+}
+
+SUBOOL
+suscan_remote_write_pdu(
+    int sfd,
+    const grow_buf_t *buffer)
+{ 
+  return suscan_remote_write_full_pdu(sfd, buffer);
 }
 
 /*
