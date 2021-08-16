@@ -104,7 +104,7 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
   size_t ret;
   SUBOOL do_close = SU_TRUE;
   SUBOOL ok = SU_FALSE;
-
+  
   if (!self->have_header) {
     chunksize =
         sizeof(struct suscan_analyzer_remote_pdu_header) - self->header_ptr;
@@ -135,7 +135,8 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
       self->header.size  = ntohl(self->header.size);
       self->header_ptr   = 0;
 
-      if (self->header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC) {
+      if (self->header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC
+      && self->header.magic != SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC) {
         SU_ERROR("Protocol error: invalid remote PDU header magic\n");
         goto done;
       }
@@ -160,6 +161,11 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
     self->header.size -= chunksize;
 
     if (self->header.size == 0) {
+      if (self->header.magic == SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC)
+        SU_TRYCATCH(
+          suscan_remote_inflate_pdu(&self->incoming_pdu), 
+          goto done);
+
       grow_buf_seek(&self->incoming_pdu, 0, SEEK_SET);
       self->have_body = SU_TRUE;
     }

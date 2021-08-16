@@ -22,6 +22,7 @@
 #include "devserv.h"
 #include <sys/poll.h>
 #include <sys/fcntl.h>
+#include <zlib.h>
 
 #ifndef MSG_NOSIGNAL
 #  define MSG_NOSIGNAL 0
@@ -56,9 +57,10 @@ suscli_analyzer_client_tx_thread_alloc_buffer(
   return new;
 }
 
-SUPRIVATE SUBOOL
-suscli_analyzer_client_tx_thread_write_buffer(
+SUINLINE SUBOOL
+suscli_analyzer_client_tx_thread_write_buffer_internal(
     struct suscli_analyzer_client_tx_thread *self,
+    uint32_t magic,
     const grow_buf_t *buffer)
 {
   struct suscan_analyzer_remote_pdu_header header;
@@ -69,7 +71,7 @@ suscli_analyzer_client_tx_thread_write_buffer(
   data = grow_buf_get_buffer(buffer);
   size = grow_buf_get_size(buffer);
 
-  header.magic = htonl(SUSCAN_REMOTE_PDU_HEADER_MAGIC);
+  header.magic = htonl(magic);
   header.size  = htonl(size);
 
   chunksize = sizeof(struct suscan_analyzer_remote_pdu_header);
@@ -104,6 +106,48 @@ done:
   return ok;
 }
 
+SUINLINE SUBOOL
+suscli_analyzer_client_tx_thread_write_compressed_buffer(
+    struct suscli_analyzer_client_tx_thread *self,
+    const grow_buf_t *buffer)
+{
+  grow_buf_t compressed = grow_buf_INITIALIZER;
+  SUBOOL ok = SU_FALSE;
+  
+  SU_TRYCATCH(
+    suscan_remote_deflate_pdu((grow_buf_t *) buffer, &compressed),
+    goto done);
+
+  SU_TRYCATCH(
+    suscli_analyzer_client_tx_thread_write_buffer_internal(
+      self, 
+      SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC, 
+      &compressed),
+    goto done);
+
+  ok = SU_TRUE;
+
+done:
+  grow_buf_finalize(&compressed);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscli_analyzer_client_tx_thread_write_buffer(
+    struct suscli_analyzer_client_tx_thread *self,
+    const grow_buf_t *buffer)
+{
+  if (grow_buf_get_size(buffer) > SUSCAN_REMOTE_COMPRESS_THRESHOLD_SZ)
+    return suscli_analyzer_client_tx_thread_write_compressed_buffer(
+      self, 
+      buffer);
+  else
+    return suscli_analyzer_client_tx_thread_write_buffer_internal(
+      self,
+      SUSCAN_REMOTE_PDU_HEADER_MAGIC,
+      buffer);
+}
 
 SUPRIVATE void *
 suscli_analyzer_client_tx_thread_func(void *userdata)
@@ -119,7 +163,6 @@ suscli_analyzer_client_tx_thread_func(void *userdata)
     /* Cancelled via MQ. We should not reach this point in this impl. */
     if (type == SUSCLI_ANALYZER_CLIENT_TX_CANCEL)
       goto done;
-
 
     pollfds[0].events  = POLLOUT | POLLERR | POLLHUP;
     pollfds[0].fd      = self->fd;

@@ -28,6 +28,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define SUSCAN_REMOTE_COMPRESS_THRESHOLD_SZ              1400
 #define SUSCAN_REMOTE_PDU_HEADER_MAGIC             0xf5005ca9
 #define SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC  0xf5005caa
 #define SUSCAN_REMOTE_ANALYZER_CONNECT_TIMEOUT_MS       30000
@@ -163,6 +164,9 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call) {
 {                                                       \
   SUSCAN_ANALYZER_REMOTE_NONE /* type */                \
 }
+
+SUBOOL suscan_remote_deflate_pdu(grow_buf_t *buffer, grow_buf_t *dest);
+SUBOOL suscan_remote_inflate_pdu(grow_buf_t *buffer);
 
 void suscan_analyzer_remote_call_init(
     struct suscan_analyzer_remote_call *self,
