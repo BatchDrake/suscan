@@ -917,9 +917,10 @@ done:
 SUBOOL
 suscan_remote_write_pdu(
     int sfd,
-    const grow_buf_t *buffer)
+    const grow_buf_t *buffer,
+    unsigned int threshold)
 {
-  if (grow_buf_get_size(buffer) > SUSCAN_REMOTE_COMPRESS_THRESHOLD_SZ)
+  if (threshold > 0 && grow_buf_get_size(buffer) > threshold)
     return suscan_remote_write_compressed_pdu(sfd, buffer);
   else
     return suscan_remote_write_pdu_internal(
@@ -986,7 +987,10 @@ suscan_remote_analyzer_deliver_call(
   SU_TRYCATCH(suscan_remote_analyzer_release_call(self, call), goto done);
 
   SU_TRYCATCH(
-      suscan_remote_write_pdu(self->peer.control_fd, &self->peer.write_buffer),
+      suscan_remote_write_pdu(
+        self->peer.control_fd, 
+        &self->peer.write_buffer,
+        0),
       goto done);
 
   ok = SU_TRUE;
@@ -1397,7 +1401,10 @@ suscan_remote_analyzer_tx_thread(void *ptr)
 
         /* We only support control messages for now */
         SU_TRYCATCH(
-            suscan_remote_write_pdu(self->peer.control_fd, msgptr),
+            suscan_remote_write_pdu(
+              self->peer.control_fd, 
+              msgptr,
+              0 /* temptatively disabled */),
             goto done);
 
         grow_buf_finalize(as_growbuf);

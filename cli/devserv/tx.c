@@ -138,7 +138,8 @@ suscli_analyzer_client_tx_thread_write_buffer(
     struct suscli_analyzer_client_tx_thread *self,
     const grow_buf_t *buffer)
 {
-  if (grow_buf_get_size(buffer) > SUSCAN_REMOTE_COMPRESS_THRESHOLD_SZ)
+  if (self->compress_threshold > 0 
+    && grow_buf_get_size(buffer) > self->compress_threshold)
     return suscli_analyzer_client_tx_thread_write_compressed_buffer(
       self, 
       buffer);
@@ -321,7 +322,8 @@ done:
 SUBOOL
 suscli_analyzer_client_tx_thread_initialize(
     struct suscli_analyzer_client_tx_thread *self,
-    int fd)
+    int fd,
+    unsigned int compress_threshold)
 {
   SUBOOL ok = SU_FALSE;
 
@@ -329,6 +331,7 @@ suscli_analyzer_client_tx_thread_initialize(
 
   self->cancel_pipefd[0] = self->cancel_pipefd[1] = -1;
   self->fd = fd;
+  self->compress_threshold = compress_threshold;
 
   SU_TRYCATCH(suscan_mq_init(&self->pool), goto done);
   self->pool_initialized = SU_TRUE;

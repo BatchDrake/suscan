@@ -30,7 +30,7 @@
 
 /************************** Analyzer Client API *******************************/
 suscli_analyzer_client_t *
-suscli_analyzer_client_new(int sfd)
+suscli_analyzer_client_new(int sfd, unsigned int compress_threshold)
 {
   struct sockaddr_in sin;
   socklen_t len = sizeof(struct sockaddr_in);
@@ -72,7 +72,10 @@ suscli_analyzer_client_new(int sfd)
       goto fail);
 
   SU_TRYCATCH(
-      suscli_analyzer_client_tx_thread_initialize(&new->tx, sfd),
+      suscli_analyzer_client_tx_thread_initialize(
+        &new->tx, 
+        sfd,
+        compress_threshold),
       goto fail);
 
 #ifdef SO_NOSIGPIPE
@@ -104,7 +107,7 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
   size_t ret;
   SUBOOL do_close = SU_TRUE;
   SUBOOL ok = SU_FALSE;
-  
+
   if (!self->have_header) {
     chunksize =
         sizeof(struct suscan_analyzer_remote_pdu_header) - self->header_ptr;
@@ -448,7 +451,7 @@ suscli_analyzer_client_write_buffer(
   SU_TRYCATCH(
       suscli_analyzer_client_tx_thread_push(&self->tx, buffer),
       return SU_FALSE);
-
+ 
   return SU_TRUE;
 }
 

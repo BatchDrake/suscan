@@ -28,7 +28,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define SUSCAN_REMOTE_COMPRESS_THRESHOLD_SZ              1400
 #define SUSCAN_REMOTE_PDU_HEADER_MAGIC             0xf5005ca9
 #define SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC  0xf5005caa
 #define SUSCAN_REMOTE_ANALYZER_CONNECT_TIMEOUT_MS       30000

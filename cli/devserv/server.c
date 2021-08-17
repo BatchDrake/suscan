@@ -62,17 +62,16 @@ suscli_analyzer_server_intercept_message_unsafe(
           client = suscli_analyzer_client_list_lookup_unsafe(
               &self->client_list,
               inspmsg->req_id);
-
           if (client == NULL) {
             SU_ERROR(
-                "Consistency error! No client with given sfd %d\n",
+                "open: consistency error: no client with given sfd %d\n",
                 inspmsg->req_id);
             goto done;
           }
 
           if (client->sfd != inspmsg->req_id) {
             SU_ERROR(
-                "Consistency error! sfd %d does not match req_id\n",
+                "open: consistency error: sfd %d does not match req_id\n",
                 client->sfd, inspmsg->req_id);
             goto done;
           }
@@ -147,7 +146,7 @@ suscli_analyzer_server_intercept_message_unsafe(
 
           if (client == NULL) {
             SU_ERROR(
-                "Consistency error! No client with given sfd %d\n",
+                "status(channel): consistency error: no client with given sfd %d\n",
                 inspmsg->req_id);
             goto done;
           }
@@ -205,7 +204,6 @@ suscli_analyzer_server_intercept_message_unsafe(
   *oclient = client;
 
   ok = SU_TRUE;
-
 done:
   return ok;
 }
@@ -475,7 +473,6 @@ suscli_analyzer_server_on_open(
   suscli_analyzer_client_inc_inspector_open_request(client);
 
   inspmsg->req_id = client->sfd;
-
   SU_INFO(
         "%s: open request of `%s' inspector on freq %+lg MHz (bw = %g kHz)\n",
         suscli_analyzer_client_get_name(client),
@@ -832,7 +829,7 @@ suscli_analyzer_server_register_clients(suscli_analyzer_server_t *self)
       (struct sockaddr *) &inaddr,
       &len)) != -1) {
     SU_TRYCATCH(
-        client = suscli_analyzer_client_new(fd),
+        client = suscli_analyzer_client_new(fd, self->params.compress_threshold),
         goto done);
 
     SU_TRYCATCH(
@@ -1019,17 +1016,35 @@ done:
   return sfd;
 }
 
+
 suscli_analyzer_server_t *
 suscli_analyzer_server_new(
     suscan_source_config_t *profile,
     uint16_t port,
     const char *user,
-    const char *password)
+    const char *password) 
+{
+  struct suscli_analyzer_server_params params =
+    suscli_analyzer_server_params_INITIALIZER;
+
+  params.profile  = profile;
+  params.port     = port;
+  params.user     = user;
+  params.password = password;
+
+  return suscli_analyzer_server_new_with_params(&params);
+}
+
+suscli_analyzer_server_t *
+suscli_analyzer_server_new_with_params(
+    const struct suscli_analyzer_server_params *params)
 {
   suscli_analyzer_server_t *new = NULL;
   int sfd = -1;
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_server_t)), goto done);
+
+  new->params = *params;
 
   new->client_list.listen_fd = -1;
   new->client_list.cancel_fd = -1;
@@ -1040,16 +1055,18 @@ suscli_analyzer_server_new(
   SU_TRYCATCH(suscan_mq_init(&new->mq), goto done);
   new->mq_init = SU_TRUE;
 
-  SU_TRYCATCH(new->user = strdup(user), goto done);
-  SU_TRYCATCH(new->password = strdup(password), goto done);
+  SU_TRYCATCH(new->user = strdup(params->user), goto done);
+  SU_TRYCATCH(new->password = strdup(params->password), goto done);
 
-  new->listen_port = port;
-  SU_TRYCATCH(new->config = suscan_source_config_clone(profile), goto done);
+  new->listen_port = params->port;
+  SU_TRYCATCH(
+    new->config = suscan_source_config_clone(params->profile), 
+    goto done);
 
   SU_TRYCATCH(pipe(new->cancel_pipefd) != -1, goto done);
 
   SU_TRYCATCH(
-      (sfd = suscli_analyzer_server_create_socket(port)) != -1,
+      (sfd = suscli_analyzer_server_create_socket(params->port)) != -1,
       goto done);
 
   SU_TRYCATCH(

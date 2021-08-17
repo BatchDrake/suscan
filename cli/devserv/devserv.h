@@ -50,6 +50,7 @@ struct suscli_analyzer_client_inspector_list {
 #define SUSCLI_ANALYZER_CLIENT_TX_CANCEL  1
 
 struct suscli_analyzer_client_tx_thread {
+  unsigned int      compress_threshold;
   struct suscan_mq  pool;
   SUBOOL            pool_initialized;
   struct suscan_mq  queue;
@@ -75,7 +76,8 @@ SUBOOL suscli_analyzer_client_tx_thread_push_zerocopy(
 
 SUBOOL suscli_analyzer_client_tx_thread_initialize(
     struct suscli_analyzer_client_tx_thread *self,
-    int fd);
+    int fd,
+    unsigned int compress_threshold);
 
 struct suscli_analyzer_client {
   int sfd;
@@ -84,6 +86,7 @@ struct suscli_analyzer_client {
   SUBOOL failed;
   SUBOOL closed;
   unsigned int epoch;
+  unsigned int compress_threshold;
   struct timeval conntime;
   struct in_addr remote_addr;
 
@@ -226,7 +229,9 @@ suscli_analyzer_client_mark_failed(suscli_analyzer_client_t *self)
   self->failed = SU_TRUE;
 }
 
-suscli_analyzer_client_t *suscli_analyzer_client_new(int sfd);
+suscli_analyzer_client_t *suscli_analyzer_client_new(
+  int sfd,
+  unsigned int compress_threshold);
 
 SUBOOL suscli_analyzer_client_read(suscli_analyzer_client_t *self);
 
@@ -408,9 +413,29 @@ suscli_analyzer_client_list_get_count(
 
 void suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *);
 
-struct suscli_analyzer_server {
-  struct suscli_analyzer_client_list client_list;
+struct suscli_analyzer_server_params {
+  suscan_source_config_t *profile;
+  uint16_t    port;
+  const char *user;
+  const char *password;
+  size_t      compress_threshold;
+};
 
+#define SUSCLI_ANALYZER_DEFAULT_COMPRESS_THRESHOLD 1400
+
+#define suscli_analyzer_server_params_INITIALIZER \
+{                                                 \
+  NULL,        /* profile */                      \
+  28001,       /* port */                         \
+  "anonymous", /* user */                         \
+  "",          /* password */                     \
+  SUSCLI_ANALYZER_DEFAULT_COMPRESS_THRESHOLD      \
+}
+
+struct suscli_analyzer_server {
+  struct suscli_analyzer_server_params params;
+  struct suscli_analyzer_client_list client_list;
+  
   uint16_t listen_port;
 
   char *user;
@@ -452,6 +477,11 @@ suscli_analyzer_server_new(
     uint16_t port,
     const char *user,
     const char *password);
+
+suscli_analyzer_server_t *
+suscli_analyzer_server_new_with_params(
+    const struct suscli_analyzer_server_params *server);
+
 
 SUINLINE SUBOOL
 suscli_analyzer_server_is_running(suscli_analyzer_server_t *self)
