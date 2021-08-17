@@ -30,7 +30,7 @@
 
 /************************** Analyzer Client API *******************************/
 suscli_analyzer_client_t *
-suscli_analyzer_client_new(int sfd)
+suscli_analyzer_client_new(int sfd, unsigned int compress_threshold)
 {
   struct sockaddr_in sin;
   socklen_t len = sizeof(struct sockaddr_in);
@@ -72,7 +72,10 @@ suscli_analyzer_client_new(int sfd)
       goto fail);
 
   SU_TRYCATCH(
-      suscli_analyzer_client_tx_thread_initialize(&new->tx, sfd),
+      suscli_analyzer_client_tx_thread_initialize(
+        &new->tx, 
+        sfd,
+        compress_threshold),
       goto fail);
 
 #ifdef SO_NOSIGPIPE
@@ -135,7 +138,8 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
       self->header.size  = ntohl(self->header.size);
       self->header_ptr   = 0;
 
-      if (self->header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC) {
+      if (self->header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC
+      && self->header.magic != SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC) {
         SU_ERROR("Protocol error: invalid remote PDU header magic\n");
         goto done;
       }
@@ -160,6 +164,11 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
     self->header.size -= chunksize;
 
     if (self->header.size == 0) {
+      if (self->header.magic == SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC)
+        SU_TRYCATCH(
+          suscan_remote_inflate_pdu(&self->incoming_pdu), 
+          goto done);
+
       grow_buf_seek(&self->incoming_pdu, 0, SEEK_SET);
       self->have_body = SU_TRUE;
     }
@@ -442,7 +451,7 @@ suscli_analyzer_client_write_buffer(
   SU_TRYCATCH(
       suscli_analyzer_client_tx_thread_push(&self->tx, buffer),
       return SU_FALSE);
-
+ 
   return SU_TRUE;
 }
 

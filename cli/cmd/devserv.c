@@ -173,11 +173,14 @@ suscli_devserv_ctx_new(
     const char *iface,
     const char *mcaddr,
     const char *user,
-    const char *password)
+    const char *password,
+    size_t compress_threshold)
 {
   struct suscli_devserv_ctx *new = NULL;
   suscan_source_config_t *cfg;
   suscli_analyzer_server_t *server = NULL;
+  struct suscli_analyzer_server_params params =
+    suscli_analyzer_server_params_INITIALIZER;
   int i;
   char loopch = 0;
   struct in_addr mc_if;
@@ -241,24 +244,27 @@ suscli_devserv_ctx_new(
   new->mc_addr.sin_addr.s_addr = inet_addr(mcaddr);
   new->mc_addr.sin_port = htons(SURPC_DISCOVERY_PROTOCOL_PORT);
 
+  params.user               = user;
+  params.password           = password;
+  params.compress_threshold = compress_threshold;
+
   /* Populate servers */
   for (i = 1; i <= suscli_get_source_count(); ++i) {
     cfg = suscli_get_source(i);
 
-    if (cfg != NULL) {
+    if (cfg != NULL && !suscan_source_config_is_remote(cfg)) {
+      params.profile = cfg;
+      params.port    = new->port_base + i;
       SU_TRYCATCH(
-          server = suscli_analyzer_server_new(
-              cfg,
-              new->port_base + i,
-              user,
-              password),
+          server = suscli_analyzer_server_new_with_params(
+              &params),
           goto fail);
 
       SU_TRYCATCH(PTR_LIST_APPEND_CHECK(new->server, server) != -1, goto fail);
 
       SU_INFO(
           "  Port %d: server `%s'\n",
-          new->port_base + i,
+          params.port,
           suscan_source_config_get_label(cfg));
 
       server = NULL;
@@ -372,6 +378,7 @@ suscli_devserv_cb(const hashlist_t *params)
   struct suscli_devserv_ctx *ctx = NULL;
   const char *iface, *mc;
   const char *user, *password;
+  int threshold = 0;
 
   pthread_t thread;
   SUBOOL thread_running = SU_FALSE;
@@ -389,6 +396,14 @@ suscli_devserv_cb(const hashlist_t *params)
 
   SU_TRYCATCH(
       suscli_param_read_string(params, "password", &password, ""),
+      goto done);
+
+  SU_TRYCATCH(
+      suscli_param_read_int(
+        params, 
+        "compress_threshold", 
+        &threshold, 
+        0),
       goto done);
 
   if (iface == NULL) {
@@ -409,7 +424,12 @@ suscli_devserv_cb(const hashlist_t *params)
   SU_INFO("Suscan device server %s\n", SUSCAN_VERSION_STRING);
 
   SU_TRYCATCH(
-      ctx = suscli_devserv_ctx_new(iface, mc, user, password),
+      ctx = suscli_devserv_ctx_new(
+        iface, 
+        mc, 
+        user, 
+        password,
+        threshold),
       goto done);
 
   SU_TRYCATCH(

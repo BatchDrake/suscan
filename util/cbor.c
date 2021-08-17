@@ -378,10 +378,8 @@ unpack_cbor_int(
     return ret;
   }
 
-  if (expected_type != type) {
-    printf("ILSEQ (%d != %d)\n", expected_type, type);
+  if (expected_type != type)
     return -EILSEQ;
-  }
 
   return get_addl_bytes(buffer, extra, out);
 }

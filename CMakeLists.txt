@@ -44,6 +44,8 @@ endif()
 
 # Find requirements
 find_package(Threads)
+find_package(ZLIB)
+
 pkg_check_modules(SIGUTILS REQUIRED sigutils>=0.1)
 pkg_check_modules(SNDFILE  REQUIRED sndfile>=1.0.2)
 pkg_check_modules(FFTW3    REQUIRED fftw3f>=3.0)
@@ -303,6 +305,8 @@ target_link_libraries(suscan ${SOAPYSDR_LIBRARIES})
 target_include_directories(suscan SYSTEM PUBLIC ${XML2_INCLUDE_DIRS})
 target_link_libraries(suscan ${XML2_LIBRARIES})
 
+include_directories(${ZLIB_INCLUDE_DIRS})
+target_link_libraries(suscan ${ZLIB_LIBRARIES})
 target_link_libraries(suscan ${CMAKE_THREAD_LIBS_INIT})
 
 # Optional dependencies

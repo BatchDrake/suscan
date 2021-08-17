@@ -23,7 +23,7 @@
 
 #include "remote.h"
 #include "msg.h"
-
+#include <zlib.h>
 #include <fcntl.h>
 #include <sys/poll.h>
 #include <analyzer/realtime.h>
@@ -577,6 +577,204 @@ done:
 }
 
 SUBOOL
+suscan_remote_deflate_pdu(grow_buf_t *buffer, grow_buf_t *dest)
+{
+  z_stream stream;
+  grow_buf_t tmpbuf      = grow_buf_INITIALIZER;
+  grow_buf_t swapbuf;
+  uint8_t *buffer_bytes  = grow_buf_get_buffer(buffer);
+  size_t   buffer_size   = grow_buf_get_size(buffer);
+  uint8_t *output        = NULL;
+  uint32_t avail_size;
+  SUBOOL   deflate_init  = SU_TRUE;
+  int      last_err      = Z_OK;
+  int      flush         = Z_NO_FLUSH;
+  SUBOOL   ok = SU_FALSE;
+
+  if (dest == NULL)
+    dest = &tmpbuf;
+
+  SU_TRYCATCH(grow_buf_get_size(dest) == 0, goto done);
+  SU_TRYCATCH(output = grow_buf_alloc(dest, sizeof(uint32_t) + 5), goto done);
+
+  /* Step 1: allocate and compress */
+  stream.zalloc   = Z_NULL;
+  stream.zfree    = Z_NULL;
+  stream.opaque   = Z_NULL;
+
+  stream.next_in   = buffer_bytes;
+  stream.avail_in  = buffer_size;
+
+  stream.next_out  = output + sizeof(uint32_t);
+  stream.avail_out = grow_buf_get_size(dest) - sizeof(uint32_t);
+
+  SU_TRYCATCH(
+    deflateInit(&stream, 9) == Z_OK,
+    goto done);
+
+  deflate_init     = SU_TRUE;
+  /* Begin compression */
+  while ((last_err = deflate(&stream, flush)) == Z_OK) {
+    /* Buffer was not completely consumed, reallocate */
+
+    if (stream.avail_out == 0) {
+      avail_size = grow_buf_get_size(dest);
+
+      if (avail_size > 4 * buffer_size) {
+        SU_ERROR("Compressed buffer grew beyond a reasonable size.\n");
+        goto done;
+      }
+
+      SU_TRYCATCH(
+          output = grow_buf_alloc(dest, avail_size), 
+          goto done);
+
+      /* Update stream properties */
+      stream.next_out  = output;
+      stream.avail_out = avail_size;
+    }
+
+    if (stream.total_in == buffer_size)
+      flush = Z_FINISH;
+  }
+
+  SU_TRYCATCH(last_err == Z_STREAM_END, goto done);
+
+  /* TODO: Expose API!! */
+  dest->size = stream.total_out + sizeof(uint32_t);
+
+  /* Step 2: update PDU size */
+  output = grow_buf_get_buffer(dest);
+  *(uint32_t *) output = htonl(buffer_size);
+
+  if (dest == &tmpbuf) {
+    swapbuf = tmpbuf;
+    tmpbuf  = *buffer;
+    *buffer = swapbuf;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (deflate_init)
+    deflateEnd(&stream);
+
+  grow_buf_finalize(&tmpbuf);
+
+  return ok;
+}
+
+SUBOOL
+suscan_remote_inflate_pdu(grow_buf_t *buffer)
+{
+  uint32_t cmpsize;
+  uint8_t *cmpbytes;
+  uint32_t size;
+  z_stream stream;
+  uint8_t *output;
+  uint32_t out_alloc;
+  grow_buf_t swapbuf;
+  grow_buf_t tmpbuf = grow_buf_INITIALIZER;
+  int last_err;
+  int flush = Z_NO_FLUSH;
+  SUBOOL inflate_init = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  cmpsize  = grow_buf_get_size(buffer);
+  cmpbytes = grow_buf_get_buffer(buffer);
+
+  if (cmpsize <= sizeof(uint32_t)) {
+    SU_ERROR("Compressed frame too short\n");
+    goto done;
+  }
+
+  size = ntohl(*(uint32_t *) cmpbytes);
+
+  cmpsize  -= sizeof(uint32_t);
+  cmpbytes += sizeof(uint32_t);
+
+  /* Initialize buffers */
+  stream.zalloc = Z_NULL;
+  stream.zfree  = Z_NULL;
+  stream.opaque = Z_NULL;
+
+  out_alloc = cmpsize;
+  
+  SU_TRYCATCH(
+    output = grow_buf_alloc(&tmpbuf, out_alloc), 
+    goto done);
+
+  stream.next_in   = cmpbytes;
+  stream.avail_in  = cmpsize;
+
+  stream.next_out  = output;
+  stream.avail_out = out_alloc;
+
+  /* Initialize inflate */
+  SU_TRYCATCH(inflateInit(&stream) == Z_OK, goto done);
+  inflate_init     = SU_TRUE;
+
+  /* Begin decompression */
+  while ((last_err = inflate(&stream, flush)) == Z_OK) {
+    if (stream.avail_out == 0) {
+      /* Buffer was not completely consumed, reallocate */
+      out_alloc = grow_buf_get_size(&tmpbuf);
+
+      if (grow_buf_get_size(&tmpbuf) + out_alloc > size)
+        out_alloc = size - grow_buf_get_size(&tmpbuf);
+
+      if (out_alloc > 0) {
+        SU_TRYCATCH(
+        output = grow_buf_alloc(&tmpbuf, out_alloc), 
+        goto done);
+      } else {
+        output = Z_NULL;
+      }
+      
+      stream.next_out  = output;
+      stream.avail_out = out_alloc;
+    }
+
+    if (stream.total_in == cmpsize)
+      flush = Z_FINISH;
+  }
+
+  if (last_err != Z_STREAM_END) {
+    SU_ERROR(
+      "Inflate error %d (%d/%d bytes decompressed, corrupted data?)\n", 
+      last_err,
+      stream.total_out,
+      size);
+    SU_ERROR("%02x %02x %02x %02x\n", cmpbytes[0], cmpbytes[1], cmpbytes[2], cmpbytes[3]);
+    SU_ERROR("Consumed: %d/%d\n", cmpsize - stream.avail_in, cmpsize);
+    goto done;
+  }
+
+  if (size != stream.total_out) {
+    SU_ERROR(
+      "Inflated packet size mismatch (%d != %d)\n", 
+      stream.total_out, 
+      size);
+    goto done;
+  }
+
+  /* Swap these */
+  swapbuf = *buffer;
+  *buffer = tmpbuf;
+  tmpbuf  = swapbuf;
+
+  ok = SU_TRUE;
+
+done:
+  if (inflate_init)
+    inflateEnd(&stream);
+
+  grow_buf_finalize(&tmpbuf);
+
+  return ok;
+}
+
+SUBOOL
 suscan_remote_read_pdu(
     int sfd,
     int cancelfd,
@@ -585,6 +783,7 @@ suscan_remote_read_pdu(
 {
   uint32_t chunksiz;
   struct suscan_analyzer_remote_pdu_header header;
+  SUBOOL compressed = SU_FALSE;
   void *chunk;
   size_t got;
   SUBOOL ok = SU_FALSE;
@@ -604,9 +803,17 @@ suscan_remote_read_pdu(
   header.size  = ntohl(header.size);
   header.magic = ntohl(header.magic);
 
-  if (header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC) {
-    SU_ERROR("Protocol error (unrecognized PDU magic)\n");
-    goto done;
+  switch (header.magic) {
+    case SUSCAN_REMOTE_PDU_HEADER_MAGIC:
+      break;
+
+    case SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC:
+      compressed = SU_TRUE;
+      break;
+
+    default:
+      SU_ERROR("Protocol error (unrecognized PDU magic)\n");
+      goto done;
   }
 
   /* Start to read */
@@ -632,15 +839,19 @@ suscan_remote_read_pdu(
     header.size -= chunksiz;
   }
 
+  if (compressed)
+    SU_TRYCATCH(suscan_remote_inflate_pdu(buffer), goto done);
+    
   ok = SU_TRUE;
 
 done:
   return ok;
 }
 
-SUBOOL
-suscan_remote_write_pdu(
+SUINLINE SUBOOL
+suscan_remote_write_pdu_internal(
     int sfd,
+    uint32_t magic,
     const grow_buf_t *buffer)
 {
   uint8_t *buffer_bytes = grow_buf_get_buffer(buffer);
@@ -649,7 +860,7 @@ suscan_remote_write_pdu(
 
   struct suscan_analyzer_remote_pdu_header header;
 
-  header.magic = htonl(SUSCAN_REMOTE_PDU_HEADER_MAGIC);
+  header.magic = htonl(magic);
   header.size  = htonl(buffer_size);
 
   if (write(sfd, &header, sizeof(struct suscan_analyzer_remote_pdu_header))
@@ -674,6 +885,48 @@ suscan_remote_write_pdu(
   }
 
   return SU_TRUE;
+}
+
+SUINLINE SUBOOL
+suscan_remote_write_compressed_pdu(
+    int sfd,
+    const grow_buf_t *buffer)
+{
+  grow_buf_t compressed = grow_buf_INITIALIZER;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+    suscan_remote_deflate_pdu((grow_buf_t *) buffer, &compressed),
+    goto done);
+
+  SU_TRYCATCH(
+    suscan_remote_write_pdu_internal(
+      sfd, 
+      SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC, 
+      &compressed),
+    goto done);
+
+  ok = SU_TRUE;
+
+done:
+  grow_buf_finalize(&compressed);
+
+  return ok;
+}
+
+SUBOOL
+suscan_remote_write_pdu(
+    int sfd,
+    const grow_buf_t *buffer,
+    unsigned int threshold)
+{
+  if (threshold > 0 && grow_buf_get_size(buffer) > threshold)
+    return suscan_remote_write_compressed_pdu(sfd, buffer);
+  else
+    return suscan_remote_write_pdu_internal(
+      sfd, 
+      SUSCAN_REMOTE_PDU_HEADER_MAGIC, 
+      buffer);
 }
 
 /*
@@ -734,7 +987,10 @@ suscan_remote_analyzer_deliver_call(
   SU_TRYCATCH(suscan_remote_analyzer_release_call(self, call), goto done);
 
   SU_TRYCATCH(
-      suscan_remote_write_pdu(self->peer.control_fd, &self->peer.write_buffer),
+      suscan_remote_write_pdu(
+        self->peer.control_fd, 
+        &self->peer.write_buffer,
+        0),
       goto done);
 
   ok = SU_TRUE;
@@ -1145,7 +1401,10 @@ suscan_remote_analyzer_tx_thread(void *ptr)
 
         /* We only support control messages for now */
         SU_TRYCATCH(
-            suscan_remote_write_pdu(self->peer.control_fd, msgptr),
+            suscan_remote_write_pdu(
+              self->peer.control_fd, 
+              msgptr,
+              0 /* temptatively disabled */),
             goto done);
 
         grow_buf_finalize(as_growbuf);
