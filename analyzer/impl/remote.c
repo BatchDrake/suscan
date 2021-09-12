@@ -1129,8 +1129,34 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
         hello.protocol_version_major,
         hello.protocol_version_minor);
     goto done;
-  }
+  } else if (hello.protocol_version_major == 0) {
+    /* These are the experimental protocols */
+    SU_WARNING(
+      "Server hello declares an experimental SuRPC protocol version (0.x)\n");
+    SU_WARNING(
+      "Protocol specification may change any time between releases without\n");
+    SU_WARNING(
+      "further notice. Make sure both client and server versions match after\n");
+    SU_WARNING(
+      "upgrading Suscan from the develop branch.\n");
 
+    if (hello.protocol_version_minor < SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION) {
+      result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION;
+      SU_ERROR(
+        "Server protocol version is too old (%d.%d). Please upgrade server.\n",
+        hello.protocol_version_major,
+        hello.protocol_version_minor);
+      goto done;
+    } else if (hello.protocol_version_minor > SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION) {
+      result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION;
+      SU_ERROR(
+        "Server protocol version is too recent (%d.%d). Please upgrade client.\n",
+        hello.protocol_version_major,
+        hello.protocol_version_minor);
+      goto done;
+    }
+  }
+  
   SU_TRYCATCH(
       call = suscan_remote_analyzer_acquire_call(
           self,
