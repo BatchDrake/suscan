@@ -258,22 +258,28 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   SU_TRYCATCH(!end_required, goto fail);
 
   self->gain_count = (unsigned int) nelem;
-  SU_TRYCATCH(
-      self->gain_list = calloc(
-          nelem,
-          sizeof (struct suscan_analyzer_gain_info *)),
-      goto fail);
 
-  for (i = 0; i < self->gain_count; ++i) {
+  if (self->gain_count > 0) {
     SU_TRYCATCH(
-        self->gain_list[i] = calloc(1, sizeof (struct suscan_analyzer_gain_info)),
+        self->gain_list = calloc(
+            nelem,
+            sizeof (struct suscan_analyzer_gain_info *)),
         goto fail);
 
-    SU_TRYCATCH(
-        suscan_analyzer_gain_info_deserialize(self->gain_list[i], buffer),
-        goto fail);
+    for (i = 0; i < self->gain_count; ++i) {
+      SU_TRYCATCH(
+          self->gain_list[i] = 
+            calloc(1, sizeof (struct suscan_analyzer_gain_info)),
+          goto fail);
+
+      SU_TRYCATCH(
+          suscan_analyzer_gain_info_deserialize(self->gain_list[i], buffer),
+          goto fail);
+    }
+  } else {
+    self->gain_list = NULL;
   }
-
+  
   /* Deserialize antennas */
   SU_TRYCATCH(
       cbor_unpack_map_start(buffer, &nelem, &end_required) == 0,
@@ -281,10 +287,17 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   SU_TRYCATCH(!end_required, goto fail);
 
   self->antenna_count = (unsigned int) nelem;
-  SU_TRYCATCH(self->antenna_list = calloc(nelem, sizeof (char *)), goto fail);
 
-  for (i = 0; i < self->antenna_count; ++i)
-    SUSCAN_UNPACK(str, self->antenna_list[i]);
+  if (self->antenna_count > 0) {
+    SU_TRYCATCH(
+      self->antenna_list = calloc(nelem, sizeof (char *)), 
+      goto fail);
+
+    for (i = 0; i < self->antenna_count; ++i)
+      SUSCAN_UNPACK(str, self->antenna_list[i]);
+  } else {
+    self->antenna_list = NULL;
+  }
 
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
