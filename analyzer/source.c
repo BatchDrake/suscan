@@ -1608,6 +1608,7 @@ SUPRIVATE SUBOOL
 suscan_source_open_sdr(suscan_source_t *source)
 {
   unsigned int i;
+  char *antenna = NULL;
 
   if ((source->sdr = SoapySDRDevice_make(source->config->soapy_args)) == NULL) {
     SU_ERROR("Failed to open SDR device: %s\n", SoapySDRDevice_lastError());
@@ -1740,6 +1741,14 @@ suscan_source_open_sdr(suscan_source_t *source)
       source->sdr,
       SOAPY_SDR_RX,
       0);
+
+  if ((antenna = SoapySDRDevice_getAntenna(
+    source->sdr,
+    SOAPY_SDR_RX,
+    0)) != NULL) {
+    (void) suscan_source_config_set_antenna(source->config, antenna);
+    free(antenna);
+  }
 
   return SU_TRUE;
 }
@@ -2015,7 +2024,7 @@ done:
     suscan_source_config_set_antenna(source->config, antenna);
     free(antenna);
   }
-  
+
   return ok;
 }
 
