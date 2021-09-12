@@ -177,7 +177,7 @@ suscli_analyzer_client_tx_thread_func(void *userdata)
 
     /* Cancelled via cancelfd */
     if (pollfds[1].revents & POLLIN) {
-      (void) read(self->cancel_pipefd[0], &b, 1);
+      IGNORE_RESULT(int, read(self->cancel_pipefd[0], &b, 1));
       goto done;
     }
 
@@ -222,7 +222,7 @@ suscli_analyzer_client_tx_thread_cancel(
    */
   suscan_mq_write_urgent(&self->queue, SUSCLI_ANALYZER_CLIENT_TX_CANCEL, NULL);
 
-  (void) write(self->cancel_pipefd[1], &b, 1);
+  IGNORE_RESULT(int, write(self->cancel_pipefd[1], &b, 1));
 }
 
 SUPRIVATE void
