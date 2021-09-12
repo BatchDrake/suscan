@@ -521,7 +521,7 @@ suscan_analyzer_inspector_msg_serialize_spectrum(
   SUSCAN_PACK(uint,   self->spectsrc_id);
   SUSCAN_PACK(freq,   self->fc);
   SUSCAN_PACK(float,  self->N0);
-  SUSCAN_PACK(uint64, self->samp_rate);
+  SUSCAN_PACK(uint,   self->samp_rate);
 
   SU_TRYCATCH(
       suscan_pack_compact_float_array(
