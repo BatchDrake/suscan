@@ -518,9 +518,10 @@ suscan_analyzer_inspector_msg_serialize_spectrum(
     const struct suscan_analyzer_inspector_msg *self)
 {
   SUSCAN_PACK_BOILERPLATE_START;
-  SUSCAN_PACK(uint, self->spectsrc_id);
-  SUSCAN_PACK(freq,  self->fc);
-  SUSCAN_PACK(float, self->N0);
+  SUSCAN_PACK(uint,   self->spectsrc_id);
+  SUSCAN_PACK(freq,   self->fc);
+  SUSCAN_PACK(float,  self->N0);
+  SUSCAN_PACK(uint64, self->samp_rate);
 
   SU_TRYCATCH(
       suscan_pack_compact_float_array(
@@ -539,8 +540,9 @@ suscan_analyzer_inspector_msg_deserialize_spectrum(
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
   SUSCAN_UNPACK(uint32, self->spectsrc_id);
-  SUSCAN_UNPACK(freq,  self->fc);
-  SUSCAN_UNPACK(float, self->N0);
+  SUSCAN_UNPACK(freq,   self->fc);
+  SUSCAN_UNPACK(float,  self->N0);
+  SUSCAN_UNPACK(uint64, self->samp_rate);
 
   SU_TRYCATCH(
       suscan_unpack_compact_float_array(
