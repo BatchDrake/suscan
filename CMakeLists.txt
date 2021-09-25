@@ -62,6 +62,7 @@ set(ANALYZERDIR  analyzer)
 set(ESTIMATORDIR ${ANALYZERDIR}/estimators)
 set(INSPECTORDIR ${ANALYZERDIR}/inspector/impl)
 set(SPECTSRCDIR  ${ANALYZERDIR}/spectsrcs)
+set(SGDP4DIR     sgdp4)
 set(UTILDIR      util)
 set(RSRCDIR      rsrc)
 set(CLIDIR       cli)
@@ -155,6 +156,15 @@ set(UTIL_SOURCES
   ${UTILDIR}/rbtree.c
   ${UTILDIR}/serialize.c
   ${UTILDIR}/sha256.c)
+
+set(SGDP4_HEADERS
+  ${SGDP4DIR}/sgdp4.h)
+  
+set(SGDP4_SOURCES
+  ${SGDP4DIR}/coord.c
+  ${SGDP4DIR}/deep.c
+  ${SGDP4DIR}/sgdp4.c
+  ${SGDP4DIR}/tle.c)
 
 set(VERSION_HEADERS ${VERSIONDIR}/version.h)
 
@@ -266,8 +276,10 @@ add_library(
   ${INSPECTOR_LIB_SOURCES}
   ${CODEC_LIB_HEADERS}
   ${CODEC_LIB_SOURCES}
-  ${ANALYZER_LIB_HEADERS}
+  ${SGDP4_HEADERS}
+  ${SGDP4_SOURCES}
   ${CLI_LIB_SOURCES}
+  ${ANALYZER_LIB_HEADERS}
   ${ANALYZER_LIB_SOURCES}
   ${VERSION_SOURCES})
   
@@ -341,6 +353,10 @@ install(
   DESTINATION include/suscan/cli)
 
 install(
+  FILES ${SGDP4_HEADERS}
+  DESTINATION include/suscan/sgdp4)
+
+install(
   FILES ${RSRC_CONFIG_FILES}
   DESTINATION share/suscan/config)
    
@@ -410,6 +426,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/cmd/radio.c
   ${CLIDIR}/cmd/rms.c
   ${CLIDIR}/cmd/profinfo.c
+  ${CLIDIR}/cmd/tleinfo.c
   ${CLIDIR}/datasavers/mat5.c
   ${CLIDIR}/datasavers/matlab.c
   ${CLIDIR}/datasavers/tcp.c

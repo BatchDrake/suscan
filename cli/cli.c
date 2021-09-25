@@ -571,6 +571,15 @@ suscli_init(void)
           SUSCLI_COMMAND_REQ_ALL,
           suscli_devserv_cb) != -1,
       goto fail);
+
+  SU_TRYCATCH(
+      suscli_command_register(
+          "tleinfo",
+          "Display information about a TLE file",
+          0,
+          suscli_tleinfo_cb) != -1,
+      goto fail);
+
   ok = SU_TRUE;
 
 fail:
