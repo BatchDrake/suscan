@@ -27,22 +27,121 @@
 
 #define ORBIT_POINTS 5000
 
+SUPRIVATE SUBOOL
+sucli_tleinfo_save_orbit(
+  sgdp4_ctx_t *ctx,
+  orbit_t *orbit,
+  SUDOUBLE t0,
+  const char *file)
+{
+  FILE *outfp = NULL;
+  kep_t kep;
+  xyz_t pos, vel;
+  SUDOUBLE delta;
+  unsigned int i;
+
+  SUBOOL ok = SU_FALSE;
+
+  if ((outfp = fopen(file, "w")) == NULL) {
+    SU_ERROR(
+      "Cannot open `%s' for writing: %s\n", 
+      file, 
+      strerror(errno));
+    goto done;
+  }
+
+  delta = 24. * 60 / (orbit->rev * ORBIT_POINTS);
+
+  for (i = 0; i < ORBIT_POINTS; ++i) {
+    sgdp4_ctx_compute(ctx, t0 + i * delta, SU_TRUE, &kep);
+    kep_get_pos_vel_teme(&kep, &pos, &vel);
+
+    fprintf(
+      outfp, 
+      "%10g,%10g,%10g,%10g,%10g,%10g\n",
+      pos.x,
+      pos.y,
+      pos.z,
+      vel.x,
+      vel.y,
+      vel.z);
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (outfp != NULL)
+    fclose(outfp);
+  return ok;
+}
+
+void
+suscli_tleinfo_doppler(
+  sgdp4_ctx_t *ctx,
+  orbit_t *orbit,
+  const struct timeval *tv,
+  const xyz_t *site)
+{
+  SUDOUBLE dist, projvel, t0;
+  SUDOUBLE discriminator;
+
+  xyz_t site_pos;
+  xyz_t director;
+  xyz_t pos, vel;
+  xyz_t pos_ecef, vel_ecef;
+  xyz_t pos_site_rel;
+  kep_t kep;
+
+  t0 = orbit_minutes_from_timeval(orbit, tv);
+  
+  sgdp4_ctx_compute(ctx, t0, SU_TRUE, &kep);
+  kep_get_pos_vel_teme(&kep, &pos, &vel);
+  xyz_teme_to_ecef(
+    &pos, 
+    &vel, 
+    time_timeval_to_julian(tv), 
+    &pos_ecef, 
+    &vel_ecef);
+
+  xyz_geodetic_to_ecef(site, &site_pos);
+  xyz_sub(&pos_ecef, &site_pos, &director);
+  dist = XYZ_NORM(&director);
+
+  xyz_sub(&pos_ecef, &site_pos, &pos_site_rel);
+  discriminator = xyz_dotprod(&pos_site_rel, &site_pos);
+  
+  if (sufeq(dist, 0, 1e-8)) {
+    projvel = 0;
+  } else {
+    xyz_mul_c(&director, 1. / dist);
+    projvel = xyz_dotprod(&vel_ecef, &director);
+  }
+
+  printf(
+    "Visible:           %s\n",
+    discriminator < 0 
+    ? "\033[1;31mNO\033[0m"
+    : "\033[1;32mYES\033[0m");
+  
+  printf("VLOS velocity:  %+8.2lf km/s (distance = %8.2lf km)\n", projvel, dist);
+}
+
 SUBOOL
 suscli_tleinfo_cb(const hashlist_t *params)
 {
   orbit_t orbit = orbit_INITIALIZER;
   sgdp4_ctx_t ctx = sgdp4_ctx_INITIALIZER;
-  FILE *outfp = NULL;
+
   const char *orbit_file = NULL;
   xyz_t pos, vel;
   xyz_t pos_ecef, vel_ecef;
   xyz_t latlon;
+  xyz_t site;
 
-  unsigned int i;
   SUDOUBLE t_unix;
   SUDOUBLE t_epoch;
-  SUDOUBLE delta;
   SUDOUBLE t0;
+  
   struct timeval tv_now;
   time_t epoch, now;
   kep_t kep;
@@ -60,6 +159,18 @@ suscli_tleinfo_cb(const hashlist_t *params)
 
   SU_TRYCATCH(
     suscli_param_read_string(params, "orbitfile", &orbit_file, NULL), 
+    goto done);
+
+  SU_TRYCATCH(
+    suscli_param_read_double(params, "lat", &site.lat, INFINITY),
+    goto done);
+  
+  SU_TRYCATCH(
+    suscli_param_read_double(params, "lon", &site.lon, INFINITY),
+    goto done);
+
+  SU_TRYCATCH(
+    suscli_param_read_double(params, "alt", &site.height, 0.),
     goto done);
 
   if (file == NULL) {
@@ -110,58 +221,38 @@ suscli_tleinfo_cb(const hashlist_t *params)
   xyz_ecef_to_geodetic(&pos_ecef, &latlon);
 
   printf(
-    "Pos (ECEF): (%8lg, %8lg, %8lg) [r = %g km]\n", 
+    "Pos (ECEF):        (%+8lg, %+8lg, %+8lg) [r = %g km]\n", 
     pos_ecef.x, 
     pos_ecef.y, 
     pos_ecef.z,
     XYZ_NORM(&pos_ecef));
 
   printf(
-    "Vel (TEME): (%8lg, %8lg, %8lg) [v = %g km/s]\n", 
+    "Vel (TEME):        (%+8lg, %+8lg, %+8lg) [v = %g km/s]\n", 
     vel.x, 
     vel.y, 
     vel.z,
     XYZ_NORM(&vel));
 
   printf(
-    "Geodetic: %+6.2lfN, %+6.2lfE (alt = %6.2lf km)\n",
+    "Geodetic:          %+6.2lfN, %+6.2lfE (alt = %6.2lf km)\n",
     SU_RAD2DEG(latlon.lat),
     SU_RAD2DEG(latlon.lon),
     latlon.height);
 
-  if (orbit_file != NULL) {
-    if ((outfp = fopen(orbit_file, "w")) == NULL) {
-      SU_ERROR(
-        "Cannot open `%s' for writing: %s\n", 
-        orbit_file, 
-        strerror(errno));
-      goto done;
-    }
-
-    delta = 24. * 60 / (orbit.rev * ORBIT_POINTS);
-
-    for (i = 0; i < ORBIT_POINTS; ++i) {
-      sgdp4_ctx_compute(&ctx, t0 + i * delta, SU_TRUE, &kep);
-      kep_get_pos_vel_teme(&kep, &pos, &vel);
-
-      fprintf(
-        outfp, 
-        "%10g,%10g,%10g,%10g,%10g,%10g\n",
-        pos.x,
-        pos.y,
-        pos.z,
-        vel.x,
-        vel.y,
-        vel.z);
-    }
+  if (!isinf(site.lat) && !isinf(site.lon)) {
+    site.lat = SU_DEG2RAD(site.lat);
+    site.lon = SU_DEG2RAD(site.lon);
+    suscli_tleinfo_doppler(&ctx, &orbit, &tv_now, &site);
   }
+
+  if (orbit_file != NULL)
+    if (!sucli_tleinfo_save_orbit(&ctx, &orbit, t0, orbit_file))
+      goto done;
 
   ok = SU_TRUE;
 
 done:
-  if (outfp != NULL)
-    fclose(outfp);
-  
   orbit_finalize(&orbit);
 
   return ok;

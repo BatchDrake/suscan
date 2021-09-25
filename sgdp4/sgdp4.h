@@ -229,6 +229,14 @@ void xyz_teme_to_ecef(
   xyz_t *ecef_pos,
   xyz_t *ecef_vel);
 
+void xyz_sub(const xyz_t *a, const xyz_t *b, xyz_t *res);
+
+void xyz_mul_c(xyz_t *pos, SUDOUBLE k);
+
+SUDOUBLE xyz_dotprod(const xyz_t *u, const xyz_t *v);
+
+void xyz_geodetic_to_ecef(const xyz_t *geo, xyz_t *pos);
+
 void xyz_ecef_to_geodetic(const xyz_t *pos, xyz_t *geo);
 
 typedef struct kep_s {

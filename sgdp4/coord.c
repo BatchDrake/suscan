@@ -26,6 +26,28 @@
 #  define _SGDP4_LEAP_SECONDS 23
 #endif /* _SGDP4_LEAP_SECONDS */
 
+void
+xyz_sub(const xyz_t *a, const xyz_t *b, xyz_t *res)
+{
+  res->x = a->x - b->x;
+  res->y = a->y - b->y;
+  res->z = a->z - b->z;
+}
+
+void 
+xyz_mul_c(xyz_t *pos, SUDOUBLE k)
+{
+  pos->x *= k;
+  pos->y *= k;
+  pos->z *= k;
+}
+
+SUDOUBLE 
+xyz_dotprod(const xyz_t *u, const xyz_t *v)
+{
+  return u->x * v->x + u->y * v->y + u->z * v->z;
+}
+
 /*
  * https://github.com/Spacecraft-Code/Vallado/blob/master/Matlab/teme2ecef.m
  * Units are in km and km/s
@@ -143,12 +165,34 @@ xyz_teme_to_ecef(
   }
 }
 
-/*
- * https://github.com/Spacecraft-Code/Vallado/blob/master/Matlab/ijk2ll.m
- */
 #define XYZ_TOL   1e-8
 #define EARTHECC2 .006694385000 /* Eccentricity of Earth^2 */
 
+/* 
+ * https://github.com/Spacecraft-Code/Vallado/blob/master/Matlab/site.m
+ */
+void 
+xyz_geodetic_to_ecef(const xyz_t *geo, xyz_t *pos)
+{
+  SUDOUBLE sinlat, cearth, rdel, rk;
+  
+  /* implementation */
+  sinlat = sin(geo->lat);
+
+  /* find rdel and rk components of site vector */
+  cearth = EQRAD / sqrt(1.0 - (EARTHECC2 * sinlat * sinlat));
+  rdel   = (cearth + geo->height) * cos(geo->lat);
+  rk     = ((1.0 - EARTHECC2) * cearth + geo->height) * sinlat;
+  
+  /* find site position vector */
+  pos->x = rdel * cos(geo->lon);
+  pos->y = rdel * sin(geo->lon);
+  pos->z = rk;
+}
+
+/*
+ * https://github.com/Spacecraft-Code/Vallado/blob/master/Matlab/ijk2ll.m
+ */
 void 
 xyz_ecef_to_geodetic(const xyz_t *pos, xyz_t *geo)
 {
