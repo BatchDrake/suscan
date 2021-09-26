@@ -26,6 +26,7 @@ extern "C" {
 
 #include <sigutils/sigutils.h>
 #include "interface.h"
+#include <analyzer/corrector.h>
 
 #define SUHANDLE int32_t
 
@@ -55,7 +56,11 @@ struct suscan_inspector {
   void *userdata;
 
   struct suscan_inspector_sampling_info samp_info; /* Sampling information */
+  /* Frequency corrector (in channel data callback) */
 
+  pthread_mutex_t corrector_mutex;
+  suscan_frequency_corrector_t *corrector;
+  
   /* Spectrum and estimator state */
   SUFLOAT  interval_estimator;
   SUFLOAT  interval_spectrum;
@@ -161,6 +166,18 @@ void suscan_inspector_lock(suscan_inspector_t *insp);
 void suscan_inspector_unlock(suscan_inspector_t *insp);
 
 void suscan_inspector_reset_equalizer(suscan_inspector_t *insp);
+
+SUBOOL suscan_inspector_set_corrector(
+  suscan_inspector_t *self, 
+  suscan_frequency_corrector_t *corrector);
+
+SUBOOL suscan_inspector_disable_corrector(suscan_inspector_t *self);
+
+SUBOOL suscan_inspector_get_correction(
+  suscan_inspector_t *self, 
+  const struct timeval *tv,
+  SUFREQ abs_freq,
+  SUFLOAT *freq);
 
 void suscan_inspector_assert_params(suscan_inspector_t *insp);
 

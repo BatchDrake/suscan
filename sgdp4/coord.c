@@ -128,7 +128,7 @@ xyz_teme_to_ecef(
   SUDOUBLE pm[3][3];
   
   /* gmst= gstime( jdut1 ); */
-  gmst = gstime(jdut1 + 23 / (3600. * 24.));
+  gmst = gstime(jdut1 + _SGDP4_LEAP_SECONDS / (3600. * 24.));
   
   omegaearth.x = 0.0;
   omegaearth.y = 0.0;

@@ -289,6 +289,7 @@ suscan_source_channel_wk_cb(
       self->source,
       self->read_buf,
       read_size)) > 0) {
+    self->consumed += got;
     suscan_local_analyzer_process_start(self);
 
     if (self->iq_rev)

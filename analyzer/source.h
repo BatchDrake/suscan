@@ -263,6 +263,7 @@ SUSCAN_SERIALIZABLE(suscan_source_config) {
   SUBOOL  iq_balance;
   SUBOOL  dc_remove;
   SUFLOAT ppm;
+  struct timeval start_time;
   unsigned int samp_rate;
   unsigned int average;
 
@@ -406,10 +407,16 @@ SUBOOL suscan_source_config_set_gain(
     SUFLOAT value);
 
 SUFLOAT suscan_source_config_get_ppm(const suscan_source_config_t *config);
-
 void suscan_source_config_set_ppm(
     suscan_source_config_t *config,
     SUFLOAT ppm);
+
+void suscan_source_config_get_start_time(
+  const suscan_source_config_t *config,
+  struct timeval *tv);
+void suscan_source_config_set_start_time(
+    suscan_source_config_t *config,
+    struct timeval tv);
 
 SUBOOL suscan_source_config_set_device(
     suscan_source_config_t *config,
@@ -513,6 +520,23 @@ SUSDIFF suscan_source_read(
     suscan_source_t *source,
     SUCOMPLEX *buffer,
     SUSCOUNT max);
+
+SUINLINE void 
+suscan_source_get_start_time(
+  const suscan_source_t *self,
+  struct timeval *tv)
+{
+  suscan_source_config_get_start_time(self->config, tv);
+}
+
+SUINLINE void 
+suscan_source_set_start_time(
+  suscan_source_t *self,
+  struct timeval tv)
+{
+  suscan_source_config_set_start_time(self->config, tv);
+}
+
 
 SUINLINE enum suscan_source_type
 suscan_source_get_type(const suscan_source_t *src)

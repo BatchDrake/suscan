@@ -289,6 +289,7 @@ suscan_object_get_field_value(const suscan_object_t *object, const char *name)
   return NULL;
 }
 
+
 int
 suscan_object_get_field_int(
     const suscan_object_t *object,
@@ -303,6 +304,26 @@ suscan_object_get_field_int(
       dfl = got;
 
   return dfl;
+}
+
+struct timeval
+suscan_object_get_field_tv(
+    const suscan_object_t *object,
+    const char *name,
+    const struct timeval *tv)
+{
+  struct timeval result = *tv;
+  const char *text;
+  uint64_t secs;
+  uint32_t usecs;
+
+  if ((text = suscan_object_get_field_value(object, name)) != NULL)
+    if (sscanf(text, "%lu.%06u", &secs, &usecs) == 2) {
+      result.tv_sec  = secs;
+      result.tv_usec = usecs;
+    }
+
+  return result;
 }
 
 unsigned int
@@ -320,6 +341,7 @@ suscan_object_get_field_uint(
 
   return dfl;
 }
+
 
 SUFLOAT
 suscan_object_get_field_float(
@@ -391,6 +413,30 @@ suscan_object_set_field_int(
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(as_text = strbuild("%i", value), goto done);
+
+  SU_TRYCATCH(suscan_object_set_field_value(object, name, as_text), goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (as_text != NULL)
+    free(as_text);
+
+  return ok;
+}
+
+SUBOOL
+suscan_object_set_field_tv(
+    suscan_object_t *object,
+    const char *name,
+    struct timeval tv)
+{
+  char *as_text = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+    as_text = strbuild("%lu.%06u", tv.tv_sec, tv.tv_usec), 
+    goto done);
 
   SU_TRYCATCH(suscan_object_set_field_value(object, name, as_text), goto done);
 

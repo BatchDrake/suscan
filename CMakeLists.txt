@@ -192,6 +192,7 @@ set(CODEC_LIB_SOURCES
   ${CODECDIR}/diff.c)
 
 set(ANALYZER_LIB_HEADERS
+  ${ANALYZERDIR}/corrector.h
   ${ANALYZERDIR}/discovery.h
   ${ANALYZERDIR}/realtime.h
   ${ANALYZERDIR}/msg.h
@@ -241,6 +242,8 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/analyzer.c
   ${ANALYZERDIR}/bufpool.c
   ${ANALYZERDIR}/client.c
+  ${ANALYZERDIR}/corrector.c
+  ${ANALYZERDIR}/correctors/tle.c
   ${ANALYZERDIR}/device.c
   ${ANALYZERDIR}/discovery.c
   ${ANALYZERDIR}/estimator.c

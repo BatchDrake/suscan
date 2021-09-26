@@ -188,7 +188,9 @@ suscan_local_analyzer_on_channel_data(
 {
   struct suscan_inspector_task_info *task_info =
       (struct suscan_inspector_task_info *) private;
-
+  struct timeval source_time;
+  SUFLOAT freq_correction;
+  
   /* Channel is not bound yet. No processing is performed */
   if (task_info == NULL)
     return SU_TRUE;
@@ -223,6 +225,20 @@ suscan_local_analyzer_on_channel_data(
 
   task_info->data = data;
   task_info->size = size;
+
+  /* Check whether we should get source time */
+  suscan_inspsched_get_source_time(task_info->sched, &source_time);
+
+  if (suscan_inspector_get_correction(
+        task_info->inspector,
+        &source_time,
+        suscan_inspector_task_info_get_abs_freq(task_info),
+        &freq_correction)) {
+    suscan_local_analyzer_set_channel_correction(
+    suscan_inspsched_get_analyzer(task_info->sched),
+    (su_specttuner_channel_t *) channel, /* TODO: Fix this!! */
+    freq_correction);
+  }
 
   return suscan_inspsched_queue_task(task_info->sched, task_info);
 }

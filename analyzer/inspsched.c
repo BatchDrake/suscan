@@ -115,10 +115,43 @@ suscan_inspector_task_info_new(suscan_inspector_t *inspector)
   return new;
 }
 
+SUFREQ
+suscan_inspector_task_info_get_abs_freq(
+  const struct suscan_inspector_task_info *task_info)
+{
+  suscan_analyzer_t *analyzer = 
+    SUSCAN_LOCAL_ANALYZER_AS_ANALYZER(
+      suscan_inspsched_get_analyzer(task_info->sched));
+  unsigned int samp_rate = suscan_analyzer_get_samp_rate(analyzer);
+  SUFREQ tuner_freq = 
+    suscan_analyzer_get_source_info(analyzer)->frequency;
+  SUFREQ channel_freq = 
+    tuner_freq + SU_NORM2ABS_FREQ(
+      samp_rate,
+      SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(task_info->channel)));
+
+  return channel_freq;
+}
+
 void
 suscan_inspector_task_info_destroy(struct suscan_inspector_task_info *info)
 {
   free(info);
+}
+
+void
+suscan_inspsched_get_source_time(
+  suscan_inspsched_t *sched, 
+  struct timeval *tv)
+{
+  if (!sched->have_time) {
+    suscan_local_analyzer_get_source_time(
+      sched->analyzer, 
+      &sched->source_time);
+    sched->have_time = SU_TRUE;
+  }
+
+  *tv = sched->source_time;
 }
 
 SUBOOL
@@ -198,6 +231,9 @@ suscan_inspsched_sync(suscan_inspsched_t *sched)
 
   /* Wait for all threads */
   suscan_local_analyzer_source_barrier(sched->analyzer);
+
+  /* Reset date */
+  sched->have_time = SU_FALSE;
 
   return SU_TRUE;
 }

@@ -31,6 +31,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 #define SULIMPL(analyzer) ((suscan_local_analyzer_t *) ((analyzer)->impl))
+#define SUSCAN_LOCAL_ANALYZER_AS_ANALYZER(local) ((local)->parent)
 
 /*!
  * \brief Baseband filter description
@@ -82,7 +83,8 @@ struct suscan_local_analyzer {
   SUFLOAT  interval_psd;
   SUSCOUNT det_count;
   SUSCOUNT det_num_psd;
-
+  SUSCOUNT consumed;
+  
   /* This mutex shall protect hot-config requests */
   /* XXX: This is cumbersome. Create a hotconf object to handle these things */
   pthread_mutex_t hotconf_mutex;
@@ -163,6 +165,10 @@ struct suscan_local_analyzer {
 
 typedef struct suscan_local_analyzer suscan_local_analyzer_t;
 
+/* Internal */
+void suscan_local_analyzer_get_source_time(
+    suscan_local_analyzer_t *analyzer,
+    struct timeval *tv);
 
 /* Internal */
 void suscan_local_analyzer_source_barrier(suscan_local_analyzer_t *analyzer);
@@ -203,6 +209,12 @@ su_specttuner_channel_t *suscan_local_analyzer_open_channel(
 SUBOOL suscan_local_analyzer_close_channel(
     suscan_local_analyzer_t *analyzer,
     su_specttuner_channel_t *channel);
+
+/* Internal */
+void suscan_local_analyzer_set_channel_correction(
+    suscan_local_analyzer_t *analyzer,
+    su_specttuner_channel_t *channel,
+    SUFLOAT delta);
 
 /* Internal */
 SUBOOL suscan_local_analyzer_bind_inspector_to_channel(

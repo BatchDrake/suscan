@@ -54,6 +54,65 @@ suscan_inspector_reset_equalizer(suscan_inspector_t *insp)
   suscan_inspector_unlock(insp);
 }
 
+SUBOOL 
+suscan_inspector_set_corrector(
+  suscan_inspector_t *self, 
+  suscan_frequency_corrector_t *corrector)
+{
+  SUBOOL ok = SU_FALSE;
+  SUBOOL mutex_acquired = SU_FALSE;
+
+  SU_TRYC(pthread_mutex_lock(&self->corrector_mutex));
+  mutex_acquired = SU_TRUE;
+
+  if (self->corrector != NULL)
+    suscan_frequency_corrector_destroy(self->corrector);
+
+  self->corrector = corrector;
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&self->corrector_mutex);
+
+  return ok;
+}
+
+SUBOOL 
+suscan_inspector_disable_corrector(suscan_inspector_t *self)
+{
+  return suscan_inspector_set_corrector(self, NULL);
+}
+
+SUBOOL 
+suscan_inspector_get_correction(
+  suscan_inspector_t *self, 
+  const struct timeval *tv,
+  SUFREQ abs_freq,
+  SUFLOAT *freq)
+{
+  SUBOOL it_is = SU_FALSE;
+  SUBOOL mutex_acquired = SU_FALSE;
+
+  SU_TRYC(pthread_mutex_lock(&self->corrector_mutex));
+  mutex_acquired = SU_TRUE;
+
+  if (self->corrector != NULL 
+    && suscan_frequency_corrector_is_applicable(self->corrector, tv)) {
+      *freq = suscan_frequency_corrector_get_correction(
+        self->corrector,
+        tv,
+        abs_freq);
+  }
+
+done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&self->corrector_mutex);
+
+  return it_is;
+}
+
 void
 suscan_inspector_assert_params(suscan_inspector_t *insp)
 {

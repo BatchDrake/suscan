@@ -41,6 +41,8 @@ struct suscan_local_analyzer;
 
 struct suscan_inspsched {
   struct suscan_local_analyzer *analyzer;
+  struct timeval source_time;
+  SUBOOL have_time;
 
   /* Inspector task info */
   PTR_LIST(struct suscan_inspector_task_info, task_info);
@@ -63,6 +65,13 @@ suscan_inspsched_get_analyzer(const suscan_inspsched_t *sched)
 {
   return sched->analyzer;
 }
+
+SUFREQ suscan_inspector_task_info_get_abs_freq(
+  const struct suscan_inspector_task_info *task_info);
+
+void suscan_inspsched_get_source_time(
+  suscan_inspsched_t *sched, 
+  struct timeval *tv);
 
 void suscan_inspector_task_info_destroy(
     struct suscan_inspector_task_info *info);

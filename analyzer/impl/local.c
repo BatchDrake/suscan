@@ -606,6 +606,31 @@ suscan_local_analyzer_leave_sched(suscan_local_analyzer_t *self)
   pthread_mutex_unlock(&self->sched_lock);
 }
 
+void 
+suscan_local_analyzer_get_source_time(
+  suscan_local_analyzer_t *analyzer,
+  struct timeval *tv)
+{
+  SUSCOUNT consumed_in_sec;
+  SUSCOUNT remainder;
+
+  /* TODO: Check if source has a timestamp */
+  if (suscan_local_analyzer_is_real_time(analyzer)) {
+    gettimeofday(tv, NULL);
+  } else {
+    /* Not a real time source. Guess from source. */
+    tv->tv_sec 
+      = analyzer->consumed / suscan_local_analyzer_get_samp_rate(analyzer);
+
+    consumed_in_sec 
+      = tv->tv_sec * suscan_local_analyzer_get_samp_rate(analyzer);
+    remainder = analyzer->consumed - consumed_in_sec;
+
+    tv->tv_usec = (remainder * 1000000) 
+      / suscan_local_analyzer_get_samp_rate(analyzer);
+  }
+}
+
 su_specttuner_channel_t *
 suscan_local_analyzer_open_channel_ex(
     suscan_local_analyzer_t *self,
@@ -687,6 +712,21 @@ suscan_local_analyzer_close_channel(
 
   return ok;
 }
+
+/* Internal */
+void
+suscan_local_analyzer_set_channel_correction(
+    suscan_local_analyzer_t *analyzer,
+    su_specttuner_channel_t *channel,
+    SUFLOAT delta) 
+{
+  SUFLOAT domega = SU_NORM2ANG_FREQ(
+    SU_ABS2NORM_FREQ(
+      suscan_local_analyzer_get_samp_rate(analyzer),
+      delta));
+  
+  su_specttuner_set_channel_delta_f(analyzer->stuner, channel, domega);
+}    
 
 /*
  * There is no explicit UNBIND. Unbind happens inside

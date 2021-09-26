@@ -558,6 +558,22 @@ void suscan_source_config_set_ppm(suscan_source_config_t *config, SUFLOAT ppm)
   config->ppm = ppm;
 }
 
+void 
+suscan_source_config_get_start_time(
+  const suscan_source_config_t *config,
+  struct timeval *tv)
+{
+  *tv = config->start_time; 
+}
+
+void 
+suscan_source_config_set_start_time(
+    suscan_source_config_t *config,
+    struct timeval tv)
+{
+  config->start_time = tv;
+}
+
 SUPRIVATE SUBOOL
 suscan_source_config_set_gains_from_device(
     suscan_source_config_t *config,
@@ -689,6 +705,8 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
   SUSCAN_PACK(bool,  self->iq_balance);
   SUSCAN_PACK(bool,  self->dc_remove);
   SUSCAN_PACK(float, self->ppm);
+  SUSCAN_PACK(uint,  self->start_time.tv_sec);
+  SUSCAN_PACK(uint,  self->start_time.tv_usec);
   SUSCAN_PACK(uint,  self->samp_rate);
   SUSCAN_PACK(uint,  self->average);
   SUSCAN_PACK(bool,  self->loop);
@@ -755,6 +773,8 @@ suscan_source_config_deserialize_ex(
   struct suscan_source_gain_value *gain = NULL;
   suscan_source_device_t *device = NULL;
   SoapySDRKwargs args;
+  uint64_t sec;
+  uint32_t usec;
   char *type = NULL;
   char *iface = NULL;
 
@@ -801,6 +821,12 @@ suscan_source_config_deserialize_ex(
   SUSCAN_UNPACK(bool,   self->iq_balance);
   SUSCAN_UNPACK(bool,   self->dc_remove);
   SUSCAN_UNPACK(float,  self->ppm);
+  SUSCAN_UNPACK(uint64, sec);
+  SUSCAN_UNPACK(uint32, usec);
+
+  self->start_time.tv_sec  = sec;
+  self->start_time.tv_usec = usec;
+
   SUSCAN_UNPACK(uint32, self->samp_rate);
   SUSCAN_UNPACK(uint32, self->average);
 
@@ -926,6 +952,8 @@ suscan_source_config_new(
   new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
   new->loop = SU_TRUE;
   
+  gettimeofday(&new->start_time, NULL);
+
   SU_TRYCATCH(new->soapy_args = calloc(1, sizeof(SoapySDRKwargs)), goto fail);
 
   SU_TRYCATCH(suscan_source_get_null_device() != NULL, goto fail);
@@ -1182,6 +1210,7 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   SU_CFGSAVE(bool,  iq_balance);
   SU_CFGSAVE(bool,  dc_remove);
   SU_CFGSAVE(float, ppm);
+  SU_CFGSAVE(tv,    start_time);
   SU_CFGSAVE(bool,  loop);
   SU_CFGSAVE(uint,  samp_rate);
   SU_CFGSAVE(uint,  average);
@@ -1247,10 +1276,13 @@ suscan_source_config_from_object(const suscan_object_t *object)
   suscan_source_config_t *new = NULL;
   suscan_source_device_t *device = NULL;
   suscan_object_t *obj, *entry = NULL;
+  struct timeval default_time;
   unsigned int i, count;
   SUFLOAT val;
 
   const char *tmp;
+
+  gettimeofday(&default_time, NULL);
 
 #define SU_CFGLOAD(kind, field, dfl)                            \
         JOIN(suscan_source_config_set_, field)(                 \
@@ -1294,6 +1326,7 @@ suscan_source_config_from_object(const suscan_object_t *object)
   SU_CFGLOAD(bool,  iq_balance, SU_FALSE);
   SU_CFGLOAD(bool,  dc_remove, SU_FALSE);
   SU_CFGLOAD(float, ppm, 0);
+  SU_CFGLOAD(tv,    start_time, &default_time);
   SU_CFGLOAD(bool,  loop, SU_FALSE);
   SU_CFGLOAD(uint,  samp_rate, 1.8e6);
   SU_CFGLOAD(uint,  channel, 0);

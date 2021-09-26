@@ -98,6 +98,11 @@ int suscan_object_get_field_int(
     const char *name,
     int dfl);
 
+struct timeval suscan_object_get_field_tv(
+    const suscan_object_t *object,
+    const char *name,
+    const struct timeval *tv);
+
 SUBOOL suscan_object_get_field_bool(
     const suscan_object_t *object,
     const char *name,
@@ -122,6 +127,11 @@ SUBOOL suscan_object_set_field_int(
     suscan_object_t *object,
     const char *name,
     int value);
+
+SUBOOL suscan_object_set_field_tv(
+    suscan_object_t *object,
+    const char *name,
+    struct timeval tv);
 
 SUBOOL suscan_object_set_field_float(
     suscan_object_t *object,
