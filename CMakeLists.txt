@@ -131,7 +131,8 @@ install(
 set(RSRC_CONFIG_FILES
   ${RSRCDIR}/autogains.xml
   ${RSRCDIR}/palettes.xml
-  ${RSRCDIR}/frequency_allocations.xml)
+  ${RSRCDIR}/frequency_allocations.xml
+  ${RSRCDIR}/locations.xml)
   
 set(UTIL_HEADERS
   ${UTILDIR}/cbor.h

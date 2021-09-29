@@ -112,3 +112,31 @@ suscan_tle_corrector_correct_freq(
   return discriminator > 0;
 }
 
+SUPRIVATE void *
+suscan_tle_corrector_ctor(va_list ap)
+{
+
+}
+
+SUPRIVATE void
+suscan_tle_corrector_dtor(void *userdata)
+{
+
+}
+
+SUPRIVATE SUBOOL 
+suscan_tle_corrector_applicable(
+    void *userdata, 
+    const struct timeval *source_time)
+{
+  
+}
+
+SUPRIVATE SUFLOAT
+suscan_tle_corrector_get_correction (
+    void *userdata,
+    const struct timeval *source_time,
+    SUFREQ abs_freq)
+{
+
+}
