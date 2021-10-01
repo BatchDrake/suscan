@@ -144,6 +144,10 @@ suscan_inspector_destroy(suscan_inspector_t *insp)
   unsigned int i;
 
   pthread_mutex_destroy(&insp->mutex);
+  pthread_mutex_destroy(&insp->corrector_mutex);
+
+  if (insp->corrector != NULL)
+    suscan_frequency_corrector_destroy(insp->corrector);
 
   if (insp->privdata != NULL)
     (insp->iface->close) (insp->privdata);
@@ -319,7 +323,8 @@ suscan_inspector_new(
   new->state = SUSCAN_ASYNC_STATE_CREATED;
   new->mq_out = mq_out;
 
-  SU_TRYCATCH(pthread_mutex_init(&new->mutex, NULL) != -1, goto fail);
+  SU_TRYCATCH(pthread_mutex_init(&new->mutex, NULL) == 0, goto fail);
+  SU_TRYCATCH(pthread_mutex_init(&new->corrector_mutex, NULL) == 0, goto fail);
 
   /* Initialize sampling info */
   new->samp_info.schan = channel;
@@ -372,7 +377,7 @@ SUBOOL
 suscan_init_inspectors(void)
 {
   SU_TRYCATCH(suscan_tle_corrector_init(), return SU_FALSE);
-  
+
   SU_TRYCATCH(suscan_ask_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_psk_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_fsk_inspector_register(), return SU_FALSE);
