@@ -33,7 +33,8 @@
 #include <stddef.h>
 #include <memory.h>
 #include <time.h>
-#include <sigutils/types.h>
+
+#include "sgdp4-types.h"
 
 #define TWOPI   (2.0*PI)    /* Optimising compiler will deal with this! */
 #define PB2     (0.5*PI)
@@ -91,91 +92,6 @@ SUINLINE double    MOD360(double a) { a=fmod(a, 360.0); return a < 0.0 ? a+360.0
 #pragma inline_routines(DMAX, FMAX, IMAX, DMIN, FMIN, IMIN, MOD2PI, MOD360, S_GEOC, S_GEOG)
 #endif
 
-/*
- * Original SGP4/SDP4 put all its state in global variables. This
- * is not acceptable for 21st century standards. The following object
- * encapsulates the global state into something that can be allocated
- * somewhere else.
- */
-struct sgdp4_ctx {
-  /* TLE parameters */
-  SUDOUBLE xno;  /* Mean motion (rad/min) */
-  SUFLOAT xmo;    /* Mean "mean anomaly" at epoch (rad). */
-  SUFLOAT eo;     /* Eccentricity. */
-  SUFLOAT xincl;  /* Equatorial inclination (rad). */
-  SUFLOAT omegao; /* Mean argument of perigee at epoch (rad). */
-  SUFLOAT xnodeo; /* Mean longitude of ascending node (rad, east). */
-  SUFLOAT bstar;  /* Drag term. */
-  SUDOUBLE SGDP4_jd0;  /* Julian Day for epoch (available to outside functions. */
-
-  int imode;
-
-  /* SGP4 state */
-  SUFLOAT sinIO, cosIO, sinXMO, cosXMO;
-  SUFLOAT c1, c2, c3, c4, c5, d2, d3, d4;
-  SUFLOAT omgcof, xmcof, xlcof, aycof;
-  SUFLOAT t2cof, t3cof, t4cof, t5cof;
-  SUFLOAT xnodcf, delmo, x7thm1, x3thm1, x1mth2;
-  SUFLOAT aodp, eta, omgdot, xnodot;
-  SUDOUBLE xnodp, xmdot;
-
-  /* SDP4 state */
-  int isynfl, iresfl;
-
-  SUDOUBLE atime, xli, xni, xnq, xfact;
-
-  SUFLOAT ssl, ssg, ssh, sse, ssi;
-  SUFLOAT xlamo, omegaq, omgdt, thgr;
-  SUFLOAT del1, del2, del3, fasx2, fasx4, fasx6;
-  SUFLOAT d2201, d2211, d3210, d3222, d4410, d4422;
-  SUFLOAT d5220, d5232, d5421, d5433;
-
-  SUFLOAT xnddt, xndot, xldot;  /* Integrator terms. */
-  SUFLOAT xnddt0, xndot0, xldot0; /* Integrator at epoch. */
-
-  int ilsd, ilsz;
-
-  SUFLOAT zmos, se2, se3, si2, si3, sl2, sl3, sl4;
-  SUFLOAT sgh2, sgh3, sgh4, sh2, sh3;
-  SUFLOAT zmol, ee2, e3 ,xi2, xi3, xl2, xl3, xl4;
-  SUFLOAT xgh2, xgh3, xgh4, xh2, xh3;
-
-  SUFLOAT pe, pinc, pgh, ph, pl;
-  SUFLOAT pgh0, ph0, pe0, pinc0, pl0; /* Added terms to save the epoch values of perturbations. */
-
-  int Set_LS_zero; /* Set to 1 to zero Lunar-Solar terms at epoch. */
-  long Isat;  /* 16-bit compilers need 'long' integer for higher space catalogue numbers. */
-  SUDOUBLE perigee, period, apogee;
-
-  long Icount;
-  int MaxNR;
-};
-
-typedef struct sgdp4_ctx sgdp4_ctx_t;
-
-#define sgdp4_ctx_INITIALIZER {0}
-
-/* ==================================================================== */
-
-typedef struct orbit_s {
-  char   *name; /* Name of the satellite */
-  /* Add the epoch time if required. */
-  int     ep_year;/* Year of epoch, e.g. 94 for 1994, 100 for 2000AD */
-  double  ep_day;  /* Day of epoch from 00:00 Jan 1st ( = 1.0 ) */
-  double  rev;  /* Mean motion, revolutions per day */
-  double  bstar;  /* Drag term .*/
-  double  eqinc;  /* Equatorial inclination, radians */
-  double  ecc;  /* Eccentricity */
-  double  mnan;  /* Mean anomaly at epoch from elements, radians */
-  double  argp;  /* Argument of perigee, radians */
-  double  ascn;  /* Right ascension (ascending node), radians */
-  double  smjaxs;  /* Semi-major axis, km */
-  long    norb;  /* Orbit number, for elements */
-  int     satno;  /* Satellite number. */
-} orbit_t;
-
-#define orbit_INITIALIZER {NULL}
-
 SUSDIFF orbit_init_from_data(
   orbit_t *self, 
   const void *data, 
@@ -203,25 +119,6 @@ void orbit_finalize(orbit_t *self);
 
 #define XYZ_NORM(v) sqrt((v)->x * (v)->x + (v)->y * (v)->y + (v)->z * (v)->z)
 
-typedef struct xyz_s {
-  union {
-    SUDOUBLE x;
-    SUDOUBLE lon;
-  };
-  
-  union {
-    SUDOUBLE y;
-    SUDOUBLE lat;
-  };
-
-  union {
-    SUDOUBLE z;
-    SUDOUBLE height;
-  };
-} xyz_t;
-
-#define xyz_INITIALIZER {0., 0., 0.}
-
 void xyz_teme_to_ecef(
   const xyz_t *pos,
   const xyz_t *vel,
@@ -238,25 +135,6 @@ SUDOUBLE xyz_dotprod(const xyz_t *u, const xyz_t *v);
 void xyz_geodetic_to_ecef(const xyz_t *geo, xyz_t *pos);
 
 void xyz_ecef_to_geodetic(const xyz_t *pos, xyz_t *geo);
-
-typedef struct kep_s {
-    double theta;     /* Angle "theta" from equatorial plane (rad) = U. */
-    double ascn;      /* Right ascension (rad). */
-    double eqinc;     /* Equatorial inclination (rad). */
-    double radius;    /* Radius (km). */
-    double rdotk;
-    double rfdotk;
-
-  /*
-   * Following are without short-term perturbations but used to
-   * speed searchs.
-   */
-
-  double argp;  /* Argument of perigee at 'tsince' (rad). */
-  double smjaxs;  /* Semi-major axis at 'tsince' (km). */
-  double ecc;    /* Eccentricity at 'tsince'. */
-
-} kep_t;
 
 /* ================ Single or Double precision options. ================= */
 

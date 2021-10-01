@@ -159,6 +159,7 @@ set(UTIL_SOURCES
   ${UTILDIR}/sha256.c)
 
 set(SGDP4_HEADERS
+  ${SGDP4DIR}/sgdp4-types.h
   ${SGDP4DIR}/sgdp4.h)
   
 set(SGDP4_SOURCES
