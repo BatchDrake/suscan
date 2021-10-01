@@ -97,7 +97,7 @@ typedef struct sgdp4_ctx sgdp4_ctx_t;
 typedef struct orbit_s {
   char   *name; /* Name of the satellite */
   /* Add the epoch time if required. */
-  int     ep_year;/* Year of epoch, e.g. 94 for 1994, 100 for 2000AD */
+  int32_t ep_year;/* Year of epoch, e.g. 94 for 1994, 100 for 2000AD */
   double  ep_day;  /* Day of epoch from 00:00 Jan 1st ( = 1.0 ) */
   double  rev;  /* Mean motion, revolutions per day */
   double  bstar;  /* Drag term .*/
@@ -107,8 +107,8 @@ typedef struct orbit_s {
   double  argp;  /* Argument of perigee, radians */
   double  ascn;  /* Right ascension (ascending node), radians */
   double  smjaxs;  /* Semi-major axis, km */
-  long    norb;  /* Orbit number, for elements */
-  int     satno;  /* Satellite number. */
+  int64_t norb;  /* Orbit number, for elements */
+  int32_t satno;  /* Satellite number. */
 } orbit_t;
 
 #define orbit_INITIALIZER {NULL}
@@ -117,16 +117,19 @@ typedef struct xyz_s {
   union {
     SUDOUBLE x;
     SUDOUBLE lon;
+    SUDOUBLE azimuth;
   };
   
   union {
     SUDOUBLE y;
     SUDOUBLE lat;
+    SUDOUBLE elevation;
   };
 
   union {
     SUDOUBLE z;
     SUDOUBLE height;
+    SUDOUBLE distance;
   };
 } xyz_t;
 

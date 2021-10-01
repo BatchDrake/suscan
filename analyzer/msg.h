@@ -25,6 +25,7 @@
 
 #include "analyzer.h"
 #include "serialize.h"
+#include <sgdp4/sgdp4-types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -107,6 +108,8 @@ enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ORBIT_REPORT,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_COUNT
 };
 
@@ -179,6 +182,18 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
       SUSCOUNT  samp_rate;
       SUFREQ    fc;
       SUFLOAT   N0;
+    };
+
+    struct {
+      SUBOOL  tle_enable;
+      orbit_t tle_orbit;
+    };
+
+    struct {
+      struct timeval rx_time;
+      xyz_t          satpos;
+      SUFLOAT        freq_corr;
+      SUDOUBLE       vlos_vel;
     };
 
     SUSCOUNT watermark;

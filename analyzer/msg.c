@@ -628,6 +628,107 @@ suscan_analyzer_inspector_msg_deserialize_set_watermark(
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_set_tle(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(bool, self->tle_enable);
+
+  if (self->tle_enable) {
+    SUSCAN_PACK(str,    self->tle_orbit.name);
+    SUSCAN_PACK(int,    self->tle_orbit.ep_year);
+    SUSCAN_PACK(double, self->tle_orbit.ep_day);
+    SUSCAN_PACK(double, self->tle_orbit.rev);
+    SUSCAN_PACK(double, self->tle_orbit.bstar);
+    SUSCAN_PACK(double, self->tle_orbit.eqinc);
+    SUSCAN_PACK(double, self->tle_orbit.ecc);
+    SUSCAN_PACK(double, self->tle_orbit.mnan);
+    SUSCAN_PACK(double, self->tle_orbit.argp);
+    SUSCAN_PACK(double, self->tle_orbit.ascn);
+    SUSCAN_PACK(double, self->tle_orbit.smjaxs);
+    SUSCAN_PACK(int,    self->tle_orbit.norb);
+    SUSCAN_PACK(int,    self->tle_orbit.satno);
+  }
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_set_tle(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(bool, self->tle_enable);
+
+  if (self->tle_enable) {
+    SUSCAN_UNPACK(str,    self->tle_orbit.name);
+    SUSCAN_UNPACK(int32,  self->tle_orbit.ep_year);
+    SUSCAN_UNPACK(double, self->tle_orbit.ep_day);
+    SUSCAN_UNPACK(double, self->tle_orbit.rev);
+    SUSCAN_UNPACK(double, self->tle_orbit.bstar);
+    SUSCAN_UNPACK(double, self->tle_orbit.eqinc);
+    SUSCAN_UNPACK(double, self->tle_orbit.ecc);
+    SUSCAN_UNPACK(double, self->tle_orbit.mnan);
+    SUSCAN_UNPACK(double, self->tle_orbit.argp);
+    SUSCAN_UNPACK(double, self->tle_orbit.ascn);
+    SUSCAN_UNPACK(double, self->tle_orbit.smjaxs);
+    SUSCAN_UNPACK(int64,  self->tle_orbit.norb);
+    SUSCAN_UNPACK(int32,  self->tle_orbit.satno);
+  }
+  
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_orbit_report(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(uint, self->rx_time.tv_sec);
+  SUSCAN_PACK(uint, self->rx_time.tv_usec);
+
+  SUSCAN_PACK(double, self->satpos.azimuth);
+  SUSCAN_PACK(double, self->satpos.elevation);
+  SUSCAN_PACK(double, self->satpos.distance);
+
+  SUSCAN_PACK(float, self->freq_corr);
+  SUSCAN_PACK(double, self->vlos_vel);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_orbit_report(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  uint64_t tv_sec;
+  uint32_t tv_usec;
+
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
+
+  self->rx_time.tv_sec = tv_sec;
+  self->rx_time.tv_usec = tv_usec;
+
+  SUSCAN_UNPACK(double, self->satpos.azimuth);
+  SUSCAN_UNPACK(double, self->satpos.elevation);
+  SUSCAN_UNPACK(double, self->satpos.distance);
+
+  SUSCAN_UNPACK(float, self->freq_corr);
+  SUSCAN_UNPACK(double, self->vlos_vel);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 {
   SUSCAN_PACK_BOILERPLATE_START;
@@ -681,6 +782,18 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
           goto fail);
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_set_tle(buffer, self),
+          goto fail);
+      break;
+    
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ORBIT_REPORT:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_orbit_report(buffer, self),
+          goto fail);
+      break;
+    
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
@@ -754,6 +867,18 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
           goto fail);
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_set_tle(buffer, self),
+          goto fail);
+      break;
+    
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ORBIT_REPORT:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_orbit_report(buffer, self),
+          goto fail);
+      break;
+    
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
