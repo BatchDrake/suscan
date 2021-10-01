@@ -29,6 +29,8 @@
 #include <sigutils/sampling.h>
 
 #include "inspector/inspector.h"
+#include "correctors/tle.h"
+
 #include "realtime.h"
 #include "msg.h"
 
@@ -369,6 +371,8 @@ suscan_inspector_feed_bulk(
 SUBOOL
 suscan_init_inspectors(void)
 {
+  SU_TRYCATCH(suscan_tle_corrector_init(), return SU_FALSE);
+  
   SU_TRYCATCH(suscan_ask_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_psk_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_fsk_inspector_register(), return SU_FALSE);
