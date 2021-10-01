@@ -194,6 +194,7 @@ set(CODEC_LIB_SOURCES
 
 set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/corrector.h
+  ${ANALYZERDIR}/correctors/tle.h
   ${ANALYZERDIR}/discovery.h
   ${ANALYZERDIR}/realtime.h
   ${ANALYZERDIR}/msg.h
