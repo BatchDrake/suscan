@@ -26,13 +26,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-struct suscan_orbit_report {
-  struct timeval rx_time;
-  xyz_t          satpos;
-  SUFLOAT        freq_corr;
-  SUDOUBLE       vlos_vel;
-};
-
 enum suscan_tle_corrector_mode {
   SUSCAN_TLE_CORRECTOR_MODE_FILE,
   SUSCAN_TLE_CORRECTOR_MODE_STRING,

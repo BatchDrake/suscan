@@ -240,18 +240,6 @@ void xyz_ecef_to_razel(
 #define POW4 DPOW4
 #endif
 
-/* SGDP4 function return values. */
-enum sgdp4_status_code {
-  SGDP4_ERROR     = -1,
-  SGDP4_NOT_INIT  = 0,
-  SGDP4_ZERO_ECC  = 1,
-  SGDP4_NEAR_SIMP = 2,
-  SGDP4_NEAR_NORM = 3,
-  SGDP4_DEEP_NORM = 4,
-  SGDP4_DEEP_RESN = 5,
-  SGDP4_DEEP_SYNC = 6
-};
-
 /* ======================= Function prototypes ====================== */
 
 #ifdef __cplusplus
@@ -311,6 +299,35 @@ int sgdp4_ctx_get_pos_vel(
 SUDOUBLE time_unix_to_julian(SUDOUBLE timestamp);
 SUDOUBLE time_timeval_to_julian(const struct timeval *tv);
 SUDOUBLE time_julian_to_unix(SUDOUBLE jd);
+
+/************** Prediction functions ***************/
+
+SUBOOL sgdp4_prediction_find_aos(
+  sgdp4_prediction_t *self, 
+  const struct timeval *tv, 
+  SUDOUBLE delta_t, /* In seconds */
+  struct timeval *aos);
+
+SUBOOL sgdp4_prediction_find_los(
+  sgdp4_prediction_t *self, 
+  const struct timeval *tv, 
+  SUDOUBLE delta_t, /* In seconds */
+  struct timeval *los);
+
+void sgdp4_prediction_update(
+  sgdp4_prediction_t *self, 
+  const struct timeval *tv);
+
+void sgdp4_prediction_get_azel(
+  const sgdp4_prediction_t *self, 
+  xyz_t *azel);
+
+void sgdp4_prediction_finalize(sgdp4_prediction_t *self);
+
+SUBOOL sgdp4_prediction_init(
+  sgdp4_prediction_t *self, 
+  const orbit_t *orbit,
+  const xyz_t *geo);
 
 #ifdef __cplusplus
 }

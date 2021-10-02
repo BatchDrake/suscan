@@ -642,6 +642,8 @@ suscan_analyzer_inspector_msg_serialize_set_tle(
     SUSCAN_PACK(int,    self->tle_orbit.ep_year);
     SUSCAN_PACK(double, self->tle_orbit.ep_day);
     SUSCAN_PACK(double, self->tle_orbit.rev);
+    SUSCAN_PACK(double, self->tle_orbit.drevdt);
+    SUSCAN_PACK(double, self->tle_orbit.d2revdt2);
     SUSCAN_PACK(double, self->tle_orbit.bstar);
     SUSCAN_PACK(double, self->tle_orbit.eqinc);
     SUSCAN_PACK(double, self->tle_orbit.ecc);
@@ -670,6 +672,8 @@ suscan_analyzer_inspector_msg_deserialize_set_tle(
     SUSCAN_UNPACK(int32,  self->tle_orbit.ep_year);
     SUSCAN_UNPACK(double, self->tle_orbit.ep_day);
     SUSCAN_UNPACK(double, self->tle_orbit.rev);
+    SUSCAN_UNPACK(double, self->tle_orbit.drevdt);
+    SUSCAN_UNPACK(double, self->tle_orbit.d2revdt2);
     SUSCAN_UNPACK(double, self->tle_orbit.bstar);
     SUSCAN_UNPACK(double, self->tle_orbit.eqinc);
     SUSCAN_UNPACK(double, self->tle_orbit.ecc);

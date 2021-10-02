@@ -135,9 +135,12 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
       }
 
       /* Populate */
-      self->ep_year = epoch < 57 ? epoch + 2000 : epoch + 1900;
-      self->ep_day  = fields[0];
-      self->bstar   = dragterm * 1e-5 * pow(10., dragtermexp);
+      self->ep_year  = epoch < 57 ? epoch + 2000 : epoch + 1900;
+      self->ep_day   = fields[0];
+      self->bstar    = dragterm * 1e-5 * pow(10., dragtermexp);
+      self->drevdt   = fields[1];
+      self->d2revdt2 = mmdotdot * 1e-5 * pow(10., mmdotdotexp);
+      
       break;
 
     case 2:

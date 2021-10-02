@@ -33,6 +33,18 @@
 extern "C" {
 #endif /* __cplusplus */
 
+/* SGDP4 function return values. */
+enum sgdp4_status_code {
+  SGDP4_ERROR     = -1,
+  SGDP4_NOT_INIT  = 0,
+  SGDP4_ZERO_ECC  = 1,
+  SGDP4_NEAR_SIMP = 2,
+  SGDP4_NEAR_NORM = 3,
+  SGDP4_DEEP_NORM = 4,
+  SGDP4_DEEP_RESN = 5,
+  SGDP4_DEEP_SYNC = 6
+};
+
 /*
  * Original SGP4/SDP4 put all its state in global variables. This
  * is not acceptable for 21st century standards. The following object
@@ -99,20 +111,22 @@ typedef struct sgdp4_ctx sgdp4_ctx_t;
 #define sgdp4_ctx_INITIALIZER {0}
 
 typedef struct orbit_s {
-  char   *name; /* Name of the satellite */
+  char   *name;     /* Name of the satellite */
   /* Add the epoch time if required. */
-  int32_t ep_year;/* Year of epoch, e.g. 94 for 1994, 100 for 2000AD */
-  double  ep_day;  /* Day of epoch from 00:00 Jan 1st ( = 1.0 ) */
-  double  rev;  /* Mean motion, revolutions per day */
-  double  bstar;  /* Drag term .*/
-  double  eqinc;  /* Equatorial inclination, radians */
-  double  ecc;  /* Eccentricity */
-  double  mnan;  /* Mean anomaly at epoch from elements, radians */
-  double  argp;  /* Argument of perigee, radians */
-  double  ascn;  /* Right ascension (ascending node), radians */
-  double  smjaxs;  /* Semi-major axis, km */
-  int64_t norb;  /* Orbit number, for elements */
-  int32_t satno;  /* Satellite number. */
+  int32_t ep_year;  /* Year of epoch, e.g. 94 for 1994, 100 for 2000AD */
+  double  ep_day;   /* Day of epoch from 00:00 Jan 1st ( = 1.0 ) */
+  double  rev;      /* Mean motion, revolutions per day */
+  double  drevdt;   /* First derivative of mean motion */
+  double  d2revdt2; /* Second derivative of mean motion */
+  double  bstar;    /* Drag term */
+  double  eqinc;    /* Equatorial inclination, radians */
+  double  ecc;      /* Eccentricity */
+  double  mnan;     /* Mean anomaly at epoch from elements, radians */
+  double  argp;     /* Argument of perigee, radians */
+  double  ascn;     /* Right ascension (ascending node), radians */
+  double  smjaxs;   /* Semi-major axis, km */
+  int64_t norb;     /* Orbit number, for elements */
+  int32_t satno;    /* Satellite number. */
 } orbit_t;
 
 #define orbit_INITIALIZER {NULL}
@@ -156,6 +170,30 @@ typedef struct kep_s {
   SUDOUBLE smjaxs;  /* Semi-major axis at 'tsince' (km). */
   SUDOUBLE ecc;    /* Eccentricity at 'tsince'. */
 } kep_t;
+
+struct suscan_orbit_report {
+  struct timeval rx_time;
+  xyz_t          satpos;
+  SUFLOAT        freq_corr;
+  SUDOUBLE       vlos_vel;
+};
+
+struct sgdp4_prediction {
+  sgdp4_ctx_t    ctx;
+  orbit_t        orbit;
+  xyz_t          site;
+  struct timeval tv;
+  SUBOOL         init;
+
+  /* Predicted members */
+  xyz_t          pos_ecef;
+  xyz_t          vel_ecef;
+
+  xyz_t          pos_azel;
+  xyz_t          vel_azel;
+};
+
+typedef struct sgdp4_prediction sgdp4_prediction_t;
 
 #ifdef __cplusplus
 }

@@ -166,6 +166,7 @@ set(SGDP4_HEADERS
 set(SGDP4_SOURCES
   ${SGDP4DIR}/coord.c
   ${SGDP4DIR}/deep.c
+  ${SGDP4DIR}/predict.c
   ${SGDP4DIR}/sgdp4.c
   ${SGDP4DIR}/tle.c)
 
