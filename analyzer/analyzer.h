@@ -950,6 +950,23 @@ SUBOOL suscan_analyzer_inspector_set_spectrum_async(
     uint32_t req_id);
 
 /*!
+ * For channel analyzers, configure the Doppler correction of a satellital
+ * signal by providing the orbital parameters of the source (asynchronous).
+ * \param analyzer pointer to the analyzer object
+ * \param handle inspector handle
+ * \param orbit orbit object describing the orbital parameters of the
+ * satellite, NULL to disable
+ * \param req_id arbitrary request identifier used to match responses
+ * \return SU_TRUE for success or SU_FALSE on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_inspector_set_tle_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    const orbit_t *orbit,
+    uint32_t req_id);
+
+/*!
  * For channel analyzers, if the inspector DSP chain contains an equalizer,
  * reset its internal state (asynchronous).
  * \param analyzer pointer to the analyzer object
