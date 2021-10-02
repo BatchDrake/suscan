@@ -61,6 +61,8 @@ sgdp4_prediction_update(
       &self->pos_azel,
       &self->vel_azel);
 
+    self->alt = XYZ_NORM(&self->pos_ecef) - EQRAD;
+
     /* Done */
     self->init     = SU_TRUE;
     self->tv       = *tv;
@@ -127,7 +129,7 @@ sgdp4_prediction_has_aos(const sgdp4_prediction_t *self)
    * Near the poles, many near low-inclination satellites
    * orbit below the horizon. Verify this case.
    */
-  sma    = 331.25 * pow(144.0 / self->orbit.rev, 2. / 3.);
+  sma    = 331.25 * pow(1440.0 / self->orbit.rev, 2. / 3.);
   apogee = sma * (1. + self->orbit.ecc) - EQRAD;
 
   maxlat = acos(EQRAD / (apogee + EQRAD)) + lin;
@@ -165,9 +167,10 @@ SUBOOL
 sgdp4_prediction_find_aos(
   sgdp4_prediction_t *self, 
   const struct timeval *tv, 
-  SUDOUBLE delta_t, /* In seconds */
+  SUDOUBLE window, /* In seconds */
   struct timeval *aos)
 {
+  SUDOUBLE delta_t;
   struct timeval t = *tv;
 
   sgdp4_prediction_update(self, tv);
@@ -176,7 +179,7 @@ sgdp4_prediction_find_aos(
     return SU_FALSE;
 
   if (self->pos_azel.elevation > 0.0) {
-    if (!sgdp4_prediction_find_los(self, tv, delta_t, &t))
+    if (!sgdp4_prediction_find_los(self, tv, window, &t))
       return SU_FALSE;
 
     t.tv_sec += 1440; /* 20 min */
@@ -186,16 +189,16 @@ sgdp4_prediction_find_aos(
 
   /* Coarse search of the AOS */
   while (self->pos_azel.elevation < -0.015
-    && (delta_t <= 0 || timeval_elapsed(&t, tv) < delta_t)) {
-    timeval_add_double(
-      &t,
-      -30 * (SU_RAD2DEG(self->pos_azel.elevation) * (
-        self->pos_ecef.height / 8400. + .46) - 2.0));
+    && (window <= 0 || timeval_elapsed(&t, tv) < window)) {
+    delta_t = -30 * (
+      SU_RAD2DEG(self->pos_azel.elevation) * (self->alt / 8400. + .46) - 2.0);
+
+    timeval_add_double(&t, delta_t);
     sgdp4_prediction_update(self, &t);
   }
 
   /* Fine grained search of AOS */
-  while (delta_t <= 0 || timeval_elapsed(&t, tv) < delta_t) {
+  while (window <= 0 || timeval_elapsed(&t, tv) < window) {
     if (sufeq(self->pos_azel.elevation, 0, 8.7e-5)) {
       *aos = t;
       break;
@@ -205,7 +208,7 @@ sgdp4_prediction_find_aos(
       &t,
       -.163
         * SU_RAD2DEG(self->pos_azel.elevation) 
-        * sqrt(self->pos_ecef.height));
+        * sqrt(self->alt));
     sgdp4_prediction_update(self, &t);
   }
 
@@ -227,7 +230,7 @@ sgdp4_prediction_find_los(
   if (!sgdp4_prediction_has_aos(self))
     return SU_FALSE;
 
-  if (self->pos_azel.elevation > 0.0) {
+  if (self->pos_azel.elevation < 0.0) {
     if (!sgdp4_prediction_find_aos(self, tv, delta_t, &t))
       return SU_FALSE;
 
@@ -243,7 +246,7 @@ sgdp4_prediction_find_los(
       &t,
       3.456 
         * cos(self->pos_azel.elevation - .017) 
-        * sqrt(self->pos_ecef.height));
+        * sqrt(self->alt));
     sgdp4_prediction_update(self, &t);
   }
 
@@ -253,7 +256,7 @@ sgdp4_prediction_find_los(
       &t,
       .1719 
         * SU_RAD2DEG(self->pos_azel.elevation) 
-        * sqrt(self->pos_ecef.height));
+        * sqrt(self->alt));
     sgdp4_prediction_update(self, &t);
 
     if (sufeq(self->pos_azel.elevation, 0, 8.7e-5)) {
@@ -279,6 +282,22 @@ sgdp4_prediction_get_azel(
   *azel = self->pos_azel;
 }
 
+void 
+sgdp4_prediction_get_ecef(
+  const sgdp4_prediction_t *self, 
+  xyz_t *ecef)
+{
+  *ecef = self->pos_ecef;
+}
+
+void 
+sgdp4_prediction_get_vel_azel(
+  const sgdp4_prediction_t *self, 
+  xyz_t *v_azel)
+{
+  *v_azel = self->vel_azel;
+}
+
 void
 sgdp4_prediction_finalize(sgdp4_prediction_t *self)
 {
@@ -292,18 +311,31 @@ sgdp4_prediction_init(
   const orbit_t *orbit,
   const xyz_t *geo)
 {
+  int ret;
   SUBOOL ok = SU_FALSE;
 
   memset(self, 0, sizeof(sgdp4_prediction_t));
   
   self->orbit = *orbit;
   self->site  = *geo;
+  
+  gettimeofday(&self->tv, NULL);
 
   if (orbit->name != NULL)
     SU_TRYCATCH(self->orbit.name = strdup(orbit->name), goto done);
 
-  sgdp4_ctx_init(&self->ctx, &self->orbit);
+  ret = sgdp4_ctx_init(&self->ctx, &self->orbit);
+  
+  if (ret == SGDP4_ERROR) {
+    SU_ERROR("SGDP4 initialization error\n");
+    goto done;
+  }
 
+  if (ret == SGDP4_NOT_INIT) {
+    SU_ERROR("SGDP4 not initialized\n");
+    goto done;
+
+  }
   ok = SU_TRUE;
 
 done:

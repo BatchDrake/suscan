@@ -36,6 +36,10 @@
 
 #include "sgdp4-types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define TWOPI   (2.0*PI)    /* Optimising compiler will deal with this! */
 #define PB2     (0.5*PI)
 #define PI180   (PI/180.0)
@@ -46,6 +50,8 @@
 #define EQRAD   (6378.137)                   /* Earth radius at equator, km */
 #define LATCON  (1.0/298.257)                /* Latitude radius constant */
 #define ECON    ((1.0-LATCON)*(1.0-LATCON))
+
+#define SPEED_OF_LIGHT_KM_S 299792.458
 
 #define JD1900 2415020.5    /* Julian day number for Jan 1st, 00:00 hours 1900 */
 
@@ -242,10 +248,6 @@ void xyz_ecef_to_razel(
 
 /* ======================= Function prototypes ====================== */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /** deep.c **/
 
 int sgdp4_ctx_init_deep(
@@ -322,6 +324,14 @@ void sgdp4_prediction_get_azel(
   const sgdp4_prediction_t *self, 
   xyz_t *azel);
 
+void sgdp4_prediction_get_vel_azel(
+  const sgdp4_prediction_t *self, 
+  xyz_t *v_azel);
+
+void sgdp4_prediction_get_ecef(
+  const sgdp4_prediction_t *self, 
+  xyz_t *ecef);
+  
 void sgdp4_prediction_finalize(sgdp4_prediction_t *self);
 
 SUBOOL sgdp4_prediction_init(

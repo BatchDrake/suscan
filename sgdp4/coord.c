@@ -265,13 +265,13 @@ xyz_ecef_to_razel(
   XYZ_ROT2(&drho_sez, &tmp_vec, .5 * PI - geo->lat);
   
   /* Calculate azimuth and elevation */
-  tmp = sqrt(rho_sez.x * rho_sez.x + rho_sez.y + rho_sez.y);
+  tmp = sqrt(rho_sez.x * rho_sez.x + rho_sez.y * rho_sez.y);
   if (sufeq(tmp, 0, XYZ_TOL)) {
     pos_azel->elevation = SIGN(rho_sez.x) * .5 * PI;
     pos_azel->azimuth   = atan2(drho_sez.y, -drho_sez.x);
   } else {
     pos_azel->elevation = asin(rho_sez.z / XYZ_NORM(&rho_sez));
-    pos_azel->azimuth   = atan2(rho_sez.z, -rho_sez.x);
+    pos_azel->azimuth   = atan2(rho_sez.y, -rho_sez.x);
   }
   
   /* Calculate range, azimuth and distance velocities */

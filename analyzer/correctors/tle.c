@@ -25,8 +25,6 @@
 #include "tle.h"
 #include <sgdp4/sgdp4.h>
 
-#define SPEED_OF_LIGHT_KM_S 299792.458
-
 SUPRIVATE struct suscan_frequency_corrector_class g_tle_corrector_class;
 
 void
@@ -158,7 +156,7 @@ suscan_frequency_corrector_tle_get_report(
 
   self = suscan_frequency_corrector_get_userdata(fc);
   mins = orbit_minutes_from_timeval(&self->orbit, tv);
-  
+
   sgdp4_ctx_compute(&self->ctx, mins, SU_TRUE, &kep);
 
   kep_get_pos_vel_teme(&kep, &pos, &vel);

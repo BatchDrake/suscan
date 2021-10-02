@@ -122,7 +122,7 @@ suscan_inspector_deliver_report(
   SUFREQ abs_freq)
 {
   uint64_t now;
-  struct suscan_analyzer_inspector_msg *msg;
+  struct suscan_analyzer_inspector_msg *msg = NULL;
   struct suscan_orbit_report report;
   SUFLOAT seconds;
   SUBOOL have_report;
