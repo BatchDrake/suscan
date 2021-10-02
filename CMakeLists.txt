@@ -60,6 +60,7 @@ set(CODECLIBDIR  codec)
 set(CODECDIR     ${CODECLIBDIR}/codecs)
 set(ANALYZERDIR  analyzer)
 set(ESTIMATORDIR ${ANALYZERDIR}/estimators)
+set(CORRECTORDIR ${ANALYZERDIR}/correctors)
 set(INSPECTORDIR ${ANALYZERDIR}/inspector/impl)
 set(SPECTSRCDIR  ${ANALYZERDIR}/spectsrcs)
 set(SGDP4DIR     sgdp4)
@@ -193,9 +194,11 @@ set(CODEC_LIB_SOURCES
   ${CODECLIBDIR}/codec.c
   ${CODECDIR}/diff.c)
 
+set(CORRECTOR_HEADERS 
+  ${CORRECTORDIR}/tle.h)
+
 set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/corrector.h
-  ${ANALYZERDIR}/correctors/tle.h
   ${ANALYZERDIR}/discovery.h
   ${ANALYZERDIR}/realtime.h
   ${ANALYZERDIR}/msg.h
@@ -361,6 +364,10 @@ install(
 install(
   FILES ${SGDP4_HEADERS}
   DESTINATION include/suscan/sgdp4)
+
+install(
+  FILES ${CORRECTOR_HEADERS}
+  DESTINATION include/suscan/analyzer/correctors)
 
 install(
   FILES ${RSRC_CONFIG_FILES}
