@@ -115,6 +115,78 @@ done:
   return it_is;
 }
 
+SUBOOL
+suscan_inspector_deliver_report(
+  suscan_inspector_t *self,
+  const struct timeval *tv,
+  SUFREQ abs_freq)
+{
+  uint64_t now;
+  struct suscan_analyzer_inspector_msg *msg;
+  struct suscan_orbit_report report;
+  SUFLOAT seconds;
+  SUBOOL have_report;
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  if (self->interval_orbit_report > 0) {
+    now = suscan_gettime();
+    seconds = (now - self->last_orbit_report) * 1e-9;
+    if (seconds >= self->interval_orbit_report) {
+      self->last_orbit_report = now;
+
+      SU_TRYC(pthread_mutex_lock(&self->corrector_mutex));
+      mutex_acquired = SU_TRUE;
+
+      if (self->corrector == NULL) {
+        ok = SU_TRUE;
+        goto done;
+      }
+
+      /* Attempt to acquire a report */
+      have_report = suscan_frequency_corrector_tle_get_report(
+        self->corrector, 
+        tv, 
+        abs_freq,
+        &report);
+
+      pthread_mutex_unlock(&self->corrector_mutex);
+      mutex_acquired = SU_FALSE;
+
+      /* We have a report! Construct and deliver. */
+      if (have_report) {
+        SU_TRYCATCH(
+          msg = suscan_analyzer_inspector_msg_new(
+            SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ORBIT_REPORT,
+            rand()),
+          goto done);
+        msg->inspector_id = self->inspector_id;
+        msg->orbit_report = report;
+
+        SU_TRYCATCH(
+          suscan_mq_write(
+            self->mq_out,
+            SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+            msg),
+          goto done);
+
+        msg = NULL;
+      }
+    }
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&self->corrector_mutex);
+
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+
+  return ok;
+}
+
 void
 suscan_inspector_assert_params(suscan_inspector_t *insp)
 {
@@ -335,6 +407,7 @@ suscan_inspector_new(
   /* Spectrum and estimator updates */
   new->interval_estimator = .1;
   new->interval_spectrum  = .1;
+  new->interval_estimator = .25;
 
   /* Initialize clocks */
   new->last_estimator = suscan_gettime();

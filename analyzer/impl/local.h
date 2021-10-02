@@ -325,6 +325,9 @@ SUBOOL suscan_local_analyzer_slow_set_gain(
     const char *name,
     SUFLOAT value);
 
+/* Internal */
+SUBOOL suscan_local_analyzer_get_qth(xyz_t *xyz);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

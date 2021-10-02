@@ -119,6 +119,47 @@ void orbit_finalize(orbit_t *self);
 
 #define XYZ_NORM(v) sqrt((v)->x * (v)->x + (v)->y * (v)->y + (v)->z * (v)->z)
 
+#define XYZ_SUB(d, a, b)      \
+  do {                        \
+    (d)->x = (a)->x - (b)->x; \
+    (d)->y = (a)->y - (b)->y; \
+    (d)->z = (a)->z - (b)->z; \
+  } while (0)
+
+#define XYZ_ADD(d, a, b)      \
+  do {                        \
+    (d)->x = (a)->x + (b)->x; \
+    (d)->y = (a)->y + (b)->y; \
+    (d)->z = (a)->z + (b)->z; \
+  } while (0)
+
+#define XYZ_CMUL(d, k)        \
+  do {                        \
+    (d)->x *= k;              \
+    (d)->y *= k;              \
+    (d)->z *= k;              \
+  } while (0)
+
+#define XYZ_ROT2(d, v, alpha)         \
+  do {                                \
+    SUDOUBLE c, s;                    \
+    s = sin(alpha);                   \
+    c = cos(alpha);                   \
+    (d)->x = c * (v)->x - s * (v)->z; \
+    (d)->y = (v)->y;                  \
+    (d)->z = c * (v)->z + s * (v)->x; \
+  } while (0)
+
+#define XYZ_ROT3(d, v, alpha)         \
+  do {                                \
+    SUDOUBLE c, s;                    \
+    s = sin(alpha);                   \
+    c = cos(alpha);                   \
+    (d)->x = c * (v)->x + s * (v)->y; \
+    (d)->y = c * (v)->y - s * (v)->x; \
+    (d)->z = (v)->z;                  \
+  } while (0)
+
 void xyz_teme_to_ecef(
   const xyz_t *pos,
   const xyz_t *vel,
@@ -135,6 +176,13 @@ SUDOUBLE xyz_dotprod(const xyz_t *u, const xyz_t *v);
 void xyz_geodetic_to_ecef(const xyz_t *geo, xyz_t *pos);
 
 void xyz_ecef_to_geodetic(const xyz_t *pos, xyz_t *geo);
+
+void xyz_ecef_to_razel(
+  const xyz_t *pos_ecef, 
+  const xyz_t *vel_ecef, 
+  const xyz_t *geo,
+  xyz_t *pos_azel,
+  xyz_t *vel_azel);
 
 /* ================ Single or Double precision options. ================= */
 

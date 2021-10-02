@@ -64,8 +64,11 @@ struct suscan_inspector {
   /* Spectrum and estimator state */
   SUFLOAT  interval_estimator;
   SUFLOAT  interval_spectrum;
+  SUFLOAT  interval_orbit_report;
+
   uint64_t last_estimator;
   uint64_t last_spectrum;
+  uint64_t last_orbit_report;
 
   uint32_t spectsrc_index;
 
@@ -178,6 +181,11 @@ SUBOOL suscan_inspector_get_correction(
   const struct timeval *tv,
   SUFREQ abs_freq,
   SUFLOAT *freq);
+
+SUBOOL suscan_inspector_deliver_report(
+  suscan_inspector_t *self,
+  const struct timeval *tv,
+  SUFREQ abs_freq);
 
 void suscan_inspector_assert_params(suscan_inspector_t *insp);
 

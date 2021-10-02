@@ -27,6 +27,7 @@
 
 #include <sigutils/sigutils.h>
 #include <analyzer/impl/local.h>
+#include <correctors/tle.h>
 
 #include "inspector/inspector.h"
 #include "realtime.h"
@@ -189,8 +190,9 @@ suscan_local_analyzer_on_channel_data(
   struct suscan_inspector_task_info *task_info =
       (struct suscan_inspector_task_info *) private;
   struct timeval source_time;
+  SUFREQ freq;
   SUFLOAT freq_correction;
-  
+
   /* Channel is not bound yet. No processing is performed */
   if (task_info == NULL)
     return SU_TRUE;
@@ -229,10 +231,11 @@ suscan_local_analyzer_on_channel_data(
   /* Check whether we should get source time */
   suscan_inspsched_get_source_time(task_info->sched, &source_time);
 
+  freq = suscan_inspector_task_info_get_abs_freq(task_info); 
   if (suscan_inspector_get_correction(
         task_info->inspector,
         &source_time,
-        suscan_inspector_task_info_get_abs_freq(task_info),
+        freq,
         &freq_correction)) {
     suscan_local_analyzer_set_channel_correction(
     suscan_inspsched_get_analyzer(task_info->sched),
@@ -240,6 +243,12 @@ suscan_local_analyzer_on_channel_data(
     freq_correction);
   }
 
+  /* Deliver pending report */
+  (void) suscan_inspector_deliver_report(
+    task_info->inspector,
+    &source_time,
+    freq);
+  
   return suscan_inspsched_queue_task(task_info->sched, task_info);
 }
 
@@ -517,6 +526,8 @@ suscan_local_analyzer_parse_inspector_msg(
     struct suscan_analyzer_inspector_msg *msg)
 {
   suscan_inspector_t *insp = NULL;
+  suscan_frequency_corrector_t *corrector = NULL;
+  xyz_t qth;
   SUBOOL ok = SU_FALSE;
   SUBOOL mutex_acquired = SU_FALSE;
 
@@ -531,7 +542,6 @@ suscan_local_analyzer_parse_inspector_msg(
       } else {
         msg->channel.ft = suscan_source_get_freq(analyzer->source);
       }
-
       break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
@@ -604,6 +614,31 @@ suscan_local_analyzer_parse_inspector_msg(
       }
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE:
+      if ((insp = suscan_local_analyzer_get_inspector(
+          analyzer,
+          msg->handle)) == NULL) {
+        /* No such handle */
+        msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      } else if (msg->tle_enable == SU_FALSE) {
+        suscan_inspector_set_corrector(insp, NULL);
+      } else if (!suscan_local_analyzer_get_qth(&qth)) {
+          msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION;
+          SU_WARNING("TLE request rejected. No QTH configured.\n");
+      } else {
+        corrector = suscan_frequency_corrector_new(
+            "tle",
+            SUSCAN_TLE_CORRECTOR_MODE_ORBIT,
+            &qth,
+            &msg->tle_orbit);
+
+        if (corrector == NULL 
+          || !suscan_inspector_set_corrector(insp, corrector))
+          msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION;
+        else
+          corrector = NULL;
+      }
+      break;
 
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
       if ((insp = suscan_local_analyzer_get_inspector(

@@ -20,18 +20,29 @@
 #ifndef _ANALYZER_CORRECTORS_TLE_H
 #define _ANALYZER_CORRECTORS_TLE_H
 
-#include <sgdp4/sgdp4.h>
+#include <sgdp4/sgdp4-types.h>
 
-struct suscan_tle_corrector {
-  sgdp4_ctx_t ctx;
-  orbit_t     orbit;
-  xyz_t       site;
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+struct suscan_orbit_report {
+  struct timeval rx_time;
+  xyz_t          satpos;
+  SUFLOAT        freq_corr;
+  SUDOUBLE       vlos_vel;
 };
 
 enum suscan_tle_corrector_mode {
   SUSCAN_TLE_CORRECTOR_MODE_FILE,
   SUSCAN_TLE_CORRECTOR_MODE_STRING,
   SUSCAN_TLE_CORRECTOR_MODE_ORBIT
+};
+
+struct suscan_tle_corrector {
+  sgdp4_ctx_t ctx;
+  orbit_t     orbit;
+  xyz_t       site;
 };
 
 typedef struct suscan_tle_corrector suscan_tle_corrector_t;
@@ -56,6 +67,17 @@ SUBOOL suscan_tle_corrector_correct_freq(
   SUFREQ freq,
   SUFLOAT *delta_freq);
 
+/* Helper function to populate reports */
+SUBOOL suscan_frequency_corrector_tle_get_report(
+  suscan_frequency_corrector_t *fc,
+  const struct timeval *tv,
+  SUFREQ freq,
+  struct suscan_orbit_report *report);
+
 SUBOOL suscan_tle_corrector_init(void);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _ANALYZER_CORRECTORS_TLE_H */

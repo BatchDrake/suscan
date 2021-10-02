@@ -20,9 +20,12 @@
 #ifndef _CORRECTOR_H
 #define _CORRECTOR_H
 
-#include <util.h>
 #include <sigutils/types.h>
 #include <stdarg.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 struct suscan_frequency_corrector_class {
   const char *name;
@@ -77,5 +80,23 @@ suscan_frequency_corrector_get_correction(
 {
   return (self->iface->get_correction) (self->userdata, source_time, abs_freq);
 }
+
+SUINLINE const struct suscan_frequency_corrector_class *
+suscan_frequency_corrector_get_class(
+  const suscan_frequency_corrector_t *self)
+{
+  return self->iface; 
+}
+
+SUINLINE void *
+suscan_frequency_corrector_get_userdata(
+  const suscan_frequency_corrector_t *self)
+{
+  return self->userdata; 
+}
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _CORRECTOR_H */

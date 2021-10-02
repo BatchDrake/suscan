@@ -29,6 +29,10 @@
 
 #include <sigutils/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 /*
  * Original SGP4/SDP4 put all its state in global variables. This
  * is not acceptable for 21st century standards. The following object
@@ -152,6 +156,10 @@ typedef struct kep_s {
   SUDOUBLE smjaxs;  /* Semi-major axis at 'tsince' (km). */
   SUDOUBLE ecc;    /* Eccentricity at 'tsince'. */
 } kep_t;
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _SGDP4_TYPES_H */
 

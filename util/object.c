@@ -359,6 +359,22 @@ suscan_object_get_field_float(
   return dfl;
 }
 
+SUDOUBLE
+suscan_object_get_field_double(
+    const suscan_object_t *object,
+    const char *name,
+    SUDOUBLE dfl)
+{
+  const char *text;
+  SUDOUBLE got;
+
+  if ((text = suscan_object_get_field_value(object, name)) != NULL)
+    if (sscanf(text, SUDOUBLE_SCANF_FMT, &got) == 1)
+      dfl = got;
+
+  return dfl;
+}
+
 SUBOOL
 suscan_object_get_field_bool(
     const suscan_object_t *object,
@@ -459,7 +475,34 @@ suscan_object_set_field_float(
   char *comma = NULL;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(as_text = strbuild("%f", value), goto done);
+  SU_TRYCATCH(as_text = strbuild(SUFLOAT_PRECISION_FMT, value), goto done);
+
+  /* Thanks, GTK */
+  if ((comma = strchr(as_text, ',')) != NULL)
+    *comma = '.';
+
+  SU_TRYCATCH(suscan_object_set_field_value(object, name, as_text), goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (as_text != NULL)
+    free(as_text);
+
+  return ok;
+}
+
+SUBOOL
+suscan_object_set_field_double(
+    suscan_object_t *object,
+    const char *name,
+    SUDOUBLE value)
+{
+  char *as_text = NULL;
+  char *comma = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(as_text = strbuild(SUDOUBLE_PRECISION_FMT, value), goto done);
 
   /* Thanks, GTK */
   if ((comma = strchr(as_text, ',')) != NULL)

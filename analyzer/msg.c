@@ -691,15 +691,15 @@ suscan_analyzer_inspector_msg_serialize_orbit_report(
 {
   SUSCAN_PACK_BOILERPLATE_START;
 
-  SUSCAN_PACK(uint, self->rx_time.tv_sec);
-  SUSCAN_PACK(uint, self->rx_time.tv_usec);
+  SUSCAN_PACK(uint, self->orbit_report.rx_time.tv_sec);
+  SUSCAN_PACK(uint, self->orbit_report.rx_time.tv_usec);
 
-  SUSCAN_PACK(double, self->satpos.azimuth);
-  SUSCAN_PACK(double, self->satpos.elevation);
-  SUSCAN_PACK(double, self->satpos.distance);
+  SUSCAN_PACK(double, self->orbit_report.satpos.azimuth);
+  SUSCAN_PACK(double, self->orbit_report.satpos.elevation);
+  SUSCAN_PACK(double, self->orbit_report.satpos.distance);
 
-  SUSCAN_PACK(float, self->freq_corr);
-  SUSCAN_PACK(double, self->vlos_vel);
+  SUSCAN_PACK(float, self->orbit_report.freq_corr);
+  SUSCAN_PACK(double, self->orbit_report.vlos_vel);
 
   SUSCAN_PACK_BOILERPLATE_END;
 }
@@ -716,15 +716,15 @@ suscan_analyzer_inspector_msg_deserialize_orbit_report(
   SUSCAN_UNPACK(uint64, tv_sec);
   SUSCAN_UNPACK(uint32, tv_usec);
 
-  self->rx_time.tv_sec = tv_sec;
-  self->rx_time.tv_usec = tv_usec;
+  self->orbit_report.rx_time.tv_sec = tv_sec;
+  self->orbit_report.rx_time.tv_usec = tv_usec;
 
-  SUSCAN_UNPACK(double, self->satpos.azimuth);
-  SUSCAN_UNPACK(double, self->satpos.elevation);
-  SUSCAN_UNPACK(double, self->satpos.distance);
+  SUSCAN_UNPACK(double, self->orbit_report.satpos.azimuth);
+  SUSCAN_UNPACK(double, self->orbit_report.satpos.elevation);
+  SUSCAN_UNPACK(double, self->orbit_report.satpos.distance);
 
-  SUSCAN_UNPACK(float, self->freq_corr);
-  SUSCAN_UNPACK(double, self->vlos_vel);
+  SUSCAN_UNPACK(float, self->orbit_report.freq_corr);
+  SUSCAN_UNPACK(double, self->orbit_report.vlos_vel);
 
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
@@ -803,6 +803,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION:
       /* Empty messages */
       break;
 
@@ -888,6 +889,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION:
       /* Empty messages */
       break;
 

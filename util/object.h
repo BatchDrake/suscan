@@ -118,6 +118,11 @@ SUFLOAT suscan_object_get_field_float(
     const char *name,
     SUFLOAT dfl);
 
+SUDOUBLE suscan_object_get_field_double(
+    const suscan_object_t *object,
+    const char *name,
+    SUDOUBLE dfl);
+
 SUBOOL suscan_object_set_field_uint(
     suscan_object_t *object,
     const char *name,
@@ -137,6 +142,11 @@ SUBOOL suscan_object_set_field_float(
     suscan_object_t *object,
     const char *name,
     SUFLOAT value);
+
+SUBOOL suscan_object_set_field_double(
+    suscan_object_t *object,
+    const char *name,
+    SUDOUBLE value);
 
 SUBOOL suscan_object_set_field_bool(
     suscan_object_t *object,

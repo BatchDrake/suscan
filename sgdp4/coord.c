@@ -234,6 +234,63 @@ xyz_ecef_to_geodetic(const xyz_t *pos, xyz_t *geo)
     geo->height = pos->z / sin(geo->lat) - c * (1.0 - EARTHECC2);
 }
 
+/*
+ * https://github.com/Spacecraft-Code/Vallado/blob/master/Matlab/rv2razel.m
+ */
+void
+xyz_ecef_to_razel(
+  const xyz_t *pos_ecef, 
+  const xyz_t *vel_ecef, 
+  const xyz_t *geo,
+  xyz_t *pos_azel,
+  xyz_t *vel_azel)
+{
+  xyz_t rho_ecef;
+  xyz_t site_ecef;
+  xyz_t tmp_vec, rho_sez, drho_sez;
+
+  SUDOUBLE tmp;
+
+  xyz_geodetic_to_ecef(geo, &site_ecef);
+
+  /* Range vector. */
+  XYZ_SUB(&rho_ecef, pos_ecef, &site_ecef);
+  pos_azel->distance = XYZ_NORM(&rho_ecef);
+
+  /* Convert to the topocentric horizon system (SEZ) */
+  XYZ_ROT3(&tmp_vec, &rho_ecef, geo->lon);
+  XYZ_ROT2(&rho_sez, &tmp_vec, .5 * PI - geo->lat);
+
+  XYZ_ROT3(&tmp_vec, vel_ecef, geo->lon);
+  XYZ_ROT2(&drho_sez, &tmp_vec, .5 * PI - geo->lat);
+  
+  /* Calculate azimuth and elevation */
+  tmp = sqrt(rho_sez.x * rho_sez.x + rho_sez.y + rho_sez.y);
+  if (sufeq(tmp, 0, XYZ_TOL)) {
+    pos_azel->elevation = SIGN(rho_sez.x) * .5 * PI;
+    pos_azel->azimuth   = atan2(drho_sez.y, -drho_sez.x);
+  } else {
+    pos_azel->elevation = asin(rho_sez.z / XYZ_NORM(&rho_sez));
+    pos_azel->azimuth   = atan2(rho_sez.z, -rho_sez.x);
+  }
+  
+  /* Calculate range, azimuth and distance velocities */
+  if (vel_azel != NULL) {
+    vel_azel->distance = xyz_dotprod(&rho_sez, &drho_sez) / pos_azel->distance;
+    if (sufeq(tmp * tmp, 0, XYZ_TOL))
+      vel_azel->azimuth = 0;
+    else
+      vel_azel->azimuth = 
+        (drho_sez.x * rho_sez.y - drho_sez.y * rho_sez.x) / (tmp * tmp);
+
+    if (sufeq(tmp, 0, XYZ_TOL))
+      vel_azel->elevation = 0;
+    else
+      vel_azel->elevation = 
+        (drho_sez.z - vel_azel->distance * sin(pos_azel->elevation)) / tmp;
+  }
+}
+
 SUDOUBLE 
 time_unix_to_julian(SUDOUBLE timestamp)
 {

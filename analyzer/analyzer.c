@@ -217,6 +217,13 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_PACK(bool,  self->iq_reverse);
   SUSCAN_PACK(bool,  self->agc);
 
+  SUSCAN_PACK(bool,   self->have_qth);
+  if (self->have_qth) {
+    SUSCAN_PACK(double, self->qth.lat);
+    SUSCAN_PACK(double, self->qth.lon);
+    SUSCAN_PACK(double, self->qth.height);
+  }
+
   SU_TRYCATCH(cbor_pack_map_start(buffer, self->gain_count) == 0, goto fail);
   for (i = 0; i < self->gain_count; ++i)
     SU_TRYCATCH(
@@ -250,6 +257,13 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_UNPACK(bool,   self->dc_remove);
   SUSCAN_UNPACK(bool,   self->iq_reverse);
   SUSCAN_UNPACK(bool,   self->agc);
+
+  SUSCAN_UNPACK(bool,   self->have_qth);
+  if (self->have_qth) {
+    SUSCAN_UNPACK(double, self->qth.lat);
+    SUSCAN_UNPACK(double, self->qth.lon);
+    SUSCAN_UNPACK(double, self->qth.height);
+  }
 
   /* Deserialize gains */
   SU_TRYCATCH(

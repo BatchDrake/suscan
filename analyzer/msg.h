@@ -26,6 +26,7 @@
 #include "analyzer.h"
 #include "serialize.h"
 #include <sgdp4/sgdp4-types.h>
+#include "correctors/tle.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,6 +111,7 @@ enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ORBIT_REPORT,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_COUNT
 };
 
@@ -189,12 +191,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
       orbit_t tle_orbit;
     };
 
-    struct {
-      struct timeval rx_time;
-      xyz_t          satpos;
-      SUFLOAT        freq_corr;
-      SUDOUBLE       vlos_vel;
-    };
+    struct suscan_orbit_report orbit_report;
 
     SUSCOUNT watermark;
   };

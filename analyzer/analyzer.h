@@ -35,6 +35,8 @@
 #include "inspsched.h"
 #include "serialize.h"
 
+#include <sgdp4/sgdp4-types.h>
+
 #include "mq.h"
 
 #ifdef __cplusplus
@@ -204,6 +206,10 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
   SUBOOL   dc_remove;
   SUBOOL   iq_reverse;
   SUBOOL   agc;
+ 
+  SUBOOL   have_qth;
+  xyz_t    qth;
+
   PTR_LIST(struct suscan_analyzer_gain_info, gain);
   PTR_LIST(char, antenna);
 };

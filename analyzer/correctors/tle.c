@@ -23,8 +23,11 @@
 
 #include "corrector.h"
 #include "tle.h"
+#include <sgdp4/sgdp4.h>
 
 #define SPEED_OF_LIGHT_KM_S 299792.458
+
+SUPRIVATE struct suscan_frequency_corrector_class g_tle_corrector_class;
 
 void
 suscan_tle_corrector_destroy(
@@ -136,6 +139,55 @@ suscan_tle_corrector_visible(
   return xyz_dotprod(&pos_site_rel, &site_pos) > 0;
 }
 
+SUBOOL
+suscan_frequency_corrector_tle_get_report(
+  suscan_frequency_corrector_t *fc,
+  const struct timeval *tv,
+  SUFREQ freq,
+  struct suscan_orbit_report *report)
+{
+  suscan_tle_corrector_t *self;
+  SUDOUBLE mins;
+  xyz_t pos, vel;
+  xyz_t pos_ecef, vel_ecef;
+  xyz_t pos_azel, vel_azel;
+  kep_t kep;
+
+  if (suscan_frequency_corrector_get_class(fc) != &g_tle_corrector_class)
+    return SU_FALSE;
+
+  self = suscan_frequency_corrector_get_userdata(fc);
+  mins = orbit_minutes_from_timeval(&self->orbit, tv);
+  
+  sgdp4_ctx_compute(&self->ctx, mins, SU_TRUE, &kep);
+
+  kep_get_pos_vel_teme(&kep, &pos, &vel);
+
+  xyz_teme_to_ecef(
+    &pos, 
+    &vel, 
+    time_timeval_to_julian(tv), 
+    &pos_ecef, 
+    &vel_ecef);
+
+  xyz_ecef_to_razel(
+    &pos_ecef, 
+    &vel_ecef, 
+    &self->site,
+    &pos_azel,
+    &vel_azel);
+
+  report->freq_corr        = vel_azel.distance / SPEED_OF_LIGHT_KM_S * freq;
+  report->rx_time          = *tv;
+  report->vlos_vel         = vel_azel.distance;
+  report->satpos.distance  = pos_azel.distance;
+  report->satpos.elevation = pos_azel.elevation;
+  report->satpos.azimuth   = pos_azel.azimuth;
+
+  return SU_TRUE;
+}
+
+/* TODO: Use correction reports? */
 SUBOOL
 suscan_tle_corrector_correct_freq(
   suscan_tle_corrector_t *self,
@@ -256,17 +308,15 @@ suscan_tle_corrector_get_correction(
 SUBOOL 
 suscan_tle_corrector_init(void)
 {
-  struct suscan_frequency_corrector_class class = {
-    .name = "tle",
-    .ctor = suscan_tle_corrector_ctor,
-    .dtor = suscan_tle_corrector_dtor,
-    .applicable = suscan_tle_corrector_applicable,
-    .get_correction = suscan_tle_corrector_get_correction
-  };
-
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(suscan_frequency_corrector_class_register(&class), goto done);
+  g_tle_corrector_class.name = "tle";
+  g_tle_corrector_class.ctor = suscan_tle_corrector_ctor;
+  g_tle_corrector_class.dtor = suscan_tle_corrector_dtor;
+  g_tle_corrector_class.applicable = suscan_tle_corrector_applicable;
+  g_tle_corrector_class.get_correction = suscan_tle_corrector_get_correction;
+
+  SU_TRYCATCH(suscan_frequency_corrector_class_register(&g_tle_corrector_class), goto done);
 
   ok = SU_TRUE;
 
