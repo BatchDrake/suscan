@@ -168,7 +168,7 @@ suscan_tle_corrector_correct_freq(
   sgdp4_prediction_get_azel(&self->prediction, &pos_azel);
   sgdp4_prediction_get_vel_azel(&self->prediction, &vel_azel);
   
-  *delta_freq = vel_azel.distance / SPEED_OF_LIGHT_KM_S * freq;
+  *delta_freq = -vel_azel.distance / SPEED_OF_LIGHT_KM_S * freq;
 
   return SU_TRUE;
 }

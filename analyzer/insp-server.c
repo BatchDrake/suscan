@@ -237,6 +237,7 @@ suscan_local_analyzer_on_channel_data(
         &source_time,
         freq,
         &freq_correction)) {
+
     suscan_local_analyzer_set_channel_correction(
       suscan_inspsched_get_analyzer(task_info->sched),
       (su_specttuner_channel_t *) channel, /* TODO: Fix this!! */
