@@ -17,6 +17,8 @@
 
 */
 
+#define _DEFAULT_SOURCE
+
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -32,6 +34,7 @@
 #include <sigutils/taps.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #ifdef _SU_SINGLE_PRECISION
 #  define sf_read sf_read_float
@@ -1787,36 +1790,38 @@ suscan_source_open_sdr(suscan_source_t *source)
 }
 
 SUPRIVATE SUSDIFF
-suscan_source_read_file(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
+suscan_source_read_file(suscan_source_t *self, SUCOMPLEX *buf, SUSCOUNT max)
 {
   SUFLOAT *as_real;
   int got, i;
   unsigned int real_count;
 
-  if (source->force_eos)
+  if (self->force_eos)
     return 0;
 
   if (max > SUSCAN_SOURCE_DEFAULT_BUFSIZ)
     max = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
 
-  real_count = max * (source->iq_file ? 2 : 1);
+  real_count = max * (self->iq_file ? 2 : 1);
 
   as_real = (SUFLOAT *) buf;
 
-  got = sf_read(source->sf, as_real, real_count);
+  got = sf_read(self->sf, as_real, real_count);
 
-  if (got == 0 && source->config->loop) {
-    if (sf_seek(source->sf, 0, SEEK_SET) == -1) {
+  if (got == 0 && self->config->loop) {
+    if (sf_seek(self->sf, 0, SEEK_SET) == -1) {
       SU_ERROR("Failed to seek to the beginning of the stream\n");
       return 0;
     }
+    
+    self->total_samples = 0;
 
-    got = sf_read(source->sf, as_real, real_count);
+    got = sf_read(self->sf, as_real, real_count);
   }
 
   if (got > 0) {
     /* Real data mode: iteratively cast to complex */
-    if (source->sf_info.channels == 1) {
+    if (self->sf_info.channels == 1) {
       for (i = got - 1; i >= 0; --i)
         buf[i] = as_real[i];
     } else {
@@ -1825,6 +1830,20 @@ suscan_source_read_file(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
   }
 
   return got;
+}
+
+SUPRIVATE void
+suscan_source_time_file(struct suscan_source *self, struct timeval *tv)
+{
+  struct timeval elapsed;
+
+  elapsed.tv_sec  = self->total_samples / self->config->samp_rate;
+  elapsed.tv_usec = 
+    (1000000 
+      * (self->total_samples - elapsed.tv_sec * self->config->samp_rate))
+      / self->config->samp_rate;
+
+  timeradd(&self->config->start_time, &elapsed, tv);
 }
 
 SUPRIVATE SUSDIFF
@@ -1868,33 +1887,60 @@ suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
   return result;
 }
 
+SUPRIVATE void
+suscan_source_time_sdr(struct suscan_source *source, struct timeval *tv)
+{
+  /* TODO: Adjust sampling delay? */
+  gettimeofday(tv, NULL);
+}
+
 SUSDIFF
-suscan_source_read(suscan_source_t *source, SUCOMPLEX *buffer, SUSCOUNT max)
+suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 {
   SUSDIFF got;
   SUSCOUNT result;
-  SU_TRYCATCH(source->capturing, return SU_FALSE);
+  SU_TRYCATCH(self->capturing, return SU_FALSE);
 
-  if (source->read == NULL) {
+  if (self->read == NULL) {
     SU_ERROR("Signal source has no read() operation\n");
     return -1;
   }
 
-  if (source->decim > 1) {
+  if (self->decim > 1) {
     if (max > SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE)
       max = SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE;
 
     do {
-      if ((got = (source->read) (source, buffer, max)) < 1)
+      if ((got = (self->read) (self, buffer, max)) < 1)
         return got;
-      result = suscan_source_feed_decimator(source, buffer, got);
+      self->total_samples += got;
+      result = suscan_source_feed_decimator(self, buffer, got);
     } while (result == 0);
 
-    memcpy(buffer, source->decim_buf, result * sizeof(SUCOMPLEX));
+    memcpy(buffer, self->decim_buf, result * sizeof(SUCOMPLEX));
 
     return result;
-  } else return (source->read) (source, buffer, max);
+  } else return (self->read) (self, buffer, max);
 }
+
+void 
+suscan_source_get_time(suscan_source_t *self, struct timeval *tv)
+{
+  (self->get_time) (self, tv);
+}
+
+SUSCOUNT 
+suscan_source_get_consumed_samples(const suscan_source_t *self)
+{
+  return self->total_samples;
+}
+
+SUSCOUNT 
+suscan_source_get_base_samp_rate(const suscan_source_t *self)
+{
+  return self->config->samp_rate;
+}
+
 
 SUBOOL
 suscan_source_start_capture(suscan_source_t *source)
@@ -2253,12 +2299,14 @@ suscan_source_new(suscan_source_config_t *config)
   switch (new->config->type) {
     case SUSCAN_SOURCE_TYPE_FILE:
       SU_TRYCATCH(suscan_source_open_file(new), goto fail);
-      new->read = suscan_source_read_file;
+      new->read            = suscan_source_read_file;
+      new->get_time = suscan_source_time_file;
       break;
 
     case SUSCAN_SOURCE_TYPE_SDR:
       SU_TRYCATCH(suscan_source_open_sdr(new), goto fail);
-      new->read = suscan_source_read_sdr;
+      new->read            = suscan_source_read_sdr;
+      new->get_time = suscan_source_time_sdr;
       break;
 
     default:

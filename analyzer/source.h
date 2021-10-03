@@ -459,13 +459,17 @@ void suscan_source_config_destroy(suscan_source_config_t *);
 /****************************** Source API ***********************************/
 struct suscan_source {
   suscan_source_config_t *config; /* Source may alter configuration! */
-  SUBOOL capturing;
-  SUBOOL soft_dc_correction;
-  SUBOOL soft_iq_balance;
+  SUBOOL   capturing;
+  SUBOOL   soft_dc_correction;
+  SUBOOL   soft_iq_balance;
+  SUSCOUNT total_samples;
   SUSDIFF (*read) (
         struct suscan_source *source,
         SUCOMPLEX *buffer,
         SUSCOUNT max);
+  void    (*get_time) (
+        struct suscan_source *source,
+        struct timeval *tv);
 
   /* File sources are accessed through a soundfile handle */
   SNDFILE *sf;
@@ -520,6 +524,12 @@ SUSDIFF suscan_source_read(
     suscan_source_t *source,
     SUCOMPLEX *buffer,
     SUSCOUNT max);
+
+void suscan_source_get_time(suscan_source_t *self, struct timeval *tv);
+
+SUSCOUNT suscan_source_get_consumed_samples(const suscan_source_t *self);
+
+SUSCOUNT suscan_source_get_base_samp_rate(const suscan_source_t *self);
 
 SUINLINE void 
 suscan_source_get_start_time(
