@@ -102,10 +102,11 @@ suscan_inspector_get_correction(
 
   if (self->corrector != NULL 
     && suscan_frequency_corrector_is_applicable(self->corrector, tv)) {
-      *freq = suscan_frequency_corrector_get_correction(
+    *freq = suscan_frequency_corrector_get_correction(
         self->corrector,
         tv,
         abs_freq);
+    it_is = SU_TRUE;
   }
 
 done:

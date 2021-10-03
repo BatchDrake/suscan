@@ -140,7 +140,7 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
       self->bstar    = dragterm * 1e-5 * pow(10., dragtermexp);
       self->drevdt   = fields[1];
       self->d2revdt2 = mmdotdot * 1e-5 * pow(10., mmdotdotexp);
-      
+
       break;
 
     case 2:
@@ -197,6 +197,23 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
   }
 
   return SU_TRUE;
+}
+
+SUBOOL
+orbit_copy(orbit_t *dest, const orbit_t *orig)
+{
+  SUBOOL ok = SU_FALSE;
+
+  *dest = *orig;
+
+  if (orig->name != NULL)
+    SU_TRYCATCH(dest->name = strdup(orig->name), goto done);
+
+  ok = SU_TRUE;
+
+done:
+
+  return ok;
 }
 
 SUSDIFF

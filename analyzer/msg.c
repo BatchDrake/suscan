@@ -29,6 +29,7 @@
 #include "mq.h"
 #include "msg.h"
 #include "source.h"
+#include <sgdp4/sgdp4.h>
 
 #ifdef bool
 #  undef bool
@@ -945,23 +946,35 @@ suscan_analyzer_inspector_msg_take_spectrum(
 void
 suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
 {
-  if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG
-      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG
-      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
-    if (msg->config != NULL)
-      suscan_config_destroy(msg->config);
+  switch (msg->kind) {
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
+      if (msg->config != NULL)
+        suscan_config_destroy(msg->config);
 
-    if (msg->estimator_list != NULL)
-      free(msg->estimator_list);
+      if (msg->estimator_list != NULL)
+        free(msg->estimator_list);
 
-    if (msg->spectsrc_list != NULL)
-      free(msg->spectsrc_list);
+      if (msg->spectsrc_list != NULL)
+        free(msg->spectsrc_list);
 
-    if (msg->class_name != NULL)
-      free(msg->class_name);
-  } else if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
-    if (msg->spectrum_data != NULL)
-      free(msg->spectrum_data);
+      if (msg->class_name != NULL)
+        free(msg->class_name);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM:
+      if (msg->spectrum_data != NULL)
+        free(msg->spectrum_data);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE:
+      if (msg->tle_enable)
+        orbit_finalize(&msg->tle_orbit);
+      break;
+
+    default:
+      ;
   }
 
   free(msg);

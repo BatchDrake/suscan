@@ -103,6 +103,8 @@ SUSDIFF orbit_init_from_data(
   const void *data, 
   SUSCOUNT len);
 
+SUBOOL orbit_copy(orbit_t *dest, const orbit_t *orig);
+
 SUBOOL orbit_init_from_file(orbit_t *self, const char *file);
 
 void orbit_epoch_to_timeval(const orbit_t *self, struct timeval *tv);
@@ -331,7 +333,7 @@ void sgdp4_prediction_get_vel_azel(
 void sgdp4_prediction_get_ecef(
   const sgdp4_prediction_t *self, 
   xyz_t *ecef);
-  
+
 void sgdp4_prediction_finalize(sgdp4_prediction_t *self);
 
 SUBOOL sgdp4_prediction_init(

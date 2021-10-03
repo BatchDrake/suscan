@@ -238,9 +238,9 @@ suscan_local_analyzer_on_channel_data(
         freq,
         &freq_correction)) {
     suscan_local_analyzer_set_channel_correction(
-    suscan_inspsched_get_analyzer(task_info->sched),
-    (su_specttuner_channel_t *) channel, /* TODO: Fix this!! */
-    freq_correction);
+      suscan_inspsched_get_analyzer(task_info->sched),
+      (su_specttuner_channel_t *) channel, /* TODO: Fix this!! */
+      freq_correction);
   }
 
   /* Deliver pending report */
@@ -620,7 +620,7 @@ suscan_local_analyzer_parse_inspector_msg(
           msg->handle)) == NULL) {
         /* No such handle */
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
-      } else if (msg->tle_enable == SU_FALSE) {
+      } else if (!msg->tle_enable) {
         suscan_inspector_set_corrector(insp, NULL);
       } else if (!suscan_local_analyzer_get_qth(&qth)) {
           msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION;
@@ -631,7 +631,6 @@ suscan_local_analyzer_parse_inspector_msg(
             SUSCAN_TLE_CORRECTOR_MODE_ORBIT,
             &qth,
             &msg->tle_orbit);
-
         if (corrector == NULL 
           || !suscan_inspector_set_corrector(insp, corrector))
           msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION;

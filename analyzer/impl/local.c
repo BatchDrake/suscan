@@ -1103,6 +1103,10 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   /* Populate source info. */
   SU_TRYCATCH(suscan_local_analyzer_populate_source_info(new), goto fail);
 
+  /* Get ahead of the initialization. analyzer_thread
+     need this to be properly initialized. */
+  new->parent->impl = new;
+
   if (pthread_create(
       &new->thread,
       NULL,

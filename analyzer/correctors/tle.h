@@ -33,9 +33,7 @@ enum suscan_tle_corrector_mode {
 };
 
 struct suscan_tle_corrector {
-  sgdp4_ctx_t ctx;
-  orbit_t     orbit;
-  xyz_t       site;
+  sgdp4_prediction_t prediction;
 };
 
 typedef struct suscan_tle_corrector suscan_tle_corrector_t;

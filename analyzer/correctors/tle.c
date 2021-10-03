@@ -28,85 +28,90 @@
 SUPRIVATE struct suscan_frequency_corrector_class g_tle_corrector_class;
 
 void
-suscan_tle_corrector_destroy(
-  suscan_tle_corrector_t *self)
+suscan_tle_corrector_destroy(suscan_tle_corrector_t *self)
 {
-  orbit_finalize(&self->orbit);
+  sgdp4_prediction_finalize(&self->prediction);
 }
 
 suscan_tle_corrector_t *
 suscan_tle_corrector_new_from_file(const char *path, const xyz_t *site)
 {
   suscan_tle_corrector_t *new = NULL;
-  
-  SU_TRYCATCH(new = calloc(1, sizeof(suscan_tle_corrector_t)), goto fail);
+  orbit_t orbit = orbit_INITIALIZER;
+  SUBOOL ok = SU_FALSE;
 
-  new->site = *site;
+  SU_TRYCATCH(new = calloc(1, sizeof(suscan_tle_corrector_t)), goto done);
 
-  if (!orbit_init_from_file(&new->orbit, path)) {
-    SU_ERROR("Invalid TLE file\n");
-    goto fail;
-  }
+  SU_TRYCATCH(orbit_init_from_file(&orbit, path), goto done);
 
   SU_TRYCATCH(
-    sgdp4_ctx_init(&new->ctx, &new->orbit) != SGDP4_ERROR,
-    goto fail);
+    sgdp4_prediction_init(&new->prediction, &orbit, site),
+    goto done);
+
+  ok = SU_TRUE;
+
+done:
+  orbit_finalize(&orbit);
+
+  if (!ok) {
+    if (new != NULL)
+      suscan_tle_corrector_destroy(new);
+  }
 
   return new;
-
-fail:
-  suscan_tle_corrector_destroy(new);
-  return NULL;
 }
 
 suscan_tle_corrector_t *
 suscan_tle_corrector_new(const char *string, const xyz_t *site)
 {
   suscan_tle_corrector_t *new = NULL;
-  
-  SU_TRYCATCH(new = calloc(1, sizeof(suscan_tle_corrector_t)), goto fail);
+  orbit_t orbit = orbit_INITIALIZER;
+  SUBOOL ok = SU_FALSE;
 
-  new->site = *site;
-
-  if (!orbit_init_from_data(&new->orbit, string, strlen(string))) {
-    SU_ERROR("No valid TLE data found\n");
-    goto fail;
-  }
+  SU_TRYCATCH(new = calloc(1, sizeof(suscan_tle_corrector_t)), goto done);
 
   SU_TRYCATCH(
-    sgdp4_ctx_init(&new->ctx, &new->orbit) != SGDP4_ERROR,
-    goto fail);
+    orbit_init_from_data(&orbit, string, strlen(string)), 
+    goto done);
+
+  SU_TRYCATCH(
+    sgdp4_prediction_init(&new->prediction, &orbit, site),
+    goto done);
+
+  ok = SU_TRUE;
+
+done:
+  orbit_finalize(&orbit);
+
+  if (!ok) {
+    if (new != NULL)
+      suscan_tle_corrector_destroy(new);
+  }
 
   return new;
-
-fail:
-  suscan_tle_corrector_destroy(new);
-  return NULL;
 }
 
 suscan_tle_corrector_t *
 suscan_tle_corrector_new_from_orbit(const orbit_t *orbit, const xyz_t *site)
 {
   suscan_tle_corrector_t *new = NULL;
-  
-  SU_TRYCATCH(new = calloc(1, sizeof(suscan_tle_corrector_t)), goto fail);
+  SUBOOL ok = SU_FALSE;
 
-  new->site = *site;
+  SU_TRYCATCH(new = calloc(1, sizeof(suscan_tle_corrector_t)), goto done);
 
-  new->orbit = *orbit;
-
-  if (orbit->name != NULL)
-    SU_TRYCATCH(new->orbit.name = strdup(orbit->name), goto fail);
-  
   SU_TRYCATCH(
-    sgdp4_ctx_init(&new->ctx, &new->orbit) != SGDP4_ERROR,
-    goto fail);
+    sgdp4_prediction_init(&new->prediction, orbit, site),
+    goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok) {
+    if (new != NULL)
+      suscan_tle_corrector_destroy(new);
+  }
 
   return new;
-
-fail:
-  suscan_tle_corrector_destroy(new);
-  return NULL;
 }
 
 SUBOOL
@@ -114,27 +119,12 @@ suscan_tle_corrector_visible(
   suscan_tle_corrector_t *self,
   const struct timeval *tv)
 {
-  SUDOUBLE mins = orbit_minutes_from_timeval(&self->orbit, tv);
-  xyz_t site_pos;
-  xyz_t pos, vel;
-  xyz_t pos_ecef, vel_ecef;
-  xyz_t pos_site_rel;
-  kep_t kep;
+  xyz_t azel;
 
-  sgdp4_ctx_compute(&self->ctx, mins, SU_TRUE, &kep);
+  sgdp4_prediction_update(&self->prediction, tv);
+  sgdp4_prediction_get_azel(&self->prediction, &azel);
 
-  kep_get_pos_vel_teme(&kep, &pos, &vel);
-  xyz_teme_to_ecef(
-    &pos, 
-    &vel, 
-    time_timeval_to_julian(tv), 
-    &pos_ecef, 
-    &vel_ecef);
-
-  xyz_geodetic_to_ecef(&self->site, &site_pos);
-  xyz_sub(&pos_ecef, &site_pos, &pos_site_rel);
-
-  return xyz_dotprod(&pos_site_rel, &site_pos) > 0;
+  return azel.elevation >= 0;
 }
 
 SUBOOL
@@ -145,42 +135,21 @@ suscan_frequency_corrector_tle_get_report(
   struct suscan_orbit_report *report)
 {
   suscan_tle_corrector_t *self;
-  SUDOUBLE mins;
-  xyz_t pos, vel;
-  xyz_t pos_ecef, vel_ecef;
   xyz_t pos_azel, vel_azel;
-  kep_t kep;
 
   if (suscan_frequency_corrector_get_class(fc) != &g_tle_corrector_class)
     return SU_FALSE;
 
   self = suscan_frequency_corrector_get_userdata(fc);
-  mins = orbit_minutes_from_timeval(&self->orbit, tv);
 
-  sgdp4_ctx_compute(&self->ctx, mins, SU_TRUE, &kep);
+  sgdp4_prediction_update(&self->prediction, tv);
+  sgdp4_prediction_get_azel(&self->prediction, &pos_azel);
+  sgdp4_prediction_get_vel_azel(&self->prediction, &vel_azel);
 
-  kep_get_pos_vel_teme(&kep, &pos, &vel);
-
-  xyz_teme_to_ecef(
-    &pos, 
-    &vel, 
-    time_timeval_to_julian(tv), 
-    &pos_ecef, 
-    &vel_ecef);
-
-  xyz_ecef_to_razel(
-    &pos_ecef, 
-    &vel_ecef, 
-    &self->site,
-    &pos_azel,
-    &vel_azel);
-
-  report->freq_corr        = vel_azel.distance / SPEED_OF_LIGHT_KM_S * freq;
-  report->rx_time          = *tv;
-  report->vlos_vel         = vel_azel.distance;
-  report->satpos.distance  = pos_azel.distance;
-  report->satpos.elevation = pos_azel.elevation;
-  report->satpos.azimuth   = pos_azel.azimuth;
+  report->freq_corr = vel_azel.distance / SPEED_OF_LIGHT_KM_S * freq;
+  report->rx_time   = *tv;
+  report->vlos_vel  = vel_azel.distance;
+  report->satpos    = pos_azel;
 
   return SU_TRUE;
 }
@@ -193,41 +162,15 @@ suscan_tle_corrector_correct_freq(
   SUFREQ freq,
   SUFLOAT *delta_freq)
 {
-  SUDOUBLE dist, delta_v;
-  SUDOUBLE discriminator;
-  SUDOUBLE mins = orbit_minutes_from_timeval(&self->orbit, tv);
-  xyz_t site_pos;
-  xyz_t pos, vel;
-  xyz_t pos_ecef, vel_ecef;
-  xyz_t pos_site_rel;
-  kep_t kep;
+  xyz_t pos_azel, vel_azel;
 
-  sgdp4_ctx_compute(&self->ctx, mins, SU_TRUE, &kep);
-
-  kep_get_pos_vel_teme(&kep, &pos, &vel);
-  xyz_teme_to_ecef(
-    &pos, 
-    &vel, 
-    time_timeval_to_julian(tv), 
-    &pos_ecef, 
-    &vel_ecef);
-
-  xyz_geodetic_to_ecef(&self->site, &site_pos);
-  xyz_sub(&pos_ecef, &site_pos, &pos_site_rel);
-  dist = XYZ_NORM(&pos_site_rel);
-
-  discriminator = xyz_dotprod(&pos_site_rel, &site_pos);
+  sgdp4_prediction_update(&self->prediction, tv);
+  sgdp4_prediction_get_azel(&self->prediction, &pos_azel);
+  sgdp4_prediction_get_vel_azel(&self->prediction, &vel_azel);
   
-  if (sufeq(dist, 0, 1e-8)) {
-    delta_v = 0;
-  } else {
-    xyz_mul_c(&pos_site_rel, 1. / dist);
-    delta_v = xyz_dotprod(&vel_ecef, &pos_site_rel);
-  }
+  *delta_freq = vel_azel.distance / SPEED_OF_LIGHT_KM_S * freq;
 
-  *delta_freq = delta_v / SPEED_OF_LIGHT_KM_S * freq;
-
-  return discriminator > 0;
+  return SU_TRUE;
 }
 
 SUPRIVATE void *
@@ -282,7 +225,7 @@ suscan_tle_corrector_applicable(
     void *userdata, 
     const struct timeval *source_time)
 {
-  return suscan_tle_corrector_visible(userdata, source_time);
+  return SU_TRUE;
 }
 
 SUPRIVATE SUFLOAT

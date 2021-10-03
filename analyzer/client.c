@@ -527,7 +527,7 @@ suscan_analyzer_inspector_set_tle_async(
 
   req->tle_enable = orbit != NULL;
   if (orbit != NULL)
-    req->tle_orbit = *orbit;
+    orbit_copy(&req->tle_orbit, orbit);
 
   if (!suscan_analyzer_write(
       analyzer,
