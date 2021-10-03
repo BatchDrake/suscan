@@ -755,6 +755,7 @@ suscli_analyzer_server_process_call(
     suscli_analyzer_client_t *client,
     struct suscan_analyzer_remote_call *call)
 {
+  struct timeval tv;
   SUBOOL ok = SU_FALSE;
 
   if (suscli_analyzer_client_is_auth(client)) {
@@ -790,10 +791,13 @@ suscli_analyzer_server_process_call(
        * rate, etc
        */
 
+      suscan_analyzer_get_source_time(self->analyzer, &tv);
+
       SU_TRYCATCH(
           suscli_analyzer_client_send_source_info(
               client,
-              suscan_analyzer_get_source_info(self->analyzer)),
+              suscan_analyzer_get_source_info(self->analyzer),
+              &tv),
           goto done);
 
       /* We locally request a global update of params */

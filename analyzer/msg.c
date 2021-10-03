@@ -182,6 +182,8 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
 
   SUSCAN_PACK(int,   self->fc);
   SUSCAN_PACK(uint,  self->inspector_id);
+  SUSCAN_PACK(uint,  self->timestamp.tv_sec);
+  SUSCAN_PACK(uint,  self->timestamp.tv_usec);
   SUSCAN_PACK(float, self->samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
   SUSCAN_PACK(float, self->N0);
@@ -198,13 +200,20 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
 
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
 {
+  uint64_t tv_sec;
+  uint32_t tv_usec;
   SUSCAN_UNPACK_BOILERPLATE_START;
 
   SUSCAN_UNPACK(int64,  self->fc);
   SUSCAN_UNPACK(uint32, self->inspector_id);
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
   SUSCAN_UNPACK(float,  self->samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
   SUSCAN_UNPACK(float,  self->N0);
+
+  self->timestamp.tv_sec  = tv_sec;
+  self->timestamp.tv_usec = tv_usec;
 
   SU_TRYCATCH(
       suscan_unpack_compact_single_array(
@@ -1355,6 +1364,9 @@ suscan_analyzer_send_source_info(
   // XXX: Protect!
   SU_TRYCATCH(suscan_analyzer_source_info_init_copy(copy, info), goto done);
 
+  /* Send source info */
+  suscan_analyzer_get_source_time(self, &copy->source_time);
+    
   SU_TRYCATCH(
       suscan_mq_write(
           self->mq_out,
@@ -1397,7 +1409,7 @@ suscan_analyzer_send_psd(
   msg->fc = suscan_analyzer_get_source_info(self)->frequency;
   msg->samp_rate = suscan_analyzer_get_source_info(self)->source_samp_rate;
   msg->measured_samp_rate = suscan_analyzer_get_measured_samp_rate(self);
-
+  suscan_analyzer_get_source_time(self, &msg->timestamp);
   msg->N0 = detector->N0;
 
   if (!suscan_mq_write(
@@ -1449,7 +1461,7 @@ suscan_analyzer_send_psd_from_smoothpsd(
   /* In wide spectrum mode, frequency is given by curr_freq */
   msg->fc = suscan_analyzer_get_source_info(self)->frequency;
   msg->measured_samp_rate = suscan_analyzer_get_measured_samp_rate(self);
-
+  suscan_analyzer_get_source_time(self, &msg->timestamp);
   msg->N0 = 0;
 
   if (!suscan_mq_write(

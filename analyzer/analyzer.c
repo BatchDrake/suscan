@@ -224,6 +224,9 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_source_info)
     SUSCAN_PACK(double, self->qth.height);
   }
 
+  SUSCAN_PACK(uint, self->source_time.tv_sec);
+  SUSCAN_PACK(uint, self->source_time.tv_usec);
+
   SU_TRYCATCH(cbor_pack_map_start(buffer, self->gain_count) == 0, goto fail);
   for (i = 0; i < self->gain_count; ++i)
     SU_TRYCATCH(
@@ -243,6 +246,8 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   SUBOOL end_required = SU_FALSE;
   size_t i;
   uint64_t nelem = 0;
+  uint64_t tv_sec;
+  uint32_t tv_usec;
 
   SUSCAN_UNPACK(uint64, self->source_samp_rate);
   SUSCAN_UNPACK(uint64, self->effective_samp_rate);
@@ -264,6 +269,12 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
     SUSCAN_UNPACK(double, self->qth.lon);
     SUSCAN_UNPACK(double, self->qth.height);
   }
+
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
+  
+  self->source_time.tv_sec  = tv_sec;
+  self->source_time.tv_usec = tv_usec;
 
   /* Deserialize gains */
   SU_TRYCATCH(
@@ -343,6 +354,7 @@ suscan_analyzer_source_info_init_copy(
   self->lnb                 = origin->lnb;
   self->bandwidth           = origin->bandwidth;
   self->ppm                 = origin->ppm;
+  self->source_time         = origin->source_time;
 
   if (origin->antenna != NULL)
     SU_TRYCATCH(self->antenna = strdup(origin->antenna), goto done);

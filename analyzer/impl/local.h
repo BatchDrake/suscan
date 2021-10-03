@@ -83,7 +83,6 @@ struct suscan_local_analyzer {
   SUFLOAT  interval_psd;
   SUSCOUNT det_count;
   SUSCOUNT det_num_psd;
-  SUSCOUNT consumed;
   
   /* This mutex shall protect hot-config requests */
   /* XXX: This is cumbersome. Create a hotconf object to handle these things */
@@ -164,11 +163,6 @@ struct suscan_local_analyzer {
 };
 
 typedef struct suscan_local_analyzer suscan_local_analyzer_t;
-
-/* Internal */
-void suscan_local_analyzer_get_source_time(
-    suscan_local_analyzer_t *analyzer,
-    struct timeval *tv);
 
 /* Internal */
 void suscan_local_analyzer_source_barrier(suscan_local_analyzer_t *analyzer);

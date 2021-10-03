@@ -447,7 +447,6 @@ suscan_analyzer_thread(void *data)
       SUSCAN_ANALYZER_INIT_SUCCESS,
       NULL);
 
-  /* Send source info */
   suscan_analyzer_send_source_info(
       self->parent,
       &self->source_info);
@@ -653,31 +652,6 @@ void
 suscan_local_analyzer_leave_sched(suscan_local_analyzer_t *self)
 {
   pthread_mutex_unlock(&self->sched_lock);
-}
-
-void 
-suscan_local_analyzer_get_source_time(
-  suscan_local_analyzer_t *analyzer,
-  struct timeval *tv)
-{
-  SUSCOUNT consumed_in_sec;
-  SUSCOUNT remainder;
-
-  /* TODO: Check if source has a timestamp */
-  if (suscan_local_analyzer_is_real_time(analyzer)) {
-    gettimeofday(tv, NULL);
-  } else {
-    /* Not a real time source. Guess from source. */
-    tv->tv_sec 
-      = analyzer->consumed / suscan_local_analyzer_get_samp_rate(analyzer);
-
-    consumed_in_sec 
-      = tv->tv_sec * suscan_local_analyzer_get_samp_rate(analyzer);
-    remainder = analyzer->consumed - consumed_in_sec;
-
-    tv->tv_usec = (remainder * 1000000) 
-      / suscan_local_analyzer_get_samp_rate(analyzer);
-  }
 }
 
 su_specttuner_channel_t *
@@ -928,6 +902,7 @@ suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
   info->source_samp_rate = suscan_source_get_samp_rate(self->source);
   info->effective_samp_rate = self->effective_samp_rate;
   info->measured_samp_rate = self->measured_samp_rate;
+
   info->frequency = suscan_source_get_freq(self->source);
 
   suscan_local_analyzer_get_freq_limits(
@@ -1381,6 +1356,14 @@ suscan_local_analyzer_get_source_info_pointer(const void *ptr)
   return (struct suscan_analyzer_source_info *) &self->source_info;
 }
 
+SUPRIVATE void
+suscan_local_analyzer_get_source_time(const void *ptr, struct timeval *tv)
+{
+  const suscan_local_analyzer_t *self = (const suscan_local_analyzer_t *) ptr;
+
+  suscan_source_get_time(self->source, tv);
+}
+
 SUPRIVATE SUBOOL
 suscan_local_analyzer_commit_source_info(void *ptr)
 {
@@ -1562,6 +1545,7 @@ suscan_local_analyzer_get_interface(void)
     SET_CALLBACK(force_eos);
     SET_CALLBACK(is_real_time);
     SET_CALLBACK(get_samp_rate);
+    SET_CALLBACK(get_source_time);
     SET_CALLBACK(get_measured_samp_rate);
     SET_CALLBACK(get_source_info_pointer);
     SET_CALLBACK(commit_source_info);

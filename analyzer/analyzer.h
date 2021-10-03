@@ -210,6 +210,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
   SUBOOL   have_qth;
   xyz_t    qth;
 
+  struct timeval source_time;
   PTR_LIST(struct suscan_analyzer_gain_info, gain);
   PTR_LIST(char, antenna);
 };
@@ -260,7 +261,7 @@ struct suscan_analyzer_interface {
   SUBOOL   (*is_real_time) (const void *);
   unsigned (*get_samp_rate) (const void *);
   SUFLOAT  (*get_measured_samp_rate) (const void *);
-
+  void     (*get_source_time) (const void *, struct timeval *tv);
   struct suscan_analyzer_source_info *(*get_source_info_pointer) (const void *);
   SUBOOL   (*commit_source_info) (void *);
 
@@ -370,8 +371,30 @@ suscan_analyzer_get_measured_samp_rate(const suscan_analyzer_t *self)
 }
 
 /*!
+ * Get the last reported signal source time
+ * \param analyzer a pointer to the analyzer object
+ * \param[out] tv timeval struct with the source time
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUINLINE void
+suscan_analyzer_get_source_time(
+    const suscan_analyzer_t *self, 
+    struct timeval *tv)
+{
+  (self->iface->get_source_time) (self->impl, tv);
+}
+
+/*!
  * Return a pointer to the current source information structure. This pointer
  * is analyzer-owned, i.e. the user must not attempt to free it after usage.
+ * 
+ * NOTE: The source_time field returned by this method must be ignored. Source
+ * time is only guaranteed to be meaningful if it was received from a message. 
+ * In order to get an updated value of the source time, refer to
+ * suscan_analyzer_get_source_time instead.
+ * 
+ * \see suscan_analyzer_get_source_time
+ * 
  * \param analyzer a pointer to the analyzer object
  * \return a pointer to the source information structure
  * \author Gonzalo José Carracedo Carballal

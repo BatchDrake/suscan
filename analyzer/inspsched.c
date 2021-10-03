@@ -145,8 +145,8 @@ suscan_inspsched_get_source_time(
   struct timeval *tv)
 {
   if (!sched->have_time) {
-    suscan_local_analyzer_get_source_time(
-      sched->analyzer, 
+    suscan_analyzer_get_source_time(
+      SUSCAN_LOCAL_ANALYZER_AS_ANALYZER(sched->analyzer), 
       &sched->source_time);
     sched->have_time = SU_TRUE;
   }

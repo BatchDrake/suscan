@@ -520,7 +520,8 @@ done:
 SUBOOL
 suscli_analyzer_client_send_source_info(
     suscli_analyzer_client_t *self,
-    const struct suscan_analyzer_source_info *info)
+    const struct suscan_analyzer_source_info *info,
+    const struct timeval *tv)
 {
   struct suscan_analyzer_remote_call *call = NULL;
   SUBOOL ok = SU_FALSE;
@@ -535,6 +536,8 @@ suscli_analyzer_client_send_source_info(
       suscan_analyzer_source_info_init_copy(&call->source_info, info),
       goto done);
 
+  call->source_info.source_time = *tv;
+  
   SU_TRYCATCH(suscli_analyzer_client_deliver_call(self, call), goto done);
 
   suscli_analyzer_client_set_has_source_info(self, SU_TRUE);

@@ -458,6 +458,7 @@ suscan_analyzer_remote_call_deliver_message(
     suscan_analyzer_t *analyzer)
 {
   uint32_t type = 0;
+  struct suscan_analyzer_psd_msg *psd_msg;
   void *priv = NULL;
 
   SUBOOL ok = SU_FALSE;
@@ -469,13 +470,23 @@ suscan_analyzer_remote_call_deliver_message(
   type = self->msg.type;
   priv = self->msg.ptr;
 
-  if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO) {
-    suscan_analyzer_source_info_finalize(&self->source_info);
-    SU_TRYCATCH(
-        suscan_analyzer_source_info_init_copy(&self->source_info, priv),
-        goto done);
-  }
+  /* Certain messages imply an update of the remote state */
+  switch (type) {
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
+      /* Source info must be kept in sync. */
+      suscan_analyzer_source_info_finalize(&self->source_info);
+      SU_TRYCATCH(
+          suscan_analyzer_source_info_init_copy(&self->source_info, priv),
+          goto done);
+      break;
 
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+      /* Timestamp is also important */
+      psd_msg = priv;
+      self->source_info.source_time = psd_msg->timestamp;
+      break;
+  }
+  
   SU_TRYCATCH(suscan_mq_write(analyzer->mq_out, type, priv), goto done);
 
   self->type = SUSCAN_ANALYZER_REMOTE_NONE;
@@ -1950,6 +1961,16 @@ suscan_remote_analyzer_get_measured_samp_rate(const void *ptr)
   return self->source_info.measured_samp_rate;
 }
 
+SUPRIVATE void
+suscan_remote_analyzer_get_source_time(const void *ptr, struct timeval *tv)
+{
+  const suscan_remote_analyzer_t *self = (const suscan_remote_analyzer_t *) ptr;
+
+  /* In remote analyzers, the only way to query the source time is to obtain
+     the last cached source time. */
+  *tv = self->source_info.source_time;
+}
+
 SUPRIVATE struct suscan_analyzer_source_info *
 suscan_remote_analyzer_get_source_info_pointer(const void *ptr)
 {
@@ -2158,6 +2179,7 @@ suscan_remote_analyzer_get_interface(void)
     SET_CALLBACK(force_eos);
     SET_CALLBACK(is_real_time);
     SET_CALLBACK(get_samp_rate);
+    SET_CALLBACK(get_source_time);
     SET_CALLBACK(get_measured_samp_rate);
     SET_CALLBACK(get_source_info_pointer);
     SET_CALLBACK(commit_source_info);

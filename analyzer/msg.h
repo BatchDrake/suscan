@@ -74,6 +74,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_throttle_msg) {
 SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
   int64_t fc;
   uint32_t inspector_id;
+  struct   timeval timestamp; /* Timestamp after PSD */
   SUFLOAT  samp_rate;
   SUFLOAT  measured_samp_rate;
   SUFLOAT  N0;
