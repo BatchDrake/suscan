@@ -1084,7 +1084,8 @@ suscan_source_config_clone(const suscan_source_config_t *config)
   new->channel = config->channel;
   new->loop = config->loop;
   new->device = config->device;
-
+  new->start_time = config->start_time;
+  
   return new;
 
 fail:
@@ -1815,7 +1816,6 @@ suscan_source_read_file(suscan_source_t *self, SUCOMPLEX *buf, SUSCOUNT max)
     }
     
     self->total_samples = 0;
-
     got = sf_read(self->sf, as_real, real_count);
   }
 
@@ -1918,9 +1918,13 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
     } while (result == 0);
 
     memcpy(buffer, self->decim_buf, result * sizeof(SUCOMPLEX));
+  } else {
+    result = (self->read) (self, buffer, max);
+    if (result > 0)
+      self->total_samples += result;
+  }
 
-    return result;
-  } else return (self->read) (self, buffer, max);
+  return result;
 }
 
 void 
