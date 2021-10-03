@@ -1085,7 +1085,7 @@ suscan_source_config_clone(const suscan_source_config_t *config)
   new->loop = config->loop;
   new->device = config->device;
   new->start_time = config->start_time;
-  
+
   return new;
 
 fail:
@@ -1836,11 +1836,12 @@ SUPRIVATE void
 suscan_source_time_file(struct suscan_source *self, struct timeval *tv)
 {
   struct timeval elapsed;
+  SUSCOUNT samp_count = self->total_samples;
 
-  elapsed.tv_sec  = self->total_samples / self->config->samp_rate;
+  elapsed.tv_sec  = samp_count / self->config->samp_rate;
   elapsed.tv_usec = 
     (1000000 
-      * (self->total_samples - elapsed.tv_sec * self->config->samp_rate))
+      * (samp_count - elapsed.tv_sec * self->config->samp_rate))
       / self->config->samp_rate;
 
   timeradd(&self->config->start_time, &elapsed, tv);
