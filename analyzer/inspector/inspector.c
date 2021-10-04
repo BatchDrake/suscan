@@ -406,9 +406,9 @@ suscan_inspector_new(
       .5 * channel->decimation * su_specttuner_channel_get_bw(channel));
 
   /* Spectrum and estimator updates */
-  new->interval_estimator = .1;
-  new->interval_spectrum  = .1;
-  new->interval_estimator = .25;
+  new->interval_estimator    = .1;
+  new->interval_spectrum     = .1;
+  new->interval_orbit_report = .25;
 
   /* Initialize clocks */
   new->last_estimator = suscan_gettime();
