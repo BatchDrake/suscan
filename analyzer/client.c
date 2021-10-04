@@ -34,6 +34,8 @@
 #include "inspector/inspector.h"
 #include "mq.h"
 #include "msg.h"
+#include "sgdp4/sgdp4.h"
+#include "src/suscan.h"
 
 /**************************** Configuration methods **************************/
 SUBOOL

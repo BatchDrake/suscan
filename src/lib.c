@@ -20,6 +20,8 @@
 #include <pthread.h>
 #include <string.h>
 #include <sigutils/sigutils.h>
+#include <confdb.h>
+
 #include <util.h>
 #include "suscan.h"
 
@@ -36,6 +38,64 @@ SUPRIVATE pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 SUPRIVATE struct suscan_message *message_ring[SUSCAN_MAX_MESSAGES];
 SUPRIVATE unsigned int message_ptr;
 SUPRIVATE unsigned int message_count;
+
+SUPRIVATE xyz_t  g_qth;
+SUPRIVATE SUBOOL g_have_qth;
+SUPRIVATE SUBOOL g_qth_tested;
+
+SUBOOL
+suscan_get_qth(xyz_t *xyz)
+{
+  suscan_config_context_t *ctx = NULL;
+  const suscan_object_t *list = NULL;
+  const suscan_object_t *qthobj = NULL;
+  unsigned int count;
+  const char *tmp;
+
+  if (!g_qth_tested) {
+    g_qth_tested = SU_TRUE;
+    if ((ctx = suscan_config_context_assert("qth")) != NULL) {
+      list = suscan_config_context_get_list(ctx);
+      count = suscan_object_set_get_count(list);
+
+      if (count > 0
+        && (qthobj = suscan_object_set_get(list, 0)) != NULL 
+        && (tmp = suscan_object_get_class(qthobj)) != NULL
+        && strcmp(tmp, "Location") == 0) {
+        g_qth.lat    = suscan_object_get_field_double(qthobj, "lat", NAN);
+        g_qth.lon    = suscan_object_get_field_double(qthobj, "lon", NAN);
+        g_qth.height = suscan_object_get_field_double(qthobj, "alt", NAN);
+
+        if (!isnan(g_qth.lat) && !isnan(g_qth.lon) && !isnan(g_qth.height)) {
+          g_qth.lat    = SU_DEG2RAD(g_qth.lat);
+          g_qth.lon    = SU_DEG2RAD(g_qth.lon);
+          g_qth.height = 1e-3;
+          g_have_qth = SU_TRUE;
+        }
+      }
+    }
+
+    if (!g_have_qth)
+      SU_WARNING(
+        "No valid QTH configuration found. Doppler corrections will be disabled.\n");
+  }
+
+  if (g_have_qth)
+    *xyz = g_qth;
+
+  return g_have_qth;
+}
+
+void
+suscan_set_qth(const xyz_t *qth)
+{
+  if (qth != NULL) {
+    g_have_qth = SU_TRUE;
+    g_qth = *qth;
+  } else {
+    g_have_qth = SU_FALSE;
+  }
+}
 
 SUPRIVATE char
 suscan_severity_to_char(enum sigutils_log_severity sev)

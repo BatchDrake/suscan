@@ -26,12 +26,9 @@
 #include "realtime.h"
 #include <confdb.h>
 #include "sgdp4/sgdp4-types.h"
+#include <src/suscan.h>
 
 SUPRIVATE struct suscan_analyzer_interface *g_local_analyzer_interface;
-SUPRIVATE xyz_t g_qth;
-
-SUPRIVATE SUBOOL g_have_qth;
-SUPRIVATE SUBOOL g_qth_tested;
 
 /* Forward declarations */
 SUPRIVATE SUBOOL suscan_local_analyzer_is_real_time(const void *ptr);
@@ -41,49 +38,6 @@ SUBOOL
 suscan_analyzer_is_local(const suscan_analyzer_t *self)
 {
   return self->iface == g_local_analyzer_interface;
-}
-
-SUBOOL
-suscan_local_analyzer_get_qth(xyz_t *xyz)
-{
-  suscan_config_context_t *ctx = NULL;
-  const suscan_object_t *list = NULL;
-  const suscan_object_t *qthobj = NULL;
-  unsigned int count;
-  const char *tmp;
-
-  if (!g_qth_tested) {
-    g_qth_tested = SU_TRUE;
-    if ((ctx = suscan_config_context_assert("qth")) != NULL) {
-      list = suscan_config_context_get_list(ctx);
-      count = suscan_object_set_get_count(list);
-
-      if (count > 0
-        && (qthobj = suscan_object_set_get(list, 0)) != NULL 
-        && (tmp = suscan_object_get_class(qthobj)) != NULL
-        && strcmp(tmp, "Location") == 0) {
-        g_qth.lat    = suscan_object_get_field_double(qthobj, "lat", NAN);
-        g_qth.lon    = suscan_object_get_field_double(qthobj, "lon", NAN);
-        g_qth.height = suscan_object_get_field_double(qthobj, "alt", NAN);
-
-        if (!isnan(g_qth.lat) && !isnan(g_qth.lon) && !isnan(g_qth.height)) {
-          g_qth.lat    = SU_DEG2RAD(g_qth.lat);
-          g_qth.lon    = SU_DEG2RAD(g_qth.lon);
-          g_qth.height = 1e-3;
-          g_have_qth = SU_TRUE;
-        }
-      }
-    }
-
-    if (!g_have_qth)
-      SU_WARNING(
-        "No valid QTH configuration found. Doppler corrections will be disabled.\n");
-  }
-
-  if (g_have_qth)
-    *xyz = g_qth;
-
-  return g_have_qth;
 }
 
 /************************ Overridable request API ****************************/
@@ -917,7 +871,7 @@ suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
   info->iq_reverse = self->iq_rev;
   info->agc = SU_FALSE;
 
-  info->have_qth = suscan_local_analyzer_get_qth(&info->qth);
+  info->have_qth = suscan_get_qth(&info->qth);
 
   if (ant != NULL) {
     SU_TRYCATCH(info->antenna = strdup(ant), goto done);

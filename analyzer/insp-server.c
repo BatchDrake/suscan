@@ -623,7 +623,7 @@ suscan_local_analyzer_parse_inspector_msg(
         msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
       } else if (!msg->tle_enable) {
         suscan_inspector_set_corrector(insp, NULL);
-      } else if (!suscan_local_analyzer_get_qth(&qth)) {
+      } else if (!suscan_get_qth(&qth)) {
           msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION;
           SU_WARNING("TLE request rejected. No QTH configured.\n");
       } else {
