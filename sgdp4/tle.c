@@ -396,6 +396,25 @@ orbit_minutes(const orbit_t *self, SUDOUBLE time)
   return (time - orbit_epoch_to_unix(self)) / 60.;
 }
 
+void
+orbit_debug(const orbit_t *self)
+{
+  SU_INFO("SAT NAME: %s\n", self->name);
+  SU_INFO("  Epoch:    %d + %g\n", self->ep_year, self->ep_day);
+  SU_INFO("  MM:       %g rev / day\n", self->rev);
+  SU_INFO("  dMM/dt:   %g rev / day²\n", self->drevdt);
+  SU_INFO("  d²MM/dt²: %g rev / day³\n", self->d2revdt2);
+  SU_INFO("  B*:       %g\n", self->bstar);
+  SU_INFO("  Incl:     %gº\n", SU_RAD2DEG(self->eqinc));
+  SU_INFO("  Ecc:      %g\n", self->ecc);
+  SU_INFO("  Mnan:     %gº\n", SU_RAD2DEG(self->mnan));
+  SU_INFO("  Argp:     %gº\n", SU_RAD2DEG(self->argp));
+  SU_INFO("  RAAN:     %gº\n", SU_RAD2DEG(self->ascn));
+  SU_INFO("  S. axis:  %gº\n", self->smjaxs);
+  SU_INFO("  Norb:     %ld\n", self->norb);
+  SU_INFO("  Satno:    %d\n", self->satno);
+}
+
 void 
 orbit_finalize(orbit_t *self)
 {

@@ -116,6 +116,7 @@ SUDOUBLE orbit_minutes_from_timeval(
   const struct timeval *when);
 SUDOUBLE orbit_minutes(const orbit_t *self, SUDOUBLE time);
 
+void orbit_debug(const orbit_t *self);
 void orbit_finalize(orbit_t *self);
 
 #define XYZ_MATMUL(d, m, v)                                          \

@@ -55,6 +55,7 @@ suscan_get_qth(xyz_t *xyz)
   if (!g_qth_tested) {
     g_qth_tested = SU_TRUE;
     if ((ctx = suscan_config_context_assert("qth")) != NULL) {
+      suscan_config_context_set_save(ctx, SU_TRUE);
       list = suscan_config_context_get_list(ctx);
       count = suscan_object_set_get_count(list);
 
@@ -69,7 +70,7 @@ suscan_get_qth(xyz_t *xyz)
         if (!isnan(g_qth.lat) && !isnan(g_qth.lon) && !isnan(g_qth.height)) {
           g_qth.lat    = SU_DEG2RAD(g_qth.lat);
           g_qth.lon    = SU_DEG2RAD(g_qth.lon);
-          g_qth.height = 1e-3;
+          g_qth.height *= 1e-3;
           g_have_qth = SU_TRUE;
         }
       }

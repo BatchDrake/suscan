@@ -72,6 +72,10 @@ suscan_inspector_set_corrector(
 
   self->corrector = corrector;
 
+  /* TODO: Upgrade API */
+  if (corrector == NULL)
+    su_specttuner_set_channel_delta_f(NULL, self->samp_info.schan, 0);
+
   ok = SU_TRUE;
 
 done:

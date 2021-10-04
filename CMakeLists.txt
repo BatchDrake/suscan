@@ -291,7 +291,8 @@ add_library(
   ${CLI_LIB_SOURCES}
   ${ANALYZER_LIB_HEADERS}
   ${ANALYZER_LIB_SOURCES}
-  ${VERSION_SOURCES})
+  ${VERSION_SOURCES}
+  ${SRCDIR}/lib.c)
   
 # Private header directories
 target_include_directories(
@@ -374,6 +375,10 @@ install(
   FILES ${RSRC_CONFIG_FILES}
   DESTINATION share/suscan/config)
    
+install(
+  FILES src/suscan.h
+  DESTINATION include/suscan)
+
 install(TARGETS suscan DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 ########################### Suscan test executable ############################
@@ -381,8 +386,7 @@ set(SUSCAN_HEADERS ${SRCDIR}/suscan.h)
     
 set(SUSCAN_SOURCES 
   ${SRCDIR}/common.c 
-  ${SRCDIR}/fingerprint.c 
-  ${SRCDIR}/lib.c
+  ${SRCDIR}/fingerprint.c
   ${SRCDIR}/main.c)
   
 add_executable(
@@ -447,7 +451,6 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/devserv/client.c
   ${CLIDIR}/devserv/server.c
   ${CLIDIR}/devserv/tx.c
-  ${SRCDIR}/lib.c
   ${SRCDIR}/suscli.c)
 
 add_executable(

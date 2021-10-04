@@ -129,7 +129,12 @@ typedef struct orbit_s {
   int32_t satno;    /* Satellite number. */
 } orbit_t;
 
-#define orbit_INITIALIZER {NULL}
+#define orbit_INITIALIZER {                     \
+  NULL,                                         \
+  0,                                            \
+  .0, .0, .0, .0, .0, .0, .0, .0, .0, .0, .0,   \
+  0,                                            \
+  0}
 
 typedef struct xyz_s {
   union {

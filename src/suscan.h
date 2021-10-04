@@ -14,6 +14,10 @@
 
 #include <analyzer/msg.h>    /* Suscan-specific messages */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SUSCAN_SOURCE_DIALOG_MAX_WIDGET_WIDTH 15
 #define SUSCAN_SOURCE_DIALOG_MAX_BASENAME     SUSCAN_SOURCE_DIALOG_MAX_WIDGET_WIDTH
 #define SUSCAN_SOURCE_DIALOG_X_PADDING        5
@@ -57,5 +61,9 @@ SUBOOL suscan_get_qth(xyz_t *geo);
 void   suscan_set_qth(const xyz_t *geo);
 
 SUBOOL suscan_perform_fingerprint(struct suscan_source_config *config);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _MAIN_INCLUDE_H */

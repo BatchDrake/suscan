@@ -28,11 +28,13 @@
 #include <sigutils/sigutils.h>
 #include <analyzer/impl/local.h>
 #include <correctors/tle.h>
+#include <sgdp4/sgdp4.h>
 
 #include "inspector/inspector.h"
 #include "realtime.h"
 #include "mq.h"
 #include "msg.h"
+#include "src/suscan.h"
 
 /*
  * This is the server application: the worker that processes messages and
