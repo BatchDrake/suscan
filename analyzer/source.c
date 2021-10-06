@@ -1814,7 +1814,7 @@ suscan_source_read_file(suscan_source_t *self, SUCOMPLEX *buf, SUSCOUNT max)
       SU_ERROR("Failed to seek to the beginning of the stream\n");
       return 0;
     }
-    
+    self->looped = SU_TRUE;
     self->total_samples = 0;
     got = sf_read(self->sf, as_real, real_count);
   }
@@ -1833,7 +1833,7 @@ suscan_source_read_file(suscan_source_t *self, SUCOMPLEX *buf, SUSCOUNT max)
 }
 
 SUPRIVATE void
-suscan_source_time_file(struct suscan_source *self, struct timeval *tv)
+suscan_source_get_time_file(struct suscan_source *self, struct timeval *tv)
 {
   struct timeval elapsed;
   SUSCOUNT samp_count = self->total_samples;
@@ -1845,6 +1845,44 @@ suscan_source_time_file(struct suscan_source *self, struct timeval *tv)
       / self->config->samp_rate;
 
   timeradd(&self->config->start_time, &elapsed, tv);
+}
+
+void
+suscan_source_get_end_time(
+  const suscan_source_t *self,
+  struct timeval *tv)
+{
+  struct timeval start, elapsed = {0, 0};
+  SUSDIFF max_size;
+
+  suscan_source_get_start_time(self, &start);
+
+  max_size = suscan_source_get_max_size(self) - 1;
+  if (max_size >= 0) {
+    elapsed.tv_sec  = max_size / self->config->samp_rate;
+    elapsed.tv_usec = (1000000 
+      * (max_size - elapsed.tv_sec * self->config->samp_rate))
+      / self->config->samp_rate;
+  }
+
+  timeradd(&start, &elapsed, tv);
+}
+
+SUPRIVATE SUBOOL
+suscan_source_seek_file(struct suscan_source *self, SUSCOUNT pos)
+{
+  if (sf_seek(self->sf, pos, SEEK_SET) == -1)
+    return SU_FALSE;
+
+  self->total_samples = pos;
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUSDIFF
+suscan_source_max_size_file(const struct suscan_source *self)
+{
+  return self->sf_info.frames;
 }
 
 SUPRIVATE SUSDIFF
@@ -1940,12 +1978,29 @@ suscan_source_get_consumed_samples(const suscan_source_t *self)
   return self->total_samples;
 }
 
+SUBOOL
+suscan_source_seek(suscan_source_t *self, SUSCOUNT pos)
+{
+  if (self->seek == NULL)
+    return SU_FALSE;
+
+  return (self->seek) (self, pos);
+}
+
+SUSDIFF
+suscan_source_get_max_size(const suscan_source_t *self)
+{
+  if (self->max_size == NULL)
+    return -1;
+
+  return (self->max_size) (self);
+}
+
 SUSCOUNT 
 suscan_source_get_base_samp_rate(const suscan_source_t *self)
 {
   return self->config->samp_rate;
 }
-
 
 SUBOOL
 suscan_source_start_capture(suscan_source_t *source)
@@ -2304,13 +2359,15 @@ suscan_source_new(suscan_source_config_t *config)
   switch (new->config->type) {
     case SUSCAN_SOURCE_TYPE_FILE:
       SU_TRYCATCH(suscan_source_open_file(new), goto fail);
-      new->read            = suscan_source_read_file;
-      new->get_time = suscan_source_time_file;
+      new->read     = suscan_source_read_file;
+      new->get_time = suscan_source_get_time_file;
+      new->seek     = suscan_source_seek_file;
+      new->max_size = suscan_source_max_size_file;
       break;
 
     case SUSCAN_SOURCE_TYPE_SDR:
       SU_TRYCATCH(suscan_source_open_sdr(new), goto fail);
-      new->read            = suscan_source_read_sdr;
+      new->read     = suscan_source_read_sdr;
       new->get_time = suscan_source_time_sdr;
       break;
 

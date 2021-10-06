@@ -1971,6 +1971,14 @@ suscan_remote_analyzer_get_source_time(const void *ptr, struct timeval *tv)
   *tv = self->source_info.source_time;
 }
 
+SUPRIVATE SUBOOL
+suscan_remote_analyzer_seek(void *ptr, const struct timeval *tv)
+{
+  suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+
+  return suscan_analyzer_seek_async(self->parent, tv, 0);
+}
+
 SUPRIVATE struct suscan_analyzer_source_info *
 suscan_remote_analyzer_get_source_info_pointer(const void *ptr)
 {
@@ -2180,6 +2188,7 @@ suscan_remote_analyzer_get_interface(void)
     SET_CALLBACK(is_real_time);
     SET_CALLBACK(get_samp_rate);
     SET_CALLBACK(get_source_time);
+    SET_CALLBACK(seek);
     SET_CALLBACK(get_measured_samp_rate);
     SET_CALLBACK(get_source_info_pointer);
     SET_CALLBACK(commit_source_info);

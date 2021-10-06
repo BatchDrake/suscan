@@ -489,6 +489,28 @@ suscan_local_analyzer_slow_set_freq(
 }
 
 SUBOOL
+suscan_local_analyzer_slow_seek(
+    suscan_local_analyzer_t *self,
+    const struct timeval *tv)
+{
+  uint64_t samp_rate;
+
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  /* We need to conver the timeval to position first */
+  samp_rate = suscan_source_get_base_samp_rate(self->source);
+  
+  self->seek_req_value = 
+    tv->tv_sec * samp_rate + (tv->tv_usec * samp_rate) / 1000000;
+  self->seek_req = SU_TRUE;
+
+  /* This request is to be processed by the source thread */
+  return SU_TRUE;
+}
+
+SUBOOL
 suscan_local_analyzer_slow_set_dc_remove(
     suscan_local_analyzer_t *analyzer,
     SUBOOL remove)

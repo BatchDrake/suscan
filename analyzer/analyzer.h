@@ -211,6 +211,11 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
   xyz_t    qth;
 
   struct timeval source_time;
+
+  SUBOOL         seekable;
+  struct timeval source_start;
+  struct timeval source_end;
+
   PTR_LIST(struct suscan_analyzer_gain_info, gain);
   PTR_LIST(char, antenna);
 };
@@ -262,6 +267,8 @@ struct suscan_analyzer_interface {
   unsigned (*get_samp_rate) (const void *);
   SUFLOAT  (*get_measured_samp_rate) (const void *);
   void     (*get_source_time) (const void *, struct timeval *tv);
+  SUBOOL   (*seek) (void *, const struct timeval *tv);
+
   struct suscan_analyzer_source_info *(*get_source_info_pointer) (const void *);
   SUBOOL   (*commit_source_info) (void *);
 
@@ -383,6 +390,23 @@ suscan_analyzer_get_source_time(
 {
   (self->iface->get_source_time) (self->impl, tv);
 }
+
+/*!
+ * Requests setting the sample position of the signal source, 
+ * in case it is seekable (e.g a raw IQ file). 
+ * \param analyzer a pointer to the analyzer object
+ * \param tv timeval struct with the source position
+ * \return SU_TRUE if the request was delivered, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUINLINE SUBOOL
+suscan_analyzer_seek(
+    suscan_analyzer_t *self, 
+    const struct timeval *tv)
+{
+  return (self->iface->seek) (self->impl, tv);
+}
+
 
 /*!
  * Return a pointer to the current source information structure. This pointer
@@ -745,6 +769,19 @@ SUBOOL suscan_analyzer_set_params_async(
 SUBOOL suscan_analyzer_set_throttle_async(
     suscan_analyzer_t *analyzer,
     SUSCOUNT samp_rate,
+    uint32_t req_id);
+
+/*!
+ * For seekable sources (e.g. file replay), sets the current read position
+ * \param analyzer pointer to the analyzer object
+ * \param pos timeval struct with the absolute position in time
+ * \param req_id arbitrary request identifier used to match responses
+ * \return SU_TRUE for success or SU_FALSE on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_seek_async(
+    suscan_analyzer_t *analyzer,
+    const struct timeval *pos,
     uint32_t req_id);
 
 /*!

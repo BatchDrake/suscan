@@ -45,6 +45,7 @@ extern "C" {
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE      0xa /* Set throttle */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xb /* Analyzer params */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS    0xc
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK          0xd
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_PROGRESS              1
@@ -70,11 +71,17 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_throttle_msg) {
   SUSCOUNT samp_rate; /* Samp rate == 0: reset */
 };
 
+/* Throttle parameters */
+SUSCAN_SERIALIZABLE(suscan_analyzer_seek_msg) {
+  struct timeval position;
+};
+
 /* Channel spectrum message */
 SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
   int64_t fc;
   uint32_t inspector_id;
   struct   timeval timestamp; /* Timestamp after PSD */
+  SUBOOL   looped;
   SUFLOAT  samp_rate;
   SUFLOAT  measured_samp_rate;
   SUFLOAT  N0;
@@ -239,7 +246,8 @@ SUBOOL suscan_analyzer_send_psd(
 
 SUBOOL suscan_analyzer_send_psd_from_smoothpsd(
     suscan_analyzer_t *self,
-    const su_smoothpsd_t *smoothpsd);
+    const su_smoothpsd_t *smoothpsd,
+    SUBOOL looped);
 
 SUBOOL suscan_analyzer_send_source_info(
     suscan_analyzer_t *self,

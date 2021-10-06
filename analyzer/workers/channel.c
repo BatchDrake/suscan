@@ -149,8 +149,22 @@ suscan_local_analyzer_feed_inspectors(
 }
 
 /******************** Source worker for channel mode *************************/
-SUPRIVATE SUBOOL
-suscan_local_analyzer_parse_overridable(suscan_local_analyzer_t *self)
+SUINLINE SUBOOL
+suscan_local_analyzer_parse_seek_overridable(suscan_local_analyzer_t *self)
+{
+  SUSCOUNT pos;
+
+  if (self->seek_req) {
+    pos = self->seek_req_value;
+    suscan_source_seek(self->source, pos);
+    self->seek_req = self->seek_req_value != pos;
+  }
+
+  return SU_TRUE;
+}
+
+SUINLINE SUBOOL
+suscan_local_analyzer_parse_insp_overridable(suscan_local_analyzer_t *self)
 {
   struct suscan_inspector_overridable_request *this, *next;
   SUBOOL ok = SU_FALSE;
@@ -213,6 +227,22 @@ done:
 }
 
 SUPRIVATE SUBOOL
+suscan_local_analyzer_parse_overridable(suscan_local_analyzer_t *self)
+{
+  /* Parse pending overridable inspector requests */
+  SU_TRYCATCH(
+    suscan_local_analyzer_parse_insp_overridable(self),
+    return SU_FALSE);
+
+  /* Parse pending overridable seek requests */
+  SU_TRYCATCH(
+    suscan_local_analyzer_parse_seek_overridable(self),
+    return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUBOOL
 suscan_local_analyzer_on_psd(
     void *userdata,
     const SUFLOAT *psd,
@@ -221,7 +251,10 @@ suscan_local_analyzer_on_psd(
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) userdata;
 
   SU_TRYCATCH(
-      suscan_analyzer_send_psd_from_smoothpsd(self->parent, self->smooth_psd),
+      suscan_analyzer_send_psd_from_smoothpsd(
+        self->parent, 
+        self->smooth_psd,
+        suscan_source_has_looped(self->source)),
       return SU_FALSE);
 
   return SU_TRUE;

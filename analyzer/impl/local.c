@@ -358,6 +358,7 @@ suscan_analyzer_thread(void *data)
   struct sigutils_channel_detector_params new_det_params;
   const struct suscan_analyzer_params *new_params;
   const struct suscan_analyzer_throttle_msg *throttle;
+  const struct suscan_analyzer_seek_msg *seek;
   void *private = NULL;
   uint32_t type;
   SUBOOL mutex_acquired = SU_FALSE;
@@ -430,6 +431,13 @@ suscan_analyzer_thread(void *data)
            */
           private = NULL;
 
+          break;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
+          seek = (const struct suscan_analyzer_seek_msg *) private;
+          SU_TRYCATCH(
+            suscan_local_analyzer_slow_seek(self, &seek->position),
+            goto done);
           break;
 
         /* Forward these messages to output */
@@ -864,7 +872,7 @@ suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
       &info->freq_min,
       &info->freq_max);
 
-  info->lnb = suscan_source_config_get_lnb_freq(config);
+  info->lnb       = suscan_source_config_get_lnb_freq(config);
   info->bandwidth = suscan_source_config_get_bandwidth(config);
   info->dc_remove = suscan_source_config_get_dc_remove(config);
   info->ppm       = suscan_source_config_get_ppm(config);
@@ -872,6 +880,14 @@ suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
   info->agc = SU_FALSE;
 
   info->have_qth = suscan_get_qth(&info->qth);
+
+  suscan_source_get_time(self->source, &info->source_time);
+
+  info->seekable = !suscan_local_analyzer_is_real_time(self);
+  if (info->seekable) {
+    suscan_source_get_start_time(self->source, &info->source_start);
+    suscan_source_get_end_time(self->source, &info->source_end);
+  }
 
   if (ant != NULL) {
     SU_TRYCATCH(info->antenna = strdup(ant), goto done);
@@ -1206,6 +1222,15 @@ suscan_local_analyzer_set_frequency(void *ptr, SUFREQ freq, SUFREQ lnb)
 }
 
 SUPRIVATE SUBOOL
+suscan_local_analyzer_seek(void *ptr, const struct timeval *pos)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
+
+  return suscan_local_analyzer_slow_seek(self, pos);
+}
+
+
+SUPRIVATE SUBOOL
 suscan_local_analyzer_set_gain(void *ptr, const char *name, SUFLOAT value)
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
@@ -1504,6 +1529,7 @@ suscan_local_analyzer_get_interface(void)
     SET_CALLBACK(is_real_time);
     SET_CALLBACK(get_samp_rate);
     SET_CALLBACK(get_source_time);
+    SET_CALLBACK(seek);
     SET_CALLBACK(get_measured_samp_rate);
     SET_CALLBACK(get_source_info_pointer);
     SET_CALLBACK(commit_source_info);

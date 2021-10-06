@@ -185,6 +185,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
   SUSCAN_PACK(uint,  self->inspector_id);
   SUSCAN_PACK(uint,  self->timestamp.tv_sec);
   SUSCAN_PACK(uint,  self->timestamp.tv_usec);
+  SUSCAN_PACK(bool,  self->looped);
   SUSCAN_PACK(float, self->samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
   SUSCAN_PACK(float, self->N0);
@@ -209,6 +210,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
   SUSCAN_UNPACK(uint32, self->inspector_id);
   SUSCAN_UNPACK(uint64, tv_sec);
   SUSCAN_UNPACK(uint32, tv_usec);
+  SUSCAN_UNPACK(bool,   self->looped);
   SUSCAN_UNPACK(float,  self->samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
   SUSCAN_UNPACK(float,  self->N0);
@@ -1073,6 +1075,32 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_throttle_msg)
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
+/**************************** Seek message ************************************/
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_seek_msg)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(uint, self->position.tv_sec);
+  SUSCAN_PACK(uint, self->position.tv_usec);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_seek_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  uint64_t tv_sec;
+  uint32_t tv_usec;
+
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
+
+  self->position.tv_sec = tv_sec;
+  self->position.tv_usec = tv_usec;
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 /*********************** Generic message serialization ************************/
 SUBOOL
 suscan_analyzer_msg_serialize(
@@ -1129,6 +1157,12 @@ suscan_analyzer_msg_serialize(
     case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
       SU_TRYCATCH(
           suscan_analyzer_params_serialize(ptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
+      SU_TRYCATCH(
+          suscan_analyzer_seek_msg_serialize(ptr, buffer),
           goto fail);
       break;
 
@@ -1213,6 +1247,15 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
           goto fail);
       SU_TRYCATCH(
           suscan_analyzer_params_deserialize(msgptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
+      SU_TRYCATCH(
+          msgptr = calloc(1, sizeof (struct suscan_analyzer_seek_msg)),
+          goto fail);
+      SU_TRYCATCH(
+          suscan_analyzer_seek_msg_deserialize(msgptr, buffer),
           goto fail);
       break;
 
@@ -1453,7 +1496,8 @@ done:
 SUBOOL
 suscan_analyzer_send_psd_from_smoothpsd(
     suscan_analyzer_t *self,
-    const su_smoothpsd_t *smoothpsd)
+    const su_smoothpsd_t *smoothpsd,
+    SUBOOL looped)
 {
   struct suscan_analyzer_psd_msg *msg = NULL;
   SUBOOL ok = SU_FALSE;
@@ -1475,6 +1519,7 @@ suscan_analyzer_send_psd_from_smoothpsd(
   msg->fc = suscan_analyzer_get_source_info(self)->frequency;
   msg->measured_samp_rate = suscan_analyzer_get_measured_samp_rate(self);
   suscan_analyzer_get_source_time(self, &msg->timestamp);
+  msg->looped = looped;
   msg->N0 = 0;
 
   if (!suscan_mq_write(

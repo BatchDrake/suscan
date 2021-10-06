@@ -93,6 +93,10 @@ struct suscan_local_analyzer {
   SUFREQ freq_req_value;
   SUFREQ lnb_req_value;
 
+  /* Seek request */
+  SUBOOL   seek_req;
+  SUSCOUNT seek_req_value; /* The seek request is a sample number */
+
   /* XXX: Define list for inspector frequency set */
   SUBOOL   inspector_freq_req;
   SUHANDLE inspector_freq_req_handle;
@@ -286,6 +290,11 @@ SUBOOL suscan_local_analyzer_slow_set_freq(
     suscan_local_analyzer_t *self,
     SUFREQ freq,
     SUFREQ lnb);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_slow_seek(
+    suscan_local_analyzer_t *self,
+    const struct timeval *tv);
 
 /* Internal */
 SUBOOL suscan_local_analyzer_slow_set_dc_remove(

@@ -462,7 +462,10 @@ struct suscan_source {
   SUBOOL   capturing;
   SUBOOL   soft_dc_correction;
   SUBOOL   soft_iq_balance;
+  SUBOOL   looped;
   SUSCOUNT total_samples;
+  SUSCOUNT seek_request;
+
   SUSDIFF (*read) (
         struct suscan_source *source,
         SUCOMPLEX *buffer,
@@ -470,6 +473,13 @@ struct suscan_source {
   void    (*get_time) (
         struct suscan_source *source,
         struct timeval *tv);
+
+  SUBOOL  (*seek) (
+        struct suscan_source *source,
+        SUSCOUNT samples);
+
+  SUSDIFF (*max_size) (
+        const struct suscan_source *source);
 
   /* File sources are accessed through a soundfile handle */
   SNDFILE *sf;
@@ -528,8 +538,12 @@ SUSDIFF suscan_source_read(
 void suscan_source_get_time(suscan_source_t *self, struct timeval *tv);
 
 SUSCOUNT suscan_source_get_consumed_samples(const suscan_source_t *self);
-
+SUBOOL   suscan_source_seek(suscan_source_t *self, SUSCOUNT);
+SUSDIFF  suscan_source_get_max_size(const suscan_source_t *self);
 SUSCOUNT suscan_source_get_base_samp_rate(const suscan_source_t *self);
+void     suscan_source_get_end_time(
+  const suscan_source_t *self, 
+  struct timeval *tv);
 
 SUINLINE void 
 suscan_source_get_start_time(
@@ -547,6 +561,14 @@ suscan_source_set_start_time(
   suscan_source_config_set_start_time(self->config, tv);
 }
 
+SUINLINE SUBOOL
+suscan_source_has_looped(suscan_source_t *self)
+{
+  SUBOOL looped = self->looped;
+  self->looped = SU_FALSE;
+  
+  return looped;
+}
 
 SUINLINE enum suscan_source_type
 suscan_source_get_type(const suscan_source_t *src)
