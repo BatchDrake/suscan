@@ -313,6 +313,124 @@ suscan_source_config_get_path(const suscan_source_config_t *config)
   return config->path;
 }
 
+SUPRIVATE SNDFILE *
+suscan_source_config_open_file_raw(
+  const suscan_source_config_t *self,
+  int sf_format,
+  SF_INFO *sf_info)
+{
+  SNDFILE *sf = NULL;
+
+  memset(sf_info, 0, sizeof(SF_INFO));
+
+  sf_info->format = SF_FORMAT_RAW | sf_format | SF_ENDIAN_LITTLE;
+  sf_info->channels = 2;
+  sf_info->samplerate = self->samp_rate;
+
+  if ((sf = sf_open(
+      self->path,
+      SFM_READ,
+      sf_info)) == NULL) {
+    SU_ERROR(
+        "Failed to open %s as raw file: %s\n",
+        self->path,
+        sf_strerror(NULL));
+  }
+  
+  return sf;
+}
+
+SUPRIVATE SNDFILE *
+suscan_source_config_sf_open(const suscan_source_config_t *self, SF_INFO *sf_info)
+{
+  SNDFILE *sf = NULL;
+
+ if (self->path == NULL) {
+    SU_ERROR("Cannot open file source: path not set\n");
+    return NULL;
+  }
+
+  switch (self->format) {
+    case SUSCAN_SOURCE_FORMAT_WAV:
+    case SUSCAN_SOURCE_FORMAT_AUTO:
+      /* Autodetect: open as wav and, if failed, attempt to open as raw */
+      sf_info->format = 0;
+      if ((sf = sf_open(
+          self->path,
+          SFM_READ,
+          sf_info)) != NULL) {
+        SU_INFO(
+            "WAV file source opened, sample rate = %d\n",
+            sf_info->samplerate);
+        break;
+      } else if (self->format == SUSCAN_SOURCE_FORMAT_WAV) {
+        SU_ERROR(
+            "Failed to open %s as audio file: %s\n",
+            self->path,
+            sf_strerror(NULL));
+        return NULL;
+      } else {
+        SU_INFO("Failed to open source as audio file, falling back to raw...\n");
+      }
+      /* No, not an error. There is no break here. */
+
+    case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
+      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_FLOAT, sf_info);
+      break;
+
+    case SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8:
+      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_PCM_U8, sf_info);
+      break;
+  }
+
+  return sf;
+}
+
+SUBOOL
+suscan_source_config_file_is_valid(const suscan_source_config_t *self)
+{
+  SUBOOL ok = SU_FALSE;
+  SNDFILE *sf = NULL;
+  SF_INFO sf_info;
+
+  if ((sf = suscan_source_config_sf_open(self, &sf_info)) != NULL) {
+    sf_close(sf);
+    ok = SU_TRUE;
+  }
+
+  return ok;
+}
+
+SUBOOL
+suscan_source_config_get_end_time(
+  const suscan_source_config_t *self,
+  struct timeval *tv)
+{
+  SUBOOL ok = SU_FALSE;
+  SNDFILE *sf = NULL;
+  SF_INFO sf_info;
+  struct timeval start, elapsed = {0, 0};
+  SUSDIFF max_size;
+
+  if ((sf = suscan_source_config_sf_open(self, &sf_info)) != NULL) {
+    sf_close(sf);
+    suscan_source_config_get_start_time(self, &start);
+
+    max_size = sf_info.frames - 1;
+    if (max_size >= 0) {
+      elapsed.tv_sec  = max_size / self->samp_rate;
+      elapsed.tv_usec = (1000000 
+      * (max_size - elapsed.tv_sec * self->samp_rate))
+      / self->samp_rate;
+    }
+
+    timeradd(&start, &elapsed, tv);
+    ok = SU_TRUE;
+  }
+
+  return ok;
+}
+
 SUBOOL
 suscan_source_config_set_path(suscan_source_config_t *config, const char *path)
 {
@@ -1528,73 +1646,16 @@ suscan_source_feed_decimator(
 #undef IF_DONE_PRODUCE_SAMPLE
 
 SUPRIVATE SUBOOL
-suscan_source_open_file_raw(suscan_source_t *source, int sf_format)
+suscan_source_open_file(suscan_source_t *self)
 {
-  source->sf_info.format = SF_FORMAT_RAW | sf_format | SF_ENDIAN_LITTLE;
-  source->sf_info.channels = 2;
-  source->sf_info.samplerate = source->config->samp_rate;
-  if ((source->sf = sf_open(
-      source->config->path,
-      SFM_READ,
-      &source->sf_info)) == NULL) {
-    source->config->samp_rate = source->sf_info.samplerate;
-    SU_ERROR(
-        "Failed to open %s as raw file: %s\n",
-        source->config->path,
-        sf_strerror(NULL));
-    return SU_FALSE;
-  }
-  return SU_TRUE;
-}
-
-SUPRIVATE SUBOOL
-suscan_source_open_file(suscan_source_t *source)
-{
-  if (source->config->path == NULL) {
-    SU_ERROR("Cannot open file source: path not set\n");
-    return SU_FALSE;
+  if ((self->sf = suscan_source_config_sf_open(
+    self->config, 
+    &self->sf_info)) != NULL) {
+    self->samp_rate = self->config->samp_rate;
+    self->iq_file   = self->sf_info.channels == 2;
   }
 
-  switch (source->config->format) {
-    case SUSCAN_SOURCE_FORMAT_WAV:
-    case SUSCAN_SOURCE_FORMAT_AUTO:
-      /* Autodetect: open as wav and, if failed, attempt to open as raw */
-      source->sf_info.format = 0;
-      if ((source->sf = sf_open(
-          source->config->path,
-          SFM_READ,
-          &source->sf_info)) != NULL) {
-        source->config->samp_rate = source->sf_info.samplerate;
-        SU_INFO(
-            "Audio file source opened, sample rate = %d\n",
-            source->config->samp_rate);
-        break;
-      } else if (source->config->format == SUSCAN_SOURCE_FORMAT_WAV) {
-        SU_ERROR(
-            "Failed to open %s as audio file: %s\n",
-            source->config->path,
-            sf_strerror(NULL));
-        return SU_FALSE;
-      } else {
-        SU_INFO("Failed to open source as audio file, falling back to raw...\n");
-      }
-      /* No, not an error. There is no break here. */
-
-    case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
-      if (!suscan_source_open_file_raw(source, SF_FORMAT_FLOAT))
-          return SU_FALSE;
-      break;
-
-    case SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8:
-      if (!suscan_source_open_file_raw(source, SF_FORMAT_PCM_U8))
-          return SU_FALSE;
-      break;
-  }
-
-  source->samp_rate = source->config->samp_rate;
-  source->iq_file = source->sf_info.channels == 2;
-
-  return SU_TRUE;
+  return self->sf != NULL;
 }
 
 SUPRIVATE SUBOOL
