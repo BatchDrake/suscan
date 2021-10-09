@@ -33,8 +33,11 @@
 
 PTR_LIST(SUPRIVATE suscan_config_context_t, context);
 
-SUPRIVATE const char *confdb_system_path;
 SUPRIVATE const char *confdb_user_path;
+
+SUPRIVATE const char *confdb_system_path;
+SUPRIVATE const char *confdb_local_path;
+SUPRIVATE const char *confdb_tle_path;
 
 const char *
 suscan_confdb_get_system_path(void)
@@ -61,7 +64,7 @@ suscan_confdb_get_system_path(void)
 }
 
 const char *
-suscan_confdb_get_local_path(void)
+suscan_confdb_get_user_path(void)
 {
   struct passwd *pwd;
   const char *homedir = NULL;
@@ -83,17 +86,61 @@ suscan_confdb_get_local_path(void)
     if (access(tmp, F_OK) == -1)
       SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
 
-    free(tmp);
-
-    SU_TRYCATCH(tmp = strbuild("%s/.suscan/config", homedir), goto fail);
-
-    if (access(tmp, F_OK) == -1)
-      SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
-
     confdb_user_path = tmp;
   }
 
   return confdb_user_path;
+  
+fail:
+  if (tmp != NULL)
+    free(tmp);
+
+  return NULL;
+}
+
+
+const char *
+suscan_confdb_get_local_path(void)
+{
+  const char *user_path;
+  char *tmp = NULL;
+
+  if (confdb_local_path == NULL) {
+    SU_TRYCATCH(user_path = suscan_confdb_get_user_path(), goto fail);
+    SU_TRYCATCH(tmp = strbuild("%s/config", user_path), goto fail);
+
+    if (access(tmp, F_OK) == -1)
+      SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
+
+    confdb_local_path = tmp;
+  }
+
+  return confdb_local_path;
+
+fail:
+  if (tmp != NULL)
+    free(tmp);
+
+  return NULL;
+}
+
+const char *
+suscan_confdb_get_local_tle_path(void)
+{
+  const char *user_path;
+  char *tmp = NULL;
+
+  if (confdb_tle_path == NULL) {
+    SU_TRYCATCH(user_path = suscan_confdb_get_user_path(), goto fail);
+    SU_TRYCATCH(tmp = strbuild("%s/tle", user_path), goto fail);
+
+    if (access(tmp, F_OK) == -1)
+      SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
+
+    confdb_tle_path = tmp;
+  }
+
+  return confdb_tle_path;
 
 fail:
   if (tmp != NULL)

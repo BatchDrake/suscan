@@ -32,6 +32,7 @@ extern "C" {
 const char *suscan_confdb_get_system_path(void);
 
 const char *suscan_confdb_get_local_path(void);
+const char *suscan_confdb_get_local_tle_path(void);
 
 struct suscan_config_context {
   char *name;
