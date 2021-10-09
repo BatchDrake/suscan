@@ -593,12 +593,12 @@ sgdp4_ctx_compute(sgdp4_ctx_t *self, double tsince, int withvel, kep_t *kep)
   }
 
   if (a < SUIMM(1)) {
-    SU_WARNING("sgdp4: Satellite %05ld crashed at %.3f (a = %.3f Earth radii)\n", self->Isat, ts, a);
+    /* SU_WARNING("sgdp4: Satellite %05ld crashed at %.3f (a = %.3f Earth radii)\n", self->Isat, ts, a); */
     return SGDP4_ERROR;
   }
 
   if (e < ECC_LIMIT_LOW) {
-    SU_WARNING("sgdp4: Satellite %05ld modified eccentricity too low (ts = %.3f, e = %e < %e)\n", self->Isat, ts, e, ECC_LIMIT_LOW);
+    /* SU_WARNING("sgdp4: Satellite %05ld modified eccentricity too low (ts = %.3f, e = %e < %e)\n", self->Isat, ts, e, ECC_LIMIT_LOW); */
     return SGDP4_ERROR;
   }
 
@@ -619,11 +619,11 @@ sgdp4_ctx_compute(sgdp4_ctx_t *self, double tsince, int withvel, kep_t *kep)
 
   elsq = axn * axn + ayn * ayn;
   if (elsq >= SUIMM(1)) {
-    SU_WARNING(
+    /*SU_WARNING(
 				"sgdp4: SQR(e) >= 1 (%.3f at tsince = %.3f for sat %05ld)\n", 
 				elsq, 
 				tsince, 
-				self->Isat);
+				self->Isat);*/
     return SGDP4_ERROR;
   }
 

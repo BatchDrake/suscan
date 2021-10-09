@@ -456,6 +456,7 @@ suscli_run_command(const char *name, const char **argv)
   SUSCLI_ASSERT_INIT(
       SUSCLI_COMMAND_REQ_SOURCES,
       suscan_init_sources()
+      && suscan_confdb_use("qth")
       && suscli_init_ui_source()
       && suscli_register_sources());
 
