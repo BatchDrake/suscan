@@ -319,7 +319,7 @@ SUBOOL sgdp4_prediction_find_los(
   SUDOUBLE delta_t, /* In seconds */
   struct timeval *los);
 
-void sgdp4_prediction_update(
+SUBOOL sgdp4_prediction_update(
   sgdp4_prediction_t *self, 
   const struct timeval *tv);
 

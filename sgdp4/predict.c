@@ -29,13 +29,13 @@
  * the start and end times of a pass.
  */
 
-void
+SUBOOL
 sgdp4_prediction_update(
   sgdp4_prediction_t *self, 
   const struct timeval *tv)
 {
   SUDOUBLE mins;
-  xyz_t pos, vel;
+  xyz_t pos, vel, sat_geo;
   kep_t kep;
 
   if (!self->init 
@@ -43,7 +43,8 @@ sgdp4_prediction_update(
   || self->tv.tv_usec != tv->tv_usec) {
     mins = orbit_minutes_from_timeval(&self->orbit, tv);
   
-    sgdp4_ctx_compute(&self->ctx, mins, SU_TRUE, &kep);
+    if (sgdp4_ctx_compute(&self->ctx, mins, SU_TRUE, &kep) == SGDP4_ERROR)
+      return SU_FALSE;
 
     kep_get_pos_vel_teme(&kep, &pos, &vel);
 
@@ -61,12 +62,16 @@ sgdp4_prediction_update(
       &self->pos_azel,
       &self->vel_azel);
 
-    self->alt = XYZ_NORM(&self->pos_ecef) - EQRAD;
+    xyz_ecef_to_geodetic(&self->pos_ecef, &sat_geo);
+      
+    self->alt = sat_geo.height;
 
     /* Done */
     self->init     = SU_TRUE;
     self->tv       = *tv;
   }
+
+  return SU_TRUE;
 }
 
 SUPRIVATE SUBOOL
