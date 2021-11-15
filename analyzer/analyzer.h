@@ -43,7 +43,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.5
+#define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.1
 #define SUSCAN_ANALYZER_FS_MEASURE_INTERVAL   1.0
 
 /* Entirely empirical */

@@ -17,6 +17,8 @@
 
 */
 
+#define _GNU_SOURCE
+
 #define SU_LOG_DOMAIN "worker"
 
 #include "worker.h"
@@ -233,7 +235,8 @@ suscan_worker_halt(suscan_worker_t *worker)
 }
 
 suscan_worker_t *
-suscan_worker_new(
+suscan_worker_new_ex(
+    const char *name,
     struct suscan_mq *mq_out,
     void *private)
 {
@@ -256,6 +259,10 @@ suscan_worker_new(
       new) == -1)
     goto fail;
 
+#ifdef __GNUC__
+  (void) pthread_setname_np(new->thread, name);
+#endif /* __GNUC__ */
+
   new->state = SUSCAN_WORKER_STATE_RUNNING;
 
   return new;
@@ -265,4 +272,12 @@ fail:
     suscan_worker_destroy(new);
 
   return NULL;
+}
+
+suscan_worker_t *
+suscan_worker_new(
+    struct suscan_mq *mq_out,
+    void *private)
+{
+  return suscan_worker_new_ex("suscan_worker", mq_out, private);
 }

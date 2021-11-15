@@ -137,8 +137,10 @@ set(RSRC_CONFIG_FILES
   
 set(UTIL_HEADERS
   ${UTILDIR}/cbor.h
+  ${UTILDIR}/com.h
   ${UTILDIR}/compat.h
   ${UTILDIR}/hashlist.h
+  ${UTILDIR}/list.h
   ${UTILDIR}/macos-barriers.h
   ${UTILDIR}/macos-barriers.imp.h
   ${UTILDIR}/confdb.h
@@ -150,10 +152,12 @@ set(UTIL_HEADERS
 set(UTIL_SOURCES
   ${UTILDIR}/cbor.c
   ${UTILDIR}/cfg.c
+  ${UTILDIR}/com.c
   ${UTILDIR}/compat.c
   ${UTILDIR}/confdb.c
   ${UTILDIR}/deserialize.c
   ${UTILDIR}/hashlist.c
+  ${UTILDIR}/list.c
   ${UTILDIR}/object.c
   ${UTILDIR}/rbtree.c
   ${UTILDIR}/serialize.c
@@ -175,13 +179,17 @@ set(VERSION_HEADERS ${VERSIONDIR}/version.h)
 set(VERSION_SOURCES ${VERSIONDIR}/version.c)
 
 set(INSPECTOR_LIB_HEADERS
+  ${ANALYZERDIR}/inspector/factory.h
   ${ANALYZERDIR}/inspector/inspector.h
+  ${ANALYZERDIR}/inspector/overridable.h
   ${ANALYZERDIR}/inspector/params.h
   ${ANALYZERDIR}/inspector/interface.h)
 
 set(INSPECTOR_LIB_SOURCES
+  ${ANALYZERDIR}/inspector/factory.c
   ${ANALYZERDIR}/inspector/inspector.c
   ${ANALYZERDIR}/inspector/interface.c
+  ${ANALYZERDIR}/inspector/overridable.c
   ${ANALYZERDIR}/inspector/params.c
   ${INSPECTORDIR}/ask.c
   ${INSPECTORDIR}/audio.c

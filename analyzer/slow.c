@@ -273,57 +273,83 @@ suscan_local_analyzer_set_freq_cb(
   return SU_FALSE;
 }
 
-SUPRIVATE SUBOOL
+SUBOOL
 suscan_local_analyzer_set_inspector_freq_slow(
-    suscan_local_analyzer_t *analyzer,
+    suscan_local_analyzer_t *self,
     SUHANDLE handle,
     SUFREQ freq)
 {
+  struct suscan_inspector_overridable_request *req = NULL;
+  suscan_inspector_t *insp = NULL;
   SUBOOL ok = SU_FALSE;
-  struct suscan_inspector_overridable_request *req;
+
+  insp = suscan_local_analyzer_acquire_inspector(self, handle);
+  if (insp == NULL) {
+    SU_ERROR("Invalid inspector handle 0x%08x\n", handle);
+    goto done;
+  }
 
   SU_TRYCATCH(
-      req = suscan_local_analyzer_acquire_overridable(analyzer, handle),
-      goto done);
+    req = suscan_inspector_request_manager_acquire_overridable(
+      &self->insp_reqmgr,
+      insp),
+    goto done);
 
+  /* Frequency is always relative to the center freq */
   req->freq_request = SU_TRUE;
-  req->new_freq = freq;
-
-  SU_TRYCATCH(
-      suscan_local_analyzer_release_overridable(analyzer, req),
-      goto done);
+  req->new_freq     = freq;
 
   ok = SU_TRUE;
 
 done:
+  if (req != NULL)
+    suscan_inspector_request_manager_submit_overridable(
+      &self->insp_reqmgr,
+      req);
 
+  if (insp != NULL)
+    suscan_local_analyzer_return_inspector(self, insp);
+  
   return ok;
 }
 
-SUPRIVATE SUBOOL
+SUBOOL
 suscan_local_analyzer_set_inspector_bandwidth_slow(
-    suscan_local_analyzer_t *analyzer,
+    suscan_local_analyzer_t *self,
     SUHANDLE handle,
     SUFLOAT bw)
 {
+  struct suscan_inspector_overridable_request *req = NULL;
+  suscan_inspector_t *insp = NULL;
   SUBOOL ok = SU_FALSE;
-  struct suscan_inspector_overridable_request *req;
+
+  insp = suscan_local_analyzer_acquire_inspector(self, handle);
+  if (insp == NULL) {
+    SU_ERROR("Invalid inspector handle 0x%08x\n", handle);
+    goto done;
+  }
 
   SU_TRYCATCH(
-      req = suscan_local_analyzer_acquire_overridable(analyzer, handle),
-      goto done);
+    req = suscan_inspector_request_manager_acquire_overridable(
+      &self->insp_reqmgr,
+      insp),
+    goto done);
 
+  /* Frequency is always relative to the center freq */
   req->bandwidth_request = SU_TRUE;
-  req->new_bandwidth = bw;
-
-  SU_TRYCATCH(
-      suscan_local_analyzer_release_overridable(analyzer, req),
-      goto done);
+  req->new_bandwidth     = bw;
 
   ok = SU_TRUE;
 
 done:
+  if (req != NULL)
+    suscan_inspector_request_manager_submit_overridable(
+      &self->insp_reqmgr,
+      req);
 
+  if (insp != NULL)
+    suscan_local_analyzer_return_inspector(self, insp);
+  
   return ok;
 }
 

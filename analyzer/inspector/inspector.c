@@ -28,7 +28,7 @@
 #include <sigutils/sigutils.h>
 #include <sigutils/sampling.h>
 
-#include "inspector/inspector.h"
+#include "factory.h"
 #include "correctors/tle.h"
 
 #include "realtime.h"
@@ -56,6 +56,149 @@ suscan_inspector_reset_equalizer(suscan_inspector_t *insp)
   suscan_inspector_unlock(insp);
 }
 
+/********************* Inspector loop methods ***************************/
+SUBOOL
+suscan_inspector_sampler_loop(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count,
+    struct suscan_mq *mq_out)
+{
+  struct suscan_analyzer_sample_batch_msg *msg = NULL;
+  SUSDIFF fed;
+
+  while (samp_count > 0) {
+    /* Ensure the current inspector parameters are up-to-date */
+    suscan_inspector_assert_params(insp);
+
+    SU_TRYCATCH(
+        (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
+        goto fail);
+
+    if (suscan_inspector_get_output_length(insp) > insp->sample_msg_watermark) {
+      /* New samples produced by sampler: send to client */
+      SU_TRYCATCH(
+          msg = suscan_analyzer_sample_batch_msg_new(
+              insp->inspector_id,
+              suscan_inspector_get_output_buffer(insp),
+              suscan_inspector_get_output_length(insp)),
+          goto fail);
+
+      /* Reset size */
+      insp->sampler_ptr = 0;
+
+      SU_TRYCATCH(
+          suscan_mq_write(mq_out, SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES, msg),
+          goto fail);
+
+      msg = NULL; /* We don't own this anymore */
+    }
+
+    samp_buf   += fed;
+    samp_count -= fed;
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (msg != NULL)
+    suscan_analyzer_sample_batch_msg_destroy(msg);
+
+  return SU_FALSE;
+}
+
+
+SUBOOL
+suscan_inspector_spectrum_loop(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count,
+    struct suscan_mq *mq_out)
+{
+  suscan_spectsrc_t *src = NULL;
+  SUSDIFF fed;
+
+  if (insp->spectsrc_index > 0) {
+    src = insp->spectsrc_list[insp->spectsrc_index - 1];
+
+    while (samp_count > 0) {
+      fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
+
+      SU_TRYCATCH(fed >= 0, goto fail);
+
+      samp_buf   += fed;
+      samp_count -= fed;
+    }
+  }
+
+  return SU_TRUE;
+
+fail:
+  return SU_FALSE;
+}
+
+SUBOOL
+suscan_inspector_estimator_loop(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count,
+    struct suscan_mq *mq_out)
+{
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  unsigned int i;
+  uint64_t now;
+  SUFLOAT value;
+  SUFLOAT seconds;
+
+  /* Check esimator state and update clients */
+  if (insp->interval_estimator > 0) {
+    now = suscan_gettime();
+    seconds = (now - insp->last_estimator) * 1e-9;
+    if (seconds >= insp->interval_estimator) {
+      insp->last_estimator = now;
+      for (i = 0; i < insp->estimator_count; ++i)
+        if (suscan_estimator_is_enabled(insp->estimator_list[i])) {
+          if (suscan_estimator_is_enabled(insp->estimator_list[i]))
+            SU_TRYCATCH(
+                suscan_estimator_feed(
+                    insp->estimator_list[i],
+                    samp_buf,
+                    samp_count),
+                goto fail);
+
+          if (suscan_estimator_read(insp->estimator_list[i], &value)) {
+            SU_TRYCATCH(
+                msg = suscan_analyzer_inspector_msg_new(
+                    SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ESTIMATOR,
+                    rand()),
+                goto fail);
+
+            msg->enabled = SU_TRUE;
+            msg->estimator_id = i;
+            msg->value = value;
+            msg->inspector_id = insp->inspector_id;
+
+            SU_TRYCATCH(
+                suscan_mq_write(
+                    mq_out,
+                    SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+                    msg),
+                goto fail);
+          }
+        }
+    }
+  }
+
+  return SU_TRUE;
+
+fail:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+
+  return SU_FALSE;
+}
+
+/* TODO: Use factory method */
 SUBOOL 
 suscan_inspector_set_corrector(
   suscan_inspector_t *self, 
@@ -72,9 +215,12 @@ suscan_inspector_set_corrector(
 
   self->corrector = corrector;
 
-  /* TODO: Upgrade API */
+  /* Delegated to factory */
   if (corrector == NULL)
-    su_specttuner_set_channel_delta_f(NULL, self->samp_info.schan, 0);
+    suscan_inspector_factory_set_inspector_freq_correction(
+      self->factory,
+      self,
+      0.);
 
   ok = SU_TRUE;
 
@@ -216,32 +362,39 @@ suscan_inspector_assert_params(suscan_inspector_t *insp)
 }
 
 void
-suscan_inspector_destroy(suscan_inspector_t *insp)
+suscan_inspector_destroy(suscan_inspector_t *self)
 {
   unsigned int i;
 
-  pthread_mutex_destroy(&insp->mutex);
-  pthread_mutex_destroy(&insp->corrector_mutex);
+  SUSCAN_FINALIZE_REFCOUNT(self);
 
-  if (insp->corrector != NULL)
-    suscan_frequency_corrector_destroy(insp->corrector);
+  fprintf(stderr, "%p: destroy\n", self);
 
-  if (insp->privdata != NULL)
-    (insp->iface->close) (insp->privdata);
+  if (self->mutex_init)
+    pthread_mutex_destroy(&self->mutex);
 
-  for (i = 0; i < insp->estimator_count; ++i)
-    suscan_estimator_destroy(insp->estimator_list[i]);
+  if (self->corrector_init)
+    pthread_mutex_destroy(&self->corrector_mutex);
 
-  if (insp->estimator_list != NULL)
-    free(insp->estimator_list);
+  if (self->corrector != NULL)
+    suscan_frequency_corrector_destroy(self->corrector);
 
-  for (i = 0; i < insp->spectsrc_count; ++i)
-    suscan_spectsrc_destroy(insp->spectsrc_list[i]);
+  if (self->privdata != NULL)
+    (self->iface->close) (self->privdata);
 
-  if (insp->spectsrc_list != NULL)
-    free(insp->spectsrc_list);
+  for (i = 0; i < self->estimator_count; ++i)
+    suscan_estimator_destroy(self->estimator_list[i]);
 
-  free(insp);
+  if (self->estimator_list != NULL)
+    free(self->estimator_list);
+
+  for (i = 0; i < self->spectsrc_count; ++i)
+    suscan_spectsrc_destroy(self->spectsrc_list[i]);
+
+  if (self->spectsrc_list != NULL)
+    free(self->spectsrc_list);
+
+  free(self);
 }
 
 SUBOOL
@@ -374,17 +527,13 @@ fail:
   return SU_FALSE;
 }
 
-/*
- * TODO: Accurate sample rate and bandwidth can only be obtained after
- * the channel is opened. The recently created inspector must be updated
- * according to the specttuner channel opened in the analyzer.
- */
 suscan_inspector_t *
 suscan_inspector_new(
+    struct suscan_inspector_factory *owner,
     const char *name,
-    SUFLOAT fs,
-    su_specttuner_channel_t *channel,
-    struct suscan_mq *mq_out)
+    const struct suscan_inspector_sampling_info *samp_info,
+    struct suscan_mq *mq_out,
+    void *userdata)
 {
   suscan_inspector_t *new = NULL;
   const struct suscan_inspector_interface *iface = NULL;
@@ -396,19 +545,26 @@ suscan_inspector_new(
   }
 
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
+  new->state            = SUSCAN_ASYNC_STATE_CREATED;
+  new->samp_info        = *samp_info;
 
-  new->state = SUSCAN_ASYNC_STATE_CREATED;
-  new->mq_out = mq_out;
+  /* Initialize reference counting */
+  SU_TRYCATCH(SUSCAN_INIT_REFCOUNT(suscan_inspector, new), goto fail);
 
+  /* Initialize mutexes */
   SU_TRYCATCH(pthread_mutex_init(&new->mutex, NULL) == 0, goto fail);
+  new->mutex_init = SU_TRUE;
+
   SU_TRYCATCH(pthread_mutex_init(&new->corrector_mutex, NULL) == 0, goto fail);
+  new->corrector_init = SU_TRUE;
 
-  /* Initialize sampling info */
-  new->samp_info.schan = channel;
-  new->samp_info.equiv_fs = fs / channel->decimation;
-  new->samp_info.bw = SU_ANG2NORM_FREQ(
-      .5 * channel->decimation * su_specttuner_channel_get_bw(channel));
+  /* Factory specific fields */
+  new->factory          = owner;
+  new->factory_userdata = userdata;
 
+  /* Cached fields */
+  new->mq_out           = mq_out;
+  
   /* Spectrum and estimator updates */
   new->interval_estimator    = .1;
   new->interval_spectrum     = .1;
@@ -416,7 +572,7 @@ suscan_inspector_new(
 
   /* Initialize clocks */
   new->last_estimator = suscan_gettime();
-  new->last_spectrum = suscan_gettime();
+  new->last_spectrum  = suscan_gettime();
 
   /* All set to call specific inspector */
   new->iface = iface;
@@ -454,13 +610,13 @@ suscan_inspector_feed_bulk(
 SUBOOL
 suscan_init_inspectors(void)
 {
-  SU_TRYCATCH(suscan_tle_corrector_init(), return SU_FALSE);
+  SU_TRYCATCH(suscan_tle_corrector_init(),       return SU_FALSE);
 
-  SU_TRYCATCH(suscan_ask_inspector_register(), return SU_FALSE);
-  SU_TRYCATCH(suscan_psk_inspector_register(), return SU_FALSE);
-  SU_TRYCATCH(suscan_fsk_inspector_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_ask_inspector_register(),   return SU_FALSE);
+  SU_TRYCATCH(suscan_psk_inspector_register(),   return SU_FALSE);
+  SU_TRYCATCH(suscan_fsk_inspector_register(),   return SU_FALSE);
   SU_TRYCATCH(suscan_audio_inspector_register(), return SU_FALSE);
-  SU_TRYCATCH(suscan_raw_inspector_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_raw_inspector_register(),   return SU_FALSE);
 
   return SU_TRUE;
 }

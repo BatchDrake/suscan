@@ -24,9 +24,110 @@
 
 #include "inspsched.h"
 
-#include <analyzer/impl/local.h>
+#include <compat.h>
 #include "msg.h"
 
+/*************************** Task Info API ***************************/
+SUPRIVATE struct suscan_inspector_task_info *
+suscan_inspector_task_info_new(suscan_inspector_t *inspector)
+{
+  struct suscan_inspector_task_info *new = NULL;
+
+  SU_TRYCATCH(
+      new = calloc(1, sizeof(struct suscan_inspector_task_info)),
+      return NULL);
+
+  new->inspector = inspector;
+
+  return new;
+}
+
+SUPRIVATE void
+suscan_inspector_task_info_destroy(struct suscan_inspector_task_info *info)
+{
+  free(info);
+}
+
+struct suscan_inspector_task_info *
+suscan_inspsched_acquire_task_info(
+  suscan_inspsched_t *self,
+  suscan_inspector_t *insp)
+{
+  struct suscan_inspector_task_info *result = NULL, *allocd = NULL;
+  SUBOOL mutex_acquired = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&self->task_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
+
+  if (list_is_empty(AS_LIST(self->task_free_list))) {
+    (void) pthread_mutex_unlock(&self->task_mutex);
+    mutex_acquired = SU_FALSE;
+
+    SU_TRYCATCH(
+      allocd = suscan_inspector_task_info_new(insp),
+      goto done);
+
+    allocd->sched = self;
+
+    SU_TRYCATCH(pthread_mutex_lock(&self->task_mutex) == 0, goto done);
+    mutex_acquired = SU_TRUE;
+
+    result = allocd;
+    allocd = NULL;
+  } else {
+    result = list_get_head(AS_LIST(self->task_free_list));
+    list_remove_element(AS_LIST(self->task_free_list), result);
+
+    result->inspector = insp;
+  }
+
+  /* One way or the other, a new task info was created. Put it into the
+     alloc list and increase refcounter */
+  
+  list_insert_head(AS_LIST(self->task_alloc_list), result);
+
+  SU_REF(insp, task_info);
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->task_mutex);
+
+  if (allocd != NULL)
+    suscan_inspector_task_info_destroy(allocd);
+
+  return result;
+}
+
+void
+suscan_inspsched_return_task_info(
+  suscan_inspsched_t *self,
+  struct suscan_inspector_task_info *task_info)
+{
+  SUBOOL mutex_acquired = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&self->task_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
+
+  SU_DEREF(task_info->inspector, task_info);
+
+  /* Remove from alloc list */
+  list_remove_element(AS_LIST(self->task_alloc_list), task_info);
+
+  /* And insert in free list */
+  list_insert_head(AS_LIST(self->task_free_list), task_info);
+
+  task_info = NULL;
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->task_mutex);
+
+  if (task_info == NULL)
+    suscan_inspector_task_info_destroy(task_info);
+}
+
+
+/****************************** Inspsched API ****************************/
 SUPRIVATE SUBOOL
 suscan_inpsched_task_cb(
     struct suscan_mq *mq_out,
@@ -36,6 +137,7 @@ suscan_inpsched_task_cb(
   suscan_inspsched_t *sched = (suscan_inspsched_t *) wk_private;
   struct suscan_inspector_task_info *task_info =
       (struct suscan_inspector_task_info *) cb_private;
+  SUBOOL ok = SU_FALSE;
 
   /*
    * We just process the incoming data. If we broke something,
@@ -46,7 +148,7 @@ suscan_inpsched_task_cb(
           task_info->inspector,
           task_info->data,
           task_info->size,
-          sched->analyzer->parent->mq_out),
+          sched->insp_mq),
       goto fail);
 
   /* Feed all enabled estimators */
@@ -55,7 +157,7 @@ suscan_inpsched_task_cb(
           task_info->inspector,
           task_info->data,
           task_info->size,
-          sched->analyzer->parent->mq_out),
+          sched->insp_mq),
       goto fail);
 
   /* Feed spectrum */
@@ -64,17 +166,21 @@ suscan_inpsched_task_cb(
           task_info->inspector,
           task_info->data,
           task_info->size,
-          sched->analyzer->parent->mq_out),
+          sched->insp_mq),
       goto fail);
 
-  return SU_FALSE;
+  ok = SU_TRUE;
 
 fail:
-  task_info->inspector->state = SUSCAN_ASYNC_STATE_HALTING;
+  if (!ok)
+    task_info->inspector->state = SUSCAN_ASYNC_STATE_HALTING;
+
+  suscan_inspsched_return_task_info(sched, task_info);
 
   return SU_FALSE;
 }
 
+/* TODO: Move to factory implementation */
 SUPRIVATE SUBOOL
 suscan_inpsched_barrier_cb(
     struct suscan_mq *mq_out,
@@ -83,11 +189,10 @@ suscan_inpsched_barrier_cb(
 {
   suscan_inspsched_t *sched = (suscan_inspsched_t *) wk_private;
 
-  suscan_local_analyzer_source_barrier(sched->analyzer);
+  pthread_barrier_wait(&sched->barrier);
 
   return SU_FALSE;
 }
-
 
 SUPRIVATE unsigned int
 suscan_inspsched_get_min_workers(void)
@@ -98,102 +203,6 @@ suscan_inspsched_get_min_workers(void)
     count = 2;
 
   return count - 1;
-}
-
-struct suscan_inspector_task_info *
-suscan_inspector_task_info_new(suscan_inspector_t *inspector)
-{
-  struct suscan_inspector_task_info *new = NULL;
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_inspector_task_info)),
-      return NULL);
-
-  new->index = -1;
-  new->inspector = inspector;
-
-  return new;
-}
-
-SUFREQ
-suscan_inspector_task_info_get_abs_freq(
-  const struct suscan_inspector_task_info *task_info)
-{
-  suscan_analyzer_t *analyzer = 
-    SUSCAN_LOCAL_ANALYZER_AS_ANALYZER(
-      suscan_inspsched_get_analyzer(task_info->sched));
-  unsigned int samp_rate = suscan_analyzer_get_samp_rate(analyzer);
-  SUFREQ tuner_freq = 
-    suscan_analyzer_get_source_info(analyzer)->frequency;
-  SUFREQ channel_freq = 
-    tuner_freq + SU_NORM2ABS_FREQ(
-      samp_rate,
-      SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(task_info->channel)));
-
-  return channel_freq;
-}
-
-void
-suscan_inspector_task_info_destroy(struct suscan_inspector_task_info *info)
-{
-  free(info);
-}
-
-void
-suscan_inspsched_get_source_time(
-  suscan_inspsched_t *sched, 
-  struct timeval *tv)
-{
-  if (!sched->have_time) {
-    suscan_analyzer_get_source_time(
-      SUSCAN_LOCAL_ANALYZER_AS_ANALYZER(sched->analyzer), 
-      &sched->source_time);
-    sched->have_time = SU_TRUE;
-  }
-
-  *tv = sched->source_time;
-}
-
-SUBOOL
-suscan_inspsched_append_task_info(
-    suscan_inspsched_t *sched,
-    struct suscan_inspector_task_info *info)
-{
-  int index;
-
-  SU_TRYCATCH(info->index == -1, return SU_FALSE);
-
-  SU_TRYCATCH(info->sched == NULL, return SU_FALSE);
-
-  SU_TRYCATCH(
-      (index = PTR_LIST_APPEND_CHECK(sched->task_info, info)) != -1,
-      return SU_FALSE);
-
-  info->index = index;
-  info->sched = sched;
-
-  return SU_TRUE;
-}
-
-SUBOOL
-suscan_inspsched_remove_task_info(
-    suscan_inspsched_t *sched,
-    struct suscan_inspector_task_info *info)
-{
-  SU_TRYCATCH(sched == info->sched, return SU_FALSE);
-
-  SU_TRYCATCH(info->index >= 0, return SU_FALSE);
-
-  SU_TRYCATCH(info->index < sched->task_info_count, return SU_FALSE);
-
-  SU_TRYCATCH(sched->task_info_list[info->index] == info, return SU_FALSE);
-
-  sched->task_info_list[info->index] = NULL;
-
-  info->index = -1;
-  info->sched = NULL;
-
-  return SU_TRUE;
 }
 
 SUBOOL
@@ -230,7 +239,7 @@ suscan_inspsched_sync(suscan_inspsched_t *sched)
         return SU_FALSE);
 
   /* Wait for all threads */
-  suscan_local_analyzer_source_barrier(sched->analyzer);
+  pthread_barrier_wait(&sched->barrier);
 
   /* Reset date */
   sched->have_time = SU_FALSE;
@@ -239,42 +248,53 @@ suscan_inspsched_sync(suscan_inspsched_t *sched)
 }
 
 SUBOOL
-suscan_inspsched_destroy(suscan_inspsched_t *sched)
+suscan_inspsched_destroy(suscan_inspsched_t *self)
 {
   unsigned int i;
+  struct suscan_inspector_task_info *info, *tmp;
 
   /*
    * Attempt to halt all workers. These are analyzer workers, and
    * should be halted as such.
    */
-  for (i = 0; i < sched->worker_count; ++i)
-    if (!suscan_analyzer_halt_worker(sched->worker_list[i])) {
+  for (i = 0; i < self->worker_count; ++i)
+    if (!suscan_analyzer_halt_worker(self->worker_list[i])) {
       SU_ERROR("Fatal error while halting inspsched workers\n");
       return SU_FALSE;
     }
 
-  if (sched->worker_list != NULL)
-    free(sched->worker_list);
+  if (self->worker_list != NULL)
+    free(self->worker_list);
 
   /*
    * All workers halted, source worker must be finished by now
-   * it is safe to go on with the object destruction
+   * it is safe to go on with the object destruction. We basically
+   * traverse the freelist and perform a free. In the alloc list
+   * are all task infos that have been left unprocessed.
    */
-  for (i = 0; i < sched->task_info_count; ++i)
-    if (sched->task_info_list[i] != NULL)
-      suscan_inspector_task_info_destroy(sched->task_info_list[i]);
 
-  if (sched->task_info_list != NULL)
-    free(sched->task_info_list);
+  FOR_EACH_SAFE(info, tmp, self->task_free_list)
+    suscan_inspector_task_info_destroy(info);
 
-  free(sched);
+  FOR_EACH_SAFE(info, tmp, self->task_alloc_list) {
+    SU_DEREF(info->inspector, task_info);
+    suscan_inspector_task_info_destroy(info);
+  }
+
+  if (self->task_init)
+    pthread_mutex_destroy(&self->task_mutex);
+
+  if (self->barrier_init)
+    pthread_barrier_destroy(&self->barrier);
+
+  free(self);
 
   return SU_TRUE;
 }
 
 
 suscan_inspsched_t *
-suscan_inspsched_new(suscan_local_analyzer_t *analyzer)
+suscan_inspsched_new(struct suscan_mq *ctl_mq, struct suscan_mq *insp_mq)
 {
   suscan_inspsched_t *new = NULL;
   suscan_worker_t *worker = NULL;
@@ -283,15 +303,27 @@ suscan_inspsched_new(suscan_local_analyzer_t *analyzer)
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_inspsched_t)), goto fail);
 
-  new->analyzer = analyzer;
-
+  new->ctl_mq = ctl_mq;
+  new->insp_mq = insp_mq;
   count = suscan_inspsched_get_min_workers();
 
   for (i = 0; i < count; ++i) {
-    SU_TRYCATCH(worker = suscan_worker_new(&analyzer->mq_in, new), goto fail);
+    SU_TRYCATCH(
+      worker = suscan_worker_new_ex("inspsched-worker", new->ctl_mq, new), 
+      goto fail);
     SU_TRYCATCH(PTR_LIST_APPEND_CHECK(new->worker, worker) != -1, goto fail);
     worker = NULL;
   }
+
+  SU_TRYCATCH(
+    pthread_mutex_init(&new->task_mutex, NULL) == 0,
+    goto fail);
+  new->task_init = SU_TRUE;
+
+  SU_TRYCATCH(
+    pthread_barrier_init(&new->barrier, NULL, new->worker_count + 1) == 0,
+    goto fail);
+  new->barrier_init = SU_TRUE;
 
   return new;
 

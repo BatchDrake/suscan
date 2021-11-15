@@ -40,103 +40,6 @@ suscan_analyzer_is_local(const suscan_analyzer_t *self)
   return self->iface == g_local_analyzer_interface;
 }
 
-/************************ Overridable request API ****************************/
-void
-suscan_inspector_overridable_request_destroy(
-    struct suscan_inspector_overridable_request *self)
-{
-  free(self);
-}
-
-SUPRIVATE struct suscan_inspector_overridable_request *
-suscan_inspector_overridable_request_new(suscan_inspector_t *insp)
-{
-  struct suscan_inspector_overridable_request *new = NULL;
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_inspector_overridable_request)),
-      goto done);
-
-  new->insp = insp;
-
-  return new;
-
-done:
-  if (new != NULL)
-    suscan_inspector_overridable_request_destroy(new);
-
-  return NULL;
-}
-
-struct suscan_inspector_overridable_request *
-suscan_local_analyzer_acquire_overridable(
-    suscan_local_analyzer_t *self,
-    SUHANDLE handle)
-{
-  struct suscan_inspector_overridable_request *req = NULL;
-  struct suscan_inspector_overridable_request *own_req = NULL;
-  SUBOOL list_locked = SU_FALSE;
-  suscan_inspector_t *insp = NULL;
-
-  /*
-   * TODO: Maybe acquire scheduler mutex?
-   */
-  SU_TRYCATCH(suscan_local_analyzer_lock_inspector_list(self), goto done);
-  list_locked = SU_TRUE;
-
-  SU_TRYCATCH(
-      insp = suscan_local_analyzer_get_inspector(self, handle),
-      goto done);
-  SU_TRYCATCH(insp->state == SUSCAN_ASYNC_STATE_RUNNING, goto done);
-
-  if ((req = suscan_inspector_get_userdata(insp)) == NULL) {
-    /* No userdata. Release mutex, create object and lock again. */
-    suscan_local_analyzer_unlock_inspector_list(self);
-    list_locked = SU_FALSE;
-  
-    SU_TRYCATCH(
-        own_req = suscan_inspector_overridable_request_new(insp),
-        goto done);
-
-    SU_TRYCATCH(suscan_local_analyzer_lock_inspector_list(self), goto done);
-    list_locked = SU_TRUE;
-
-    /* Many things may have happened here */
-    SU_TRYCATCH(handle >= 0 && handle < self->inspector_count, goto done);
-    SU_TRYCATCH(
-        insp = suscan_local_analyzer_get_inspector(self, handle),
-        goto done);
-    SU_TRYCATCH(insp->state == SUSCAN_ASYNC_STATE_RUNNING, goto done);
-
-    req = own_req;
-    own_req = NULL;
-
-    req->next = self->insp_overridable;
-    self->insp_overridable = req;
-
-    suscan_inspector_set_userdata(insp, req);
-  }
-
-done:
-  if (own_req != NULL)
-    suscan_inspector_overridable_request_destroy(own_req);
-
-  if (req == NULL && list_locked)
-    (void) suscan_local_analyzer_unlock_inspector_list(self);
-
-  return req;
-}
-
-SUBOOL
-suscan_local_analyzer_release_overridable(
-    suscan_local_analyzer_t *self,
-    struct suscan_inspector_overridable_request *rq)
-{
-  suscan_local_analyzer_unlock_inspector_list(self);
-
-  return SU_TRUE;
-}
-
 /************************ Source worker callback *****************************/
 SUBOOL
 suscan_local_analyzer_lock_loop(suscan_local_analyzer_t *self)
@@ -149,19 +52,6 @@ suscan_local_analyzer_unlock_loop(suscan_local_analyzer_t *self)
 {
   (void) pthread_mutex_unlock(&self->loop_mutex);
 }
-
-SUBOOL
-suscan_local_analyzer_lock_inspector_list(suscan_local_analyzer_t *self)
-{
-  return pthread_mutex_lock(&self->inspector_list_mutex) != -1;
-}
-
-void
-suscan_local_analyzer_unlock_inspector_list(suscan_local_analyzer_t *self)
-{
-  (void) pthread_mutex_unlock(&self->inspector_list_mutex);
-}
-
 
 /************************* Baseband filter API *******************************/
 SUPRIVATE struct suscan_analyzer_baseband_filter *
@@ -221,7 +111,6 @@ fail:
 }
 
 /************************ Local analyzer thread ******************************/
-
 SUPRIVATE void
 suscan_local_analyzer_ack_halt(suscan_local_analyzer_t *self)
 {
@@ -597,175 +486,7 @@ suscan_local_analyzer_init_detector_params(
 #endif
 }
 
-/********************** Suscan analyzer public API ***************************/
-void
-suscan_local_analyzer_source_barrier(suscan_local_analyzer_t *self)
-{
-  pthread_barrier_wait(&self->barrier);
-}
-
-void
-suscan_local_analyzer_enter_sched(suscan_local_analyzer_t *self)
-{
-  pthread_mutex_lock(&self->sched_lock);
-}
-
-void
-suscan_local_analyzer_leave_sched(suscan_local_analyzer_t *self)
-{
-  pthread_mutex_unlock(&self->sched_lock);
-}
-
-su_specttuner_channel_t *
-suscan_local_analyzer_open_channel_ex(
-    suscan_local_analyzer_t *self,
-    const struct sigutils_channel *chan_info,
-    SUBOOL precise,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata)
-{
-  su_specttuner_channel_t *channel = NULL;
-  struct sigutils_specttuner_channel_params params =
-      sigutils_specttuner_channel_params_INITIALIZER;
-
-  params.f0 =
-      SU_NORM2ANG_FREQ(
-          SU_ABS2NORM_FREQ(
-              suscan_local_analyzer_get_samp_rate(self),
-              chan_info->fc - chan_info->ft));
-
-  if (params.f0 < 0)
-    params.f0 += 2 * PI;
-
-  params.bw =
-      SU_NORM2ANG_FREQ(
-          SU_ABS2NORM_FREQ(
-              suscan_local_analyzer_get_samp_rate(self),
-              chan_info->f_hi - chan_info->f_lo));
-  params.guard = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
-  params.on_data = on_data;
-  params.privdata = privdata;
-  params.precise = precise;
-
-  suscan_local_analyzer_enter_sched(self);
-
-  SU_TRYCATCH(
-      channel = su_specttuner_open_channel(self->stuner, &params),
-      goto done);
-
-done:
-  suscan_local_analyzer_leave_sched(self);
-
-  return channel;
-}
-
-su_specttuner_channel_t *
-suscan_local_analyzer_open_channel(
-    suscan_local_analyzer_t *analyzer,
-    const struct sigutils_channel *chan_info,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata)
-{
-  return suscan_local_analyzer_open_channel_ex(
-      analyzer,
-      chan_info,
-      SU_FALSE,
-      on_data,
-      privdata);
-}
-
-SUBOOL
-suscan_local_analyzer_close_channel(
-    suscan_local_analyzer_t *self,
-    su_specttuner_channel_t *channel)
-{
-  SUBOOL ok;
-
-  suscan_local_analyzer_enter_sched(self);
-
-  ok = su_specttuner_close_channel(self->stuner, channel);
-
-  suscan_local_analyzer_leave_sched(self);
-
-  return ok;
-}
-
-/* Internal */
-void
-suscan_local_analyzer_set_channel_correction(
-    suscan_local_analyzer_t *analyzer,
-    su_specttuner_channel_t *channel,
-    SUFLOAT delta) 
-{
-  SUFLOAT domega = SU_NORM2ANG_FREQ(
-    SU_ABS2NORM_FREQ(
-      suscan_local_analyzer_get_samp_rate(analyzer),
-      delta));
-  
-  su_specttuner_set_channel_delta_f(analyzer->stuner, channel, domega);
-}    
-
-/*
- * There is no explicit UNBIND. Unbind happens inside
- * suscan_analyzer_on_channel_data when the inspector state
- * is different from RUNNING.
- */
-
-SUBOOL
-suscan_local_analyzer_bind_inspector_to_channel(
-    suscan_local_analyzer_t *self,
-    su_specttuner_channel_t *channel,
-    suscan_inspector_t *insp)
-{
-  struct suscan_inspector_task_info *task_info = NULL;
-  SUBOOL ok = SU_FALSE;
-
-  SU_TRYCATCH(
-      task_info = suscan_inspector_task_info_new(insp),
-      return SU_FALSE);
-
-  task_info->channel = channel;
-
-  suscan_local_analyzer_enter_sched(self);
-
-  SU_TRYCATCH(
-      suscan_inspsched_append_task_info(self->sched, task_info),
-      goto done);
-
-  /*
-   * Task info registered, binding it to the inspector. Time to bind
-   * this task to the channel, so it knows that to do when new data
-   * arrives to it.
-   */
-  channel->params.privdata = task_info;
-
-  /* Now we can say that the inspector is actually running */
-  insp->state = SUSCAN_ASYNC_STATE_RUNNING;
-
-  task_info = NULL;
-
-  ok = SU_TRUE;
-
-done:
-  suscan_local_analyzer_leave_sched(self);
-
-  if (task_info != NULL)
-    suscan_inspector_task_info_destroy(task_info);
-
-  return ok;
-}
-
-
 /*************************** Analyzer interface *******************************/
-
 SUPRIVATE SUBOOL
 suscan_local_analyzer_source_init(
     suscan_local_analyzer_t *self,
@@ -932,6 +653,8 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
       sigutils_specttuner_params_INITIALIZER;
   struct sigutils_channel_detector_params det_params;
   suscan_source_config_t *config;
+  pthread_mutexattr_t attr;
+  static SUBOOL insp_server_init = SU_FALSE;
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_local_analyzer_t)), goto fail);
 
@@ -962,57 +685,65 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->loop_init = SU_TRUE;
 
   /* Create source worker */
-  if ((new->source_wk = suscan_worker_new(&new->mq_in, new))
+  if ((new->source_wk = suscan_worker_new_ex(
+    "source-worker", 
+    &new->mq_in, 
+    new))
       == NULL) {
     SU_ERROR("Cannot create source worker thread\n");
     goto fail;
   }
 
   /* Create slow worker */
-  if ((new->slow_wk = suscan_worker_new(&new->mq_in, new))
+  if ((new->slow_wk = suscan_worker_new_ex(
+    "slow-worker", 
+    &new->mq_in, 
+    new))
       == NULL) {
     SU_ERROR("Cannot create slow worker thread\n");
     goto fail;
   }
 
   /* Initialize gain request mutex */
-  SU_TRYCATCH(pthread_mutex_init(&new->hotconf_mutex, NULL) != -1, goto fail);
+  SU_TRYCATCH(pthread_mutex_init(&new->hotconf_mutex, NULL) == 0, goto fail);
   new->gain_req_mutex_init = SU_TRUE;
 
   /* Create spectral tuner, with matching read size */
   st_params.window_size = parent->params.detector_params.window_size;
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
 
-  /* Create inspector scheduler and barrier */
-  SU_TRYCATCH(new->sched = suscan_inspsched_new(new), goto fail);
-
-  /*
-   * During barrier initialization, we take the number of scheduler workers
-   * plus 1 (the source worker)
+  /* 
+   * Spectral tuner mutex should be recursive in order to enable
+   * closure of channels inside the data callback 
    */
-  SU_TRYCATCH(
-      pthread_barrier_init(
-          &new->barrier,
-          NULL,
-          suscan_inspsched_get_num_workers(new->sched) + 1) == 0,
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+  SU_TRYCATCH(pthread_mutex_init(&new->stuner_mutex, &attr) == 0, goto fail);
+  new->stuner_init = SU_TRUE;
+
+  /* Initialization of the inspector handling API */
+  if (suscan_inspector_factory_class_lookup("local-analyzer") == NULL)
+    SU_TRYCATCH(
+      suscan_local_analyzer_register_factory(),
       goto fail);
 
-  /*
-   * This mutex will protect the spectral tuner from concurrent access by
-   * consumer, analyzer and scheduler worker threads
-   */
-  SU_TRYCATCH(pthread_mutex_init(&new->sched_lock, NULL) == 0, goto fail);
-
-  /*
-   * This mutex will protect access to the inspector list. It will allow
-   * resolving an inspector handle without blocking an entire callback
-   */
-
   SU_TRYCATCH(
-      pthread_mutex_init(&new->inspector_list_mutex, NULL) == 0,
-      goto fail);
-  new->inspector_list_init = SU_TRUE;
+    new->insp_factory = suscan_inspector_factory_new("local-analyzer", new),
+    goto fail);
+  
+  SU_TRYCATCH(
+    suscan_inspector_request_manager_init(&new->insp_reqmgr, new->insp_factory),
+    goto fail);
 
+  if (!insp_server_init) {
+    SU_TRYCATCH(suscan_insp_server_init(), goto fail);
+    insp_server_init = SU_TRUE;
+  }
+
+  /* Initialize rbtree */
+  SU_TRYCATCH(new->insp_hash = rbtree_new(), goto fail);
+  SU_TRYCATCH(pthread_mutex_init(&new->insp_mutex, NULL) == 0, goto fail);
+  new->insp_init = SU_TRUE;
+  
   SU_TRYCATCH(suscan_source_start_capture(new->source), goto fail);
 
   new->effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
@@ -1088,7 +819,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 
   parent->running = SU_TRUE;
 
-  return new;
+return new;
 
 fail:
   if (new != NULL)
@@ -1103,7 +834,6 @@ suscan_local_analyzer_dtor(void *ptr)
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
 
   unsigned int i;
-  struct suscan_inspector_overridable_request *req;
 
   /* Prevent source from entering in timeout loops */
   if (self->source != NULL)
@@ -1130,18 +860,8 @@ suscan_local_analyzer_dtor(void *ptr)
       return;
     }
 
-  /* Halt all inspector scheduler workers */
-  if (self->sched != NULL) {
-    if (!suscan_inspsched_destroy(self->sched)) {
-      SU_ERROR("Failed to shutdown inspector scheduler, memory leak ahead\n");
-      return;
-    }
-
-    /* FIXME: Add flag to prevent initialization errors! */
-    pthread_barrier_destroy(&self->barrier);
-
-    pthread_mutex_destroy(&self->sched_lock);
-  }
+  /* Destroy global inspector table */
+  suscan_local_analyzer_destroy_global_handles_unsafe(self);
 
   /* Free channel detector */
   if (self->detector != NULL)
@@ -1153,34 +873,27 @@ suscan_local_analyzer_dtor(void *ptr)
   if (self->loop_init)
     pthread_mutex_destroy(&self->loop_mutex);
 
-  if (self->inspector_list_init)
-    pthread_mutex_destroy(&self->inspector_list_mutex);
+  /* Deinitialize request manager */
+  suscan_inspector_request_manager_finalize(&self->insp_reqmgr);
 
-  /* Free spectral tuner */
+  /* Destroy inspectors */
+  if (self->insp_factory != NULL)
+    suscan_inspector_factory_destroy(self->insp_factory);
+
+  /* 
+   * Free spectral tuner. It must be done after destroying
+   * the factory, as the local factory implementation holds
+   * pointers to specttuner channels.
+   */
+  if (self->stuner_init)
+    pthread_mutex_destroy(&self->stuner_mutex);
+  
   if (self->stuner != NULL)
     su_specttuner_destroy(self->stuner);
-
-  /* Free all pending overridable requests */
-  while (self->insp_overridable != NULL) {
-    req = self->insp_overridable->next;
-
-    suscan_inspector_overridable_request_destroy(
-        self->insp_overridable);
-
-    self->insp_overridable = req;
-  }
-
+  
   /* Free read buffer */
   if (self->read_buf != NULL)
     free(self->read_buf);
-
-  /* Remove all channel analyzers */
-  for (i = 0; i < self->inspector_count; ++i)
-    if (self->inspector_list[i] != NULL)
-      suscan_inspector_destroy(self->inspector_list[i]);
-
-  if (self->inspector_list != NULL)
-    free(self->inspector_list);
 
   /* Delete source information */
   if (self->source != NULL)
@@ -1466,7 +1179,7 @@ suscan_local_analyzer_set_inspector_frequency(
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
 
-  return suscan_local_analyzer_set_inspector_freq_overridable(
+  return suscan_local_analyzer_set_inspector_freq_slow(
       self,
       handle,
       freq);
@@ -1480,7 +1193,7 @@ suscan_local_analyzer_set_inspector_bandwidth(
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
 
-  return suscan_local_analyzer_set_inspector_bandwidth_overridable(
+  return suscan_local_analyzer_set_inspector_bandwidth_slow(
       self,
       handle,
       bw);

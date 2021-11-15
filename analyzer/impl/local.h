@@ -22,6 +22,10 @@
 
 #include <analyzer/analyzer.h>
 #include <sigutils/smoothpsd.h>
+#include <analyzer/inspector/factory.h>
+#include <analyzer/inspector/overridable.h>
+
+#include <rbtree.h>
 
 #define SUSCAN_LOCAL_ANALYZER_MIN_RADIO_FREQ -3e11
 #define SUSCAN_LOCAL_ANALYZER_MAX_RADIO_FREQ +3e11
@@ -43,19 +47,6 @@ extern "C" {
 struct suscan_analyzer_baseband_filter {
   suscan_analyzer_baseband_filter_func_t func;
   void *privdata;
-};
-
-struct suscan_inspector_overridable_request
-{
-  suscan_inspector_t *insp;
-
-  SUBOOL  dead;
-  SUBOOL  freq_request;
-  SUFREQ  new_freq;
-  SUBOOL  bandwidth_request;
-  SUFLOAT new_bandwidth;
-
-  struct suscan_inspector_overridable_request *next;
 };
 
 struct suscan_local_analyzer {
@@ -143,6 +134,8 @@ struct suscan_local_analyzer {
 
   /* Spectral tuner */
   su_specttuner_t    *stuner;
+  pthread_mutex_t     stuner_mutex;
+  SUBOOL              stuner_init;
 
   /* Wide sweep parameters */
   SUBOOL sweep_params_requested;
@@ -152,15 +145,13 @@ struct suscan_local_analyzer {
   SUSCOUNT part_ndx;
   SUSCOUNT fft_samples; /* Number of FFT frames */
 
-  /* Inspector objects */
-  PTR_LIST(suscan_inspector_t, inspector); /* This list owns inspectors */
-  pthread_mutex_t     inspector_list_mutex; /* Inspector list lock */
-  SUBOOL              inspector_list_init;
-  suscan_inspsched_t *sched; /* Inspector scheduler */
-  pthread_mutex_t     sched_lock;
-  pthread_barrier_t   barrier; /* Sched barrier */
+  suscan_inspector_factory_t         *insp_factory;
+  suscan_inspector_request_manager_t  insp_reqmgr;
 
-  struct suscan_inspector_overridable_request *insp_overridable;
+  /* Global inspector table */
+  rbtree_t                   *insp_hash;
+  pthread_mutex_t             insp_mutex;
+  SUBOOL                      insp_init;
 
   /* Analyzer thread */
   pthread_t thread;
@@ -169,56 +160,10 @@ struct suscan_local_analyzer {
 typedef struct suscan_local_analyzer suscan_local_analyzer_t;
 
 /* Internal */
-void suscan_local_analyzer_source_barrier(suscan_local_analyzer_t *analyzer);
-
-/* Internal */
-void suscan_local_analyzer_enter_sched(suscan_local_analyzer_t *analyzer);
-
-/* Internal */
-void suscan_local_analyzer_leave_sched(suscan_local_analyzer_t *analyzer);
+SUBOOL suscan_local_analyzer_register_factory(void);
 
 /* Internal */
 SUBOOL suscan_local_analyzer_is_real_time_ex(const suscan_local_analyzer_t *self);
-
-/* Internal */
-su_specttuner_channel_t *suscan_local_analyzer_open_channel_ex(
-    suscan_local_analyzer_t *analyzer,
-    const struct sigutils_channel *chan_info,
-    SUBOOL precise,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata);
-
-/* Internal */
-su_specttuner_channel_t *suscan_local_analyzer_open_channel(
-    suscan_local_analyzer_t *analyzer,
-    const struct sigutils_channel *chan_info,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata);
-
-/* Internal */
-SUBOOL suscan_local_analyzer_close_channel(
-    suscan_local_analyzer_t *analyzer,
-    su_specttuner_channel_t *channel);
-
-/* Internal */
-void suscan_local_analyzer_set_channel_correction(
-    suscan_local_analyzer_t *analyzer,
-    su_specttuner_channel_t *channel,
-    SUFLOAT delta);
-
-/* Internal */
-SUBOOL suscan_local_analyzer_bind_inspector_to_channel(
-    suscan_local_analyzer_t *analyzer,
-    su_specttuner_channel_t *channel,
-    suscan_inspector_t *insp);
 
 /* Internal */
 SUBOOL suscan_local_analyzer_lock_loop(suscan_local_analyzer_t *analyzer);
@@ -236,32 +181,58 @@ void suscan_local_analyzer_unlock_inspector_list(suscan_local_analyzer_t *analyz
 SUBOOL suscan_local_analyzer_notify_params(suscan_local_analyzer_t *self);
 
 /* Internal */
+SUBOOL suscan_insp_server_init(void);
+
+/* Internal */
 SUBOOL suscan_local_analyzer_parse_inspector_msg(
     suscan_local_analyzer_t *analyzer,
     struct suscan_analyzer_inspector_msg *msg);
 
 /* Internal */
-suscan_inspector_t *suscan_local_analyzer_get_inspector(
-    const suscan_local_analyzer_t *analyzer,
-    SUHANDLE handle);
+SUHANDLE suscan_local_analyzer_register_inspector(
+  suscan_local_analyzer_t *self,
+  suscan_inspector_t *insp);
 
 /* Internal */
-struct suscan_inspector_overridable_request *
-suscan_local_analyzer_acquire_overridable(
-    suscan_local_analyzer_t *self,
-    SUHANDLE handle);
+SUBOOL suscan_local_analyzer_unregister_inspector(
+  suscan_local_analyzer_t *self,
+  SUHANDLE handle);
 
 /* Internal */
-void suscan_inspector_overridable_request_destroy(
-    struct suscan_inspector_overridable_request *self);
+suscan_inspector_t *suscan_local_analyzer_acquire_inspector(
+  suscan_local_analyzer_t *self,
+  SUHANDLE handle);
 
 /* Internal */
-SUBOOL suscan_local_analyzer_release_overridable(
-    suscan_local_analyzer_t *self,
-    struct suscan_inspector_overridable_request *rq);
+void suscan_local_analyzer_return_inspector(
+  suscan_local_analyzer_t *self,
+  suscan_inspector_t *insp);
+
+/* Internal */
+void
+suscan_local_analyzer_destroy_global_handles_unsafe(
+  suscan_local_analyzer_t *self);
 
 /* Internal */
 void suscan_local_analyzer_destroy_slow_worker_data(suscan_local_analyzer_t *);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_set_inspector_freq_slow(
+    suscan_local_analyzer_t *self,
+    SUHANDLE handle,
+    SUFREQ freq);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_set_inspector_bandwidth_slow(
+    suscan_local_analyzer_t *self,
+    SUHANDLE handle,
+    SUFLOAT bw);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_set_inspector_freq_overridable(
+    suscan_local_analyzer_t *analyzer,
+    SUHANDLE handle,
+    SUFREQ freq);
 
 /* Internal */
 SUBOOL suscan_local_analyzer_set_inspector_bandwidth_overridable(
@@ -278,12 +249,6 @@ SUBOOL suscan_local_analyzer_set_analyzer_params_overridable(
 SUBOOL suscan_local_analyzer_set_psd_samp_rate_overridable(
     suscan_local_analyzer_t *self,
     SUSCOUNT throttle);
-
-/* Internal */
-SUBOOL suscan_local_analyzer_set_inspector_freq_overridable(
-    suscan_local_analyzer_t *analyzer,
-    SUHANDLE handle,
-    SUFREQ freq);
 
 /* Internal */
 SUBOOL suscan_local_analyzer_slow_set_freq(
