@@ -50,14 +50,15 @@ enum suscan_aync_state {
 struct suscan_inspector {
   SUSCAN_REFCOUNT;              /* Reference counter */
 
-  struct suscan_inspector_factory *factory; /* Inspector factory */
-  void *factory_userdata;                   /* Per-inspector factory data */
+  struct suscan_inspector_factory *factory;          /* Inspector factory */
+  void                            *factory_userdata; /* Per-inspector factory data */
   pthread_mutex_t                  mutex;
   SUBOOL                           mutex_init;
 
   SUHANDLE handle;              /* Owner handle */
   uint32_t inspector_id;        /* Set by client */
   struct suscan_mq *mq_out;     /* Non-owned */
+  struct suscan_mq *mq_ctl;     /* Non-owner */
   enum suscan_aync_state state; /* Used to remove analyzer from queue */
 
   /* Specific inspector interface being used */
@@ -87,6 +88,14 @@ struct suscan_inspector {
   SUBOOL    bandwidth_notified;  /* New bandwidth set */
   SUFREQ    new_bandwidth;
 
+  /* Subcarrier inspection */
+  struct suscan_inspector_factory *sc_factory;
+  struct sigutils_specttuner      *sc_stuner;
+  pthread_mutex_t                  sc_stuner_mutex;
+  SUBOOL                           sc_stuner_init;
+  SUCOMPLEX                       *sc_buffer;
+  SUSCOUNT                         sc_ptr;
+
   /* Sampler output */
   SUCOMPLEX sampler_buf[SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE];
   SUSCOUNT  sampler_ptr;
@@ -98,6 +107,30 @@ struct suscan_inspector {
 
 typedef struct suscan_inspector suscan_inspector_t;
 
+SUINLINE void
+suscan_inspector_set_handle(suscan_inspector_t *self, SUHANDLE handle)
+{
+  self->handle = handle;
+}
+
+SUINLINE SUHANDLE
+suscan_inspector_get_handle(const suscan_inspector_t *self)
+{
+  return self->handle;
+}
+
+SUINLINE uint32_t
+suscan_inspector_get_id(const suscan_inspector_t *self)
+{
+  return self->inspector_id;
+}
+
+SUINLINE struct suscan_inspector_factory *
+suscan_inspector_get_subcarrier_factory(const suscan_inspector_t *self)
+{
+  return self->sc_factory;
+}
+  
 SUINLINE struct suscan_inspector_factory *
 suscan_inspector_get_factory(const suscan_inspector_t *self)
 {
@@ -182,6 +215,26 @@ suscan_inspector_get_equiv_bw(const suscan_inspector_t *self)
   return self->samp_info.bw;
 }
 
+SUBOOL suscan_inspector_feed_sc_stuner(
+    suscan_inspector_t *insp,
+    const SUCOMPLEX *samp_buf,
+    SUSCOUNT samp_count);
+
+SUINLINE SUBOOL
+suscan_inspector_feed_sc_sample(suscan_inspector_t *self, SUCOMPLEX x)
+{
+  self->sc_buffer[self->sc_ptr++] = x;
+  if (self->sc_ptr == SUSCAN_INSPECTOR_TUNER_BUF_SIZE) {
+    self->sc_ptr = 0;
+    return suscan_inspector_feed_sc_stuner(
+      self,
+      self->sc_buffer,
+      SUSCAN_INSPECTOR_TUNER_BUF_SIZE);
+  }
+
+  return SU_TRUE;
+}
+
 /******************************* Public API **********************************/
 void suscan_inspector_lock(suscan_inspector_t *insp);
 
@@ -227,25 +280,30 @@ suscan_inspector_t *suscan_inspector_new(
     const char *name,
     const struct suscan_inspector_sampling_info *samp_info,
     struct suscan_mq *mq_out,
+    struct suscan_mq *mq_ctl,
     void *userdata);
+
+SUBOOL suscan_inspector_walk_inspectors(
+  suscan_inspector_t *self,
+  SUBOOL (*callback) (
+    void *userdata,
+    struct suscan_inspector *insp),
+  void *userdata);
 
 SUBOOL suscan_inspector_sampler_loop(
     suscan_inspector_t *insp,
     const SUCOMPLEX *samp_buf,
-    SUSCOUNT samp_count,
-    struct suscan_mq *mq_out);
+    SUSCOUNT samp_count);
 
 SUBOOL suscan_inspector_spectrum_loop(
     suscan_inspector_t *insp,
     const SUCOMPLEX *samp_buf,
-    SUSCOUNT samp_count,
-    struct suscan_mq *mq_out);
+    SUSCOUNT samp_count);
 
 SUBOOL suscan_inspector_estimator_loop(
     suscan_inspector_t *insp,
     const SUCOMPLEX *samp_buf,
-    SUSCOUNT samp_count,
-    struct suscan_mq *mq_out);
+    SUSCOUNT samp_count);
 
 SUSDIFF suscan_inspector_feed_bulk(
     suscan_inspector_t *insp,

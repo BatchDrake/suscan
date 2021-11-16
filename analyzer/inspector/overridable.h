@@ -46,8 +46,6 @@ struct suscan_inspector_overridable_request
 
 /********************* Inspector request manager API **************************/
 struct suscan_inspector_request_manager {
-  suscan_inspector_factory_t                  *owner;
-  /* Overridable requests */
   struct suscan_inspector_overridable_request *overridable_free_list;
   struct suscan_inspector_overridable_request *overridable_alloc_list;
   pthread_mutex_t                              overridable_mutex;
@@ -58,8 +56,7 @@ typedef struct suscan_inspector_request_manager
   suscan_inspector_request_manager_t;
 
 SUBOOL suscan_inspector_request_manager_init(
-  suscan_inspector_request_manager_t *self,
-  suscan_inspector_factory_t *owner);
+  suscan_inspector_request_manager_t *self);
 
 void suscan_inspector_request_manager_finalize(
   suscan_inspector_request_manager_t *self);

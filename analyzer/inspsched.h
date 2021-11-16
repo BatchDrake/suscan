@@ -45,7 +45,6 @@ struct suscan_local_analyzer;
 
 struct suscan_inspsched {
   struct suscan_mq *ctl_mq;
-  struct suscan_mq *insp_mq;
 
   SUBOOL have_time;
 
@@ -87,9 +86,7 @@ SUBOOL suscan_inspsched_sync(suscan_inspsched_t *sched);
  * ctl_mq: where worker messages go (i.e. halt messages)
  * insp_mq: where inspector result messages go (i.e. stuff forwarder to the user)
  */
-suscan_inspsched_t *suscan_inspsched_new(
-  struct suscan_mq *ctl_mq,
-  struct suscan_mq *insp_mq);
+suscan_inspsched_t *suscan_inspsched_new(struct suscan_mq *ctl_mq);
 
 SUBOOL suscan_inspsched_destroy(suscan_inspsched_t *sched);
 

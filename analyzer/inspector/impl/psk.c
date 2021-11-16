@@ -429,6 +429,9 @@ suscan_psk_inspector_feed(
       det_x = psk_insp->costas.y;
     }
 
+    /* Save for subcarrier inspection */
+    suscan_inspector_feed_sc_sample(insp, det_x);
+    
     /* Add matched filter, if enabled */
     if (psk_insp->cur_params.mf.mf_conf == SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL)
       det_x = su_iir_filt_feed(&psk_insp->mf, det_x);
@@ -468,6 +471,7 @@ suscan_psk_inspector_close(void *private)
 SUPRIVATE struct suscan_inspector_interface iface = {
     .name = "psk",
     .desc = "PSK inspector",
+    .sc_factory_class = "sc-inspector",
     .open = suscan_psk_inspector_open,
     .get_config = suscan_psk_inspector_get_config,
     .parse_config = suscan_psk_inspector_parse_config,

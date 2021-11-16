@@ -88,6 +88,8 @@ suscan_local_analyzer_register_inspector(
   
   SU_REF(insp, global_handle);
 
+  suscan_inspector_set_handle(insp, new_handle);
+
   handle = new_handle;
 
 done:
@@ -115,6 +117,8 @@ suscan_local_analyzer_unregister_inspector(
   
   insp = node->data;
   node->data = NULL;
+
+  suscan_inspector_set_handle(insp, -1);
 
   SU_DEREF(insp, global_handle);
 
@@ -198,7 +202,7 @@ suscan_local_analyzer_insp_from_msg(
   if (insp == NULL)
     msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
   else
-    msg->inspector_id = insp->inspector_id;
+    msg->inspector_id = suscan_inspector_get_id(insp);
 
   return insp;
 }
@@ -206,39 +210,64 @@ suscan_local_analyzer_insp_from_msg(
 DEF_MSGCB(OPEN)
 {
   suscan_inspector_t *insp = NULL;
-  unsigned int fs = suscan_analyzer_get_samp_rate(self->parent);
+  suscan_inspector_t *new_insp = NULL;
+  unsigned int fs;
   struct suscan_inspector_sampling_info samp_info;
+  suscan_inspector_factory_t *factory = NULL;
   unsigned int i;
   SUHANDLE handle;
   SUBOOL ok = SU_FALSE;
 
-  /* 
-   * TODO: in the future, conditionally select the inspector
-   * factory to use. 
-   */
+  if (msg->handle != -1) {
+    /* Subcarrier inspector */
+    insp = suscan_local_analyzer_acquire_inspector(self, msg->handle);
+    if (insp == NULL) {
+      msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE;
+      ok = SU_TRUE;
+      goto done;
+    }
 
-  if ((insp = suscan_inspector_factory_open(
-    self->insp_factory,
+    fs = samp_info.equiv_fs;
+    factory = suscan_inspector_get_subcarrier_factory(insp);
+    
+    suscan_inspector_get_sampling_info(insp, &samp_info);
+
+    if (factory == NULL) {
+      SU_ERROR("Inspector does not implement subcarrier inspection\n");
+      msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT;
+      ok = SU_TRUE;
+      goto done;
+    }
+  } else {
+    /* Baseband inspector */
+    fs = suscan_analyzer_get_samp_rate(self->parent);
+    factory = self->insp_factory;
+  }
+
+  if ((new_insp = suscan_inspector_factory_open(
+    factory,
     msg->class_name,
     &msg->channel,
     msg->precise)) == NULL) {
     SU_ERROR("Failed to open inspector\n");
     msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL;
-    return SU_TRUE;
+    ok = SU_TRUE;
+    goto done;
   }
 
-  handle = suscan_local_analyzer_register_inspector(self, insp);
+  handle = suscan_local_analyzer_register_inspector(self, new_insp);
   
   if (handle == -1) {
     SU_ERROR("Could not register inspector globally\n");
-    suscan_inspector_factory_halt_inspector(self->insp_factory, insp);
+    suscan_inspector_factory_halt_inspector(self->insp_factory, new_insp);
 
     msg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT;
-    return SU_TRUE;
+    ok = SU_TRUE;
+    goto done;
   }
   
   /* All went well. Populate message and leave */
-  suscan_inspector_get_sampling_info(insp, &samp_info);
+  suscan_inspector_get_sampling_info(new_insp, &samp_info);
 
   msg->handle    = handle;
   msg->fs        = fs;
@@ -252,30 +281,33 @@ DEF_MSGCB(OPEN)
   msg->channel.ft = self->source_info.frequency;
 
   /* Add applicable estimators */
-  for (i = 0; i < insp->estimator_count; ++i)
+  for (i = 0; i < new_insp->estimator_count; ++i)
     SU_TRYCATCH(
         PTR_LIST_APPEND_CHECK(
             msg->estimator,
-            (void *) insp->estimator_list[i]->classptr) != -1,
+            (void *) new_insp->estimator_list[i]->classptr) != -1,
         goto done);
 
   /* Add applicable spectrum sources */
-  for (i = 0; i < insp->spectsrc_count; ++i)
+  for (i = 0; i < new_insp->spectsrc_count; ++i)
     SU_TRYCATCH(
         PTR_LIST_APPEND_CHECK(
             msg->spectsrc,
-            (void *) insp->spectsrc_list[i]->classptr) != -1,
+            (void *) new_insp->spectsrc_list[i]->classptr) != -1,
         goto done);
 
   SU_TRYCATCH(
-    msg->config = suscan_inspector_create_config(insp),
+    msg->config = suscan_inspector_create_config(new_insp),
     goto done);
   
-  SU_TRYCATCH(suscan_inspector_get_config(insp, msg->config), goto done);
+  SU_TRYCATCH(suscan_inspector_get_config(new_insp, msg->config), goto done);
 
   ok = SU_TRUE;
 
 done:
+  if (insp != NULL)
+    suscan_local_analyzer_return_inspector(self, insp);
+
   return ok;
 }
 
@@ -518,6 +550,75 @@ done:
   return SU_TRUE;
 }
 
+SUPRIVATE SUBOOL
+suscan_local_analyzer_cascade_close(
+  void *userdata,
+  suscan_inspector_t *insp)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) userdata;
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  if (insp->state == SUSCAN_ASYNC_STATE_RUNNING) {
+    /* Cascade halt inside this inspector */
+    SU_TRYCATCH(
+      suscan_inspector_walk_inspectors(
+        insp,
+        suscan_local_analyzer_cascade_close,
+        self),
+      goto done);
+    
+    /* Create a close message */
+    SU_TRYCATCH(
+      msg = suscan_analyzer_inspector_msg_new(
+        SUSCAN_ANALYZER_INSPECTOR_MSGKIND_CLOSE,
+        0),
+      goto done);
+    
+    /* Populate message */
+    msg->handle       = suscan_inspector_get_handle(insp);
+    msg->inspector_id = suscan_inspector_get_id(insp);
+
+    /* Actually halt the inspector */
+    SU_TRYCATCH(
+      suscan_inspector_factory_halt_inspector(
+        suscan_inspector_get_factory(insp),
+        insp),
+      goto done);
+
+    /* Clear pending requests */
+    SU_TRYCATCH(
+        suscan_inspector_request_manager_clear_requests(
+          &self->insp_reqmgr,
+          insp),
+        goto done);
+
+    /* Unregister from global list */
+    SU_TRYCATCH(
+      suscan_local_analyzer_unregister_inspector(
+        self,
+        suscan_inspector_get_handle(insp)),
+      goto done);
+
+    /* Deliver message */
+    SU_TRYCATCH(
+      suscan_mq_write(
+        self->parent->mq_out,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+        msg),
+      goto done);
+    msg = NULL;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+
+  return ok;
+}
+
 DEF_MSGCB(CLOSE)
 {
   suscan_inspector_t *insp = NULL;
@@ -525,6 +626,13 @@ DEF_MSGCB(CLOSE)
   if ((insp = suscan_local_analyzer_insp_from_msg(self, msg)) == NULL)
     goto done;
   
+  SU_TRYCATCH(
+    suscan_inspector_walk_inspectors(
+      insp,
+      suscan_local_analyzer_cascade_close,
+      self),
+    goto done);
+
   SU_TRYCATCH(
     suscan_inspector_factory_halt_inspector(self->insp_factory, insp),
     goto done);

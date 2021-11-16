@@ -166,14 +166,12 @@ suscan_inspector_t *suscan_inspector_factory_open(
   suscan_inspector_factory_t *self,
   ...);
 
-suscan_inspector_t *suscan_inspector_factory_get_unsafe(
-  const suscan_inspector_factory_t *self,
-  SUHANDLE handle);
-
-/* Increase reference counter */
-suscan_inspector_t *suscan_inspector_factory_acquire_inspector(
+SUBOOL suscan_inspector_factory_walk_inspectors(
   suscan_inspector_factory_t *self,
-  SUHANDLE handle);
+  SUBOOL (*callback) ( /* Traverse function */
+    void *userdata,
+    struct suscan_inspector *insp),
+  void *userdata);
 
 /* Decrease reference counter */
 void suscan_inspector_factory_release_inspector(

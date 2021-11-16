@@ -792,6 +792,7 @@ SUBOOL suscan_analyzer_seek_async(
  * \param channel pointer to the channel structure describing the inspector
  * frequency and bandwidth
  * \param precise whether to use precise channel centering
+ * \param parent parent inspector (for subcarrier inspection)
  * \param req_id arbitrary request identifier used to match responses
  * \return SU_TRUE for success or SU_FALSE on failure
  * \author Gonzalo José Carracedo Carballal
@@ -801,6 +802,7 @@ SUBOOL suscan_analyzer_open_ex_async(
     const char *classname,
     const struct sigutils_channel *channel,
     SUBOOL precise,
+    SUHANDLE parent,
     uint32_t req_id);
 
 /*!

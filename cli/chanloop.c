@@ -103,6 +103,7 @@ suscli_chanloop_open(
                 new->params.type,
                 &ch,
                 SU_TRUE, /* Precise centering */
+                -1, /* parent = source channelizer */
                 SUSCAN_CHANLOOP_REQ_ID),
             goto fail);
 

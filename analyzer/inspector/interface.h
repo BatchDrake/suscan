@@ -37,8 +37,10 @@ struct suscan_inspector_sampling_info {
 };
 
 struct suscan_inspector_interface {
-  const char *name;
-  const char *desc;
+  const char *name;               /* Name of this inspector interface */
+  const char *desc;               /* Description */
+  const char *sc_factory_class;   /* Factory class (if any) */
+
   suscan_config_desc_t *cfgdesc;
 
   PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc);

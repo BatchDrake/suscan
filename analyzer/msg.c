@@ -375,6 +375,7 @@ suscan_analyzer_inspector_msg_serialize_open(
     SU_TRYCATCH(cbor_pack_map_start(buffer, 0) == 0, goto fail);
   }
 
+  SUSCAN_PACK(uint,  self->handle);
   SUSCAN_PACK(bool,  self->precise);
   SUSCAN_PACK(uint,  self->fs);
   SUSCAN_PACK(float, self->equiv_fs);
@@ -414,6 +415,7 @@ suscan_analyzer_inspector_msg_deserialize_open(
   SU_TRYCATCH(self->config = suscan_config_new(NULL), goto fail);
   SU_TRYCATCH(suscan_config_deserialize(self->config, buffer), goto fail);
 
+  SUSCAN_UNPACK(uint32, self->handle);
   SUSCAN_UNPACK(bool,   self->precise);
   SUSCAN_UNPACK(uint32, self->fs);
   SUSCAN_UNPACK(float,  self->equiv_fs);

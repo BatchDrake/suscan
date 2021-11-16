@@ -104,6 +104,7 @@ suscan_inspector_factory_t *
 suscan_inspector_factory_new(const char *name, ...)
 {
   suscan_inspector_factory_t *new = NULL;
+  pthread_mutexattr_t attr;
   const struct suscan_inspector_factory_class *class = NULL;
   va_list ap;
   SUBOOL ok = SU_FALSE;
@@ -128,18 +129,19 @@ suscan_inspector_factory_new(const char *name, ...)
     goto done;
   }
 
-if (new->mq_ctl == NULL) {
+  if (new->mq_ctl == NULL) {
     SU_ERROR("Constructor did not set a control message queue\n");
     goto done;
   }
 
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
   SU_TRYCATCH(
-    pthread_mutex_init(&new->inspector_list_mutex, NULL) == 0, 
+    pthread_mutex_init(&new->inspector_list_mutex, &attr) == 0, 
     goto done);
   new->inspector_list_init = SU_TRUE;
 
   SU_TRYCATCH(
-    new->sched = suscan_inspsched_new(new->mq_ctl, new->mq_out),
+    new->sched = suscan_inspsched_new(new->mq_ctl),
     goto done);
 
   ok = SU_TRUE;
@@ -234,37 +236,6 @@ suscan_inspector_factory_force_sync(suscan_inspector_factory_t *self)
   return suscan_inspsched_sync(self->sched);
 }
 
-suscan_inspector_t *
-suscan_inspector_factory_acquire_inspector(
-  suscan_inspector_factory_t *self,
-  SUHANDLE handle)
-{
-  suscan_inspector_t *insp = NULL;
-  SUBOOL mutex_acquired = SU_FALSE;
-
-  if (pthread_mutex_unlock(&self->inspector_list_mutex) != 0)
-    goto done;
-  mutex_acquired = SU_TRUE;
-
-  if ((insp = suscan_inspector_factory_get_unsafe(self, handle)) != NULL)
-    SU_REF(insp, acquire_inspector);
-  
-done:
-  if (mutex_acquired)
-    (void) pthread_mutex_unlock(&self->inspector_list_mutex);
-
-  return insp;
-}
-
-/* Decrease reference counter */
-void
-suscan_inspector_factory_release_inspector(
-  suscan_inspector_factory_t *self,
-  suscan_inspector_t *insp)
-{
-  SU_DEREF(insp, acquire_inspector);
-}
-
 /*
  * TODO: This is not enough to halt an inspector, as overridable
  * requests may keep references to it. Remember to call
@@ -296,6 +267,45 @@ done:
   return ok;
 }
 
+SUBOOL
+suscan_inspector_factory_walk_inspectors(
+  suscan_inspector_factory_t *self,
+  SUBOOL (*callback) (
+    void *userdata,
+    struct suscan_inspector *insp),
+  void *userdata)
+{
+  unsigned int i;
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&self->inspector_list_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
+
+  for (i = 0; i < self->inspector_count; ++i) {
+    if (self->inspector_list[i] != NULL) {
+      SU_TRYCATCH(
+        suscan_inspector_walk_inspectors(
+          self->inspector_list[i],
+          callback,
+          userdata),
+      goto done);
+
+      SU_TRYCATCH(
+        (callback) (userdata, self->inspector_list[i]),
+        goto done);
+    }
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->inspector_list_mutex);
+  
+  return ok;
+}
+
 /*
  * open abstracts the procedure of opening a new inspector. It can imply
  * opening a specttuner channel, or asking some remote device to perform
@@ -308,7 +318,7 @@ suscan_inspector_factory_open(suscan_inspector_factory_t *self, ...)
   const char *class;
   void *userdata = NULL;
   struct suscan_inspector_sampling_info samp_info;
-  SUHANDLE handle = -1;
+  SUHANDLE index = -1;
   SUBOOL mutex_acquired = SU_FALSE;
   va_list ap;
   SUBOOL ok = SU_FALSE;
@@ -330,6 +340,7 @@ suscan_inspector_factory_open(suscan_inspector_factory_t *self, ...)
         class,        /* Inspector class */
         &samp_info,   /* Sampling info, as determined by open */
         self->mq_out, /* Output message queue */
+        self->mq_ctl, /* Control message queue */
         userdata),    /* Per-inspector factory data */
       goto done);
 
@@ -341,11 +352,11 @@ suscan_inspector_factory_open(suscan_inspector_factory_t *self, ...)
   suscan_inspector_factory_cleanup_unsafe(self);
 
   SU_TRYCATCH(
-    (handle = PTR_LIST_APPEND_CHECK(self->inspector, new)) != -1,
+    (index = PTR_LIST_APPEND_CHECK(self->inspector, new)) != -1,
     goto done);
   SU_REF(new, factory);
 
-  new->handle = handle; /* Factory-private handle */
+  new->handle = -1;
   
   /* ^^^^^^^^^^^^^^^^^^^^^^^ inspector_list lock ^^^^^^^^^^^^^^^^^^^^^^^^^^^ */
   (void) pthread_mutex_unlock(&self->inspector_list_mutex);
@@ -367,7 +378,7 @@ done:
   va_end(ap);
 
   if (!ok) {
-    if (new != NULL && handle != -1) {
+    if (new != NULL && index != -1) {
       suscan_inspector_destroy(new);
       new = NULL;
     }
@@ -377,21 +388,4 @@ done:
     (self->iface->close) (self->userdata, userdata);
 
   return new;
-}
-
-suscan_inspector_t *suscan_inspector_factory_get_unsafe(
-  const suscan_inspector_factory_t *self,
-  SUHANDLE handle)
-{
-  suscan_inspector_t *brinsp;
-
-  if (handle < 0 || handle >= self->inspector_count)
-    return NULL;
-
-  brinsp = self->inspector_list[handle];
-
-  if (brinsp != NULL && brinsp->state != SUSCAN_ASYNC_STATE_RUNNING)
-    return NULL;
-
-  return brinsp;
 }

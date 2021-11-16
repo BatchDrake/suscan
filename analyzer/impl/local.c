@@ -731,7 +731,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
     goto fail);
   
   SU_TRYCATCH(
-    suscan_inspector_request_manager_init(&new->insp_reqmgr, new->insp_factory),
+    suscan_inspector_request_manager_init(&new->insp_reqmgr),
     goto fail);
 
   if (!insp_server_init) {

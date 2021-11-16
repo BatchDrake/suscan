@@ -145,6 +145,7 @@ suscan_analyzer_open_ex_async(
     const char *class,
     const struct sigutils_channel *channel,
     SUBOOL precise,
+    SUHANDLE parent,
     uint32_t req_id)
 {
   struct suscan_analyzer_inspector_msg *req = NULL;
@@ -160,6 +161,7 @@ suscan_analyzer_open_ex_async(
 
   req->channel = *channel;
   req->precise = precise;
+  req->handle  = parent;
 
   if (!suscan_analyzer_write(
       analyzer,
@@ -192,6 +194,7 @@ suscan_analyzer_open_async(
       class,
       channel,
       SU_FALSE,
+      -1,
       req_id);
 }
 

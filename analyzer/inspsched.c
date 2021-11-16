@@ -147,8 +147,7 @@ suscan_inpsched_task_cb(
       suscan_inspector_sampler_loop(
           task_info->inspector,
           task_info->data,
-          task_info->size,
-          sched->insp_mq),
+          task_info->size),
       goto fail);
 
   /* Feed all enabled estimators */
@@ -156,8 +155,7 @@ suscan_inpsched_task_cb(
       suscan_inspector_estimator_loop(
           task_info->inspector,
           task_info->data,
-          task_info->size,
-          sched->insp_mq),
+          task_info->size),
       goto fail);
 
   /* Feed spectrum */
@@ -165,8 +163,7 @@ suscan_inpsched_task_cb(
       suscan_inspector_spectrum_loop(
           task_info->inspector,
           task_info->data,
-          task_info->size,
-          sched->insp_mq),
+          task_info->size),
       goto fail);
 
   ok = SU_TRUE;
@@ -294,7 +291,7 @@ suscan_inspsched_destroy(suscan_inspsched_t *self)
 
 
 suscan_inspsched_t *
-suscan_inspsched_new(struct suscan_mq *ctl_mq, struct suscan_mq *insp_mq)
+suscan_inspsched_new(struct suscan_mq *ctl_mq)
 {
   suscan_inspsched_t *new = NULL;
   suscan_worker_t *worker = NULL;
@@ -304,7 +301,7 @@ suscan_inspsched_new(struct suscan_mq *ctl_mq, struct suscan_mq *insp_mq)
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_inspsched_t)), goto fail);
 
   new->ctl_mq = ctl_mq;
-  new->insp_mq = insp_mq;
+  
   count = suscan_inspsched_get_min_workers();
 
   for (i = 0; i < count; ++i) {
