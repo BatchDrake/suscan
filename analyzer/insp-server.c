@@ -75,7 +75,9 @@ suscan_local_analyzer_register_inspector(
   /* Generate a new handle */
   do {
     new_handle = rand() ^ (rand() << 16);
-  } while(rbtree_search(self->insp_hash, new_handle, RB_EXACT) != 0);
+  } while(
+    new_handle != -1 
+    && rbtree_search(self->insp_hash, new_handle, RB_EXACT) != 0);
 
   SU_TRYCATCH(
     rbtree_insert(
@@ -459,7 +461,7 @@ done:
 
 DEF_MSGCB(SET_FREQ)
 {
-  struct suscan_inspector_overridable_request *req;
+  struct suscan_inspector_overridable_request *req = NULL;
   suscan_inspector_t *insp = NULL;
   
   if ((insp = suscan_local_analyzer_insp_from_msg(self, msg)) == NULL)
@@ -489,7 +491,7 @@ done:
 
 DEF_MSGCB(SET_BANDWIDTH)
 {
-  struct suscan_inspector_overridable_request *req;
+  struct suscan_inspector_overridable_request *req = NULL;
   suscan_inspector_t *insp = NULL;
   
   if ((insp = suscan_local_analyzer_insp_from_msg(self, msg)) == NULL)
