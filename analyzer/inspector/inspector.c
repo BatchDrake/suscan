@@ -186,12 +186,14 @@ suscan_sc_inspector_factory_open(
   channel   = va_arg(ap, const struct sigutils_channel *);
   precise   = va_arg(ap, SUBOOL);
 
-  schan = suscan_inspector_open_sc_channel_ex(
-    self,
-    channel,
-    precise,
-    suscan_sc_inspector_on_channel_data,
-    NULL);
+  SU_TRYCATCH(
+    schan = suscan_inspector_open_sc_channel_ex(
+      self,
+      channel,
+      precise,
+      suscan_sc_inspector_on_channel_data,
+      NULL),
+    return NULL);
 
   /* Prepare output fields */
   *inspclass = classname;
