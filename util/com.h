@@ -143,8 +143,12 @@ suscan_refcount_dec(suscan_refcount_t *ref)
   
   pthread_mutex_unlock(&ref->mutex);
 
-  if (ref->counter == 0)
+  if (ref->counter == 0) {
+#ifdef SUSCAN_REFCOUNT_DEBUG
+    fprintf(stderr, "%p: destructor called\n", ref->owner);
     (ref->dtor)(ref->owner);
+#endif /* SUSCAN_RECOUNT_DEBUG */
+  }
 
   return SU_TRUE;
 }

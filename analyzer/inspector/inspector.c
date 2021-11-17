@@ -177,7 +177,6 @@ suscan_sc_inspector_factory_open(
   va_list ap)
 {
   suscan_inspector_t *self = (suscan_inspector_t *) userdata;
-  unsigned int samp_rate = self->samp_info.equiv_fs;
   const char *classname;
   const struct sigutils_channel *channel;
   su_specttuner_channel_t *schan;
@@ -198,7 +197,7 @@ suscan_sc_inspector_factory_open(
   *inspclass = classname;
 
   /* Initialize sampling info */
-  samp_info->equiv_fs = SU_ASFLOAT(samp_rate) / schan->decimation;
+  samp_info->equiv_fs = self->samp_info.equiv_fs / schan->decimation;
   samp_info->bw_bd    = SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(schan));
   samp_info->bw       = .5 * schan->decimation * samp_info->bw_bd;
   samp_info->f0       = SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan));

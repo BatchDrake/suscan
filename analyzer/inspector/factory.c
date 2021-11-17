@@ -82,6 +82,9 @@ suscan_inspector_factory_destroy(suscan_inspector_factory_t *self)
         (self->iface->close) (
           self->userdata, 
           self->inspector_list[i]->factory_userdata);
+#ifdef SUSCAN_REFCOUNT_DEBUG
+      suscan_refcount_debug(&self->inspector_list[i]->SUSCAN_REFCNT_FIELD);
+#endif /* SUSCAN_REFCOUNG_DEBUG */
       SU_DEREF(self->inspector_list[i], factory);
     }
   

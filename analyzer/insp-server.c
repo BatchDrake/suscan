@@ -212,6 +212,7 @@ DEF_MSGCB(OPEN)
   suscan_inspector_t *insp = NULL;
   suscan_inspector_t *new_insp = NULL;
   unsigned int fs;
+  SUFREQ ft;
   struct suscan_inspector_sampling_info samp_info;
   suscan_inspector_factory_t *factory = NULL;
   unsigned int i;
@@ -227,10 +228,11 @@ DEF_MSGCB(OPEN)
       goto done;
     }
 
-    fs = samp_info.equiv_fs;
-    factory = suscan_inspector_get_subcarrier_factory(insp);
-    
     suscan_inspector_get_sampling_info(insp, &samp_info);
+    
+    fs = samp_info.equiv_fs;
+    ft = 0;
+    factory = suscan_inspector_get_subcarrier_factory(insp);
 
     if (factory == NULL) {
       SU_ERROR("Inspector does not implement subcarrier inspection\n");
@@ -241,6 +243,7 @@ DEF_MSGCB(OPEN)
   } else {
     /* Baseband inspector */
     fs = suscan_analyzer_get_samp_rate(self->parent);
+    ft = self->source_info.frequency;
     factory = self->insp_factory;
   }
 
@@ -278,7 +281,7 @@ DEF_MSGCB(OPEN)
   if (msg->lo > .5 * fs)
     msg->lo -= fs;
   
-  msg->channel.ft = self->source_info.frequency;
+  msg->channel.ft = ft;
 
   /* Add applicable estimators */
   for (i = 0; i < new_insp->estimator_count; ++i)

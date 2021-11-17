@@ -355,7 +355,9 @@ suscan_local_inspector_factory_set_bandwidth(
       suscan_analyzer_get_samp_rate(self->parent),
       bandwidth));
 
-  return su_specttuner_set_channel_bandwidth(self->stuner, chan, relbw);
+  (void) su_specttuner_set_channel_bandwidth(self->stuner, chan, relbw);
+
+  return SU_TRUE;
 }
 
 SUPRIVATE SUBOOL
@@ -376,7 +378,7 @@ suscan_local_inspector_factory_set_frequency(
   if (f0 < 0)
     f0 += 2 * PI;
 
-  su_specttuner_set_channel_freq(self->stuner, chan, f0);
+  (void) su_specttuner_set_channel_freq(self->stuner, chan, f0);
 
   return SU_TRUE;
 }

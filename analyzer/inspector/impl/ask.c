@@ -371,7 +371,7 @@ suscan_ask_inspector_feed(
     det_x = const_gain;
 
     /* Save for subcarrier inspection */
-    suscan_inspector_feed_sc_sample(insp, det_x);
+    suscan_inspector_feed_sc_sample(insp, SU_C_IMAG(det_x));
 
     /* Add matched filter, if enabled */
     if (ask_insp->cur_params.mf.mf_conf
