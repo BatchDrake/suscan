@@ -705,6 +705,15 @@ suscan_config_desc_add_ask_params(suscan_config_desc_t *desc)
           "PLL cutoff frequency"),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_INTEGER,
+          SU_TRUE,
+          "ask.channel",
+          "Demodulated channel"),
+      return SU_FALSE);
+
   return SU_TRUE;
 }
 
@@ -755,6 +764,16 @@ suscan_inspector_ask_params_parse(
 
   params->cutoff = value->as_float;
 
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
+          "ask.channel"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_INTEGER, return SU_FALSE);
+
+  params->channel = value->as_int;
+
   return SU_TRUE;
 }
 
@@ -791,6 +810,13 @@ suscan_inspector_ask_params_save(
           params->offset),
       return SU_FALSE);
 
+    SU_TRYCATCH(
+      suscan_config_set_integer(
+          config,
+          "ask.channel",
+          params->channel),
+      return SU_FALSE);
+      
   return SU_TRUE;
 
 }
