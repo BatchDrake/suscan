@@ -137,6 +137,7 @@ suscan_inspector_factory_new(const char *name, ...)
     goto done;
   }
 
+  pthread_mutexattr_init(&attr);
   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
   SU_TRYCATCH(
     pthread_mutex_init(&new->inspector_list_mutex, &attr) == 0, 

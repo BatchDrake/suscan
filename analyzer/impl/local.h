@@ -155,6 +155,7 @@ struct suscan_local_analyzer {
 
   /* Analyzer thread */
   pthread_t thread;
+  SUBOOL    thread_running;
 };
 
 typedef struct suscan_local_analyzer suscan_local_analyzer_t;

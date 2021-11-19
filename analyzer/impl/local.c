@@ -716,6 +716,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
    * Spectral tuner mutex should be recursive in order to enable
    * closure of channels inside the data callback 
    */
+  pthread_mutexattr_init(&attr);
   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
   SU_TRYCATCH(pthread_mutex_init(&new->stuner_mutex, &attr) == 0, goto fail);
   new->stuner_init = SU_TRUE;
@@ -817,7 +818,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
     goto fail;
   }
 
-  parent->running = SU_TRUE;
+  new->thread_running = SU_TRUE;
 
 return new;
 
@@ -839,7 +840,7 @@ suscan_local_analyzer_dtor(void *ptr)
   if (self->source != NULL)
     suscan_source_force_eos(self->source);
 
-  if (self->parent->running) {
+  if (self->thread_running) {
     /* TODO: add a timeout here too */
     if (pthread_join(self->thread, NULL) == -1) {
       SU_ERROR("Thread failed to join, memory leak ahead\n");
