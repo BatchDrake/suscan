@@ -219,6 +219,7 @@ SUBOOL suscan_inspector_feed_sc_stuner(
     const SUCOMPLEX *samp_buf,
     SUSCOUNT samp_count);
 
+#ifndef __cplusplus
 SUINLINE SUBOOL
 suscan_inspector_feed_sc_sample(suscan_inspector_t *self, SUCOMPLEX x)
 {
@@ -235,6 +236,7 @@ suscan_inspector_feed_sc_sample(suscan_inspector_t *self, SUCOMPLEX x)
 
   return ok;
 }
+#endif /* __cplusplus */
 
 /******************************* Public API **********************************/
 void suscan_inspector_lock(suscan_inspector_t *insp);
