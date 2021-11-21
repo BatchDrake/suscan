@@ -25,6 +25,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include <sigutils/sigutils.h>
+#include <sigutils/specttuner.h>
 #include "interface.h"
 #include <analyzer/corrector.h>
 #include <util/com.h>
@@ -93,8 +94,6 @@ struct suscan_inspector {
   struct sigutils_specttuner      *sc_stuner;
   pthread_mutex_t                  sc_stuner_mutex;
   SUBOOL                           sc_stuner_init;
-  SUCOMPLEX                       *sc_buffer;
-  SUSCOUNT                         sc_ptr;
 
   /* Sampler output */
   SUCOMPLEX sampler_buf[SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE];
@@ -223,16 +222,18 @@ SUBOOL suscan_inspector_feed_sc_stuner(
 SUINLINE SUBOOL
 suscan_inspector_feed_sc_sample(suscan_inspector_t *self, SUCOMPLEX x)
 {
-  self->sc_buffer[self->sc_ptr++] = x;
-  if (self->sc_ptr == SUSCAN_INSPECTOR_TUNER_BUF_SIZE) {
-    self->sc_ptr = 0;
-    return suscan_inspector_feed_sc_stuner(
-      self,
-      self->sc_buffer,
-      SUSCAN_INSPECTOR_TUNER_BUF_SIZE);
+  SUBOOL ok = SU_TRUE;
+
+  if (su_specttuner_feed_sample(self->sc_stuner, x)) {
+    if (su_specttuner_get_channel_count(self->sc_stuner) > 0) {
+      if (pthread_mutex_lock(&self->sc_stuner_mutex) == 0) {
+        ok = su_specttuner_feed_all_channels(self->sc_stuner);
+        (void) pthread_mutex_unlock(&self->sc_stuner_mutex);
+      }
+    }
   }
 
-  return SU_TRUE;
+  return ok;
 }
 
 /******************************* Public API **********************************/

@@ -667,9 +667,6 @@ suscan_inspector_destroy(suscan_inspector_t *self)
   if (self->sc_stuner_init)
     pthread_mutex_destroy(&self->sc_stuner_mutex);
 
-  if (self->sc_buffer != NULL)
-    free(self->sc_buffer);
-
   if (self->mutex_init)
     pthread_mutex_destroy(&self->mutex);
 
@@ -965,11 +962,6 @@ suscan_inspector_new(
       SU_TRYCATCH(suscan_inspector_register_factory(), goto fail);
       factory_registered = SU_TRUE;
     }
-
-    SU_TRYCATCH(
-      new->sc_buffer = malloc(
-        sizeof(SUCOMPLEX) * SUSCAN_INSPECTOR_TUNER_BUF_SIZE),
-      goto fail);
 
     sparams.window_size = SUSCAN_INSPECTOR_TUNER_BUF_SIZE;
     SU_TRYCATCH(
