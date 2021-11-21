@@ -91,7 +91,8 @@ suscan_worker_thread(void *data)
 
   while (!worker->halt_req) {
     /* First read: blocking read of a message */
-    msg = suscan_mq_read_msg(&worker->mq_in);
+    if ((msg = suscan_mq_read_msg(&worker->mq_in)) == NULL)
+      break;
 
     do {
       switch (msg->type) {
