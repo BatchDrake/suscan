@@ -50,7 +50,7 @@ jobs:
       run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
 
     - name: Build (sigutils)
-      run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} sigutils
+      run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}}
 
     - name: Checkout (suscan)
       uses: actions/checkout@v2
@@ -61,7 +61,7 @@ jobs:
       run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
 
     - name: Build (suscan)
-      run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}} suscan
+      run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
     
 
       
