@@ -98,8 +98,8 @@ jobs:
     - name: Install SoapySDR (Pothos)
       run: brew install pothossoapy
 
-    - name: Making modules0.8 publicly writeable
-      run: sudo chmod a+rwx /usr/local/lib/SoapySDR/modules0.8
+    - name: Creating modules0.8 and making it publicly writeable
+      run: sudo mkdir -p -m 0777 /usr/local/lib/SoapySDR/modules0.8
 
     - name: Install SDRPlay API
       run: wget https://www.sdrplay.com/software/SDRplay_RSP_API-MacOSX-3.07.3.pkg && sudo installer -pkg SDRplay_RSP_API-MacOSX-3.07.3.pkg -target /
