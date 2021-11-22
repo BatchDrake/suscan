@@ -42,7 +42,7 @@ jobs:
     - name: Checkout sigutils
       uses: actions/checkout@v2
       with:
-        repository: BatchDrake/siugutils
+        repository: BatchDrake/sigutils
         ref: refs/heads/develop
         path: sigutils
 
