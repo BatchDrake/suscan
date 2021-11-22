@@ -76,4 +76,66 @@ jobs:
       run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
     
 
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - name: Setup interactive shell session
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
       
+    - name: Install sndfile
+      run: brew install libsndfile
+
+    - name: Install Volk
+      run: brew install volk
+
+    - name: Install FFTW3
+      run: brew install fftw
+
+    - name: Adding SoapySDR taps (Pothos)
+      run: brew tap pothosware/homebrew-pothos && brew update
+
+    - name: Install SoapySDR (Pothos)
+      run: brew install pothossoapy
+
+    - name: Install SDRPlay API
+      run: wget https://www.sdrplay.com/software/SDRplay_RSP_API-MacOSX-3.07.3.pkg && sudo installer -pkg SDRplay_RSP_API-MacOSX-3.07.3.pkg -target /
+
+    - name: Build and install SoapySDR module for SDRPlay
+      run: git clone https://github.com/pothosware/SoapySDRPlay3 && cd SoapySDRPlay3 && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j3 && sudo make install && cd ../../
+
+    - name: Install SoapySDR modules (Pothos)
+      run: brew install soapyaudio soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyairspyhf soapyosmo soapyuhd soapyredpitaya soapyiris limesuite soapypluto
+
+    - name: Install libxml2
+      run: brew install libxml2
+
+    - name: Install portaudio
+      run: brew install portaudio
+
+    - name: Checkout (sigutils)
+      uses: actions/checkout@v2
+      with:
+        repository: BatchDrake/sigutils
+        ref: refs/heads/develop
+        path: sigutils
+
+    - name: Configure CMake (sigutils)
+      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
+
+    - name: Build (sigutils)
+      run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}}
+
+    - name: Install system-wide (sigutils)
+      run: sudo cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Checkout (suscan)
+      uses: actions/checkout@v2
+      with:
+        path: suscan
+
+    - name: Configure CMake (suscan)
+      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
+
+    - name: Build (suscan)
+      run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
