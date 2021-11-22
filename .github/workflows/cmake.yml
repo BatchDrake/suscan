@@ -52,6 +52,9 @@ jobs:
     - name: Build (sigutils)
       run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}}
 
+    - name: Install system-wide (sigutils)
+      run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
+
     - name: Checkout (suscan)
       uses: actions/checkout@v2
       with:
