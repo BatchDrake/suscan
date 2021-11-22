@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+  workflow_dispatch:
+  
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  # Installation of dependencies is too OS-dependent now, we don't
+  # miss that much by particularizing this in a per-OS basis.
+  
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install sndfile
+      run: sudo apt-get install libsndfile1-dev
+
+    - name: Install Volk
+      run: sudo apt-get install libvolk2-dev
+
+    - name: Install FFTW3
+      run: sudo apt-get install libfftw3-dev
+
+    - name: Install SoapySDR modules
+      run: sudo apt-get install soapysdr-module-all
+
+    - name: Install SoapySDR development files
+      run: sudo apt-get install libsoapysdr-dev
+
+    - name: Install libxml2
+      run: sudo apt-get install libxml2-dev
+
+    - name: Install portaudio
+      run: sudo apt-get install libportaudio-dev
+
+    - name: Checkout sigutils
+      uses: actions/checkout@v2
+      with:
+        repository: BatchDrake/siugutils
+        ref: refs/heads/develop
+        path: sigutils
+
+    - name: Configure CMake (sigutils)
+      run: cmake -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
+
+    - name: Build (sigutils)
+      run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} sigutils
+
+    - name: Checkout (suscan)
+      uses: actions/checkout@v2
+        path: suscan
+
+    - name: Configure CMake (suscan)
+      run: cmake -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
+
+    - name: Build (suscan)
+      run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}} suscan
+    
+
+      
