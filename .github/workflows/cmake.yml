@@ -37,7 +37,7 @@ jobs:
       run: sudo apt-get install libxml2-dev
 
     - name: Install portaudio
-      run: sudo apt-get install libportaudio-dev
+      run: sudo apt-get install portaudio19-dev
 
     - name: Checkout sigutils
       uses: actions/checkout@v2
@@ -47,7 +47,7 @@ jobs:
         path: sigutils
 
     - name: Configure CMake (sigutils)
-      run: cmake -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
+      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
 
     - name: Build (sigutils)
       run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} sigutils
@@ -58,7 +58,7 @@ jobs:
         path: suscan
 
     - name: Configure CMake (suscan)
-      run: cmake -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
+      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
 
     - name: Build (suscan)
       run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}} suscan
