@@ -100,24 +100,38 @@ int
 cbor_pack_single(grow_buf_t *buffer, SUSINGLE value)
 {
   int ret;
-  int32_t as_int = cpu32_to_be(*(int32_t *) &value);
+  int32_t as_be;
+  union {
+    SUSINGLE as_single;
+    int32_t  as_integer;
+  } val;
+
+  val.as_single = value;
+  as_be = cpu32_to_be(val.as_integer);
 
   if ((ret = pack_cbor_type_byte(buffer, CMT_FLOAT, CBOR_ADDL_UINT32)))
     return ret;
 
-  return grow_buf_append(buffer, &as_int, sizeof(int32_t));
+  return grow_buf_append(buffer, &as_be, sizeof(int32_t));
 }
 
 int
 cbor_pack_double(grow_buf_t *buffer, SUDOUBLE value)
 {
   int ret;
-  int64_t as_int = cpu64_to_be(*(int64_t *) &value);
+  int64_t as_be;
+  union {
+    SUDOUBLE as_double;
+    int64_t  as_integer;
+  } val;
+
+  val.as_double = value;
+  as_be = cpu64_to_be(val.as_integer);
 
   if ((ret = pack_cbor_type_byte(buffer, CMT_FLOAT, CBOR_ADDL_UINT64)))
     return ret;
 
-  return grow_buf_append(buffer, &as_int, sizeof(int64_t));
+  return grow_buf_append(buffer, &as_be, sizeof(int64_t));
 }
 
 int

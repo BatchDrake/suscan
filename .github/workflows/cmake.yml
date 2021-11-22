@@ -6,7 +6,12 @@ on:
   pull_request:
     branches: [ develop ]
   workflow_dispatch:
-  
+    inputs:
+    debug_enabled:
+      description: 'Build and run interactive shell'     
+      required: false
+      default: false
+    
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
@@ -18,6 +23,10 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
+    - name: Setup interactive shell session
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
+
     - name: Install sndfile
       run: sudo apt-get install libsndfile1-dev
 
@@ -39,7 +48,7 @@ jobs:
     - name: Install portaudio
       run: sudo apt-get install portaudio19-dev
 
-    - name: Checkout sigutils
+    - name: Checkout (sigutils)
       uses: actions/checkout@v2
       with:
         repository: BatchDrake/sigutils

@@ -148,7 +148,7 @@ xyz_teme_to_ecef(
   polarm(jdut1, pm);
 
   /* Convert position */
-  if (pos != NULL) {
+  if (pos != NULL || vel != NULL) {
     XYZ_MATMUL(&rpef, st, pos);
     XYZ_MATMUL(ecef_pos, pm, &rpef);
   }

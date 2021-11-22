@@ -437,7 +437,7 @@ SUPRIVATE void
 suscli_radio_state_mark_halting(struct suscli_radio_state *self)
 {
   if (self->params.disable_stderr)
-    freopen("/dev/tty", "w", stderr);
+    (void) freopen("/dev/tty", "w", stderr);
 
   if (self->got_termios)
     tcsetattr(0, TCSANOW, &self->old_termios);
@@ -482,7 +482,7 @@ suscli_radio_state_init(
   state->freq_step = 1e4;
 
   if (state->params.disable_stderr)
-    freopen("/dev/null", "w", stderr);
+    (void) freopen("/dev/null", "w", stderr);
 
   /* User requested audio play */
   audio_params.userdata  = state;
