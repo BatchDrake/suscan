@@ -23,6 +23,8 @@
 #include <util.h>
 #include <sigutils/specttuner.h>
 
+#define _COMPAT_BARRIERS
+
 #include <compat.h>
 #include "worker.h"
 #include "list.h"

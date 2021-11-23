@@ -319,7 +319,7 @@ suscan_object_get_field_tv(
   uint32_t usecs;
 
   if ((text = suscan_object_get_field_value(object, name)) != NULL)
-    if (sscanf(text, SCNu64 ".%06u", &secs, &usecs) == 2) {
+    if (sscanf(text, "%" SCNu64 ".%06u", &secs, &usecs) == 2) {
       result.tv_sec  = secs;
       result.tv_usec = usecs;
     }
