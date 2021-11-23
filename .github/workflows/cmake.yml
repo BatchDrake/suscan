@@ -79,10 +79,6 @@ jobs:
   build-macos:
     runs-on: macos-latest
     steps:
-    - name: Setup interactive shell session
-      uses: mxschmitt/action-tmate@v3
-      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
-      
     - name: Install sndfile
       run: brew install libsndfile
 
@@ -107,6 +103,10 @@ jobs:
     - name: Build and install SoapySDR module for SDRPlay
       run: git clone https://github.com/pothosware/SoapySDRPlay3 && cd SoapySDRPlay3 && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j3 && sudo make install && cd ../../
 
+    - name: Setup interactive shell session
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
+      
     # soapyaudio removed from due to deprecated hamlib API
     # soapyosmo  removed because of random compilation errors
     # soapyuhd   removed for the same reason
