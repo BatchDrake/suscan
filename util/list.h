@@ -72,6 +72,18 @@ list_is_head(void **list)
   return LIST_HEAD(*list)->prev == NULL;
 }
 
+SUINLINE int
+sorted_list_is_empty(void **list)
+{
+  return list_is_empty(list);
+}
+
+SUINLINE int
+sorted_list_is_head(void **list)
+{
+  return list_is_head(list);
+}
+
 void *list_get_tail (void **);
 void *list_get_head (void **);
 void  list_join (void **, void **);

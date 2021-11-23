@@ -24,7 +24,6 @@
 #include "inspsched.h"
 #include "mq.h"
 
-#include <compat.h>
 #include <stdarg.h>
 
 #ifdef __cplusplus

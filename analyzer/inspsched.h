@@ -22,8 +22,8 @@
 
 #include <util.h>
 #include <sigutils/specttuner.h>
-#include <pthread.h>
 
+#include <compat.h>
 #include "worker.h"
 #include "list.h"
 

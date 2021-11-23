@@ -146,18 +146,6 @@ list_insert_tail(void **list, void *element)
     list_insert_after(list, tail, element);
 }
 
-SUINLINE int
-sorted_list_is_empty(void **list)
-{
-  return list_is_empty(list);
-}
-
-SUINLINE int
-sorted_list_is_head(void **list)
-{
-  return list_is_head(list);
-}
-
 void *
 sorted_list_get_tail(void **list)
 {
