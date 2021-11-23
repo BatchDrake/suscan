@@ -24,6 +24,7 @@
 #include <cli/cli.h>
 #include <cli/cmds.h>
 #include <sgdp4/sgdp4.h>
+#include <inttypes.h>
 
 #define ORBIT_POINTS 5000
 
@@ -199,7 +200,7 @@ suscli_tleinfo_cb(const hashlist_t *params)
   printf("Mean anomaly:      %gº\n", SU_RAD2DEG(orbit.mnan));
   printf("Mean motion:       %g rev / day\n", orbit.rev);
   printf("Period:            %g min\n", 24. * 60. / orbit.rev);
-  printf("Revolution number: %ld\n", orbit.norb);
+  printf("Revolution number: %" PRId64 "\n", orbit.norb);
   printf(
     "Epoch (UTC):       %s", 
     asctime(gmtime(&epoch)));
