@@ -79,6 +79,10 @@ jobs:
   build-macos:
     runs-on: macos-latest
     steps:
+    - name: Setup interactive shell session
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
+      
     - name: Install sndfile
       run: brew install libsndfile
 
@@ -94,8 +98,8 @@ jobs:
     - name: Install SoapySDR (Pothos)
       run: brew install pothossoapy
 
-    - name: Creating modules0.8 and making it publicly writeable
-      run: sudo mkdir -p -m 0777 /usr/local/lib/SoapySDR/modules0.8
+    - name: Creating modules0.8 and making it publicly writable
+      run: sudo mkdir -p /usr/local/lib/SoapySDR/modules0.8 && sudo chmod a+rw /usr/local/lib/SoapySDR/modules0.8
 
     - name: Install SDRPlay API
       run: wget https://www.sdrplay.com/software/SDRplay_RSP_API-MacOSX-3.07.3.pkg && sudo installer -pkg SDRplay_RSP_API-MacOSX-3.07.3.pkg -target /
@@ -103,10 +107,6 @@ jobs:
     - name: Build and install SoapySDR module for SDRPlay
       run: git clone https://github.com/pothosware/SoapySDRPlay3 && cd SoapySDRPlay3 && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j3 && sudo make install && cd ../../
 
-    - name: Setup interactive shell session
-      uses: mxschmitt/action-tmate@v3
-      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
-      
     # soapyaudio removed from due to deprecated hamlib API
     # soapyosmo  removed because of random compilation errors
     # soapyuhd   removed for the same reason
@@ -127,7 +127,9 @@ jobs:
         path: sigutils
 
     - name: Configure CMake (sigutils)
-      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
+      run: |
+        export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+        cmake -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
 
     - name: Build (sigutils)
       run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}}
@@ -141,7 +143,9 @@ jobs:
         path: suscan
 
     - name: Configure CMake (suscan)
-      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
+      run: |
+        export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+        cmake -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
 
     - name: Build (suscan)
       run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
