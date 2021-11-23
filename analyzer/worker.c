@@ -260,7 +260,7 @@ suscan_worker_new_ex(
       new) == -1)
     goto fail;
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__APPLE__)
   (void) pthread_setname_np(new->thread, name);
 #endif /* __GNUC__ */
 

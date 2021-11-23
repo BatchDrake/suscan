@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/time.h>
+#include <inttypes.h>
 
 #define SUSCAN_TLE_LINE_LEN 69
 
@@ -181,7 +182,7 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
       }
 
       /* Everything looks sane, populate */
-      if (sscanf(str_revol, "%5ld", &self->norb) != 1) {
+      if (sscanf(str_revol, "%5" SCNd64, &self->norb) != 1) {
         SU_ERROR("Line 2: bad TLE revolution number\n");
         return SU_FALSE;
       }
