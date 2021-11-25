@@ -177,6 +177,9 @@ suscan_source_device_destroy(suscan_source_device_t *dev)
   if (dev->desc != NULL)
     free(dev->desc);
 
+  if (dev->driver != NULL)
+    free(dev->driver);
+
   if (dev->args != NULL) {
     SoapySDRKwargs_clear(dev->args);
     free(dev->args);
@@ -523,12 +526,14 @@ suscan_source_device_new(const char *interface, const SoapySDRKwargs *args)
 {
   suscan_source_device_t *new = NULL;
   const char *driver;
+  char *driver_copy = NULL;
   unsigned int i;
 
   /* Not necessarily an error */
   if ((driver = SoapySDRKwargs_get((SoapySDRKwargs *) args, "driver")) == NULL)
     return NULL;
 
+  SU_TRYCATCH(driver_copy = strdup(driver), goto fail);
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_source_device_t)), goto fail);
 
   new->interface = interface;
@@ -544,12 +549,16 @@ suscan_source_device_new(const char *interface, const SoapySDRKwargs *args)
     /* DANGER DANGER DANGER */
   }
 
-  new->driver = driver;
+  new->driver = driver_copy;
   new->index = -1;
+  driver_copy = NULL;
 
   return new;
 
 fail:
+  if (driver_copy != NULL)
+    free(driver_copy);
+
   if (new != NULL)
     suscan_source_device_destroy(new);
 

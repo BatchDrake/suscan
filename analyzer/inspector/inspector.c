@@ -968,6 +968,7 @@ suscan_inspector_new(
       new->sc_stuner = su_specttuner_new(&sparams),
       goto fail);
 
+    pthread_mutexattr_init(&attr);
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
     SU_TRYCATCH(
       pthread_mutex_init(&new->sc_stuner_mutex, &attr) == 0,

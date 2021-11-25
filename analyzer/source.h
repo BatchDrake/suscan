@@ -83,7 +83,7 @@ void suscan_source_device_info_finalize(struct suscan_source_device_info *info);
 
 struct suscan_source_device {
   const char *interface;
-  const char *driver;
+  char *driver;
   char *desc;
   SoapySDRKwargs *args;
   int index;
