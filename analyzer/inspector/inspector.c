@@ -1008,7 +1008,13 @@ suscan_inspector_feed_bulk(
     const SUCOMPLEX *x,
     int count)
 {
-  return (insp->iface->feed) (insp->privdata, insp, x, count);
+  SUSDIFF result;
+
+  suscan_inspector_lock(insp);
+  result = (insp->iface->feed) (insp->privdata, insp, x, count);
+  suscan_inspector_unlock(insp);
+
+  return result;
 }
 
 SUBOOL

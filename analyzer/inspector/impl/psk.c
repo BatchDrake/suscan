@@ -431,7 +431,7 @@ suscan_psk_inspector_feed(
 
     /* Save for subcarrier inspection */
     suscan_inspector_feed_sc_sample(insp, det_x);
-    
+
     /* Add matched filter, if enabled */
     if (psk_insp->cur_params.mf.mf_conf == SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL)
       det_x = su_iir_filt_feed(&psk_insp->mf, det_x);
@@ -449,9 +449,7 @@ suscan_psk_inspector_feed(
     /* Apply channel equalizer, if enabled */
     if (new_sample) {
       if (psk_insp->cur_params.eq.eq_conf == SUSCAN_INSPECTOR_EQUALIZER_CMA) {
-        suscan_inspector_lock(insp);
         output = su_equalizer_feed(&psk_insp->eq, output);
-        suscan_inspector_unlock(insp);
       }
 
       /* Reduce amplitude so it fits in the constellation window */
