@@ -247,6 +247,8 @@ enum suscan_source_format {
   SUSCAN_SOURCE_FORMAT_RAW_SIGNED16,
 };
 
+#define SUSCAN_SOURCE_FORMAT_FALLBACK SUSCAN_SOURCE_FORMAT_RAW_FLOAT32
+
 struct suscan_source_gain_value {
   const struct suscan_source_gain_desc *desc;
   SUFLOAT val;

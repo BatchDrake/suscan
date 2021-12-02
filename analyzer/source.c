@@ -51,6 +51,9 @@
 /* Private config list */
 PTR_LIST(SUPRIVATE suscan_source_config_t, config);
 
+SUPRIVATE const char *suscan_source_config_helper_format_to_str(
+  enum suscan_source_format type);
+
 /***************************** Source Config API *****************************/
 
 SUBOOL
@@ -340,10 +343,31 @@ suscan_source_config_open_file_raw(
   return sf;
 }
 
+SUPRIVATE const char *
+suscan_source_config_helper_sf_format_to_str(int format)
+{
+  SF_FORMAT_INFO info;
+  int i, count;
+
+  sf_command(NULL, SFC_GET_FORMAT_SUBTYPE_COUNT, &count, sizeof (int)) ;
+
+  for (i = 0; i < count; ++i) {
+    info.format = i;
+
+    if (sf_command(NULL, SFC_GET_FORMAT_SUBTYPE, &info, sizeof(SF_FORMAT_INFO)) == 0)
+      if (info.format == format)
+        return info.name;
+  }
+
+  return "Unknown format";
+}
+
 SUPRIVATE SNDFILE *
 suscan_source_config_sf_open(const suscan_source_config_t *self, SF_INFO *sf_info)
 {
   SNDFILE *sf = NULL;
+  const char *p;
+  int guessed = -1;
 
  if (self->path == NULL) {
     SU_ERROR("Cannot open file source: path not set\n");
@@ -370,9 +394,32 @@ suscan_source_config_sf_open(const suscan_source_config_t *self, SF_INFO *sf_inf
             sf_strerror(NULL));
         return NULL;
       } else {
-        SU_INFO("Failed to open source as audio file, falling back to raw...\n");
+        /* Guess by extension */
+        if ((p = strrchr(self->path, '.')) != NULL) {
+          ++p;
+          if (strcasecmp(p, "cu8") == 0 || strcasecmp(p, "u8") == 0)
+            guessed = SF_FORMAT_PCM_U8;
+          else if (strcasecmp(p, "cs16") == 0 || strcasecmp(p, "s16") == 0)
+            guessed = SF_FORMAT_PCM_16;
+          else if (strcasecmp(p, "cf32") == 0 || strcasecmp(p, "raw") == 0)
+            guessed = SF_FORMAT_FLOAT;
+        }
+
+        if (guessed == -1) {
+          guessed = SUSCAN_SOURCE_FORMAT_FALLBACK;
+          SU_INFO(
+            "Unrecognized file extension (%s), assuming %s\n", 
+            p,
+            suscan_source_config_helper_sf_format_to_str(guessed));
+        } else {
+          SU_INFO(
+            "Data format detected: %s\n",
+            suscan_source_config_helper_sf_format_to_str(guessed));
+        }
+
+        sf = suscan_source_config_open_file_raw(self, guessed, sf_info);
       }
-      /* No, not an error. There is no break here. */
+      break;
 
     case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
       sf = suscan_source_config_open_file_raw(self, SF_FORMAT_FLOAT, sf_info);
