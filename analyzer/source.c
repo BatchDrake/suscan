@@ -1231,7 +1231,8 @@ suscan_source_config_clone(const suscan_source_config_t *config)
             config->hidden_gain_list[i]->val),
         goto fail);
 
-  if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_SDR) {
+  if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_SDR 
+  || suscan_source_config_is_remote(config)) {
     for (i = 0; i < config->soapy_args->size; ++i) {
       /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
       SoapySDRKwargs_set(
@@ -1397,7 +1398,8 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   /* Save SoapySDR kwargs */
   SU_TRYCATCH(obj = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
 
-  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR) {
+  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR
+    || suscan_source_config_is_remote(cfg)) {
     for (i = 0; i < cfg->soapy_args->size; ++i)
       SU_TRYCATCH(
           suscan_object_set_field_value(
@@ -1413,7 +1415,8 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   /* Save gains */
   SU_TRYCATCH(obj = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
 
-  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR) {
+  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR
+    || suscan_source_config_is_remote(cfg)) {
     /* Save visible gains */
     for (i = 0; i < cfg->gain_count; ++i)
       SU_TRYCATCH(
@@ -1512,7 +1515,8 @@ suscan_source_config_from_object(const suscan_object_t *object)
   SU_TRYCATCH(SU_CFGLOAD(uint, average, 1), goto fail);
 
   /* Set SDR args and gains, ONLY if this is a SDR source */
-  if (suscan_source_config_get_type(new) == SUSCAN_SOURCE_TYPE_SDR) {
+  if (suscan_source_config_get_type(new) == SUSCAN_SOURCE_TYPE_SDR
+    || suscan_source_config_is_remote(new)) {
     if ((obj = suscan_object_get_field(object, "sdr_args")) != NULL)
       if (suscan_object_get_type(obj) == SUSCAN_OBJECT_TYPE_OBJECT) {
         count = suscan_object_field_count(obj);
