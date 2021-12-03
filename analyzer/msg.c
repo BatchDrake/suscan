@@ -1121,6 +1121,7 @@ suscan_analyzer_msg_serialize(
           goto fail);
       break;
 
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
       SU_TRYCATCH(
@@ -1193,6 +1194,7 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
           goto fail);
       break;
 
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
       SU_TRYCATCH(
