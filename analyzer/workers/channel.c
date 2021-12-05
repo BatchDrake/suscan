@@ -289,6 +289,11 @@ suscan_local_inspector_factory_open(
     suscan_local_analyzer_on_channel_data,
     NULL);
 
+  if (schan == NULL) {
+    SU_ERROR("Local inspector factory: failed to open channel (invalid channel?)\n");
+    return NULL;
+  }
+
   /* Prepare output fields */
   *inspclass = classname;
 
