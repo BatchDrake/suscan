@@ -626,6 +626,35 @@ suscan_source_config_set_param(
 }
 
 SUINLINE SUBOOL
+suscan_source_config_walk_params(
+  const suscan_source_config_t *self,
+  SUBOOL (*callback) (
+    const suscan_source_config_t *self,
+    const char *key,
+    const char *value,
+    void *userdata),
+  void *userdata)
+{
+  size_t i;
+
+  for (i = 0; i < self->soapy_args->size; ++i)
+    if (!(callback) (
+      self, 
+      self->soapy_args->keys[i], 
+      self->soapy_args->vals[i],
+      userdata))
+      return SU_FALSE;
+
+  return SU_TRUE;
+}
+
+SUINLINE void
+suscan_source_config_clear_params(suscan_source_config_t *self)
+{
+  SoapySDRKwargs_clear(self->soapy_args);
+}
+
+SUINLINE SUBOOL
 suscan_source_config_is_remote(const suscan_source_config_t *self)
 {
   if (self->interface == NULL)
