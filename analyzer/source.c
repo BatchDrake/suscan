@@ -1711,7 +1711,7 @@ suscan_source_open_file(suscan_source_t *self)
   if ((self->sf = suscan_source_config_sf_open(
     self->config, 
     &self->sf_info)) != NULL) {
-    self->samp_rate = self->config->samp_rate;
+    self->config->samp_rate = self->samp_rate = self->sf_info.samplerate;
     self->iq_file   = self->sf_info.channels == 2;
   }
 
