@@ -61,6 +61,12 @@ struct suscli_analyzer_client_tx_thread {
   SUBOOL            thread_running;
 };
 
+void suscli_analyzer_client_tx_thread_stop(
+  struct suscli_analyzer_client_tx_thread *self);
+
+void suscli_analyzer_client_tx_thread_stop_soft(
+  struct suscli_analyzer_client_tx_thread *self);
+
 void suscli_analyzer_client_tx_thread_finalize(
     struct suscli_analyzer_client_tx_thread *self);
 

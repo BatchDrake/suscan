@@ -802,14 +802,23 @@ suscan_remote_read_pdu(
   grow_buf_clear(buffer);
 
   /* Attempt to read header */
-  SU_TRYCATCH(
-      (got = suscan_remote_read(
-          sfd,
-          cancelfd,
-          &header,
-          sizeof(struct suscan_analyzer_remote_pdu_header),
-          timeout_ms)) == sizeof(struct suscan_analyzer_remote_pdu_header),
-      goto done);
+  got = suscan_remote_read(
+    sfd,
+    cancelfd,
+    &header,
+    sizeof(struct suscan_analyzer_remote_pdu_header),
+    timeout_ms);
+    
+  if (got != sizeof(struct suscan_analyzer_remote_pdu_header)) {
+    if (got >= 0)
+      SU_WARNING("Connection closed while waiting for PDU header\n");
+    else
+      SU_ERROR(
+        "suscan_remote_read returned %d (errno = %s)\n",
+        got,
+        strerror(errno));
+    goto done;
+  }
 
   header.size  = ntohl(header.size);
   header.magic = ntohl(header.magic);
@@ -834,14 +843,23 @@ suscan_remote_read_pdu(
       chunksiz = SUSCAN_REMOTE_READ_BUFFER;
 
     SU_TRYCATCH(chunk = grow_buf_alloc(buffer, chunksiz), goto done);
-    SU_TRYCATCH(
-        suscan_remote_read(
-            sfd,
-            cancelfd,
-            chunk,
-            chunksiz,
-            SUSCAN_REMOTE_ANALYZER_PDU_BODY_TIMEOUT_MS) == chunksiz,
-        goto done);
+    got = suscan_remote_read(
+      sfd,
+      cancelfd,
+      chunk,
+      chunksiz,
+      SUSCAN_REMOTE_ANALYZER_PDU_BODY_TIMEOUT_MS);
+      
+    if (got != chunksiz) {
+      if (got >= 0)
+        SU_WARNING("Connection closed while waiting for PDU payload\n");
+      else
+        SU_ERROR(
+          "suscan_remote_read returned %d while reading PDU payload (errno = %s)\n",
+          got,
+          strerror(errno));
+      goto done;
+    }
 
     /*
      * No need to advance growbuf pointer. We are just incrementing
@@ -1353,6 +1371,9 @@ suscan_remote_analyzer_connect_to_peer(suscan_remote_analyzer_t *self)
   ok = SU_TRUE;
 
 done:
+  if (!ok)
+    usleep(1000);
+
   return ok;
 }
 

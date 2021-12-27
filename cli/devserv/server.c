@@ -808,7 +808,7 @@ suscli_analyzer_server_process_call(
           "LOCAL");
     } else {
       /* Authentication failed. Mark as failed. */
-      SU_WARNING("Client did not pass the challenge, kicking him\n");
+      SU_WARNING("Client did not pass the challenge, kicking user...\n");
       suscli_analyzer_client_send_auth_rejected(client);
       suscli_analyzer_server_kick_client(self, client);
     }

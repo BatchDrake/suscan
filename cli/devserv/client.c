@@ -469,9 +469,10 @@ suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self)
 {
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(!self->failed,   goto done);
   SU_TRYCATCH(!self->closed,   goto done);
   SU_TRYCATCH(self->sfd != -1, goto done);
+
+  suscli_analyzer_client_tx_thread_stop_soft(&self->tx);
 
   self->closed = SU_TRUE;
 
