@@ -133,20 +133,22 @@ suscan_inspector_request_manager_commit_overridable(
               this->insp,
               this->new_freq),
             goto done);
+          this->freq_request = SU_FALSE;
         }
 
         if (this->bandwidth_request) {
           /* Set bandwidth request */
+          SU_TRYCATCH(
+              suscan_inspector_notify_bandwidth(this->insp, this->new_bandwidth),
+              goto done);
+
           SU_TRYCATCH(
             suscan_inspector_factory_set_inspector_bandwidth(
               suscan_inspector_get_factory(this->insp),
               this->insp,
               this->new_bandwidth),
             goto done);
-
-          SU_TRYCATCH(
-              suscan_inspector_notify_bandwidth(this->insp, this->new_bandwidth),
-              goto done);
+          this->bandwidth_request = SU_FALSE;
         }
       }
 
@@ -235,10 +237,6 @@ suscan_inspector_request_manager_acquire_overridable(
       req->insp = insp;
     }
   }
-
-  /* Return empty request */
-  req->freq_request      = SU_FALSE;
-  req->bandwidth_request = SU_FALSE;
 
 done:
   if (req == NULL && mutex_acquired)
