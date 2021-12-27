@@ -40,6 +40,12 @@ rbtree_new (void)
 }
 
 void
+rbtree_node_free_dtor (void *data, void *userdata)
+{
+  free(data);
+}
+
+void
 rbtree_set_dtor (rbtree_t *tree, void (*dtor) (void *, void *), void *node_dtor_data)
 {
   tree->node_dtor = dtor;

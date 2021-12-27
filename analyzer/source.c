@@ -2059,7 +2059,9 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 {
   SUSDIFF got;
   SUSCOUNT result;
-  SU_TRYCATCH(self->capturing, return SU_FALSE);
+  
+  if (!self->capturing)
+    return 0;
 
   if (self->read == NULL) {
     SU_ERROR("Signal source has no read() operation\n");

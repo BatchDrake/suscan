@@ -76,8 +76,8 @@ suscan_local_analyzer_register_inspector(
   do {
     new_handle = rand() ^ (rand() << 16);
   } while(
-    new_handle != -1 
-    && rbtree_search(self->insp_hash, new_handle, RB_EXACT) != 0);
+    new_handle == -1 
+    || rbtree_search_data(self->insp_hash, new_handle, RB_EXACT, NULL) != NULL);
 
   SU_TRYCATCH(
     rbtree_insert(
