@@ -236,6 +236,10 @@ suscan_inspector_request_manager_acquire_overridable(
     }
   }
 
+  /* Return empty request */
+  req->freq_request      = SU_FALSE;
+  req->bandwidth_request = SU_FALSE;
+
 done:
   if (req == NULL && mutex_acquired)
     (void) pthread_mutex_unlock(&self->overridable_mutex);
