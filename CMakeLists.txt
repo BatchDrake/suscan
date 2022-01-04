@@ -52,6 +52,7 @@ pkg_check_modules(FFTW3    REQUIRED fftw3f>=3.0)
 pkg_check_modules(SOAPYSDR REQUIRED SoapySDR>=0.5.0)
 pkg_check_modules(XML2     REQUIRED libxml-2.0>=2.9.0)
 pkg_check_modules(VOLK              volk>=1.0)
+pkg_check_modules(ALSA              alsa>=1.2)
 pkg_check_modules(PORTAUDIO         portaudio-2.0>=19)
 
 # Source location
@@ -471,7 +472,13 @@ target_include_directories(
   suscli
   PRIVATE . ${UTILDIR} ${CODECLIB_DIR} ${SRCDIR} ${CLIDIR})
 
-if(PORTAUDIO_FOUND)
+if(ALSA_FOUND)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_ALSA=1")
+  target_include_directories(suscli SYSTEM PUBLIC ${ALSA_INCLUDE_DIRS})
+  target_link_libraries(suscli ${ALSA_LIBRARIES})
+  string(REPLACE ";" " " ALSA_SPC_LDFLAGS "${ALSA_LDFLAGS}")
+  set(SIGUTILS_SPC_LDFLAGS "${SIGUTILS_SPC_LDFLAGS} ${ALSA_SPC_LDFLAGS}")
+elseif(PORTAUDIO_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_PORTAUDIO=1")
   target_include_directories(suscli SYSTEM PUBLIC ${PORTAUDIO_INCLUDE_DIRS})
   target_link_libraries(suscli ${PORTAUDIO_LIBRARIES})

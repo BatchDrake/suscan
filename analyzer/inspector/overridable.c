@@ -127,6 +127,7 @@ suscan_inspector_request_manager_commit_overridable(
 
         /* Parse this request */
         if (this->freq_request) {
+          printf("Set freq: %g\n", this->new_freq);
           SU_TRYCATCH(
             suscan_inspector_factory_set_inspector_freq(
               suscan_inspector_get_factory(this->insp),

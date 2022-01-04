@@ -25,15 +25,124 @@
 
 #define SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE 44100
 
-#define SUSCLI_AUDIO_BUFFER_SIZE         512
+#define SUSCLI_AUDIO_BUFFER_DELAY_MS     55
+#define SUSCLI_AUDIO_MIN_BUFFER_SIZE     256
 #define SUSCLI_AUDIO_BUFFER_ALLOC_SIZE   (5 * SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE)
 
-SUPRIVATE void *suscli_audio_open_stream(suscli_audio_player_t *, unsigned int);
+SUPRIVATE void *suscli_audio_open_stream(
+  suscli_audio_player_t *,
+  unsigned int,
+  unsigned int);
 SUPRIVATE void suscli_audio_close_stream(void *);
 SUPRIVATE SUBOOL suscli_audio_play(void *, const SUFLOAT *, size_t);
 
 /*************************** PortAudio implementation *************************/
-#ifdef HAVE_PORTAUDIO
+#if defined(HAVE_ALSA)
+#  include <alsa/asoundlib.h>
+#  define HAVE_AUDIO
+#  define ALSAPLAYER_UNDERRUN_WAIT_PERIOD_MS (2 * SUSCLI_AUDIO_BUFFER_DELAY_MS)
+
+#define ATTEMPT(expr, what, arg...)                \
+  if ((err = expr) < 0) {                          \
+    fprintf(                                       \
+      stderr,                                      \
+      "Failed to " what  " in ALSA player: %s\n",  \
+      ##arg,                                       \
+      snd_strerror(err));                          \
+    goto fail;                                     \
+  }
+
+SUPRIVATE void *
+suscli_audio_open_stream(
+    suscli_audio_player_t *self,
+    unsigned int samp_rate,
+    unsigned int buffer_size)
+{
+  int err;
+  snd_pcm_t *pcm = NULL;
+  snd_pcm_hw_params_t *params = NULL;
+  const char *device = "default";
+
+  ATTEMPT(
+        snd_pcm_open(&pcm, device, SND_PCM_STREAM_PLAYBACK, 0),
+        "open audio device %s",
+        device);
+
+  snd_pcm_hw_params_alloca(&params);
+  snd_pcm_hw_params_any(pcm, params);
+
+  ATTEMPT(
+        snd_pcm_hw_params_set_access(
+          pcm,
+          params,
+          SND_PCM_ACCESS_RW_INTERLEAVED),
+        "set interleaved access for audio device");
+
+  ATTEMPT(
+        snd_pcm_hw_params_set_format(
+          pcm,
+          params,
+          SND_PCM_FORMAT_FLOAT_LE),
+        "set sample format");
+
+  ATTEMPT(
+        snd_pcm_hw_params_set_buffer_size(
+          pcm,
+          params,
+          buffer_size),
+        "set buffer size to %d",
+        buffer_size);
+
+  ATTEMPT(
+        snd_pcm_hw_params_set_channels(pcm, params, 1),
+        "set output to mono");
+
+  ATTEMPT(
+        snd_pcm_hw_params_set_rate_near(pcm, params, &samp_rate, NULL),
+        "set sample rate to %d",
+        samp_rate);
+
+  ATTEMPT(snd_pcm_hw_params(pcm, params), "set device params");
+
+  return pcm;
+
+fail:
+  if (pcm != NULL) {
+    snd_pcm_drain(pcm);
+    snd_pcm_close(pcm);
+  }
+
+  return NULL;
+}
+
+SUPRIVATE SUBOOL
+suscli_audio_play(void *stream, const SUFLOAT *buffer, size_t len)
+{
+  long err;
+  snd_pcm_t *pcm = (snd_pcm_t *) stream;
+
+  err = snd_pcm_writei(pcm, buffer, len);
+
+  if (err == -EPIPE) {
+    usleep(ALSAPLAYER_UNDERRUN_WAIT_PERIOD_MS * 1000);
+    snd_pcm_prepare(pcm);
+    err = snd_pcm_writei(pcm, buffer, len);
+  }
+
+  return err >= 0;
+}
+
+
+SUPRIVATE void
+suscli_audio_close_stream(void *stream)
+{
+  snd_pcm_t *pcm = (snd_pcm_t *) stream;
+
+  snd_pcm_drain(pcm);
+  snd_pcm_close(pcm);
+}
+
+#elif defined(HAVE_PORTAUDIO)
 #  include <portaudio.h>
 #  define HAVE_AUDIO
 #  define PORTAUDIO_MAX_UNDERRUNS 20
@@ -63,7 +172,8 @@ pa_assert_init(void)
 SUPRIVATE void *
 suscli_audio_open_stream(
     suscli_audio_player_t *self,
-    unsigned int samp_rate)
+    unsigned int samp_rate,
+    unsigned int buffer_size)
 {
   PaStreamParameters outputParameters;
   PaError pErr;
@@ -90,7 +200,7 @@ suscli_audio_open_stream(
      NULL,
      &outputParameters,
      samp_rate,
-     SUSCLI_AUDIO_BUFFER_SIZE,
+     buffer_size,
      paClipOff,
      NULL,
      NULL);
@@ -142,7 +252,10 @@ suscli_audio_close_stream(void *stream)
 
 #ifndef HAVE_AUDIO
 SUPRIVATE void *
-suscli_audio_open_stream(suscli_audio_player_t *self, unsigned int samp_rate)
+suscli_audio_open_stream(
+  suscli_audio_player_t *self,
+  unsigned int samp_rate,
+  unsigned int bufsiz)
 {
   SU_ERROR("Audio support disabled at compile time.\n");
   return NULL;
@@ -207,12 +320,17 @@ suscli_audio_player_new(const struct suscli_audio_player_params *params)
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_audio_player_t)), goto fail);
 
-  new->params   = *params;
-  new->bufsiz   = SUSCLI_AUDIO_BUFFER_SIZE;
-  new->bufalloc = SUSCLI_AUDIO_BUFFER_ALLOC_SIZE;
-
   if (new->params.samp_rate == 0)
     new->params.samp_rate = SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE;
+
+  new->params   = *params;
+  new->bufsiz   = SUSCLI_AUDIO_BUFFER_DELAY_MS * 1e-3f * new->params.samp_rate;
+  new->bufalloc = SUSCLI_AUDIO_BUFFER_ALLOC_SIZE;
+
+  if (new->bufsiz < SUSCLI_AUDIO_MIN_BUFFER_SIZE)
+    new->bufsiz = SUSCLI_AUDIO_MIN_BUFFER_SIZE;
+  else if (new->bufsiz > SUSCLI_AUDIO_BUFFER_ALLOC_SIZE)
+    new->bufsiz = SUSCLI_AUDIO_BUFFER_ALLOC_SIZE;
 
   SU_TRYCATCH(
       new->buffer = calloc(new->bufalloc, sizeof(SUFLOAT)),
@@ -222,7 +340,7 @@ suscli_audio_player_new(const struct suscli_audio_player_params *params)
   SU_TRYCATCH(new->worker = suscan_worker_new(&new->mq, new), goto fail);
 
   SU_TRYCATCH(
-      new->stream = suscli_audio_open_stream(new, params->samp_rate),
+      new->stream = suscli_audio_open_stream(new, params->samp_rate, new->bufsiz),
       goto fail);
 
   if (new->params.start != NULL)
