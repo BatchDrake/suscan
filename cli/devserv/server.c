@@ -488,7 +488,7 @@ suscli_analyzer_server_on_set_id(
     void *userdata,
     suscli_analyzer_client_t *client,
     struct suscan_analyzer_inspector_msg *inspmsg,
-    int32_t itl_index)
+    int32_t itl_handle)
 {
   suscli_analyzer_server_t *self = (suscli_analyzer_server_t *) userdata;
   SUBOOL mutex_acquired = SU_FALSE;
@@ -500,13 +500,14 @@ suscli_analyzer_server_on_set_id(
   mutex_acquired = SU_TRUE;
 
   /* vvvvvvvvvvvvvvvvvvvvvvvvvvvv Client mutex vvvvvvvvvvvvvvvvvvvvvvvvvvvvv */
-  SU_TRYCATCH(itl_index >= 0, goto done);
-  SU_TRYCATCH(itl_index < self->client_list.itl_count, goto done);
+  SU_TRYCATCH(
+    suscli_analyzer_client_list_set_inspector_id_unsafe(
+      &self->client_list,
+      itl_handle,
+      inspmsg->inspector_id),
+    goto done);
 
-  self->client_list.itl_table[itl_index].local_inspector_id =
-      inspmsg->inspector_id;
-
-  inspmsg->inspector_id = itl_index;
+  inspmsg->inspector_id = itl_handle;
 
   ok = SU_TRUE;
 
@@ -807,7 +808,7 @@ suscli_analyzer_server_process_call(
           "LOCAL");
     } else {
       /* Authentication failed. Mark as failed. */
-      SU_WARNING("Client did not pass the challenge, kicking him\n");
+      SU_WARNING("Client did not pass the challenge, kicking user...\n");
       suscli_analyzer_client_send_auth_rejected(client);
       suscli_analyzer_server_kick_client(self, client);
     }

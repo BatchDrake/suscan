@@ -39,11 +39,9 @@ struct suscli_analyzer_client_inspector_list {
   pthread_mutex_t inspector_mutex;
   SUBOOL          inspector_mutex_initialized;
 
-  struct suscli_analyzer_client_inspector_entry *inspector_list;
-  unsigned int inspector_alloc;
-  unsigned int inspector_count;
-  SUHANDLE     inspector_last_free;
-  unsigned int inspector_pending_count;
+  rbtree_t       *inspector_tree;
+  unsigned int    inspector_count;
+  unsigned int    inspector_pending_count;
 };
 
 #define SUSCLI_ANALYZER_CLIENT_TX_MESSAGE 0
@@ -62,6 +60,12 @@ struct suscli_analyzer_client_tx_thread {
   SUBOOL            thread_finished;
   SUBOOL            thread_running;
 };
+
+void suscli_analyzer_client_tx_thread_stop(
+  struct suscli_analyzer_client_tx_thread *self);
+
+void suscli_analyzer_client_tx_thread_stop_soft(
+  struct suscli_analyzer_client_tx_thread *self);
 
 void suscli_analyzer_client_tx_thread_finalize(
     struct suscli_analyzer_client_tx_thread *self);
@@ -164,7 +168,7 @@ SUINLINE SUBOOL
 suscli_analyzer_client_has_outstanding_inspectors(
     const suscli_analyzer_client_t *self)
 {
-    return self->inspectors.inspector_count > 0;
+  return self->inspectors.inspector_count > 0;
 }
 
 SUINLINE SUBOOL
@@ -331,9 +335,7 @@ struct suscli_analyzer_client_list {
   unsigned int    client_count;
 
   /* Inspector translation table */
-  struct suscli_analyzer_itl_entry *itl_table;
-  unsigned int                      itl_count;
-  int32_t                           itl_last_free;
+  rbtree_t       *itl_tree;
 };
 
 SUINLINE void
@@ -401,6 +403,11 @@ struct suscli_analyzer_itl_entry *
 suscli_analyzer_client_list_get_itl_entry_unsafe(
     const struct suscli_analyzer_client_list *self,
     int32_t entry);
+
+SUBOOL suscli_analyzer_client_list_set_inspector_id_unsafe(
+  const struct suscli_analyzer_client_list *self,
+  int32_t handle,
+  uint32_t inspector_id);
 
 SUBOOL suscli_analyzer_client_list_dispose_itl_entry_unsafe(
     struct suscli_analyzer_client_list *self,

@@ -40,11 +40,11 @@ suscli_analyzer_client_new(int sfd, unsigned int compress_threshold)
 #endif /* SO_NOSIGPIPE */
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_client_t)), goto fail);
+  SU_TRYCATCH(new->inspectors.inspector_tree = rbtree_new(), goto fail);
 
   new->sfd   = -1;
-
-  new->inspectors.inspector_last_free = -1;
-
+  rbtree_set_dtor(new->inspectors.inspector_tree, rbtree_node_free_dtor, NULL);
+  
   SU_TRYCATCH(
       pthread_mutex_init(&new->inspectors.inspector_mutex, NULL) == 0,
       goto fail);
@@ -190,31 +190,39 @@ suscli_analyzer_client_register_inspector_handle_unsafe(
     SUHANDLE global_handle,
     int32_t itl_index)
 {
-  SUHANDLE ret = -1;
-  struct suscli_analyzer_client_inspector_entry *tmp = NULL;
+  SUHANDLE handle = -1;
+  struct suscli_analyzer_client_inspector_entry *new = NULL;
 
-  if (self->inspectors.inspector_last_free < 0) {
-    /* No "last free". Time to reallocate */
-    SU_TRYCATCH(
-        tmp = realloc(
-            self->inspectors.inspector_list,
-            (self->inspectors.inspector_alloc + 1)
-            * sizeof(struct suscli_analyzer_client_inspector_entry)),
-        goto done);
-    self->inspectors.inspector_list = tmp;
-    ret = self->inspectors.inspector_alloc++;
-  } else {
-    ret = self->inspectors.inspector_last_free;
-    self->inspectors.inspector_last_free =
-        ~self->inspectors.inspector_list[ret].global_handle;
-  }
+  SU_ALLOCATE(new, struct suscli_analyzer_client_inspector_entry);
 
-  self->inspectors.inspector_list[ret].global_handle = global_handle;
-  self->inspectors.inspector_list[ret].itl_index     = itl_index;
+  new->global_handle = global_handle;
+  new->itl_index     = itl_index;
+
+  do {
+    handle = rand() ^ (rand() << 16);
+  } while (
+    handle == -1 
+    || rbtree_search_data(
+      self->inspectors.inspector_tree,
+      handle,
+      RB_EXACT,
+      NULL) != NULL);
+
+  if (rbtree_insert(
+    self->inspectors.inspector_tree,
+    handle,
+    new) == -1)
+    handle = -1;
+
   ++self->inspectors.inspector_count;
 
+  new = NULL;
+
 done:
-  return ret;
+  if (new != NULL)
+    free(new);
+
+  return handle;
 }
 
 SUHANDLE
@@ -244,19 +252,16 @@ done:
   return handle;
 }
 
-SUPRIVATE SUHANDLE
-suscli_analyzer_client_translate_handle_unsafe(
+SUPRIVATE struct suscli_analyzer_client_inspector_entry *
+suscli_analyzer_client_get_inspector_entry_unsafe(
     suscli_analyzer_client_t *self,
     SUHANDLE private_handle)
 {
-  if (private_handle < 0 || private_handle >= self->inspectors.inspector_alloc)
-    return -1;
-
-  SU_TRYCATCH(
-      self->inspectors.inspector_list[private_handle].global_handle >= 0,
-      return -1);
-
-  return self->inspectors.inspector_list[private_handle].global_handle;
+  return rbtree_search_data(
+    self->inspectors.inspector_tree,
+    private_handle,
+    RB_EXACT,
+    NULL);
 }
 
 SUBOOL
@@ -264,18 +269,21 @@ suscli_analyzer_client_dispose_inspector_handle_unsafe(
     suscli_analyzer_client_t *self,
     SUHANDLE private_handle)
 {
-  if (private_handle < 0 || private_handle >= self->inspectors.inspector_alloc)
-      return -1;
+  struct rbtree_node *node = rbtree_search(
+    self->inspectors.inspector_tree,
+    private_handle,
+    RB_EXACT);
 
-  SU_TRYCATCH(self->inspectors.inspector_count > 0, return SU_FALSE);
+  if (node == NULL || node->data == NULL) {
+    SU_ERROR("Invalid private handle 0x%x\n", private_handle);
+    return SU_FALSE;
+  }
 
-  SU_TRYCATCH(
-      self->inspectors.inspector_list[private_handle].global_handle >= 0,
-      return SU_FALSE);
-
-  self->inspectors.inspector_list[private_handle].global_handle =
-      ~self->inspectors.inspector_last_free;
-  self->inspectors.inspector_last_free = private_handle;
+  if (rbtree_insert(
+    self->inspectors.inspector_tree,
+    private_handle,
+    NULL) == -1)
+      return SU_FALSE;
   --self->inspectors.inspector_count;
 
   return SU_TRUE;
@@ -340,6 +348,7 @@ suscli_analyzer_client_intercept_message(
     const struct suscli_analyzer_client_interceptors *interceptors)
 {
   struct suscan_analyzer_inspector_msg *inspmsg;
+  struct suscli_analyzer_client_inspector_entry *entry;
   SUBOOL mutex_acquired = SU_FALSE;
   SUHANDLE handle;
   SUBOOL ok = SU_FALSE;
@@ -364,10 +373,10 @@ suscli_analyzer_client_intercept_message(
           goto done);
     } else {
       handle = inspmsg->handle;
+      entry  = suscli_analyzer_client_get_inspector_entry_unsafe(self, handle);
 
-      if ((inspmsg->handle = suscli_analyzer_client_translate_handle_unsafe(
-          self,
-          handle)) != -1) {
+      if (entry != NULL) {
+        inspmsg->handle = entry->global_handle;
         /* This local handle actually refers to something! */
         if (inspmsg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID) {
           SU_TRYCATCH(
@@ -375,7 +384,7 @@ suscli_analyzer_client_intercept_message(
                   interceptors->userdata,
                   self,
                   inspmsg,
-                  self->inspectors.inspector_list[handle].itl_index),
+                  entry->itl_index),
               goto done);
         }
       } else {
@@ -460,9 +469,10 @@ suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self)
 {
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(!self->failed,   goto done);
   SU_TRYCATCH(!self->closed,   goto done);
   SU_TRYCATCH(self->sfd != -1, goto done);
+
+  suscli_analyzer_client_tx_thread_stop_soft(&self->tx);
 
   self->closed = SU_TRUE;
 
@@ -594,8 +604,8 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
   suscan_analyzer_server_hello_finalize(&self->server_hello);
   suscan_analyzer_remote_call_finalize(&self->incoming_call);
 
-  if (self->inspectors.inspector_list != NULL)
-    free(self->inspectors.inspector_list);
+  if (self->inspectors.inspector_tree != NULL)
+    rbtree_destroy(self->inspectors.inspector_tree);
 
   if (self->inspectors.inspector_mutex_initialized)
     pthread_mutex_destroy(&self->inspectors.inspector_mutex);
@@ -706,23 +716,16 @@ suscli_analyzer_client_for_each_inspector_unsafe(
         SUHANDLE global_handle),
     void *userdata)
 {
-  SUHANDLE i;
+  struct rbtree_node *this = rbtree_get_first(self->inspectors.inspector_tree);
+  struct suscli_analyzer_client_inspector_entry *entry;
 
-  SUHANDLE first_free = self->inspectors.inspector_last_free;
-
-  if (first_free > 0)
-    while (~self->inspectors.inspector_list[first_free].global_handle > 0)
-        first_free = ~self->inspectors.inspector_list[first_free].global_handle;
-
-  for (i = 0; i < self->inspectors.inspector_alloc; ++i)
-    if (i != first_free &&
-        self->inspectors.inspector_list[i].global_handle >= 0)
-      if (!(func) (
-          self,
-          userdata,
-          i,
-          self->inspectors.inspector_list[i].global_handle))
+  while (this != NULL) {
+    entry = this->data;
+    if (entry != NULL 
+      && !(func) (self, userdata, this->key, entry->global_handle))
         return SU_FALSE;
+    this = this->next;
+  }
 
   return SU_TRUE;
 }
@@ -757,56 +760,76 @@ suscli_analyzer_client_list_alloc_itl_entry_unsafe(
     struct suscli_analyzer_client_list *self,
     suscli_analyzer_client_t *client)
 {
-  int32_t ret = -1;
-  struct suscli_analyzer_itl_entry *tmp = NULL;
+  int32_t handle = -1;
+  struct suscli_analyzer_itl_entry *new = NULL;
 
   SU_TRYCATCH(client != NULL, goto done);
+  SU_ALLOCATE(new, struct suscli_analyzer_itl_entry);
 
-  if (self->itl_last_free < 0) {
-    /* No "last free". Time to reallocate */
-    SU_TRYCATCH(
-        tmp = realloc(
-            self->itl_table,
-            (self->itl_count + 1) * sizeof(struct suscli_analyzer_itl_entry)),
-        goto done);
+  new->client = client;
 
-    self->itl_table = tmp;
-    ret = self->itl_count++;
-  } else {
-    ret = self->itl_last_free;
-    self->itl_last_free = self->itl_table[ret].next_free;
-  }
+  do {
+    handle = rand() ^ (rand() << 16);
+  } while (
+    handle == -1 
+    || rbtree_search_data(self->itl_tree, handle, RB_EXACT, NULL) != NULL);
 
-  self->itl_table[ret].client = client;
+  if (rbtree_insert(self->itl_tree, handle, new) == -1)
+    handle = -1;
+  new = NULL;
 
 done:
-  return ret;
+  if (new != NULL)
+    free(new);
+
+  return handle;
 }
 
 struct suscli_analyzer_itl_entry *
 suscli_analyzer_client_list_get_itl_entry_unsafe(
     const struct suscli_analyzer_client_list *self,
-    int32_t entry)
+    int32_t handle)
 {
-  SU_TRYCATCH(entry >= 0, return NULL);
-  SU_TRYCATCH(entry < self->itl_count, return NULL);
+  return rbtree_search_data(self->itl_tree, handle, RB_EXACT, NULL);
+}
 
-  return self->itl_table + entry;
+SUBOOL
+suscli_analyzer_client_list_set_inspector_id_unsafe(
+  const struct suscli_analyzer_client_list *self,
+  int32_t handle,
+  uint32_t inspector_id)
+{
+  struct suscli_analyzer_itl_entry *entry;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+    entry = suscli_analyzer_client_list_get_itl_entry_unsafe(
+      self,
+      handle),
+    goto done);
+
+  entry->local_inspector_id = inspector_id;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
 
 SUBOOL
 suscli_analyzer_client_list_dispose_itl_entry_unsafe(
     struct suscli_analyzer_client_list *self,
-    int32_t entry)
+    int32_t handle)
 {
-  SU_TRYCATCH(entry >= 0, return SU_FALSE);
-  SU_TRYCATCH(entry < self->itl_count, return SU_FALSE);
+  struct rbtree_node *node = NULL;
+  
+  if ((node = rbtree_search(self->itl_tree, handle, RB_EXACT)) == NULL) {
+    SU_ERROR("Invalid ITL entry handle 0x%x\n", handle);
+    return SU_FALSE;
+  }
 
-  SU_TRYCATCH(self->itl_table[entry].client != NULL, return SU_FALSE);
-
-  self->itl_table[entry].next_free = self->itl_last_free;
-  self->itl_table[entry].client = NULL;
-  self->itl_last_free = entry;
+  if (rbtree_insert(self->itl_tree, handle, NULL) == -1)
+    return SU_FALSE;
 
   return SU_TRUE;
 }
@@ -824,9 +847,10 @@ suscli_analyzer_client_list_init(
   self->listen_fd = listen_fd;
   self->cancel_fd = cancel_fd;
 
-  self->itl_last_free = -1;
-
   SU_TRYCATCH(self->client_tree = rbtree_new(), goto done);
+  SU_TRYCATCH(self->itl_tree    = rbtree_new(), goto done);
+
+  rbtree_set_dtor(self->itl_tree, rbtree_node_free_dtor, NULL);
 
   SU_TRYCATCH(pthread_mutex_init(&self->client_mutex, NULL) == 0, goto done);
   self->client_mutex_initialized = SU_TRUE;
@@ -1061,8 +1085,8 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
   if (self->client_pfds != NULL)
     free(self->client_pfds);
 
-  if (self->itl_table != NULL)
-    free(self->itl_table);
+  if (self->itl_tree != NULL)
+    rbtree_destroy(self->itl_tree);
 
   memset(self, 0, sizeof(struct suscli_analyzer_client_list));
 }

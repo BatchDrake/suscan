@@ -658,7 +658,7 @@ suscan_source_channel_wk_cb(
   /* Finish processing */
   suscan_local_analyzer_process_end(self);
 
-  restart = SU_TRUE;
+  restart = !self->parent->halt_requested;
 
 done:
   if (mutex_acquired)

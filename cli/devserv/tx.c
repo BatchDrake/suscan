@@ -226,6 +226,13 @@ suscli_analyzer_client_tx_thread_cancel(
 }
 
 SUPRIVATE void
+suscli_analyzer_client_tx_thread_cancel_soft(
+    struct suscli_analyzer_client_tx_thread *self)
+{
+  suscan_mq_write(&self->queue, SUSCLI_ANALYZER_CLIENT_TX_CANCEL, NULL);
+}
+
+SUPRIVATE void
 suscli_analyzer_client_tx_consume_buffer_mq(struct suscan_mq *mq)
 {
   grow_buf_t *buffer;
@@ -240,15 +247,38 @@ suscli_analyzer_client_tx_consume_buffer_mq(struct suscan_mq *mq)
 }
 
 void
-suscli_analyzer_client_tx_thread_finalize(
-    struct suscli_analyzer_client_tx_thread *self)
+suscli_analyzer_client_tx_thread_stop(
+  struct suscli_analyzer_client_tx_thread *self)
 {
-  if (self->thread_running) {
+   if (self->thread_running) {
     if (!self->thread_finished)
       suscli_analyzer_client_tx_thread_cancel(self);
 
     pthread_join(self->thread, NULL);
+
+    self->thread_running = SU_FALSE;
   }
+}
+
+void
+suscli_analyzer_client_tx_thread_stop_soft(
+  struct suscli_analyzer_client_tx_thread *self)
+{
+  if (self->thread_running) {
+    if (!self->thread_finished)
+      suscli_analyzer_client_tx_thread_cancel_soft(self);
+
+    pthread_join(self->thread, NULL);
+
+    self->thread_running = SU_FALSE;
+  }
+}
+
+void
+suscli_analyzer_client_tx_thread_finalize(
+    struct suscli_analyzer_client_tx_thread *self)
+{
+  suscli_analyzer_client_tx_thread_stop(self);
 
   if (self->pool_initialized)
     suscli_analyzer_client_tx_consume_buffer_mq(&self->pool);
