@@ -23,7 +23,7 @@
 #include <cli/datasaver.h>
 #include <cli/cli.h>
 #include <errno.h>
-#include <time.h>
+#include <util/compat-time.h>
 #include <string.h>
 
 SUPRIVATE FILE *

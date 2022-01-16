@@ -17,7 +17,7 @@
 
 */
 
-#include <stdlib.h>
+#include <util/compat-stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>

@@ -19,10 +19,10 @@
 
 #include <string.h>
 #include <unistd.h>
-#include <pwd.h>
+#include <util/compat-pwd.h>
 #include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
+#include <util/compat-mman.h>
+#include <util/compat-stat.h>
 #include <fcntl.h>
 
 #define SU_LOG_DOMAIN "confdb"

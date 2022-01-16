@@ -26,7 +26,7 @@ extern "C" {
 
 #include <pthread.h>
 #include <sigutils/sigutils.h>
-#include <sys/time.h>
+#include <util/compat-time.h>
 
 #define SUSCAN_MQ_USE_POOL
 

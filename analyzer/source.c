@@ -34,7 +34,7 @@
 #include <sigutils/taps.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/time.h>
+#include <util/compat-time.h>
 
 #ifdef _SU_SINGLE_PRECISION
 #  define sf_read sf_read_float

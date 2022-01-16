@@ -21,7 +21,7 @@
 #define _SUSCAN_ANALYZER_IMPL_REMOTE_H
 
 #include <analyzer/analyzer.h>
-#include <netinet/in.h>
+#include <util/compat-in.h>
 #include <util/sha256.h>
 
 #ifdef __cplusplus

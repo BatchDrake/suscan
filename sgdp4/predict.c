@@ -22,7 +22,7 @@
 
 #include "sgdp4.h"
 #include <sigutils/log.h>
-#include <sys/time.h>
+#include <util/compat-time.h>
 
 /*
  * This strategy was inspired by Gpredict, which provides a way to calculate

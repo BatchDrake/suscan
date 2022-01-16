@@ -11,7 +11,7 @@
 #include <getopt.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/select.h>
+#include <util/compat-select.h>
 
 #include <confdb.h>
 #include <suscan.h>

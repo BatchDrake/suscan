@@ -33,8 +33,8 @@
 #include <cli/chanloop.h>
 #include <cli/audio.h>
 
-#include <poll.h>
-#include <termios.h>
+#include <util/compat-poll.h>
+#include <util/compat-termios.h>
 #include <signal.h>
 
 #define SUSCLI_RADIO_PARAMS_DEFAULT_DEMODULATOR  SUSCAN_INSPECTOR_AUDIO_DEMOD_FM

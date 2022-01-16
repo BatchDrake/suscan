@@ -23,7 +23,7 @@
 #include <analyzer/msg.h>
 #include <analyzer/version.h>
 #include <sigutils/log.h>
-#include <sys/poll.h>
+#include <util/compat-poll.h>
 #include <sys/fcntl.h>
 
 #define SUSCLI_ANALYZER_SERVER_NAME "Suscan device server - " SUSCAN_VERSION_STRING
