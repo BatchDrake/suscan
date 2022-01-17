@@ -175,9 +175,9 @@ suscan_analyzer_server_compute_auth_token(
 
   suscan_sha256_init(&ctx);
 
-  suscan_sha256_update(&ctx, (const BYTE *) user, strlen(user) + 1);
-  suscan_sha256_update(&ctx, (const BYTE *) password, strlen(password) + 1);
-  suscan_sha256_update(&ctx, (const BYTE *) sha256salt, SHA256_BLOCK_SIZE);
+  suscan_sha256_update(&ctx, (const uint8_t *) user, strlen(user) + 1);
+  suscan_sha256_update(&ctx, (const uint8_t *) password, strlen(password) + 1);
+  suscan_sha256_update(&ctx, (const uint8_t *) sha256salt, SHA256_BLOCK_SIZE);
 
   suscan_sha256_final(&ctx, result);
 }
