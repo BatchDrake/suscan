@@ -25,6 +25,8 @@
 #if defined(__APPLE__)
 #  include "macos-barriers.imp.h"
 #  include "macos-bundle.imp.h"
+#elif defined(_WIN32)
+#  include "win32-bundle.imp.h"
 #else
 const char *
 suscan_bundle_get_confdb_path(void)
