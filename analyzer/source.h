@@ -34,6 +34,10 @@ extern "C" {
 #include <util/util.h>
 #include <object.h>
 
+#ifdef interface
+#  undef interface
+#endif /* interface */
+
 #define SUSCAN_SOURCE_DEFAULT_BUFSIZ 1024
 
 #define SUSCAN_SOURCE_LOCAL_INTERFACE   "local"

@@ -20,7 +20,7 @@
 #define SU_LOG_DOMAIN "inspsched"
 
 #include <sigutils/log.h>
-#include <unistd.h>
+#include <util/compat-unistd.h>
 
 #include "inspsched.h"
 

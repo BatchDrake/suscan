@@ -22,8 +22,8 @@
 #include "devserv.h"
 #include <analyzer/msg.h>
 #include <sigutils/log.h>
-#include <sys/poll.h>
-#include <sys/fcntl.h>
+#include <util/compat-poll.h>
+#include <util/compat-fcntl.h>
 
 SUPRIVATE void suscli_analyzer_server_kick_client(
     suscli_analyzer_server_t *self,

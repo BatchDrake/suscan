@@ -20,9 +20,9 @@
 #define SU_LOG_DOMAIN "cli-devserv"
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
+#include <util/compat-socket.h>
+#include <util/compat-inet.h>
+#include <util/compat-in.h>
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>
 #include <analyzer/discovery.h>
@@ -33,7 +33,7 @@
 #include <cli/devserv/devserv.h>
 #include <cli/cli.h>
 #include <cli/cmds.h>
-#include <time.h>
+#include <util/compat-time.h>
 
 #define SUSCLI_DEVSERV_DEFAULT_PORT_BASE 28000
 SUPRIVATE SUBOOL su_log_cr = SU_TRUE;

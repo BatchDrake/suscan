@@ -19,15 +19,16 @@
 
 #define SU_LOG_DOMAIN "remote-analyzer"
 
-#include <sys/socket.h>
+#include <util/compat-socket.h>
+#include <util/compat-unistd.h>
 
 #include "remote.h"
 #include "msg.h"
 #include <zlib.h>
-#include <fcntl.h>
-#include <sys/poll.h>
+#include <util/compat-fcntl.h>
+#include <util/compat-poll.h>
 #include <analyzer/realtime.h>
-#include <netdb.h>
+#include <util/compat-netdb.h>
 
 #ifdef bool
 #  undef bool
@@ -174,9 +175,9 @@ suscan_analyzer_server_compute_auth_token(
 
   suscan_sha256_init(&ctx);
 
-  suscan_sha256_update(&ctx, (const BYTE *) user, strlen(user) + 1);
-  suscan_sha256_update(&ctx, (const BYTE *) password, strlen(password) + 1);
-  suscan_sha256_update(&ctx, (const BYTE *) sha256salt, SHA256_BLOCK_SIZE);
+  suscan_sha256_update(&ctx, (const uint8_t *) user, strlen(user) + 1);
+  suscan_sha256_update(&ctx, (const uint8_t *) password, strlen(password) + 1);
+  suscan_sha256_update(&ctx, (const uint8_t *) sha256salt, SHA256_BLOCK_SIZE);
 
   suscan_sha256_final(&ctx, result);
 }

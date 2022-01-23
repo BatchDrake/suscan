@@ -22,9 +22,9 @@
 #include <sigutils/log.h>
 #include <cli/datasaver.h>
 #include <cli/cli.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <sys/socket.h>
+#include <util/compat-in.h>
+#include <util/compat-netdb.h>
+#include <util/compat-socket.h>
 #include <errno.h>
 #include <time.h>
 #include <string.h>
