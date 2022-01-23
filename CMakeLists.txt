@@ -150,38 +150,6 @@ set(UTIL_HEADERS
   ${UTILDIR}/rbtree.h
   ${UTILDIR}/sha256.h)
   
-# Windows compatibility
-if(WIN32)
-	set(UTIL_HEADERS
-	  ${UTIL_HEADERS}
-	  ${UTILDIR}/compat-pwd.h
-	  ${UTILDIR}/compat-mman.h
-	  ${UTILDIR}/compat-time.h
-	  ${UTILDIR}/compat-stat.h
-	  ${UTILDIR}/compat-stdlib.h
-	  ${UTILDIR}/compat-socket.h
-	  ${UTILDIR}/compat-unistd.h
-	  ${UTILDIR}/compat-inet.h
-	  ${UTILDIR}/compat-in.h
-	  ${UTILDIR}/compat-poll.h
-	  ${UTILDIR}/compat-netdb.h
-	  ${UTILDIR}/compat-fcntl.h
-	  ${UTILDIR}/compat-termios.h
-	  ${UTILDIR}/win32-pwd.h
-	  ${UTILDIR}/win32-mman.h
-	  ${UTILDIR}/win32-time.h
-	  ${UTILDIR}/win32-stat.h
-	  ${UTILDIR}/win32-stdlib.h
-	  ${UTILDIR}/win32-socket.h
-	  ${UTILDIR}/win32-unistd.h
-	  ${UTILDIR}/win32-inet.h
-	  ${UTILDIR}/win32-in.h
-	  ${UTILDIR}/win32-poll.h
-	  ${UTILDIR}/win32-netdb.h
-	  ${UTILDIR}/win32-fcntl.h
-	  ${UTILDIR}/win32-termios.h)
-endif()
-  
 set(UTIL_SOURCES
   ${UTILDIR}/cbor.c
   ${UTILDIR}/cfg.c
@@ -195,20 +163,6 @@ set(UTIL_SOURCES
   ${UTILDIR}/rbtree.c
   ${UTILDIR}/serialize.c
   ${UTILDIR}/sha256.c)
-  
-if(WIN32)
-	set(UTIL_SOURCES
-	  ${UTIL_SOURCES}
-	  ${UTILDIR}/win32-pwd.c
-	  ${UTILDIR}/win32-mman.c
-	  ${UTILDIR}/win32-time.c
-	  ${UTILDIR}/win32-stdlib.c
-	  ${UTILDIR}/win32-pwd.c
-	  ${UTILDIR}/win32-poll.c
-	  ${UTILDIR}/win32-fcntl.c
-	  ${UTILDIR}/win32-unistd.c
-	  ${UTILDIR}/win32-termios.c)
-endif()
 
 set(SGDP4_HEADERS
   ${SGDP4DIR}/sgdp4-types.h
