@@ -23,6 +23,7 @@
 #include <util/util.h>
 #include <stdlib.h>
 #include <libgen.h>
+#include <SoapySDR/Version.h>
 
 #include <windows.h>
 
@@ -36,16 +37,16 @@ get_bundle_path(const char *file)
   char *path = NULL;
   char *pathtofile = NULL;
   
-  SU_TRYCATCH(thismodpath = malloc(MAXPATH + 1), goto done);
-  SU_TRYCATCH(path = malloc(MAXPATH + 1), goto done);
-  SU_TRYCATCH(pathtofile = malloc(MAXPATH + 1), goto done);
+  SU_TRYCATCH(thismodpath = malloc(MAX_PATH + 1), goto done);
+  SU_TRYCATCH(path = malloc(MAX_PATH + 1), goto done);
+  SU_TRYCATCH(pathtofile = malloc(MAX_PATH + 1), goto done);
   
   SU_TRYCATCH(GetModuleFileNameA(NULL, thismodpath, MAX_PATH), goto done);
   SU_TRYCATCH(GetLastError() != ERROR_INSUFFICIENT_BUFFER, goto done);
   
   path = dirname(thismodpath);
   SU_TRYCATCH(
-    pathtofile = strbuild("%s\\%s", dir, file),
+    pathtofile = strbuild("%s\\%s", path, file),
 	goto done);
   
 done:
