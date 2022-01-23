@@ -36,6 +36,11 @@
 #include <unistd.h>
 #include <util/compat-time.h>
 
+#ifdef _WIN32
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#endif /* _WIN32 */
+
 #ifdef _SU_SINGLE_PRECISION
 #  define sf_read sf_read_float
 #  define SUSCAN_SOAPY_SAMPFMT SOAPY_SDR_CF32
@@ -2615,6 +2620,25 @@ SUBOOL
 suscan_init_sources(void)
 {
   const char *mcif;
+
+#ifdef _WIN32
+  WORD wVersionRequested;
+  WSADATA wsaData;
+  int err;
+
+  wVersionRequested = MAKEWORD(2, 2);
+
+  err = WSAStartup(wVersionRequested, &wsaData);
+  if (err != 0) {
+    SU_ERROR(
+      "WSAStartup failed with error %d: network function will not work\n", 
+      err);
+  } else if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+    SU_ERROR(
+      "Requested version of the Winsock API (2.2) is not available\n");
+    WSACleanup();
+  }
+#endif /* _WIN32 */
 
   /* TODO: Register analyzer interfaces? */
   SU_TRYCATCH(suscan_source_device_preinit(), return SU_FALSE);

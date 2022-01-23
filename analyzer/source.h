@@ -34,7 +34,7 @@ extern "C" {
 #include <util/util.h>
 #include <object.h>
 
-#ifdef interface
+#if defined(_WIN32) && defined(interface)
 #  undef interface
 #endif /* interface */
 
