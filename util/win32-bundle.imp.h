@@ -23,6 +23,7 @@
 #include <util/util.h>
 #include <stdlib.h>
 #include <libgen.h>
+#include <SoapySDR/Version.h>
 
 #include <windows.h>
 
