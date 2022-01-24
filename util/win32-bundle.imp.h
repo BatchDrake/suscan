@@ -33,15 +33,21 @@ SUPRIVATE const char *g_configpath = NULL;
 SUPRIVATE const char *
 get_bundle_path(const char *file)
 {
-  char *thismodpath = NULL;
+  char *thismodpath = NULL, *tmp;
   char *path = NULL;
   char *pathtofile = NULL;
+  unsigned int alloc = 256; /* Seems reasonable */
+
+  /* Exponentially allocate bigger and bigger paths until we make it */
+  do {
+    SU_TRYCATCH(tmp = realloc(thismodpath, alloc), goto done);
+    thismodpath = tmp;
+
+    SU_TRYCATCH(GetModuleFileNameA(NULL, thismodpath, alloc), goto done);
+    alloc <<= 1;
+  } while (GetLastError() == ERROR_INSUFFICIENT_BUFFER);
   
-  SU_TRYCATCH(thismodpath = malloc(MAXPATH + 1), goto done);
-  
-  SU_TRYCATCH(GetModuleFileNameA(NULL, thismodpath, MAX_PATH), goto done);
-  SU_TRYCATCH(GetLastError() != ERROR_INSUFFICIENT_BUFFER, goto done);
-  
+  /* Compute full path and return  */
   path = dirname(thismodpath);
   SU_TRYCATCH(
     pathtofile = strbuild("%s\\%s", dir, file),
