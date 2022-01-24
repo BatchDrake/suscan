@@ -36,6 +36,8 @@ get_bundle_path(const char *file)
   char *thismodpath = NULL, *tmp;
   char *path = NULL;
   char *pathtofile = NULL;
+  char *dir = NULL;
+  
   unsigned int alloc = 256; /* Seems reasonable */
 
   /* Exponentially allocate bigger and bigger paths until we make it */
