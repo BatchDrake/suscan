@@ -39,6 +39,9 @@
 #ifdef _WIN32
 #  include <winsock2.h>
 #  include <ws2tcpip.h>
+#  if defined(interface)
+#    undef interface
+#  endif /* interface */
 #endif /* _WIN32 */
 
 #ifdef _SU_SINGLE_PRECISION
