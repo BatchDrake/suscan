@@ -37,8 +37,6 @@ get_bundle_path(const char *file)
   char *pathtofile = NULL;
   
   SU_TRYCATCH(thismodpath = malloc(MAXPATH + 1), goto done);
-  SU_TRYCATCH(path = malloc(MAXPATH + 1), goto done);
-  SU_TRYCATCH(pathtofile = malloc(MAXPATH + 1), goto done);
   
   SU_TRYCATCH(GetModuleFileNameA(NULL, thismodpath, MAX_PATH), goto done);
   SU_TRYCATCH(GetLastError() != ERROR_INSUFFICIENT_BUFFER, goto done);
@@ -46,22 +44,19 @@ get_bundle_path(const char *file)
   path = dirname(thismodpath);
   SU_TRYCATCH(
     pathtofile = strbuild("%s\\%s", dir, file),
-	goto done);
+	  goto done);
   
 done:
   if (thismodpath != NULL)
-	free(thismodpath);
+	  free(thismodpath);
 	
-  if (path != NULL)
-    free(path);
-  
   return pathtofile;
 }
 
 const char *
 suscan_bundle_get_soapysdr_module_path(void)
 {
-  if (g_modpath != NULL)
+  if (g_modpath == NULL)
     g_modpath = get_bundle_path("modules" SOAPY_SDR_ABI_VERSION);
   
   return g_modpath;
