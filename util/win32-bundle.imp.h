@@ -36,8 +36,7 @@ get_bundle_path(const char *file)
   char *thismodpath = NULL, *tmp;
   char *path = NULL;
   char *pathtofile = NULL;
-  char *dir = NULL;
-  
+
   unsigned int alloc = 256; /* Seems reasonable */
 
   /* Exponentially allocate bigger and bigger paths until we make it */
@@ -52,7 +51,7 @@ get_bundle_path(const char *file)
   /* Compute full path and return  */
   path = dirname(thismodpath);
   SU_TRYCATCH(
-    pathtofile = strbuild("%s\\%s", dir, file),
+    pathtofile = strbuild("%s\\%s", path, file),
 	  goto done);
   
 done:
