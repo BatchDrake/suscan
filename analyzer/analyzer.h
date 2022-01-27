@@ -295,6 +295,9 @@ struct suscan_analyzer {
   const struct suscan_analyzer_interface *iface;
   void  *impl;
 
+  SUBOOL have_impl_rt;
+  struct timeval impl_rt_delta;
+  
   SUBOOL running;
   SUBOOL halt_requested;
   SUBOOL eos;
@@ -1048,6 +1051,12 @@ suscan_local_analyzer_get_interface(void);
 
 const struct suscan_analyzer_interface *
 suscan_remote_analyzer_get_interface(void);
+
+SUBOOL
+suscan_analyzer_message_has_expired(
+    suscan_analyzer_t *self,
+    void *msg,
+    uint32_t type);
 
 #ifdef __cplusplus
 }

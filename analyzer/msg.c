@@ -23,6 +23,7 @@
 #include <ctype.h>
 #include <libgen.h>
 #include <stdint.h>
+#include <util/compat-time.h>
 
 #define SU_LOG_DOMAIN "msg"
 
@@ -185,6 +186,8 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
   SUSCAN_PACK(uint,  self->inspector_id);
   SUSCAN_PACK(uint,  self->timestamp.tv_sec);
   SUSCAN_PACK(uint,  self->timestamp.tv_usec);
+  SUSCAN_PACK(uint,  self->rt_time.tv_sec);
+  SUSCAN_PACK(uint,  self->rt_time.tv_usec);
   SUSCAN_PACK(bool,  self->looped);
   SUSCAN_PACK(float, self->samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
@@ -208,15 +211,22 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
 
   SUSCAN_UNPACK(int64,  self->fc);
   SUSCAN_UNPACK(uint32, self->inspector_id);
+
   SUSCAN_UNPACK(uint64, tv_sec);
   SUSCAN_UNPACK(uint32, tv_usec);
+  self->timestamp.tv_sec  = tv_sec;
+  self->timestamp.tv_usec = tv_usec;
+
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
+  self->rt_time.tv_sec  = tv_sec;
+  self->rt_time.tv_usec = tv_usec;
+
   SUSCAN_UNPACK(bool,   self->looped);
   SUSCAN_UNPACK(float,  self->samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
   SUSCAN_UNPACK(float,  self->N0);
 
-  self->timestamp.tv_sec  = tv_sec;
-  self->timestamp.tv_usec = tv_usec;
 
   SU_TRYCATCH(
       suscan_unpack_compact_single_array(
@@ -259,6 +269,8 @@ suscan_analyzer_psd_msg_new_from_data(
       goto fail);
 
   memcpy(new->psd_data, psd_data, psd_size * sizeof(SUFLOAT));
+
+  gettimeofday(&new->rt_time, NULL);
 
   return new;
 
@@ -305,6 +317,8 @@ suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
         }
     }
   }
+
+  gettimeofday(&new->rt_time, NULL);
 
   return new;
 
@@ -757,6 +771,9 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
   SUSCAN_PACK(int, self->handle);
   SUSCAN_PACK(int, self->status);
 
+  SUSCAN_PACK(uint, self->rt_time.tv_sec);
+  SUSCAN_PACK(uint, self->rt_time.tv_usec);
+
   switch (self->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
       SU_TRYCATCH(
@@ -836,12 +853,19 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
+  uint64_t tv_sec;
+  uint32_t tv_usec;
 
   SUSCAN_UNPACK(uint32, self->int32_kind);
   SUSCAN_UNPACK(uint32, self->inspector_id);
   SUSCAN_UNPACK(uint32, self->req_id);
   SUSCAN_UNPACK(uint32, self->handle);
   SUSCAN_UNPACK(int32,  self->status);
+
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
+  self->rt_time.tv_sec  = tv_sec;
+  self->rt_time.tv_usec = tv_usec;
 
   switch (self->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
@@ -932,6 +956,8 @@ suscan_analyzer_inspector_msg_new(
   new->kind = kind;
   new->req_id = req_id;
 
+  gettimeofday(&new->rt_time, NULL);
+  
   return new;
 }
 
@@ -1549,4 +1575,55 @@ done:
     suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_PSD, msg);
 
   return ok;
+}
+
+SUBOOL
+suscan_analyzer_message_has_expired(
+    suscan_analyzer_t *self,
+    void *msg,
+    uint32_t type)
+{
+  struct suscan_analyzer_psd_msg *psd_msg = msg;
+  struct suscan_analyzer_inspector_msg *insp_msg = msg;
+  SUBOOL timely_msg = SU_FALSE;
+  struct timeval rttime, now, diff;
+  struct timeval max_delta = {
+    SUSCAN_ANALYZER_EXPIRE_DELTA_MS / 1000,
+    (SUSCAN_ANALYZER_EXPIRE_DELTA_MS % 1000) * 1000};
+  SUBOOL expired = SU_FALSE;
+
+  gettimeofday(&now, NULL);
+
+  switch (type) {
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+      rttime = psd_msg->rt_time;
+      timely_msg = SU_TRUE;
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
+      if (insp_msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
+        rttime = insp_msg->rt_time;
+        timely_msg = SU_TRUE;
+      }
+      break;
+  }
+
+  if (timely_msg) {
+    if (!self->have_impl_rt) {
+      /* Dont' have implementation timestamp */
+      timersub(&now, &rttime, &self->impl_rt_delta);
+      self->have_impl_rt = SU_TRUE;
+    } else {
+      /* Calculate difference */
+      timersub(&now, &rttime, &diff);
+
+      /* Subtract the intrinsic time delta */
+      timersub(&diff, &self->impl_rt_delta, &diff);
+
+      if (timercmp(&diff, &max_delta, >))
+        expired = SU_TRUE;
+    }
+  }
+
+  return expired;
 }

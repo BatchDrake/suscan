@@ -483,18 +483,36 @@ suscan_analyzer_halt_worker(suscan_worker_t *worker)
 }
 
 void *
-suscan_analyzer_read(suscan_analyzer_t *analyzer, uint32_t *type)
+suscan_analyzer_read(suscan_analyzer_t *self, uint32_t *type)
 {
-  return suscan_mq_read(analyzer->mq_out, type);
+  return suscan_analyzer_read_timeout(self, type, NULL);
 }
 
 void *
 suscan_analyzer_read_timeout(
-    suscan_analyzer_t *analyzer,
+    suscan_analyzer_t *self,
     uint32_t *type,
     const struct timeval *timeout)
 {
-  return suscan_mq_read_timeout(analyzer->mq_out, type, timeout);
+  uint32_t msg_type;
+  void *ret;
+
+  do {
+    msg_type = -1;
+    ret = suscan_mq_read_timeout(self->mq_out, &msg_type, timeout);
+    if (msg_type == -1)
+      return NULL;
+
+    if (suscan_analyzer_message_has_expired(self, ret, msg_type)) {
+      suscan_analyzer_dispose_message(msg_type, ret);
+      msg_type = -1;
+      ret = NULL;
+    }
+  } while (ret == NULL && msg_type != SUSCAN_WORKER_MSG_TYPE_HALT);
+
+  *type = msg_type;
+  
+  return ret;
 }
 
 struct suscan_analyzer_inspector_msg *

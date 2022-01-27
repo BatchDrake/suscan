@@ -51,6 +51,13 @@ extern "C" {
 #define SUSCAN_ANALYZER_INIT_PROGRESS              1
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
 
+/* 
+  Discardable messages that arrive later than this
+  should be considered as expired and therefore should
+  be discarded 
+ */
+
+#define SUSCAN_ANALYZER_EXPIRE_DELTA_MS            50
 
 /* Generic status message */
 SUSCAN_SERIALIZABLE(suscan_analyzer_status_msg) {
@@ -81,6 +88,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
   int64_t fc;
   uint32_t inspector_id;
   struct   timeval timestamp; /* Timestamp after PSD */
+  struct   timeval rt_time;   /* Real time timestamp */
   SUBOOL   looped;
   SUFLOAT  samp_rate;
   SUFLOAT  measured_samp_rate;
@@ -164,6 +172,8 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
   uint32_t req_id;       /* Per-request identifier */
   uint32_t handle;       /* Handle */
   int32_t  status;
+
+  struct timeval rt_time;
 
   union {
     struct {

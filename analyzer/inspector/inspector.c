@@ -27,6 +27,7 @@
 
 #include <sigutils/sigutils.h>
 #include <sigutils/sampling.h>
+#include <util/compat-time.h>
 
 #include "factory.h"
 #include "correctors/tle.h"
@@ -776,6 +777,8 @@ suscan_inspector_on_spectrum_data(
 
   memcpy(msg->spectrum_data, spectrum, size * sizeof(SUFLOAT));
 
+  /* Provide a more accurate real timestamp */
+  gettimeofday(&msg->rt_time, NULL);
   SU_TRYCATCH(
       suscan_mq_write(
           insp->mq_out,
