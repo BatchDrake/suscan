@@ -174,13 +174,13 @@ jobs:
           path: sigutils
         
       - name: Configure sigutils
-        run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B ${{github.workspace}}/sigutils/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{github.workspace}}/sigutils/
+        run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B '${{github.workspace}}'/sigutils/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} '${{github.workspace}}'/sigutils/
         
       - name: Build sigutils
-        run: C:\\msys64\\mingw64\\bin\\cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}}
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/sigutils/build --config ${{env.BUILD_TYPE}}
         
       - name: Install sigutils
-        run: C:\\msys64\\mingw64\\bin\\cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/sigutils/build --config ${{env.BUILD_TYPE}} --target install
         
       # SoapySDR
       - name: Checkout (soapysdr)
@@ -191,13 +191,13 @@ jobs:
           path: sigutils
         
       - name: Configure
-        run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B ${{github.workspace}}/SoapySDR/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{github.workspace}}/SoapySDR/
+        run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B '${{github.workspace}}'/SoapySDR/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} '${{github.workspace}}'/SoapySDR/
         
       - name: Build
-        run: C:\\msys64\\mingw64\\bin\\cmake --build ${{github.workspace}}/SoapySDR/build --config ${{env.BUILD_TYPE}}
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/SoapySDR/build --config ${{env.BUILD_TYPE}}
         
       - name: Install sigutils
-        run: C:\\msys64\\mingw64\\bin\\cmake --build ${{github.workspace}}/SoapySDR/build --config ${{env.BUILD_TYPE}} --target install
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/SoapySDR/build --config ${{env.BUILD_TYPE}} --target install
         
       # rtl-sdr
       - name: Checkout (soapysdr)
@@ -208,13 +208,13 @@ jobs:
           path: sigutils
         
       - name: Configure
-        run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B ${{github.workspace}}/rtl-sdr-blog/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{github.workspace}}/rtl-sdr-blog/
+        run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B '${{github.workspace}}'/rtl-sdr-blog/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} '${{github.workspace}}'/rtl-sdr-blog/
         
       - name: Build
-        run: C:\\msys64\\mingw64\\bin\\cmake --build ${{github.workspace}}/rtl-sdr-blog/build --config ${{env.BUILD_TYPE}}
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/rtl-sdr-blog/build --config ${{env.BUILD_TYPE}}
         
       - name: Install
-        run: C:\\msys64\\mingw64\\bin\\cmake --build ${{github.workspace}}/rtl-sdr-blog/build --config ${{env.BUILD_TYPE}} --target install
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/rtl-sdr-blog/build --config ${{env.BUILD_TYPE}} --target install
         
       # SoapyRTLSDR
       - name: Checkout (soapysdr)
@@ -225,17 +225,17 @@ jobs:
           path: sigutils
         
       - name: Configure
-        run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B ${{github.workspace}}/SoapyRTLSDR/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{github.workspace}}/SoapyRTLSDR/
+        run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B '${{github.workspace}}'/SoapyRTLSDR/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} '${{github.workspace}}'/SoapyRTLSDR/
         
       - name: Build
-        run: C:\\msys64\\mingw64\\bin\\cmake --build ${{github.workspace}}/SoapyRTLSDR/build --config ${{env.BUILD_TYPE}}
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/SoapyRTLSDR/build --config ${{env.BUILD_TYPE}}
         
       - name: Install
-        run: C:\\msys64\\mingw64\\bin\\cmake --build ${{github.workspace}}/SoapyRTLSDR/build --config ${{env.BUILD_TYPE}} --target install
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/SoapyRTLSDR/build --config ${{env.BUILD_TYPE}} --target install
           
       # suscan
       - name: Configure CMake
-        run: C:\\msys64\\mingw64\\bin\\cmake -B /d/a/suscan/suscan/build -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        run: C:\\msys64\\mingw64\\bin\\cmake -B '${{github.workspace}}'/suscan/build -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} '${{github.workspace}}'/suscan/
         
       - name: Build
-        run: C:\\msys64\\mingw64\\bin\\cmake --build /d/a/suscan/suscan/build --config ${{env.BUILD_TYPE}}
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/suscan/build --config ${{env.BUILD_TYPE}}
