@@ -188,7 +188,7 @@ jobs:
         with:
           repository: pothosware/SoapySDR
           ref: refs/heads/master
-          path: sigutils
+          path: SoapySDR
         
       - name: Configure
         run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B  D:\\a\\suscan\\suscan\\SoapySDR\\build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\SoapySDR\\
@@ -200,12 +200,12 @@ jobs:
         run: C:\\msys64\\mingw64\\bin\\cmake --build  D:\\a\\suscan\\suscan\\SoapySDR\\build --config ${{env.BUILD_TYPE}} --target install
         
       # rtl-sdr
-      - name: Checkout (soapysdr)
+      - name: Checkout (rtl-sdr-blog)
         uses: actions/checkout@v2
         with:
           repository: rtlsdrblog/rtl-sdr-blog
           ref: refs/heads/master
-          path: sigutils
+          path: rtl-sdr-blog
         
       - name: Configure
         run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B  D:\\a\\suscan\\suscan\\rtl-sdr-blog\\build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\rtl-sdr-blog\\
@@ -217,12 +217,12 @@ jobs:
         run: C:\\msys64\\mingw64\\bin\\cmake --build  D:\\a\\suscan\\suscan\\rtl-sdr-blog\\build --config ${{env.BUILD_TYPE}} --target install
         
       # SoapyRTLSDR
-      - name: Checkout (soapysdr)
+      - name: Checkout (soapyrtlsdr)
         uses: actions/checkout@v2
         with:
           repository: pothosware/SoapyRTLSDR
           ref: refs/heads/master
-          path: sigutils
+          path: SoapyRTLSDR
         
       - name: Configure
         run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B  D:\\a\\suscan\\suscan\\SoapyRTLSDR/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\SoapyRTLSDR\\
