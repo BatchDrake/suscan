@@ -235,7 +235,7 @@ jobs:
           
       # suscan
       - name: Configure CMake
-        run: C:\\msys64\\mingw64\\bin\\cmake -B  D:\\a\\suscan\\suscan\\suscan\\build -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\suscan\\
+        run: C:\\msys64\\mingw64\\bin\\cmake -B  D:\\a\\suscan\\suscan\\build -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\
         
       - name: Build
-        run: C:\\msys64\\mingw64\\bin\\cmake --build  D:\\a\\suscan\\suscan\\suscan\build --config ${{env.BUILD_TYPE}}
+        run: C:\\msys64\\mingw64\\bin\\cmake --build  D:\\a\\suscan\\suscan\\build --config ${{env.BUILD_TYPE}}
