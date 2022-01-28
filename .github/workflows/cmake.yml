@@ -232,8 +232,11 @@ jobs:
         
       - name: Install
         run: C:\\msys64\\mingw64\\bin\\cmake --build  D:\\a\\suscan\\suscan\\SoapyRTLSDR\\build --config ${{env.BUILD_TYPE}} --target install
-          
+        
       # suscan
+      - name: Configure pkg config path
+        run: export PKG_CONFIG_PATH=C:\\msys64\\mingw64\\lib\\pkgconfig\\
+      
       - name: Configure CMake
         run: C:\\msys64\\mingw64\\bin\\cmake -B  D:\\a\\suscan\\suscan\\build -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\
         
