@@ -174,13 +174,13 @@ jobs:
           path: sigutils
         
       - name: Configure sigutils
-        run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B '${{github.workspace}}'/sigutils/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} '${{github.workspace}}'/sigutils/
+        run: C:\\msys64\\mingw64\\bin\\cmake -G"MinGW Makefiles" -B '${{github.workspace}}'/../sigutils/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} '${{github.workspace}}'/../sigutils/
         
       - name: Build sigutils
-        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/sigutils/build --config ${{env.BUILD_TYPE}}
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/../sigutils/build --config ${{env.BUILD_TYPE}}
         
       - name: Install sigutils
-        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/sigutils/build --config ${{env.BUILD_TYPE}} --target install
+        run: C:\\msys64\\mingw64\\bin\\cmake --build '${{github.workspace}}'/../sigutils/build --config ${{env.BUILD_TYPE}} --target install
         
       # SoapySDR
       - name: Checkout (soapysdr)
