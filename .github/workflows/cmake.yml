@@ -199,12 +199,12 @@ jobs:
       - name: Install sigutils
         run: C:\\msys64\\mingw64\\bin\\cmake --build  D:\\a\\suscan\\suscan\\SoapySDR\\build --config ${{env.BUILD_TYPE}} --target install
         
-      # rtl-sdr
+      # BatchDrake's fixed rtl-sdr
       - name: Checkout (rtl-sdr-blog)
         uses: actions/checkout@v2
         with:
-          repository: rtlsdrblog/rtl-sdr-blog
-          ref: refs/heads/master
+          repository: BatchDrake/rtl-sdr-blog
+          ref: refs/heads/feature/xfer-completion
           path: rtl-sdr-blog
         
       - name: Configure
