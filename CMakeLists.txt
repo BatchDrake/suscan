@@ -267,6 +267,7 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/impl/remote.c
   ${ANALYZERDIR}/inspsched.c
   ${ANALYZERDIR}/insp-server.c
+  ${ANALYZERDIR}/kludges.c
   ${ANALYZERDIR}/mq.c
   ${ANALYZERDIR}/msg.c
   ${ANALYZERDIR}/serialize.c

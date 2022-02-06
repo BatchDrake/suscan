@@ -371,8 +371,8 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
           0,
           &antenna_count)) != NULL) {
     for (i = 0; i < antenna_count; ++i) {
-      SU_TRYCATCH(dup = strdup(antenna_list[i]), goto done);
-      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(dev->antenna, dup) != -1, goto done);
+      SU_TRY(dup = strdup(antenna_list[i]));
+      SU_TRY(PTR_LIST_APPEND_CHECK(dev->antenna, dup) != -1);
       dup = NULL;
     }
   }
@@ -390,14 +390,13 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
           0,
           gain_list[i]);
 
-      SU_TRYCATCH(
+      SU_TRY(
           desc = suscan_source_device_assert_gain_unsafe(
               dev,
               gain_list[i],
               range.minimum,
               range.maximum,
-              1), /* This may change in the future */
-          goto done);
+              1)); /* This may change in the future */
 
       desc->def = SoapySDRDevice_getGainElement(
           sdev,
@@ -407,25 +406,29 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
     }
 
     /* Get rates */
-    SU_TRYCATCH(
+    SU_TRY(
         samp_rate_list = SoapySDRDevice_listSampleRates(
             sdev,
             SOAPY_SDR_RX,
             0,
-            &samp_rate_count),
-        goto done);
+            &samp_rate_count));;
+
+    SU_TRY(
+      suscan_source_device_fix_rates(
+        dev,
+        &samp_rate_list,
+        &samp_rate_count));
 
     if (samp_rate_count == 0)
       goto done;
 
-    SU_TRYCATCH(
-        dev->samp_rate_list = malloc(samp_rate_count * sizeof(double)),
-        goto done);
-
+    SU_ALLOCATE_MANY(dev->samp_rate_list, samp_rate_count, double);
+    
     memcpy(
         dev->samp_rate_list,
         samp_rate_list,
         samp_rate_count * sizeof(double));
+
     dev->samp_rate_count = samp_rate_count;
     free(samp_rate_list);
     samp_rate_list = NULL;

@@ -217,6 +217,12 @@ suscan_source_device_t *suscan_source_device_assert(
     const SoapySDRKwargs *args);
 
 /* Internal */
+SUBOOL suscan_source_device_fix_rates(
+    const suscan_source_device_t *dev,
+    double **p_samp_rate_list,
+    size_t  *p_samp_rate_count);
+
+/* Internal */
 SUBOOL suscan_source_device_populate_info(suscan_source_device_t *self);
 
 /* Internal */
