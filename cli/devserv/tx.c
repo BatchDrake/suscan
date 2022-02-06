@@ -58,6 +58,32 @@ suscli_analyzer_client_tx_thread_alloc_buffer(
 }
 
 SUINLINE SUBOOL
+suscli_analyzer_client_tx_thread_helper_send(
+  int fd,
+  const void *data,
+  size_t size)
+{
+  const uint8_t *bytes = data;
+  size_t p = 0;
+  ssize_t got = 0;
+
+  while (p < size) {
+    got = send(fd, bytes + p, size - p, MSG_NOSIGNAL);
+    if (got == 0) {
+      SU_ERROR("send(): connection closed by foreign host\n");
+      return SU_FALSE;
+    } else if (got < 0) {
+      SU_ERROR("send(): error: %s\n", strerror(errno));
+      return SU_FALSE;
+    }
+
+    p += got;
+  }
+
+  return SU_TRUE;
+}
+
+SUINLINE SUBOOL
 suscli_analyzer_client_tx_thread_write_buffer_internal(
     struct suscli_analyzer_client_tx_thread *self,
     uint32_t magic,
@@ -76,9 +102,11 @@ suscli_analyzer_client_tx_thread_write_buffer_internal(
 
   chunksize = sizeof(struct suscan_analyzer_remote_pdu_header);
 
-  SU_TRYCATCH(
-      send(self->fd, &header, chunksize, MSG_NOSIGNAL) == chunksize,
-      goto done);
+  if (!suscli_analyzer_client_tx_thread_helper_send(
+    self->fd,
+    &header,
+    chunksize))
+    goto done;
 
   /*
    * Calls can be extremely big, so we better send them in small chunks. Also,
@@ -92,9 +120,11 @@ suscli_analyzer_client_tx_thread_write_buffer_internal(
     if (chunksize > SUSCAN_REMOTE_READ_BUFFER)
       chunksize = SUSCAN_REMOTE_READ_BUFFER;
 
-    SU_TRYCATCH(
-        send(self->fd, data, chunksize, MSG_NOSIGNAL) == chunksize,
-        goto done);
+    if (!suscli_analyzer_client_tx_thread_helper_send(
+      self->fd,
+      data,
+      chunksize))
+      goto done;
 
     data += chunksize;
     size -= chunksize;
