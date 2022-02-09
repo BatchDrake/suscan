@@ -477,6 +477,7 @@ suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self)
   self->closed = SU_TRUE;
 
   (void) shutdown(self->sfd, 2);
+  SU_INFO("%s: shutting down\n", suscli_analyzer_client_get_name(self));
 
   ok = SU_TRUE;
 

@@ -47,6 +47,9 @@ extern "C" {
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS    0xc
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK          0xd
 
+/* Invalid message. No one should even send this. */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_INVALID       0x8000000
+
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_PROGRESS              1
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1

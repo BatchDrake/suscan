@@ -496,22 +496,25 @@ suscan_analyzer_read_timeout(
 {
   uint32_t msg_type;
   void *ret;
+  int errno_val = errno;
 
   do {
-    msg_type = -1;
+    msg_type = SUSCAN_ANALYZER_MESSAGE_TYPE_INVALID;
     ret = suscan_mq_read_timeout(self->mq_out, &msg_type, timeout);
-    if (msg_type == -1)
-      return NULL;
+    if (msg_type == SUSCAN_ANALYZER_MESSAGE_TYPE_INVALID) {
+      errno_val = ETIMEDOUT;
+      break;
+    }
 
     if (suscan_analyzer_message_has_expired(self, ret, msg_type)) {
       suscan_analyzer_dispose_message(msg_type, ret);
-      msg_type = -1;
       ret = NULL;
     }
   } while (ret == NULL && msg_type != SUSCAN_WORKER_MSG_TYPE_HALT);
 
   *type = msg_type;
-  
+  errno = errno_val;
+
   return ret;
 }
 
