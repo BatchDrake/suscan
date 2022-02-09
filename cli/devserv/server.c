@@ -42,7 +42,8 @@ suscli_analyzer_server_intercept_message_unsafe(
     suscli_analyzer_server_t *self,
     uint32_t type,
     void *message,
-    suscli_analyzer_client_t **oclient)
+    suscli_analyzer_client_t **oclient,
+    SUBOOL *ignore)
 {
   struct suscan_analyzer_inspector_msg *inspmsg;
   struct suscan_analyzer_sample_batch_msg *samplemsg;
@@ -52,6 +53,8 @@ suscli_analyzer_server_intercept_message_unsafe(
   struct suscli_analyzer_itl_entry *entry = NULL;
   SUHANDLE private_handle;
   SUBOOL ok = SU_FALSE;
+
+  *ignore = SU_FALSE;
 
   switch (type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
@@ -113,8 +116,8 @@ suscli_analyzer_server_intercept_message_unsafe(
               itl_index);
 
           if (entry == NULL) {
-            SU_ERROR("BUG: Unmatched itl_index\n");
-            goto done;
+            SU_INFO("Unmatched message (CLOSE), discarding gracefully\n");
+            *ignore = SU_TRUE;
           } else {
             client = entry->client;
             inspmsg->inspector_id = entry->local_inspector_id;
@@ -167,11 +170,10 @@ suscli_analyzer_server_intercept_message_unsafe(
               itl_index);
 
           if (entry == NULL) {
-            SU_ERROR(
-                "BUG: Unmatched itl_index 0x%x (type %s)\n",
-                itl_index,
-                suscan_analyzer_inspector_msgkind_to_string(inspmsg->kind));
-            goto done;
+            SU_INFO(
+              "Unmatched message (%s), discarding gracefully\n",
+              suscan_analyzer_inspector_msgkind_to_string(inspmsg->kind));
+            *ignore = SU_TRUE;
           } else {
             client = entry->client;
             inspmsg->inspector_id = entry->local_inspector_id;
@@ -190,8 +192,8 @@ suscli_analyzer_server_intercept_message_unsafe(
           itl_index);
 
       if (entry == NULL) {
-        SU_ERROR("BUG: Unmatched itl_index\n");
-        goto done;
+        SU_INFO("Unmatched message (SAMPLES), discarding gracefully\n");
+        *ignore = SU_TRUE;
       } else {
         client = entry->client;
         samplemsg->inspector_id = entry->local_inspector_id;
@@ -278,6 +280,7 @@ suscli_analyzer_server_tx_thread(void *ptr)
   uint32_t type;
   suscli_analyzer_client_t *client = NULL;
   SUBOOL   mutex_acquired = SU_FALSE;
+  SUBOOL   ignore;
 
   grow_buf_t pdu = grow_buf_INITIALIZER;
   struct suscan_analyzer_remote_call call = suscan_analyzer_remote_call_INITIALIZER;
@@ -295,8 +298,19 @@ suscli_analyzer_server_tx_thread(void *ptr)
             self,
             type,
             message,
-            &client),
+            &client,
+            &ignore),
         goto done);
+
+    if (ignore) {
+      /* Message without recipient, discard */
+      suscan_analyzer_dispose_message(type, message);
+      SU_TRYCATCH(
+          pthread_mutex_unlock(&self->client_list.client_mutex) != -1,
+          goto done);
+      mutex_acquired = SU_FALSE;
+      continue;
+    }
 
     call.type     = SUSCAN_ANALYZER_REMOTE_MESSAGE;
     call.msg.type = type;
