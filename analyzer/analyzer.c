@@ -506,9 +506,16 @@ suscan_analyzer_read_timeout(
       break;
     }
 
-    if (suscan_analyzer_message_has_expired(self, ret, msg_type)) {
-      suscan_analyzer_dispose_message(msg_type, ret);
-      ret = NULL;
+    /* 
+     * Network-based analyzers may cause remote messages to be expired
+     * before they are actually delivered to the GUI. We just disable
+     * flow control in this case and let the consumer handle that.. 
+     */
+    if (suscan_analyzer_is_local(self)) {
+      if (suscan_analyzer_message_has_expired(self, ret, msg_type)) {
+        suscan_analyzer_dispose_message(msg_type, ret);
+        ret = NULL;
+      }
     }
   } while (ret == NULL && msg_type != SUSCAN_WORKER_MSG_TYPE_HALT);
 
