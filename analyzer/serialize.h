@@ -88,9 +88,16 @@ fail:                                                  \
         goto fail)
 
 #define SUSCAN_UNPACK(t, v, arg...)                    \
-    SU_TRYCATCH(                                       \
-        JOIN(cbor_unpack_, t)(buffer, &v, ##arg) == 0, \
-        goto fail)
+  do {                                                 \
+    errno = -JOIN(cbor_unpack_, t)(buffer, &v, ##arg); \
+    if (errno != 0) {                                  \
+        SU_ERROR(                                      \
+            "Failed to deserialize " STRINGIFY(v)      \
+            " as " STRINGIFY(t) " (%s)\n",             \
+            strerror(errno));                          \
+        goto fail;                                     \
+    }                                                  \
+  } while (0)
 
 void suscan_single_array_cpu_to_be(
     SUSINGLE *array,
