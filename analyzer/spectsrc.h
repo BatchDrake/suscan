@@ -54,9 +54,13 @@ SUBOOL suscan_spectsrc_class_register(
 struct suscan_spectsrc {
   const struct suscan_spectsrc_class *classptr;
   void *privdata;
-
+  
+  SUFLOAT         refresh_rate;
+  SUFLOAT         throttle_factor;
   SUSCOUNT        buffer_size;
   SUCOMPLEX      *buffer;
+
+  struct sigutils_smoothpsd_params smooth_psd_params;
   su_smoothpsd_t *smooth_psd;
 
   SUBOOL (*on_spectrum) (void *userdata, const SUFLOAT *data, SUSCOUNT size);
@@ -73,6 +77,10 @@ suscan_spectsrc_t *suscan_spectsrc_new(
     enum sigutils_channel_detector_window window_type,
     SUBOOL (*on_spectrum) (void *userdata, const SUFLOAT *data, SUSCOUNT size),
     void *userdata);
+
+void suscan_spectsrc_set_throttle_factor(
+  suscan_spectsrc_t *self,
+  SUFLOAT throttle_factor);
 
 SUSCOUNT suscan_spectsrc_feed(
     suscan_spectsrc_t *src,

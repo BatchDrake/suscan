@@ -127,6 +127,7 @@ suscan_inspector_request_manager_commit_overridable(
 
         /* Parse this request */
         if (this->freq_request) {
+          /* Set frequency request */
           SU_TRYCATCH(
             suscan_inspector_factory_set_inspector_freq(
               suscan_inspector_get_factory(this->insp),
@@ -149,6 +150,12 @@ suscan_inspector_request_manager_commit_overridable(
               this->new_bandwidth),
             goto done);
           this->bandwidth_request = SU_FALSE;
+        }
+
+        if (this->throttle_request) {
+          /* Set throttle request */
+          suscan_inspector_set_throttle_factor(this->insp, this->new_throttle);
+          this->throttle_request = SU_FALSE;
         }
       }
 

@@ -154,6 +154,12 @@ suscan_local_analyzer_override_throttle(
 
   self->effective_samp_rate = val;
 
+  SU_TRYCATCH(
+    suscan_local_analyzer_set_inspector_throttle_overridable(
+      self,
+      val / suscan_local_analyzer_get_samp_rate(self)),
+    goto done);
+    
   ok = SU_TRUE;
 
 done:

@@ -353,6 +353,55 @@ done:
   return ok;
 }
 
+SUBOOL
+suscan_local_analyzer_set_inspector_throttle_slow(
+    suscan_local_analyzer_t *self,
+    SUFLOAT factor)
+{
+  suscan_inspector_t *insp = NULL;
+  struct suscan_inspector_overridable_request *req = NULL;
+
+  struct rbtree_node *node = NULL;
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&self->insp_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
+
+  node = rbtree_get_first(self->insp_hash);
+
+  while (node != NULL) {
+    insp = (suscan_inspector_t *) rbtree_node_data(node);
+
+    if (insp != NULL) {
+      /* Inspector found, adjust throttle */
+      SU_TRYCATCH(
+        req = suscan_inspector_request_manager_acquire_overridable(
+          &self->insp_reqmgr,
+          insp),
+        goto done);
+
+      req->throttle_request = SU_TRUE;
+      req->new_throttle     = factor;
+
+      if (req != NULL)
+        suscan_inspector_request_manager_submit_overridable(
+        &self->insp_reqmgr,
+        req);
+    }
+
+    node = node->next;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->insp_mutex);
+
+  return ok;
+}
+
 SUPRIVATE SUBOOL
 suscan_local_analyzer_set_inspector_freq_cb(
     struct suscan_mq *mq_out,
@@ -413,6 +462,25 @@ suscan_local_analyzer_set_inspector_bandwidth_cb(
 
   return SU_FALSE;
 }
+
+SUPRIVATE SUBOOL
+suscan_local_analyzer_set_inspector_throttle_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+
+  if (analyzer->throttle_req) {
+    analyzer->throttle_req = SU_FALSE;
+    (void) suscan_local_analyzer_set_inspector_throttle_slow(
+        analyzer,
+        analyzer->throttle_req_value);
+  }
+
+  return SU_FALSE;
+}
+
 /****************************** Slow methods **********************************/
 SUBOOL
 suscan_local_analyzer_set_inspector_freq_overridable(
@@ -451,6 +519,24 @@ suscan_local_analyzer_set_inspector_bandwidth_overridable(
   return suscan_worker_push(
       self->slow_wk,
       suscan_local_analyzer_set_inspector_bandwidth_cb,
+      NULL);
+}
+
+SUBOOL
+suscan_local_analyzer_set_inspector_throttle_overridable(
+    suscan_local_analyzer_t *self,
+    SUFLOAT throttle)
+{
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  self->throttle_req = SU_TRUE;
+  self->throttle_req_value = throttle;
+
+  return suscan_worker_push(
+      self->slow_wk,
+      suscan_local_analyzer_set_inspector_throttle_cb,
       NULL);
 }
 

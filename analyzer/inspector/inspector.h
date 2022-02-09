@@ -270,6 +270,10 @@ SUBOOL suscan_inspector_set_config(
     suscan_inspector_t *insp,
     const suscan_config_t *config);
 
+void suscan_inspector_set_throttle_factor(
+  suscan_inspector_t *insp,
+  SUFLOAT factor);
+
 SUBOOL suscan_inspector_notify_bandwidth(
     suscan_inspector_t *insp,
     SUFREQ new_bandwidth);

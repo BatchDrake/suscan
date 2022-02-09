@@ -78,6 +78,18 @@ done:
   return ok;
 }
 
+void
+suscan_spectsrc_set_throttle_factor(
+  suscan_spectsrc_t *self,
+  SUFLOAT throttle_factor)
+{
+  if (!sufeq(throttle_factor, self->throttle_factor, 1e-6)) {
+    self->throttle_factor = throttle_factor;
+    self->smooth_psd_params.refresh_rate = self->refresh_rate / self->throttle_factor;
+    (void) su_smoothpsd_set_params(self->smooth_psd, &self->smooth_psd_params);
+  }
+}
+
 suscan_spectsrc_t *
 suscan_spectsrc_new(
     const struct suscan_spectsrc_class *classdef,
@@ -103,11 +115,16 @@ suscan_spectsrc_new(
     new->buffer_size = size;
   }
 
+  new->refresh_rate = spectrum_rate;
+  new->throttle_factor = 1.;
+
   params.fft_size = size;
   params.samp_rate = samp_rate;
-  params.refresh_rate = spectrum_rate;
+  params.refresh_rate = new->refresh_rate / new->throttle_factor;
   params.window = window_type;
 
+  new->smooth_psd_params = params;
+  
   SU_TRYCATCH(
       new->smooth_psd = su_smoothpsd_new(
           &params,

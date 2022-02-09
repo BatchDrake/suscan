@@ -97,6 +97,10 @@ struct suscan_local_analyzer {
   SUHANDLE inspector_bw_req_handle;
   SUFLOAT  inspector_bw_req_value;
 
+  /* Throttle request */
+  SUBOOL  throttle_req;
+  SUFLOAT throttle_req_value;
+  
   /* Bandwidth request */
   SUBOOL  bw_req;
   SUFLOAT bw_req_value;
@@ -224,6 +228,11 @@ SUBOOL suscan_local_analyzer_set_inspector_freq_slow(
     SUFREQ freq);
 
 /* Internal */
+SUBOOL suscan_local_analyzer_set_inspector_throttle_slow(
+    suscan_local_analyzer_t *self,
+    SUFLOAT factor);
+
+/* Internal */
 SUBOOL suscan_local_analyzer_set_inspector_bandwidth_slow(
     suscan_local_analyzer_t *self,
     SUHANDLE handle,
@@ -245,6 +254,11 @@ SUBOOL suscan_local_analyzer_set_inspector_bandwidth_overridable(
 SUBOOL suscan_local_analyzer_set_analyzer_params_overridable(
     suscan_local_analyzer_t *self,
     const struct suscan_analyzer_params *params);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_set_inspector_throttle_overridable(
+    suscan_local_analyzer_t *self,
+    SUFLOAT throttle);
 
 /* Internal */
 SUBOOL suscan_local_analyzer_set_psd_samp_rate_overridable(

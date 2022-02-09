@@ -706,6 +706,20 @@ suscan_inspector_set_config(
   return (insp->iface->parse_config) (insp->privdata, config);
 }
 
+void
+suscan_inspector_set_throttle_factor(
+  suscan_inspector_t *self,
+  SUFLOAT factor)
+{
+  unsigned int i;
+
+  if (factor <= 0.)
+    factor = 1.;
+    
+  for (i = 0; i < self->spectsrc_count; ++i)
+    suscan_spectsrc_set_throttle_factor(self->spectsrc_list[i], factor);
+}
+
 SUBOOL
 suscan_inspector_get_config(
     const suscan_inspector_t *insp,

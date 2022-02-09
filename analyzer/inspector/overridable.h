@@ -42,6 +42,9 @@ struct suscan_inspector_overridable_request
   
   SUBOOL  bandwidth_request;
   SUFLOAT new_bandwidth;
+
+  SUBOOL  throttle_request;
+  SUFLOAT new_throttle;
 };
 
 /********************* Inspector request manager API **************************/
