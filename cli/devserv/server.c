@@ -464,6 +464,8 @@ suscli_analyzer_server_on_open(
     suscli_analyzer_client_t *client,
     struct suscan_analyzer_inspector_msg *inspmsg)
 {
+  struct suscli_analyzer_client_inspector_entry *entry;
+
   /*
    * Client requested opening a inspector. This implies matching the request
    * with the corresponding response. We do this by adjusting the request ID
@@ -473,12 +475,35 @@ suscli_analyzer_server_on_open(
   suscli_analyzer_client_inc_inspector_open_request(client);
 
   inspmsg->req_id = client->sfd;
+
   SU_INFO(
         "%s: open request of `%s' inspector on freq %+lg MHz (bw = %g kHz)\n",
         suscli_analyzer_client_get_name(client),
         inspmsg->class_name,
         (inspmsg->channel.fc + inspmsg->channel.ft) * 1e-6,
         inspmsg->channel.bw * 1e-3);
+
+  /* Subcarrier inspector handle must be translated first */
+  if (inspmsg->handle != -1) {
+    /* Called inside the intercept function, safe to call */
+    entry = suscli_analyzer_client_get_inspector_entry_unsafe(
+      client,
+      inspmsg->handle);
+
+    /* TODO: Discard invalid messages and forward errors to client */
+    if (entry != NULL) {
+      inspmsg->handle = entry->global_handle;
+      SU_INFO(
+        "%s: note: this is a subcarrier inspector request\n",
+        suscli_analyzer_client_get_name(client));
+    } else {
+      inspmsg->handle = -1;
+      SU_WARNING(
+        "%s: suspicious client behavior (invalid parent inspector handle)\n",
+        suscli_analyzer_client_get_name(client));
+
+    }
+  }
 
   return SU_TRUE;
 }

@@ -254,6 +254,11 @@ SUHANDLE suscli_analyzer_client_register_inspector_handle(
     SUHANDLE global_handle,
     int32_t itl_index);
 
+struct suscli_analyzer_client_inspector_entry *
+suscli_analyzer_client_get_inspector_entry_unsafe(
+    suscli_analyzer_client_t *self,
+    SUHANDLE private_handle);
+    
 SUBOOL suscli_analyzer_client_dispose_inspector_handle_unsafe(
     suscli_analyzer_client_t *self,
     SUHANDLE local_handle);

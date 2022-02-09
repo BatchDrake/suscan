@@ -252,7 +252,7 @@ done:
   return handle;
 }
 
-SUPRIVATE struct suscli_analyzer_client_inspector_entry *
+struct suscli_analyzer_client_inspector_entry *
 suscli_analyzer_client_get_inspector_entry_unsafe(
     suscli_analyzer_client_t *self,
     SUHANDLE private_handle)
