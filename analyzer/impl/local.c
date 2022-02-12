@@ -154,6 +154,9 @@ suscan_local_analyzer_override_throttle(
 
   self->effective_samp_rate = val;
 
+  /* XXX: Maybe protect this setting */
+  self->source_info.effective_samp_rate = self->effective_samp_rate;
+
   SU_TRYCATCH(
     suscan_local_analyzer_set_inspector_throttle_overridable(
       self,

@@ -247,6 +247,7 @@ DEF_MSGCB(OPEN)
     factory = self->insp_factory;
   }
 
+  /* XXX: Maybe adquire source info safely */
   if ((new_insp = suscan_inspector_factory_open(
     factory,
     msg->class_name,
@@ -257,6 +258,11 @@ DEF_MSGCB(OPEN)
     ok = SU_TRUE;
     goto done;
   }
+
+  suscan_inspector_set_throttle_factor(
+    new_insp,
+    SU_ASFLOAT(self->source_info.effective_samp_rate) / 
+    SU_ASFLOAT(self->source_info.source_samp_rate));
 
   handle = suscan_local_analyzer_register_inspector(self, new_insp);
   
