@@ -930,7 +930,7 @@ done:
 SUBOOL
 suscli_analyzer_client_list_broadcast_unsafe(
     struct suscli_analyzer_client_list *self,
-    const grow_buf_t *buffer,
+    const struct suscan_analyzer_remote_call *call,
     SUBOOL (*on_client_error) (
         suscli_analyzer_client_t *client,
         void *userdata,
@@ -938,15 +938,24 @@ suscli_analyzer_client_list_broadcast_unsafe(
     void *userdata)
 {
   suscli_analyzer_client_t *this;
+  grow_buf_t pdu = grow_buf_INITIALIZER;
   int error;
   SUBOOL ok = SU_FALSE;
 
+  /* Step 1: If multicast is enabled, chop and send via multicast */
+  /* TODO */
   this = self->client_head;
 
+  /* Step 2: For non-multicast clients, make a normal PDU and send */
+  SU_TRYCATCH(
+    suscan_analyzer_remote_call_serialize(call, &pdu),
+    goto done);
+  
   while (this != NULL) {
     if (suscli_analyzer_client_can_write(this)
-        && suscli_analyzer_client_has_source_info(this)) {
-      if (!suscli_analyzer_client_write_buffer(this, buffer)) {
+        && suscli_analyzer_client_has_source_info(this)
+        && !suscli_analyzer_client_accepts_multicast(this)) {
+      if (!suscli_analyzer_client_write_buffer(this, &pdu)) {
         error = errno;
         SU_WARNING(
             "%s: write failed (%s)\n",
@@ -962,6 +971,8 @@ suscli_analyzer_client_list_broadcast_unsafe(
   ok = SU_TRUE;
 
 done:
+  grow_buf_finalize(&pdu);
+
   return ok;
 }
 

@@ -88,6 +88,7 @@ struct suscli_analyzer_client {
   int sfd;
   SUBOOL auth;
   SUBOOL has_source_info;
+  SUBOOL accepts_multicast;
   SUBOOL failed;
   SUBOOL closed;
   unsigned int epoch;
@@ -182,6 +183,12 @@ SUINLINE SUBOOL
 suscli_analyzer_client_is_closed(const suscli_analyzer_client_t *self)
 {
   return self->closed;
+}
+
+SUINLINE SUBOOL
+suscli_analyzer_client_accepts_multicast(const suscli_analyzer_client_t *self)
+{
+  return self->accepts_multicast;
 }
 
 SUINLINE SUBOOL
@@ -362,7 +369,7 @@ SUBOOL suscli_analyzer_client_list_append_client(
 
 SUBOOL suscli_analyzer_client_list_broadcast_unsafe(
     struct suscli_analyzer_client_list *self,
-    const grow_buf_t *buffer,
+    const struct suscan_analyzer_remote_call *call,
     SUBOOL (*on_client_error) (
         suscli_analyzer_client_t *client,
         void *userdata,

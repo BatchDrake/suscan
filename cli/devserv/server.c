@@ -316,16 +316,16 @@ suscli_analyzer_server_tx_thread(void *ptr)
     call.msg.type = type;
     call.msg.ptr  = message;
 
-    SU_TRYCATCH(suscan_analyzer_remote_call_serialize(&call, &pdu), goto done);
-
     if (client == NULL) {
       /* No specific client: broadcast */
       suscli_analyzer_client_list_broadcast_unsafe(
           &self->client_list,
-          &pdu,
+          &call,
           suscli_analyzer_server_on_broadcast_error,
           self);
     } else {
+      SU_TRYCATCH(suscan_analyzer_remote_call_serialize(&call, &pdu), goto done);
+
       if (suscli_analyzer_client_can_write(client)) {
         if (!suscli_analyzer_client_write_buffer_zerocopy(client, &pdu))
           suscli_analyzer_server_kick_client_unsafe(self, client);
