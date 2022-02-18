@@ -57,6 +57,25 @@ grow_buffer_debug(const grow_buf_t *buffer)
 }
 #endif
 
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_multicast_info) {
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(uint, self->multicast_addr);
+  SUSCAN_PACK(uint, self->multicast_port);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_multicast_info) {
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(uint32, self->multicast_addr);
+  SUSCAN_UNPACK(uint16, self->multicast_port);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_server_hello) {
   SUSCAN_PACK_BOILERPLATE_START;
 
@@ -66,9 +85,15 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_server_hello) {
   SUSCAN_PACK(uint, self->auth_mode);
   SUSCAN_PACK(uint, self->enc_type);
   SUSCAN_PACK(blob, self->sha256buf, SHA256_BLOCK_SIZE);
+  SUSCAN_PACK(uint, self->flags);
+
+  if (self->flags & SUSCAN_REMOTE_FLAGS_MULTICAST)
+    SU_TRYCATCH(
+      suscan_analyzer_multicast_info_serialize(&self->mc_info, buffer),
+      goto fail);
 
   SUSCAN_PACK_BOILERPLATE_END;
-};
+}
 
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_hello) {
   SUSCAN_UNPACK_BOILERPLATE_START;
@@ -86,8 +111,15 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_hello) {
     goto fail;
   }
 
+  SUSCAN_UNPACK(uint32, self->flags);
+
+  if (self->flags & SUSCAN_REMOTE_FLAGS_MULTICAST)
+    SU_TRYCATCH(
+      suscan_analyzer_multicast_info_deserialize(&self->mc_info, buffer),
+      goto fail);
+
   SUSCAN_UNPACK_BOILERPLATE_END;
-};
+}
 
 SUBOOL
 suscan_analyzer_server_hello_init(
