@@ -231,7 +231,10 @@ set(CLI_LIB_HEADERS
   ${CLIDIR}/cli.h
   ${CLIDIR}/cmds.h
   ${CLIDIR}/datasaver.h
-  ${CLIDIR}/devserv/devserv.h)
+  ${CLIDIR}/devserv/devserv.h
+  ${CLIDIR}/devserv/multicast.h
+  ${CLIDIR}/devserv/processors/encap.h
+  ${CLIDIR}/devserv/processors/psd.h)
 
 set(CLI_LIB_SOURCES 
   ${CLIDIR}/chanloop.c
@@ -464,6 +467,10 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/datasavers/matlab.c
   ${CLIDIR}/datasavers/tcp.c
   ${CLIDIR}/devserv/client.c
+  ${CLIDIR}/devserv/mc_manager.c
+  ${CLIDIR}/devserv/mc_processor.c
+  ${CLIDIR}/devserv/processors/encap.c
+  ${CLIDIR}/devserv/processors/psd.c
   ${CLIDIR}/devserv/server.c
   ${CLIDIR}/devserv/tx.c
   ${SRCDIR}/suscli.c)

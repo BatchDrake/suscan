@@ -30,6 +30,7 @@ extern "C" {
 
 #define SUSCAN_REMOTE_PDU_HEADER_MAGIC             0xf5005ca9
 #define SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC  0xf5005caa
+#define SUSCAN_REMOTE_FRAGMENT_HEADER_MAGIC        0xf5005cab
 #define SUSCAN_REMOTE_ANALYZER_CONNECT_TIMEOUT_MS       30000
 #define SUSCAN_REMOTE_ANALYZER_AUTH_TIMEOUT_MS          30000
 #define SUSCAN_REMOTE_ANALYZER_PDU_BODY_TIMEOUT_MS      15000
@@ -89,8 +90,17 @@ struct suscan_analyzer_psd_sf_fragment {
   uint64_t  rt_timestamp_sec;
   uint32_t  timestamp_usec;
   uint32_t  rt_timestamp_usec;
-  SUFLOAT   samp_rate;
-  SUFLOAT   measured_samp_rate;
+
+  union {
+    SUFLOAT   samp_rate;
+    uint32_t  samp_rate_u32;
+  };
+
+  union {
+    SUFLOAT   measured_samp_rate;
+    uint32_t  measured_samp_rate_u32;
+  };
+  
   uint64_t  flags;    /* Looped goes in here */
   uint8_t   bytes[0]; /* Remainder of the message is just PSD data */
 };
@@ -101,7 +111,7 @@ struct suscan_analyzer_psd_sf_fragment {
  * split strategy. For now, we will only support PSD packets
  * and source info packets
  */
-struct suscan_analyzer_multicast_pdu {
+struct suscan_analyzer_fragment_header {
   uint32_t magic;
   uint16_t size;
   uint8_t  sf_type;
