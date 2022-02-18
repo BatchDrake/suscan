@@ -141,7 +141,7 @@ SU_METHOD(
 {
   struct suscan_analyzer_remote_call call =
     suscan_analyzer_remote_call_INITIALIZER;
-  SUBOOL result = SU_TRUE;;
+  SUBOOL result = SU_TRUE;
 
   /* Do nothing if current implementation is missing */
   if (self->curr_impl == NULL)
@@ -152,6 +152,8 @@ SU_METHOD(
 
     /* On the other hand, on_call may fail */
     result = (self->on_call) (self, self->userdata, &call);
+
+    /* Of the user did not dispose, this, we will */
     suscan_analyzer_remote_call_finalize(&call);
   }
 
@@ -233,6 +235,38 @@ SU_METHOD(
 
 done:
   return ok;
+}
+
+SU_METHOD(
+  suscli_multicast_processor,
+  SUBOOL,
+  process_datagram,
+  const void *data,
+  size_t size)
+{
+  const struct suscan_analyzer_fragment_header *frag;
+
+  if (size < sizeof (struct suscan_analyzer_fragment_header)) {
+    SU_WARNING("Invalid datagram size\n");
+    return SU_TRUE;
+  }
+
+  frag = (const struct suscan_analyzer_fragment_header *) data;
+
+  if (ntohl(frag->magic) != SUSCAN_REMOTE_FRAGMENT_HEADER_MAGIC) {
+    SU_WARNING("Invalid magic number\n");
+    return SU_TRUE;
+  }
+
+  if (SUSCLI_MULTICAST_FRAG_SIZE(ntohs(frag->size)) != size) {
+    SU_WARNING(
+      "Fragment size (%d) and expected size (%d) do not match\n",
+      size,
+      SUSCLI_MULTICAST_FRAG_SIZE(ntohs(frag->size)));
+    return SU_TRUE;
+  }
+
+  return suscli_multicast_processor_process(self, frag);
 }
 
 SU_COLLECTOR(suscli_multicast_processor)

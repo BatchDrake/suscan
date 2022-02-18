@@ -19,7 +19,7 @@
 
 #define SU_LOG_DOMAIN "multicast-manager"
 
-#include "multicast.h"
+#include <analyzer/impl/multicast.h>
 #include <util/compat-poll.h>
 #include <arpa/inet.h>
 #include <analyzer/msg.h>

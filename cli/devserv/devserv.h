@@ -96,24 +96,13 @@ struct suscli_analyzer_client {
   struct timeval conntime;
   struct in_addr remote_addr;
 
-  SUBOOL have_header;
-  SUBOOL have_body;
-  uint8_t header_ptr;
+  struct suscan_remote_partial_pdu_state pdu_state;
 
   char *name;
 
   struct suscli_analyzer_client_tx_thread tx;
   struct suscan_analyzer_server_hello server_hello;  /* Read-only */
   struct suscan_analyzer_remote_call  incoming_call; /* RX thread only */
-
-  grow_buf_t incoming_pdu;  /* Buffer pool: used by RX thread only */
-
-  union {
-    struct suscan_analyzer_remote_pdu_header header;
-    uint8_t header_bytes[0];
-  };
-
-  uint8_t read_buffer[SUSCAN_REMOTE_READ_BUFFER];
 
   /* List of opened inspectors. */
   struct suscli_analyzer_client_inspector_list inspectors;

@@ -214,6 +214,9 @@ set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/msg.h
   ${ANALYZERDIR}/impl/local.h
   ${ANALYZERDIR}/impl/remote.h
+  ${ANALYZERDIR}/impl/multicast.h
+  ${ANALYZERDIR}/impl/processors/encap.h
+  ${ANALYZERDIR}/impl/processors/psd.h
   ${ANALYZERDIR}/inspsched.h
   ${ANALYZERDIR}/spectsrc.h
   ${ANALYZERDIR}/worker.h
@@ -231,10 +234,7 @@ set(CLI_LIB_HEADERS
   ${CLIDIR}/cli.h
   ${CLIDIR}/cmds.h
   ${CLIDIR}/datasaver.h
-  ${CLIDIR}/devserv/devserv.h
-  ${CLIDIR}/devserv/multicast.h
-  ${CLIDIR}/devserv/processors/encap.h
-  ${CLIDIR}/devserv/processors/psd.h)
+  ${CLIDIR}/devserv/devserv.h)
 
 set(CLI_LIB_SOURCES 
   ${CLIDIR}/chanloop.c
@@ -268,6 +268,9 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/impl/local.c
   ${ANALYZERDIR}/impl/remote.c
+  ${ANALYZERDIR}/impl/mc_processor.c
+  ${ANALYZERDIR}/impl/processors/encap.c
+  ${ANALYZERDIR}/impl/processors/psd.c
   ${ANALYZERDIR}/inspsched.c
   ${ANALYZERDIR}/insp-server.c
   ${ANALYZERDIR}/kludges.c
@@ -468,9 +471,6 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/datasavers/tcp.c
   ${CLIDIR}/devserv/client.c
   ${CLIDIR}/devserv/mc_manager.c
-  ${CLIDIR}/devserv/mc_processor.c
-  ${CLIDIR}/devserv/processors/encap.c
-  ${CLIDIR}/devserv/processors/psd.c
   ${CLIDIR}/devserv/server.c
   ${CLIDIR}/devserv/tx.c
   ${SRCDIR}/suscli.c)

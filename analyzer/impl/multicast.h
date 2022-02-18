@@ -17,8 +17,8 @@
 
 */
 
-#ifndef _SUSCAN_CLI_DEVSERV_MULTICAST_H
-#define _SUSCAN_CLI_DEVSERV_MULTICAST_H
+#ifndef _SUSCAN_ANALYZER_MULTICAST_H
+#define _SUSCAN_ANALYZER_MULTICAST_H
 
 #include <stdint.h>
 #include <analyzer/impl/remote.h>
@@ -121,7 +121,7 @@ struct suscli_multicast_processor_impl {
 typedef SUBOOL (*suscli_multicast_processor_call_cb_t) (
     struct suscli_multicast_processor *self,
     void *userdata,
-    const struct suscan_analyzer_remote_call *);
+    struct suscan_analyzer_remote_call *);
 
 struct suscli_multicast_processor {
   uint8_t   curr_type;
@@ -158,7 +158,14 @@ SU_METHOD(
   process,
   const struct suscan_analyzer_fragment_header *);
 
+SU_METHOD(
+  suscli_multicast_processor,
+  SUBOOL,
+  process_datagram,
+  const void *data,
+  size_t size);
+  
 SU_COLLECTOR(suscli_multicast_processor);
 
-#endif /* _SUSCAN_CLI_DEVSERV_MULTICAST_H */
+#endif /* _SUSCAN_ANALYZER_MULTICAST_H */
 

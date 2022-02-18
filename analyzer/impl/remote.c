@@ -24,11 +24,14 @@
 
 #include "remote.h"
 #include "msg.h"
+#include "multicast.h"
+
 #include <zlib.h>
 #include <util/compat-fcntl.h>
 #include <util/compat-poll.h>
 #include <analyzer/realtime.h>
 #include <util/compat-netdb.h>
+#include <arpa/inet.h>
 
 #ifdef bool
 #  undef bool
@@ -56,6 +59,113 @@ grow_buffer_debug(const grow_buf_t *buffer)
   fprintf(stderr, "\n");
 }
 #endif
+
+SUBOOL
+suscan_remote_partial_pdu_state_read(
+  struct suscan_remote_partial_pdu_state *self,
+  const char *remote,
+  int sfd)
+{
+  size_t chunksize;
+  size_t ret;
+  SUBOOL do_close = SU_TRUE;
+  SUBOOL ok = SU_FALSE;
+
+  if (!self->have_header) {
+    chunksize =
+        sizeof(struct suscan_analyzer_remote_pdu_header) - self->header_ptr;
+
+    ret = read(sfd, self->header_bytes + self->header_ptr, chunksize);
+
+    if (ret == 0) {
+      SU_INFO("%s: peer left\n", remote);
+    } else if (ret == -1) {
+      SU_INFO("%s: read error: %s\n", remote, strerror(errno));
+    } else {
+      do_close = SU_FALSE;
+    }
+
+    if (do_close)
+      goto done;
+
+    self->header_ptr += ret;
+
+    if (self->header_ptr == sizeof(struct suscan_analyzer_remote_pdu_header)) {
+      /* Full header received */
+      self->header.magic = ntohl(self->header.magic);
+      self->header.size  = ntohl(self->header.size);
+      self->header_ptr   = 0;
+
+      if (self->header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC
+      && self->header.magic != SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC) {
+        SU_ERROR("Protocol error: invalid remote PDU header magic\n");
+        goto done;
+      }
+
+      self->have_header = self->header.size != 0;
+
+      grow_buf_shrink(&self->incoming_pdu);
+    }
+  } else if (!self->have_body) {
+    if ((chunksize = self->header.size) > SUSCAN_REMOTE_READ_BUFFER)
+      chunksize = SUSCAN_REMOTE_READ_BUFFER;
+
+    if ((ret = read(sfd, self->read_buffer, chunksize)) < 1) {
+      SU_ERROR("Failed to read from socket: %s\n", strerror(errno));
+      goto done;
+    }
+
+    SU_TRYCATCH(
+        grow_buf_append(&self->incoming_pdu, self->read_buffer, ret) != -1,
+        goto done);
+
+    self->header.size -= chunksize;
+
+    if (self->header.size == 0) {
+      if (self->header.magic == SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC)
+        SU_TRYCATCH(
+          suscan_remote_inflate_pdu(&self->incoming_pdu), 
+          goto done);
+
+      grow_buf_seek(&self->incoming_pdu, 0, SEEK_SET);
+      self->have_body = SU_TRUE;
+    }
+  } else {
+    SU_ERROR("BUG: Current PDU not consumed yet\n");
+    goto done;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscan_remote_partial_pdu_state_take(
+  struct suscan_remote_partial_pdu_state *self,
+  grow_buf_t *pdu)
+{
+  if (self->have_header && self->have_body) {
+    *pdu = self->incoming_pdu;
+    memset(&self->incoming_pdu, 0, sizeof(grow_buf_t));
+
+    self->header_ptr  = 0;
+    self->have_header = SU_FALSE;
+    self->have_body   = SU_FALSE;
+
+    return SU_TRUE;
+  }
+
+  return SU_FALSE;
+}
+
+void
+suscan_remote_partial_pdu_state_finalize(
+  struct suscan_remote_partial_pdu_state *self)
+{
+  grow_buf_finalize(&self->incoming_pdu);
+}
 
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_multicast_info) {
   SUSCAN_PACK_BOILERPLATE_START;
@@ -174,6 +284,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_server_client_auth) {
   SUSCAN_PACK(uint, self->protocol_version_minor);
   SUSCAN_PACK(str,  self->user);
   SUSCAN_PACK(blob, self->sha256buf, SHA256_BLOCK_SIZE);
+  SUSCAN_PACK(uint, self->flags);
 
   SUSCAN_PACK_BOILERPLATE_END;
 }
@@ -192,6 +303,8 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_client_auth) {
     SU_ERROR("Invalid token size %d (expected %d)\n", size, SHA256_BLOCK_SIZE);
     goto fail;
   }
+
+  SUSCAN_UNPACK(uint32, self->flags);
 
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
@@ -1001,29 +1114,116 @@ suscan_remote_analyzer_receive_call(
     int cancelfd,
     int timeout_ms)
 {
-  struct suscan_analyzer_remote_call *call = NULL;
+  struct suscan_analyzer_remote_call *call = NULL, *qcall = NULL;
+  uint32_t type;
+  uint8_t *read_buf = self->peer.pdu_state.read_buffer;
+  struct sockaddr_in addr;
+  grow_buf_t buf = grow_buf_INITIALIZER;
+  int n = 2, active;
+  socklen_t len;
+  ssize_t ret;
+  struct pollfd fds[3];
   SUBOOL ok = SU_FALSE;
 
-  /* Right now: use control fd only */
-  SU_TRYCATCH(
-      suscan_remote_read_pdu(
-          self->peer.control_fd,
-          self->cancel_pipe[0],
-          &self->peer.read_buffer,
-          timeout_ms),
-      goto done);
+  /* TODO:
 
-  call = suscan_remote_analyzer_acquire_call(
-      self,
-      SUSCAN_ANALYZER_REMOTE_NONE);
+      If call queue is non empty, pop from there.
 
-  SU_TRYCATCH(
-      suscan_analyzer_remote_call_deserialize(call, &self->peer.read_buffer),
-      goto done);
+      If not, poll cancel_pipe, control_fd AND mc_fd
+        If activity on cancelfd, return.
+        If activity on control_fd, read PDU and check full call
+        If activity on mc_fd, read fragment and check call queue
+  
+  */
+
+  fds[0].fd      = cancelfd;
+  fds[0].events  = POLLIN;
+  fds[0].revents = 0;
+
+  fds[1].fd      = sfd;
+  fds[1].events  = POLLIN;
+  fds[1].revents = 0;
+
+  if (self->peer.mc_processor != NULL) {
+    fds[2].fd      = self->peer.mc_fd;
+    fds[2].events  = POLLIN;
+    fds[2].revents = 0;
+
+    ++n;
+  }
+
+  while (call == NULL) {
+    /* 
+     * Check whether there are any pending calls in the multicast
+     * call queue.
+     */
+    if (suscan_mq_poll(&self->peer.call_queue, &type, (void **) &qcall)) {
+      call = suscan_remote_analyzer_acquire_call(
+                self,
+                SUSCAN_ANALYZER_REMOTE_NONE);
+      memcpy(call, qcall, sizeof(struct suscan_analyzer_remote_call));
+      free(qcall);
+      qcall = NULL;
+      break;
+    }
+
+    /* No calls. Wait for data. */
+    SU_TRYC(active = poll(fds, n, timeout_ms));
+
+    /* Timeout */
+    if (active == 0)
+      return NULL;
+
+    /* Explicit cancellation */
+    if (fds[0].revents & POLLIN)
+      return NULL;
+
+    /* Data from the control socket */
+    if (fds[1].revents & POLLIN) {
+      SU_TRY(suscan_remote_partial_pdu_state_read(
+        &self->peer.pdu_state,
+        self->peer.hostname,
+        sfd));
+
+      /* Complete PDU */
+      if (suscan_remote_partial_pdu_state_take(&self->peer.pdu_state, &buf)) {
+          call = suscan_remote_analyzer_acquire_call(
+                self,
+                SUSCAN_ANALYZER_REMOTE_NONE);
+          SU_TRY(suscan_analyzer_remote_call_deserialize(call, &buf));
+          break;
+      }
+    }
+
+    /* Data from the multicast interface */
+    if (n > 2 && (fds[2].revents & POLLIN)) {
+      ret = recvfrom(
+        self->peer.mc_fd,
+        read_buf,
+        SUSCAN_REMOTE_READ_BUFFER,
+        0,
+        (struct sockaddr *) &addr,
+        &len);
+      
+      if (ret > 0)
+        SU_TRY(
+          suscli_multicast_processor_process_datagram(
+            self->peer.mc_processor,
+            read_buf,
+            ret));
+
+      /* Loop now */
+    }
+  }
 
   ok = SU_TRUE;
 
 done:
+  if (qcall != NULL) {
+    suscan_analyzer_remote_call_finalize(qcall);
+    free(qcall);
+  }
+
   if (!ok && call != NULL) {
       (void) suscan_remote_analyzer_release_call(self, call);
       call = NULL;
@@ -1219,6 +1419,17 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
     }
   }
   
+  if (self->peer.mc_processor != NULL) {
+    if (!(hello.flags & SUSCAN_REMOTE_FLAGS_MULTICAST)) {
+      SU_WARNING("Server does not support multicast, disabling\n");
+      suscli_multicast_processor_destroy(self->peer.mc_processor);
+      self->peer.mc_processor = NULL;
+
+      close(self->peer.mc_fd);
+      self->peer.mc_fd = -1;
+    }
+  }
+
   SU_TRYCATCH(
       call = suscan_remote_analyzer_acquire_call(
           self,
@@ -1237,6 +1448,9 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           self->peer.user,
           self->peer.password),
       goto done);
+
+  if (self->peer.mc_processor != NULL)
+    call->client_auth.flags |= SUSCAN_REMOTE_FLAGS_MULTICAST;
 
   write_ok = suscan_remote_analyzer_deliver_call(
       self,
@@ -1289,6 +1503,124 @@ done:
 }
 
 SUPRIVATE SUBOOL
+suscan_remote_analyzer_on_mc_call(
+    struct suscli_multicast_processor *mc,
+    void *userdata,
+    struct suscan_analyzer_remote_call *call)
+{
+  suscan_remote_analyzer_t *self = 
+    (suscan_remote_analyzer_t *) userdata;
+  struct suscan_analyzer_remote_call *copy = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  /* New call! Queue and process later */
+  SU_ALLOCATE(copy, struct suscan_analyzer_remote_call);
+
+  memcpy(copy, call, sizeof(struct suscan_analyzer_remote_call));
+  memset(call,    0, sizeof(struct suscan_analyzer_remote_call));
+
+  SU_TRY(suscan_mq_write(&self->peer.call_queue, 1, copy));
+  copy = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (copy != NULL) {
+    suscan_analyzer_remote_call_finalize(copy);
+    free(copy);
+  }
+
+  return ok;
+}
+    
+SUBOOL
+suscan_remote_analyzer_open_multicast(
+  suscan_remote_analyzer_t *self)
+{
+  const char *iface = self->peer.mc_if;
+  struct sockaddr_in addr;
+  struct ip_mreq     group;
+  int reuse = 1;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYC(self->peer.mc_fd = socket(AF_INET, SOCK_DGRAM, 0));
+
+  SU_TRYC(
+      setsockopt(
+          self->peer.mc_fd,
+          SOL_SOCKET,
+          SO_REUSEADDR,
+          (char *) &reuse,
+          sizeof(int)));
+
+  memset(&addr, 0, sizeof(struct sockaddr_in));
+
+  addr.sin_family = AF_INET;
+  addr.sin_port   = htons(SUSCLI_MULTICAST_PORT);
+  addr.sin_addr   = self->peer.hostaddr;
+
+  SU_TRYC(
+      bind(
+          self->peer.mc_fd,
+          (struct sockaddr *) &addr,
+          sizeof(struct sockaddr)));
+
+  group.imr_multiaddr.s_addr = inet_addr(SUSCLI_MULTICAST_GROUP);
+  group.imr_interface.s_addr = inet_addr(iface);
+
+  if (ntohl(group.imr_interface.s_addr) == 0xffffffff) {
+    SU_ERROR(
+        "Invalid interface address `%s' (does not look like a valid IP address)\n",
+        iface);
+    goto done;
+  }
+
+  if ((ntohl(group.imr_interface.s_addr) & 0xf0000000) == 0xe0000000) {
+    SU_ERROR("Invalid interface address. Please note that mc_if= "
+        "expects the IP address of a configured local network interface, not a "
+        "multicast group.\n");
+    goto done;
+  }
+
+  if (setsockopt(
+          self->peer.mc_fd,
+          IPPROTO_IP,
+          IP_ADD_MEMBERSHIP,
+          (char *) &group,
+          sizeof(struct ip_mreq)) == -1) {
+    if (errno == ENODEV) {
+      SU_ERROR("Invalid interface address. Please verify that there is a "
+          "local network interface with IP `%s'\n", iface);
+    } else {
+      SU_ERROR(
+          "failed to set network interface for multicast: %s\n",
+          strerror(errno));
+    }
+
+    goto done;
+  }
+
+  /* All set to initialize a multicast processor */
+  SU_MAKE(
+    self->peer.mc_processor,
+    suscli_multicast_processor,
+    suscan_remote_analyzer_on_mc_call,
+    self);
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok) {
+    if (self->peer.mc_fd != -1)
+      close(self->peer.mc_fd);
+    
+    self->peer.mc_fd = -1;
+  }
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
 suscan_remote_analyzer_connect_to_peer(suscan_remote_analyzer_t *self)
 {
   struct hostent *ent;
@@ -1316,6 +1648,13 @@ suscan_remote_analyzer_connect_to_peer(suscan_remote_analyzer_t *self)
   }
 
   self->peer.hostaddr = *((struct in_addr *) ent->h_addr_list[0]);
+
+  if (self->peer.mc_if != NULL) {
+    if (!suscan_remote_analyzer_open_multicast(self)) {
+      SU_WARNING("Failed to initialize multicast support\n");
+      SU_WARNING("Multicast features will be disabled\n");
+    }
+  }
 
   SU_TRYCATCH(
       suscan_analyzer_send_status(
@@ -1632,8 +1971,12 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->parent = parent;
   new->peer.control_fd = -1;
   new->peer.data_fd    = -1;
+  new->peer.mc_fd      = -1;
   new->cancel_pipe[0]  = -1;
   new->cancel_pipe[1]  = -1;
+
+  SU_TRY_FAIL(suscan_mq_init(&new->peer.call_queue));
+  new->peer.call_queue_init = SU_TRUE;
 
   val = suscan_source_config_get_param(config, "host");
   if (val == NULL) {
@@ -1668,6 +2011,11 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   }
   SU_TRYCATCH(new->peer.password = strdup(val), goto fail);
 
+  /* Optional: set multicast IF */
+  val = suscan_source_config_get_param(config, "mc_if");
+  if (val != NULL)
+    SU_TRYCATCH(new->peer.mc_if = strdup(val), goto fail);
+  
   SU_TRYCATCH(pthread_mutex_init(&new->call_mutex, NULL) == 0, goto fail);
   new->call_mutex_initialized = SU_TRUE;
 
@@ -1695,6 +2043,8 @@ SUPRIVATE void
 suscan_remote_analyzer_dtor(void *ptr)
 {
   suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+  struct suscan_analyzer_remote_call *call;
+  uint32_t type;
   char b = 1;
 
   if (self->tx_thread_init) {
@@ -1706,6 +2056,17 @@ suscan_remote_analyzer_dtor(void *ptr)
     suscan_mq_write(&self->pdu_queue, SUSCAN_REMOTE_HALT, NULL);
     pthread_join(self->tx_thread, NULL);
   }
+
+  /* Free all unprocessed multicast calls */
+  if (self->peer.call_queue_init) {
+    while (suscan_mq_poll(&self->peer.call_queue, &type, (void **) &call)) {
+      suscan_analyzer_remote_call_finalize(call);
+      free(call);
+    }
+  }
+
+  if (self->peer.mc_if != NULL)
+    free(self->peer.mc_if);
 
   if (self->peer.hostname != NULL)
     free(self->peer.hostname);
@@ -1721,6 +2082,12 @@ suscan_remote_analyzer_dtor(void *ptr)
 
   if (self->peer.data_fd != -1)
     close(self->peer.data_fd);
+
+  if (self->peer.mc_fd != -1)
+    close(self->peer.mc_fd);
+
+  if (self->peer.mc_processor != NULL)
+    suscli_multicast_processor_destroy(self->peer.mc_processor);
 
   if (self->call_mutex_initialized)
     pthread_mutex_destroy(&self->call_mutex);

@@ -103,84 +103,10 @@ fail:
 SUBOOL
 suscli_analyzer_client_read(suscli_analyzer_client_t *self)
 {
-  size_t chunksize;
-  size_t ret;
-  SUBOOL do_close = SU_TRUE;
-  SUBOOL ok = SU_FALSE;
-
-  if (!self->have_header) {
-    chunksize =
-        sizeof(struct suscan_analyzer_remote_pdu_header) - self->header_ptr;
-
-    ret = read(self->sfd, self->header_bytes + self->header_ptr, chunksize);
-
-    if (ret == 0) {
-      SU_INFO(
-          "%s: client left\n",
-          suscli_analyzer_client_get_name(self));
-    } else if (ret == -1) {
-      SU_INFO(
-          "%s: read error: %s\n",
-          suscli_analyzer_client_get_name(self),
-          strerror(errno));
-    } else {
-      do_close = SU_FALSE;
-    }
-
-    if (do_close)
-      goto done;
-
-    self->header_ptr += ret;
-
-    if (self->header_ptr == sizeof(struct suscan_analyzer_remote_pdu_header)) {
-      /* Full header received */
-      self->header.magic = ntohl(self->header.magic);
-      self->header.size  = ntohl(self->header.size);
-      self->header_ptr   = 0;
-
-      if (self->header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC
-      && self->header.magic != SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC) {
-        SU_ERROR("Protocol error: invalid remote PDU header magic\n");
-        goto done;
-      }
-
-      self->have_header = self->header.size != 0;
-
-      grow_buf_shrink(&self->incoming_pdu);
-    }
-  } else if (!self->have_body) {
-    if ((chunksize = self->header.size) > SUSCAN_REMOTE_READ_BUFFER)
-      chunksize = SUSCAN_REMOTE_READ_BUFFER;
-
-    if ((ret = read(self->sfd, self->read_buffer, chunksize)) < 1) {
-      SU_ERROR("Failed to read from socket: %s\n", strerror(errno));
-      goto done;
-    }
-
-    SU_TRYCATCH(
-        grow_buf_append(&self->incoming_pdu, self->read_buffer, ret) != -1,
-        goto done);
-
-    self->header.size -= chunksize;
-
-    if (self->header.size == 0) {
-      if (self->header.magic == SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC)
-        SU_TRYCATCH(
-          suscan_remote_inflate_pdu(&self->incoming_pdu), 
-          goto done);
-
-      grow_buf_seek(&self->incoming_pdu, 0, SEEK_SET);
-      self->have_body = SU_TRUE;
-    }
-  } else {
-    SU_ERROR("BUG: Current PDU not consumed yet\n");
-    goto done;
-  }
-
-  ok = SU_TRUE;
-
-done:
-  return ok;
+  return suscan_remote_partial_pdu_state_read(
+    &self->pdu_state,
+    self->name,
+    self->sfd);
 }
 
 /* Elements in the freelist are negative! */
@@ -415,17 +341,17 @@ struct suscan_analyzer_remote_call *
 suscli_analyzer_client_take_call(suscli_analyzer_client_t *self)
 {
   struct suscan_analyzer_remote_call *call = NULL;
+  grow_buf_t buf = grow_buf_INITIALIZER;
+
   SUBOOL ok = SU_FALSE;
 
-  if (self->have_header && self->have_body) {
-    self->have_header = SU_FALSE;
-    self->have_body   = SU_FALSE;
+  if (suscan_remote_partial_pdu_state_take(&self->pdu_state, &buf)) {
     call = &self->incoming_call;
 
     suscan_analyzer_remote_call_finalize(call);
     suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_NONE);
 
-    if (!suscan_analyzer_remote_call_deserialize(call, &self->incoming_pdu)) {
+    if (!suscan_analyzer_remote_call_deserialize(call, &buf)) {
       SU_ERROR("Protocol error: failed to deserialize remote call\n");
       goto done;
     }
@@ -434,6 +360,8 @@ suscli_analyzer_client_take_call(suscli_analyzer_client_t *self)
   }
 
 done:
+  grow_buf_finalize(&buf);
+
   if (!ok)
     call = NULL;
 
@@ -600,7 +528,7 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
   if (self->name != NULL)
     free(self->name);
 
-  grow_buf_finalize(&self->incoming_pdu);
+  suscan_remote_partial_pdu_state_finalize(&self->pdu_state);
 
   suscan_analyzer_server_hello_finalize(&self->server_hello);
   suscan_analyzer_remote_call_finalize(&self->incoming_call);

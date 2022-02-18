@@ -100,7 +100,7 @@ struct suscan_analyzer_psd_sf_fragment {
     SUFLOAT   measured_samp_rate;
     uint32_t  measured_samp_rate_u32;
   };
-  
+
   uint64_t  flags;    /* Looped goes in here */
   uint8_t   bytes[0]; /* Remainder of the message is just PSD data */
 };
@@ -264,20 +264,57 @@ size_t suscan_remote_read(
     size_t size,
     int timeout_ms);
 
+struct suscli_multicast_processor;
+
+struct suscan_remote_partial_pdu_state {
+  grow_buf_t incoming_pdu;
+
+  uint8_t read_buffer[SUSCAN_REMOTE_READ_BUFFER];
+
+  union {
+    struct suscan_analyzer_remote_pdu_header header;
+    uint8_t header_bytes[0];
+  };
+
+  uint32_t header_ptr;
+  SUBOOL   have_header;
+  SUBOOL   have_body;
+};
+
+SUBOOL suscan_remote_partial_pdu_state_read(
+  struct suscan_remote_partial_pdu_state *self,
+  const char *remote,
+  int sfd);
+
+SUBOOL suscan_remote_partial_pdu_state_take(
+  struct suscan_remote_partial_pdu_state *self,
+  grow_buf_t *pdu);
+
+void suscan_remote_partial_pdu_state_finalize(
+  struct suscan_remote_partial_pdu_state *self);
+
 struct suscan_remote_analyzer_peer_info {
   char *hostname;
   uint16_t port;
 
   char *user;
   char *password;
+  char *mc_if;
 
   struct in_addr hostaddr;
 
   int control_fd;
   int data_fd;
+  int mc_fd;
 
+  struct suscan_mq  call_queue;
+  SUBOOL            call_queue_init;
+
+  struct suscan_remote_partial_pdu_state pdu_state;
   grow_buf_t read_buffer;
   grow_buf_t write_buffer;
+
+  struct suscli_multicast_processor *mc_processor;
 };
 
 struct suscan_remote_analyzer {
