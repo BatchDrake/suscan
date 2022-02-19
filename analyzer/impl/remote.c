@@ -119,7 +119,7 @@ suscan_remote_partial_pdu_state_read(
         grow_buf_append(&self->incoming_pdu, self->read_buffer, ret) != -1,
         goto done);
 
-    self->header.size -= chunksize;
+    self->header.size -= ret;
 
     if (self->header.size == 0) {
       if (self->header.magic == SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC)
@@ -2019,7 +2019,6 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 
   /* Optional: set multicast IF */
   val = suscan_source_config_get_param(config, "mc_if");
-  val = "127.0.0.1";
   if (val != NULL)
     SU_TRYCATCH(new->peer.mc_if = strdup(val), goto fail);
   
