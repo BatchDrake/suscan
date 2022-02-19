@@ -24,6 +24,7 @@
 #include <sigutils/log.h>
 #include <util/compat-poll.h>
 #include <util/compat-fcntl.h>
+#include <analyzer/impl/multicast.h>
 
 SUPRIVATE void suscli_analyzer_server_kick_client(
     suscli_analyzer_server_t *self,
@@ -419,8 +420,11 @@ suscli_analyzer_server_process_auth_message(
         goto done);
 
     free(client->name);
+
     client->name = new_name;
     client->auth = SU_TRUE;
+    client->accepts_multicast = 
+      !!(call->client_auth.flags & SUSCAN_REMOTE_FLAGS_MULTICAST);
   }
 
   ok = SU_TRUE;
@@ -876,6 +880,12 @@ suscli_analyzer_server_register_clients(suscli_analyzer_server_t *self)
         client = suscli_analyzer_client_new(fd, self->params.compress_threshold),
         goto done);
 
+    if (suscli_analyzer_client_list_supports_multicast(
+        &self->client_list))
+      suscli_analyzer_client_enable_flags(
+        client,
+        SUSCAN_REMOTE_FLAGS_MULTICAST);
+
     SU_TRYCATCH(
         suscli_analyzer_client_list_append_client(&self->client_list, client),
         goto done);
@@ -1066,7 +1076,7 @@ suscli_analyzer_server_new(
     suscan_source_config_t *profile,
     uint16_t port,
     const char *user,
-    const char *password) 
+    const char *password)
 {
   struct suscli_analyzer_server_params params =
     suscli_analyzer_server_params_INITIALIZER;
@@ -1117,7 +1127,8 @@ suscli_analyzer_server_new_with_params(
       suscli_analyzer_client_list_init(
           &new->client_list,
           sfd,
-          new->cancel_pipefd[0]),
+          new->cancel_pipefd[0],
+          params->ifname),
       goto done);
 
   SU_TRYCATCH(

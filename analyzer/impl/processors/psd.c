@@ -56,6 +56,7 @@ suscli_multicast_processor_psd_on_fragment(
   uint32_t full_size = ntohl(header->sf_size);
   uint32_t offset    = ntohl(header->sf_offset);
   uint16_t size      = ntohl(header->size);
+  SUBOOL reallocate;
   SUBOOL ok = SU_FALSE;
 
   /*
@@ -78,8 +79,10 @@ suscli_multicast_processor_psd_on_fragment(
 
   frag = (struct suscan_analyzer_psd_sf_fragment *) header->sf_data;
 
-  /* New PDU size. Discard current data */
-  if (full_size != self->psd_size) {
+  reallocate = 
+    (full_size != self->psd_size) || (frag->fc != self->sf_header.fc);
+
+  if (reallocate) {
     /* Trigger whatever we have cached */
     suscli_multicast_processor_trigger_on_call(self->proc);
 

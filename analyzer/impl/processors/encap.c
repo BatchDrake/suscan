@@ -102,7 +102,9 @@ suscli_multicast_processor_encap_on_fragment(
    */
 
   /* New PDU size. Discard current data */
-  if (full_size != self->pdu_size) {
+  if (full_size != self->pdu_size || self->sf_id != header->sf_id) {
+    self->sf_id = header->sf_id;
+    
     suscli_multicast_processor_encap_clear(self);
 
     if (full_size > SUSCLI_MULTICAST_MAX_SUPERFRAME_SIZE) {
@@ -114,6 +116,7 @@ suscli_multicast_processor_encap_on_fragment(
     entries = (full_size + 63) >> 6;
 
     self->pdu_size = full_size;
+    self->pdu_remaining = full_size;
 
     if (full_size > 0) {
       SU_ALLOCATE_MANY(self->pdu_data,   full_size, uint8_t);

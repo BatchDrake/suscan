@@ -24,7 +24,7 @@
 
 struct suscli_multicast_processor_encap {
   struct suscli_multicast_processor *proc;
-
+  uint8_t      sf_id;
   unsigned int pdu_size;
   uint8_t     *pdu_data;
   uint64_t    *pdu_bitmap;

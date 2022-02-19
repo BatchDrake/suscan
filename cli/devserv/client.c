@@ -25,6 +25,7 @@
 #include <sigutils/log.h>
 #include <util/compat-poll.h>
 #include <sys/fcntl.h>
+#include <analyzer/impl/multicast.h>
 
 #define SUSCLI_ANALYZER_SERVER_NAME "Suscan device server - " SUSCAN_VERSION_STRING
 
@@ -98,6 +99,14 @@ fail:
     suscli_analyzer_client_destroy(new);
 
   return NULL;
+}
+
+void
+suscli_analyzer_client_enable_flags(
+  suscli_analyzer_client_t *self,
+  uint32_t flags)
+{
+  self->server_hello.flags |= flags;
 }
 
 SUBOOL
@@ -767,7 +776,8 @@ SUBOOL
 suscli_analyzer_client_list_init(
     struct suscli_analyzer_client_list *self,
     int listen_fd,
-    int cancel_fd)
+    int cancel_fd,
+    const char *ifname)
 {
   SUBOOL ok = SU_FALSE;
 
@@ -775,6 +785,16 @@ suscli_analyzer_client_list_init(
 
   self->listen_fd = listen_fd;
   self->cancel_fd = cancel_fd;
+
+  if (ifname != NULL) {
+    /* 
+     * Do not check for errors. We can work with a disabled multicast
+     * manager (we just fall back to unicast)
+     */
+    self->mc_manager = suscli_multicast_manager_new(
+      ifname,
+      SUSCLI_MULTICAST_PORT);
+  }
 
   SU_TRYCATCH(self->client_tree = rbtree_new(), goto done);
   SU_TRYCATCH(self->itl_tree    = rbtree_new(), goto done);
@@ -867,22 +887,28 @@ suscli_analyzer_client_list_broadcast_unsafe(
 {
   suscli_analyzer_client_t *this;
   grow_buf_t pdu = grow_buf_INITIALIZER;
+  SUBOOL mc_enabled = self->mc_manager != NULL;
+  SUBOOL unicast;
   int error;
   SUBOOL ok = SU_FALSE;
 
   /* Step 1: If multicast is enabled, chop and send via multicast */
-  /* TODO */
-  this = self->client_head;
+  if (mc_enabled)
+    SU_TRY(suscli_multicast_manager_deliver_call(self->mc_manager, call));
 
   /* Step 2: For non-multicast clients, make a normal PDU and send */
   SU_TRYCATCH(
     suscan_analyzer_remote_call_serialize(call, &pdu),
     goto done);
-  
+
+  this = self->client_head;  
   while (this != NULL) {
+    unicast = 
+      !(mc_enabled && suscli_analyzer_client_accepts_multicast(this));
+
     if (suscli_analyzer_client_can_write(this)
         && suscli_analyzer_client_has_source_info(this)
-        && !suscli_analyzer_client_accepts_multicast(this)) {
+        && unicast) {
       if (!suscli_analyzer_client_write_buffer(this, &pdu)) {
         error = errno;
         SU_WARNING(
@@ -1018,6 +1044,9 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
     suscli_analyzer_client_destroy(this);
     this = next;
   }
+
+  if (self->mc_manager != NULL)
+    suscli_multicast_manager_destroy(self->mc_manager);
 
   if (self->client_tree != NULL)
     rbtree_destroy(self->client_tree);
