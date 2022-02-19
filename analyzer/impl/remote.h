@@ -233,9 +233,11 @@ SUBOOL suscan_analyzer_remote_call_take_source_info(
     struct suscan_analyzer_remote_call *self,
     struct suscan_analyzer_source_info *info);
 
+struct suscan_remote_analyzer;
+
 SUBOOL suscan_analyzer_remote_call_deliver_message(
     struct suscan_analyzer_remote_call *self,
-    suscan_analyzer_t *analyzer);
+    struct suscan_remote_analyzer *analyzer);
 
 void suscan_analyzer_remote_call_finalize(
     struct suscan_analyzer_remote_call *self);

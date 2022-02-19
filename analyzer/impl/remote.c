@@ -600,7 +600,7 @@ suscan_analyzer_remote_call_take_source_info(
 SUBOOL
 suscan_analyzer_remote_call_deliver_message(
     struct suscan_analyzer_remote_call *self,
-    suscan_analyzer_t *analyzer)
+    suscan_remote_analyzer_t *analyzer)
 {
   uint32_t type = 0;
   struct suscan_analyzer_psd_msg *psd_msg;
@@ -619,20 +619,22 @@ suscan_analyzer_remote_call_deliver_message(
   switch (type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
       /* Source info must be kept in sync. */
-      suscan_analyzer_source_info_finalize(&self->source_info);
+      suscan_analyzer_source_info_finalize(&analyzer->source_info);
       SU_TRYCATCH(
-          suscan_analyzer_source_info_init_copy(&self->source_info, priv),
+          suscan_analyzer_source_info_init_copy(&analyzer->source_info, priv),
           goto done);
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
       /* Timestamp is also important */
       psd_msg = priv;
-      self->source_info.source_time = psd_msg->timestamp;
+      analyzer->source_info.source_time = psd_msg->timestamp;
       break;
   }
   
-  SU_TRYCATCH(suscan_mq_write(analyzer->mq_out, type, priv), goto done);
+  SU_TRYCATCH(
+    suscan_mq_write(analyzer->parent->mq_out, type, priv),
+    goto done);
 
   self->type = SUSCAN_ANALYZER_REMOTE_NONE;
 
@@ -1792,7 +1794,7 @@ suscan_remote_analyzer_rx_thread(void *ptr)
 
       case SUSCAN_ANALYZER_REMOTE_MESSAGE:
         SU_TRYCATCH(
-            suscan_analyzer_remote_call_deliver_message(call, self->parent),
+            suscan_analyzer_remote_call_deliver_message(call, self),
             goto done);
         break;
     }
