@@ -1122,21 +1122,12 @@ suscan_remote_analyzer_receive_call(
   struct sockaddr_in addr;
   grow_buf_t buf = grow_buf_INITIALIZER;
   int n = 2, active;
-  socklen_t len;
+  socklen_t len = sizeof(struct sockaddr_in);
   ssize_t ret;
   struct pollfd fds[3];
   SUBOOL ok = SU_FALSE;
 
-  /* TODO:
-
-      If call queue is non empty, pop from there.
-
-      If not, poll cancel_pipe, control_fd AND mc_fd
-        If activity on cancelfd, return.
-        If activity on control_fd, read PDU and check full call
-        If activity on mc_fd, read fragment and check call queue
-  
-  */
+  memset(&addr, 0, len);
 
   fds[0].fd      = cancelfd;
   fds[0].events  = POLLIN;
@@ -2093,6 +2084,8 @@ suscan_remote_analyzer_dtor(void *ptr)
 
   if (self->peer.mc_fd != -1)
     close(self->peer.mc_fd);
+
+  suscan_remote_partial_pdu_state_finalize(&self->peer.pdu_state);
 
   if (self->peer.mc_processor != NULL)
     suscli_multicast_processor_destroy(self->peer.mc_processor);
