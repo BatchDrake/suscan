@@ -214,6 +214,9 @@ set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/msg.h
   ${ANALYZERDIR}/impl/local.h
   ${ANALYZERDIR}/impl/remote.h
+  ${ANALYZERDIR}/impl/multicast.h
+  ${ANALYZERDIR}/impl/processors/encap.h
+  ${ANALYZERDIR}/impl/processors/psd.h
   ${ANALYZERDIR}/inspsched.h
   ${ANALYZERDIR}/spectsrc.h
   ${ANALYZERDIR}/worker.h
@@ -265,6 +268,9 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/impl/local.c
   ${ANALYZERDIR}/impl/remote.c
+  ${ANALYZERDIR}/impl/mc_processor.c
+  ${ANALYZERDIR}/impl/processors/encap.c
+  ${ANALYZERDIR}/impl/processors/psd.c
   ${ANALYZERDIR}/inspsched.c
   ${ANALYZERDIR}/insp-server.c
   ${ANALYZERDIR}/kludges.c
@@ -464,6 +470,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/datasavers/matlab.c
   ${CLIDIR}/datasavers/tcp.c
   ${CLIDIR}/devserv/client.c
+  ${CLIDIR}/devserv/mc_manager.c
   ${CLIDIR}/devserv/server.c
   ${CLIDIR}/devserv/tx.c
   ${SRCDIR}/suscli.c)

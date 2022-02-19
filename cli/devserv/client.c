@@ -25,6 +25,7 @@
 #include <sigutils/log.h>
 #include <util/compat-poll.h>
 #include <sys/fcntl.h>
+#include <analyzer/impl/multicast.h>
 
 #define SUSCLI_ANALYZER_SERVER_NAME "Suscan device server - " SUSCAN_VERSION_STRING
 
@@ -100,87 +101,21 @@ fail:
   return NULL;
 }
 
+void
+suscli_analyzer_client_enable_flags(
+  suscli_analyzer_client_t *self,
+  uint32_t flags)
+{
+  self->server_hello.flags |= flags;
+}
+
 SUBOOL
 suscli_analyzer_client_read(suscli_analyzer_client_t *self)
 {
-  size_t chunksize;
-  size_t ret;
-  SUBOOL do_close = SU_TRUE;
-  SUBOOL ok = SU_FALSE;
-
-  if (!self->have_header) {
-    chunksize =
-        sizeof(struct suscan_analyzer_remote_pdu_header) - self->header_ptr;
-
-    ret = read(self->sfd, self->header_bytes + self->header_ptr, chunksize);
-
-    if (ret == 0) {
-      SU_INFO(
-          "%s: client left\n",
-          suscli_analyzer_client_get_name(self));
-    } else if (ret == -1) {
-      SU_INFO(
-          "%s: read error: %s\n",
-          suscli_analyzer_client_get_name(self),
-          strerror(errno));
-    } else {
-      do_close = SU_FALSE;
-    }
-
-    if (do_close)
-      goto done;
-
-    self->header_ptr += ret;
-
-    if (self->header_ptr == sizeof(struct suscan_analyzer_remote_pdu_header)) {
-      /* Full header received */
-      self->header.magic = ntohl(self->header.magic);
-      self->header.size  = ntohl(self->header.size);
-      self->header_ptr   = 0;
-
-      if (self->header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC
-      && self->header.magic != SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC) {
-        SU_ERROR("Protocol error: invalid remote PDU header magic\n");
-        goto done;
-      }
-
-      self->have_header = self->header.size != 0;
-
-      grow_buf_shrink(&self->incoming_pdu);
-    }
-  } else if (!self->have_body) {
-    if ((chunksize = self->header.size) > SUSCAN_REMOTE_READ_BUFFER)
-      chunksize = SUSCAN_REMOTE_READ_BUFFER;
-
-    if ((ret = read(self->sfd, self->read_buffer, chunksize)) < 1) {
-      SU_ERROR("Failed to read from socket: %s\n", strerror(errno));
-      goto done;
-    }
-
-    SU_TRYCATCH(
-        grow_buf_append(&self->incoming_pdu, self->read_buffer, ret) != -1,
-        goto done);
-
-    self->header.size -= chunksize;
-
-    if (self->header.size == 0) {
-      if (self->header.magic == SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC)
-        SU_TRYCATCH(
-          suscan_remote_inflate_pdu(&self->incoming_pdu), 
-          goto done);
-
-      grow_buf_seek(&self->incoming_pdu, 0, SEEK_SET);
-      self->have_body = SU_TRUE;
-    }
-  } else {
-    SU_ERROR("BUG: Current PDU not consumed yet\n");
-    goto done;
-  }
-
-  ok = SU_TRUE;
-
-done:
-  return ok;
+  return suscan_remote_partial_pdu_state_read(
+    &self->pdu_state,
+    self->name,
+    self->sfd);
 }
 
 /* Elements in the freelist are negative! */
@@ -415,17 +350,17 @@ struct suscan_analyzer_remote_call *
 suscli_analyzer_client_take_call(suscli_analyzer_client_t *self)
 {
   struct suscan_analyzer_remote_call *call = NULL;
+  grow_buf_t buf = grow_buf_INITIALIZER;
+
   SUBOOL ok = SU_FALSE;
 
-  if (self->have_header && self->have_body) {
-    self->have_header = SU_FALSE;
-    self->have_body   = SU_FALSE;
+  if (suscan_remote_partial_pdu_state_take(&self->pdu_state, &buf)) {
     call = &self->incoming_call;
 
     suscan_analyzer_remote_call_finalize(call);
     suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_NONE);
 
-    if (!suscan_analyzer_remote_call_deserialize(call, &self->incoming_pdu)) {
+    if (!suscan_analyzer_remote_call_deserialize(call, &buf)) {
       SU_ERROR("Protocol error: failed to deserialize remote call\n");
       goto done;
     }
@@ -434,6 +369,8 @@ suscli_analyzer_client_take_call(suscli_analyzer_client_t *self)
   }
 
 done:
+  grow_buf_finalize(&buf);
+
   if (!ok)
     call = NULL;
 
@@ -600,7 +537,7 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
   if (self->name != NULL)
     free(self->name);
 
-  grow_buf_finalize(&self->incoming_pdu);
+  suscan_remote_partial_pdu_state_finalize(&self->pdu_state);
 
   suscan_analyzer_server_hello_finalize(&self->server_hello);
   suscan_analyzer_remote_call_finalize(&self->incoming_call);
@@ -839,7 +776,8 @@ SUBOOL
 suscli_analyzer_client_list_init(
     struct suscli_analyzer_client_list *self,
     int listen_fd,
-    int cancel_fd)
+    int cancel_fd,
+    const char *ifname)
 {
   SUBOOL ok = SU_FALSE;
 
@@ -847,6 +785,16 @@ suscli_analyzer_client_list_init(
 
   self->listen_fd = listen_fd;
   self->cancel_fd = cancel_fd;
+
+  if (ifname != NULL) {
+    /* 
+     * Do not check for errors. We can work with a disabled multicast
+     * manager (we just fall back to unicast)
+     */
+    self->mc_manager = suscli_multicast_manager_new(
+      ifname,
+      SUSCLI_MULTICAST_PORT);
+  }
 
   SU_TRYCATCH(self->client_tree = rbtree_new(), goto done);
   SU_TRYCATCH(self->itl_tree    = rbtree_new(), goto done);
@@ -930,7 +878,7 @@ done:
 SUBOOL
 suscli_analyzer_client_list_broadcast_unsafe(
     struct suscli_analyzer_client_list *self,
-    const grow_buf_t *buffer,
+    const struct suscan_analyzer_remote_call *call,
     SUBOOL (*on_client_error) (
         suscli_analyzer_client_t *client,
         void *userdata,
@@ -938,15 +886,30 @@ suscli_analyzer_client_list_broadcast_unsafe(
     void *userdata)
 {
   suscli_analyzer_client_t *this;
+  grow_buf_t pdu = grow_buf_INITIALIZER;
+  SUBOOL mc_enabled = self->mc_manager != NULL;
+  SUBOOL unicast;
   int error;
   SUBOOL ok = SU_FALSE;
 
-  this = self->client_head;
+  /* Step 1: If multicast is enabled, chop and send via multicast */
+  if (mc_enabled)
+    SU_TRY(suscli_multicast_manager_deliver_call(self->mc_manager, call));
 
+  /* Step 2: For non-multicast clients, make a normal PDU and send */
+  SU_TRYCATCH(
+    suscan_analyzer_remote_call_serialize(call, &pdu),
+    goto done);
+
+  this = self->client_head;  
   while (this != NULL) {
+    unicast = 
+      !(mc_enabled && suscli_analyzer_client_accepts_multicast(this));
+
     if (suscli_analyzer_client_can_write(this)
-        && suscli_analyzer_client_has_source_info(this)) {
-      if (!suscli_analyzer_client_write_buffer(this, buffer)) {
+        && suscli_analyzer_client_has_source_info(this)
+        && unicast) {
+      if (!suscli_analyzer_client_write_buffer(this, &pdu)) {
         error = errno;
         SU_WARNING(
             "%s: write failed (%s)\n",
@@ -962,6 +925,8 @@ suscli_analyzer_client_list_broadcast_unsafe(
   ok = SU_TRUE;
 
 done:
+  grow_buf_finalize(&pdu);
+
   return ok;
 }
 
@@ -1079,6 +1044,9 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
     suscli_analyzer_client_destroy(this);
     this = next;
   }
+
+  if (self->mc_manager != NULL)
+    suscli_multicast_manager_destroy(self->mc_manager);
 
   if (self->client_tree != NULL)
     rbtree_destroy(self->client_tree);

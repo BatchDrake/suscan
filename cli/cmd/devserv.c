@@ -247,6 +247,7 @@ suscli_devserv_ctx_new(
   params.user               = user;
   params.password           = password;
   params.compress_threshold = compress_threshold;
+  params.ifname             = iface;
 
   /* Populate servers */
   for (i = 1; i <= suscli_get_source_count(); ++i) {
@@ -422,6 +423,10 @@ suscli_devserv_cb(const hashlist_t *params)
       goto done);
 
   SU_INFO("Suscan device server %s\n", SUSCAN_VERSION_STRING);
+  SU_INFO(
+    "SuRPC protocol version: %d.%d\n",
+    SUSCAN_REMOTE_PROTOCOL_MAJOR_VERSION,
+    SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION);
 
   SU_TRYCATCH(
       ctx = suscli_devserv_ctx_new(

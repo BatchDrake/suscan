@@ -88,6 +88,7 @@ struct suscli_analyzer_client {
   int sfd;
   SUBOOL auth;
   SUBOOL has_source_info;
+  SUBOOL accepts_multicast;
   SUBOOL failed;
   SUBOOL closed;
   unsigned int epoch;
@@ -95,24 +96,13 @@ struct suscli_analyzer_client {
   struct timeval conntime;
   struct in_addr remote_addr;
 
-  SUBOOL have_header;
-  SUBOOL have_body;
-  uint8_t header_ptr;
+  struct suscan_remote_partial_pdu_state pdu_state;
 
   char *name;
 
   struct suscli_analyzer_client_tx_thread tx;
   struct suscan_analyzer_server_hello server_hello;  /* Read-only */
   struct suscan_analyzer_remote_call  incoming_call; /* RX thread only */
-
-  grow_buf_t incoming_pdu;  /* Buffer pool: used by RX thread only */
-
-  union {
-    struct suscan_analyzer_remote_pdu_header header;
-    uint8_t header_bytes[0];
-  };
-
-  uint8_t read_buffer[SUSCAN_REMOTE_READ_BUFFER];
 
   /* List of opened inspectors. */
   struct suscli_analyzer_client_inspector_list inspectors;
@@ -185,6 +175,12 @@ suscli_analyzer_client_is_closed(const suscli_analyzer_client_t *self)
 }
 
 SUINLINE SUBOOL
+suscli_analyzer_client_accepts_multicast(const suscli_analyzer_client_t *self)
+{
+  return self->accepts_multicast;
+}
+
+SUINLINE SUBOOL
 suscli_analyzer_client_can_write(const suscli_analyzer_client_t *self)
 {
   return !self->closed && !self->failed;
@@ -239,6 +235,10 @@ suscli_analyzer_client_t *suscli_analyzer_client_new(
   unsigned int compress_threshold);
 
 SUBOOL suscli_analyzer_client_read(suscli_analyzer_client_t *self);
+
+void suscli_analyzer_client_enable_flags(
+  suscli_analyzer_client_t *self,
+  uint32_t flags);
 
 struct suscan_analyzer_remote_call *suscli_analyzer_client_take_call(
     suscli_analyzer_client_t *);
@@ -320,11 +320,14 @@ struct suscli_analyzer_itl_entry {
   suscli_analyzer_client_t *client; /* Must be null if free */
 };
 
+struct suscli_multicast_manager;
+
 struct suscli_analyzer_client_list {
   pthread_mutex_t client_mutex;
   SUBOOL          client_mutex_initialized;
-
   SUBOOL          cleanup_requested;
+
+  struct suscli_multicast_manager *mc_manager;
 
   /* Actual list */
   suscli_analyzer_client_t *client_head;
@@ -344,6 +347,13 @@ struct suscli_analyzer_client_list {
   rbtree_t       *itl_tree;
 };
 
+SUINLINE SUBOOL
+suscli_analyzer_client_list_supports_multicast(
+  const struct suscli_analyzer_client_list *self)
+{
+  return self->mc_manager != NULL;
+}
+
 SUINLINE void
 suscli_analyzer_client_list_increment_epoch(
     struct suscli_analyzer_client_list *self)
@@ -354,7 +364,8 @@ suscli_analyzer_client_list_increment_epoch(
 SUBOOL suscli_analyzer_client_list_init(
     struct suscli_analyzer_client_list *,
     int listen_fd,
-    int cancel_fd);
+    int cancel_fd,
+    const char *ifname);
 
 SUBOOL suscli_analyzer_client_list_append_client(
     struct suscli_analyzer_client_list *self,
@@ -362,7 +373,7 @@ SUBOOL suscli_analyzer_client_list_append_client(
 
 SUBOOL suscli_analyzer_client_list_broadcast_unsafe(
     struct suscli_analyzer_client_list *self,
-    const grow_buf_t *buffer,
+    const struct suscan_analyzer_remote_call *call,
     SUBOOL (*on_client_error) (
         suscli_analyzer_client_t *client,
         void *userdata,
@@ -433,6 +444,7 @@ struct suscli_analyzer_server_params {
   uint16_t    port;
   const char *user;
   const char *password;
+  const char *ifname;
   size_t      compress_threshold;
 };
 
@@ -444,6 +456,7 @@ struct suscli_analyzer_server_params {
   28001,       /* port */                         \
   "anonymous", /* user */                         \
   "",          /* password */                     \
+  NULL,        /* ifname */                       \
   SUSCLI_ANALYZER_DEFAULT_COMPRESS_THRESHOLD      \
 }
 
