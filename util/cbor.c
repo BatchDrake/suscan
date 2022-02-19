@@ -616,7 +616,7 @@ cbor_unpack_blob(grow_buf_t *buffer, void **data, size_t *size)
 
   *size = parsed_len;
   memcpy(*data, grow_buf_current_data(&tmp), parsed_len);
-
+  grow_buf_seek(&tmp, parsed_len, SEEK_CUR);
   return sync_buffers(buffer, &tmp);
 }
 

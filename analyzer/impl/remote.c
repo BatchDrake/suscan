@@ -215,13 +215,12 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_hello) {
   SUSCAN_UNPACK(uint8, self->auth_mode);
   SUSCAN_UNPACK(uint8, self->enc_type);
   SUSCAN_UNPACK(blob,  self->sha256buf, &size);
+  SUSCAN_UNPACK(uint32, self->flags);
 
   if (size != SHA256_BLOCK_SIZE) {
     SU_ERROR("Invalid salt size %d (expected %d)\n", size, SHA256_BLOCK_SIZE);
     goto fail;
   }
-
-  SUSCAN_UNPACK(uint32, self->flags);
 
   if (self->flags & SUSCAN_REMOTE_FLAGS_MULTICAST)
     SU_TRYCATCH(
@@ -1112,6 +1111,7 @@ suscan_remote_analyzer_receive_call(
     suscan_remote_analyzer_t *self,
     int sfd,
     int cancelfd,
+    SUBOOL mc,
     int timeout_ms)
 {
   struct suscan_analyzer_remote_call *call = NULL, *qcall = NULL;
@@ -1144,7 +1144,7 @@ suscan_remote_analyzer_receive_call(
   fds[1].events  = POLLIN;
   fds[1].revents = 0;
 
-  if (self->peer.mc_processor != NULL) {
+  if (mc && self->peer.mc_processor != NULL) {
     fds[2].fd      = self->peer.mc_fd;
     fds[2].events  = POLLIN;
     fds[2].revents = 0;
@@ -1427,7 +1427,11 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
 
       close(self->peer.mc_fd);
       self->peer.mc_fd = -1;
+    } else {
+      SU_INFO("Remote server reports multicast support.\n");
     }
+  } else {
+    SU_INFO("Multicast support not enabled, running in unicast mode\n");
   }
 
   SU_TRYCATCH(
@@ -1467,6 +1471,7 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           self,
           self->peer.control_fd,
           self->cancel_pipe[0],
+          SU_FALSE,
           SUSCAN_REMOTE_ANALYZER_AUTH_TIMEOUT_MS),
       goto done);
 
@@ -1555,9 +1560,9 @@ suscan_remote_analyzer_open_multicast(
 
   memset(&addr, 0, sizeof(struct sockaddr_in));
 
-  addr.sin_family = AF_INET;
-  addr.sin_port   = htons(SUSCLI_MULTICAST_PORT);
-  addr.sin_addr   = self->peer.hostaddr;
+  addr.sin_family      = AF_INET;
+  addr.sin_port        = htons(SUSCLI_MULTICAST_PORT);
+  addr.sin_addr.s_addr = INADDR_ANY;
 
   SU_TRYC(
       bind(
@@ -1761,6 +1766,7 @@ suscan_remote_analyzer_rx_thread(void *ptr)
       self,
       self->peer.control_fd,
       self->cancel_pipe[0],
+      SU_TRUE,
       -1)) != NULL) {
     switch (call->type) {
       case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
@@ -2013,6 +2019,7 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 
   /* Optional: set multicast IF */
   val = suscan_source_config_get_param(config, "mc_if");
+  val = "127.0.0.1";
   if (val != NULL)
     SU_TRYCATCH(new->peer.mc_if = strdup(val), goto fail);
   

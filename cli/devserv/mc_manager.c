@@ -109,7 +109,6 @@ suscli_multicast_manager_tx_cb(
     if (type == SUSCLI_MULTICAST_FRAG_MESSAGE) {
       if (!self->cancelled) {
         size = SUSCLI_MULTICAST_FRAG_SIZE(ntohs(header->size));
-
         if ((ret = sendto(
           self->fd,
           header,
@@ -117,7 +116,6 @@ suscli_multicast_manager_tx_cb(
           0,
           (struct sockaddr *) &self->mc_addr,
           sizeof(struct sockaddr_in))) != size) {
-
           if (ret == 0)
             SU_WARNING("Multicast socket closed!\n");
           else if (ret == -1)

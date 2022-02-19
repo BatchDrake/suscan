@@ -38,7 +38,7 @@
 #define SUSCLI_MULTICAST_FRAG_MESSAGE      1
 
 #define SUSCLI_MULTICAST_FRAG_SIZE(payload) \
-  (sizeof(sizeof (struct suscan_analyzer_fragment_header)) + (payload))
+  (sizeof(struct suscan_analyzer_fragment_header) + (payload))
 
 #if __BIG_ENDIAN__
 # define su_htonll(x) (x)
@@ -164,7 +164,7 @@ SU_METHOD(
   process_datagram,
   const void *data,
   size_t size);
-  
+
 SU_COLLECTOR(suscli_multicast_processor);
 
 #endif /* _SUSCAN_ANALYZER_MULTICAST_H */

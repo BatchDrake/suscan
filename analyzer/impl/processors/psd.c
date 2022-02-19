@@ -55,7 +55,7 @@ suscli_multicast_processor_psd_on_fragment(
 
   uint32_t full_size = ntohl(header->sf_size);
   uint32_t offset    = ntohl(header->sf_offset);
-  uint16_t size      = ntohl(header->size);
+  uint16_t size      = ntohs(header->size);
   SUBOOL reallocate;
   SUBOOL ok = SU_FALSE;
 
@@ -117,7 +117,7 @@ suscli_multicast_processor_psd_on_fragment(
   /* Fragment header is updated only once */
   if (self->updates == 0)
     self->sf_header = *frag;
-  
+
   ++self->updates;
 
   ok = SU_TRUE;
@@ -155,6 +155,7 @@ suscli_multicast_processor_psd_try_flush(
     msg->timestamp.tv_usec  = ntohl(self->sf_header.timestamp_usec);
     msg->rt_time.tv_sec     = su_ntohll(self->sf_header.rt_timestamp_sec);
     msg->rt_time.tv_usec    = ntohl(self->sf_header.rt_timestamp_usec);
+
     msg->measured_samp_rate = self->sf_header.measured_samp_rate;
     msg->looped             = su_ntohll(self->sf_header.flags) & 1;
 

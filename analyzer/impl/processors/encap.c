@@ -87,7 +87,7 @@ suscli_multicast_processor_encap_on_fragment(
     (struct suscli_multicast_processor_encap *) userdata;
   uint32_t full_size = ntohl(header->sf_size);
   uint32_t offset    = ntohl(header->sf_offset);
-  uint16_t size      = ntohl(header->size);
+  uint16_t size      = ntohs(header->size);
   unsigned int entries;
   SUBOOL ok = SU_FALSE;
 
@@ -104,7 +104,7 @@ suscli_multicast_processor_encap_on_fragment(
   /* New PDU size. Discard current data */
   if (full_size != self->pdu_size || self->sf_id != header->sf_id) {
     self->sf_id = header->sf_id;
-    
+
     suscli_multicast_processor_encap_clear(self);
 
     if (full_size > SUSCLI_MULTICAST_MAX_SUPERFRAME_SIZE) {

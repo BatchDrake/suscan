@@ -38,7 +38,7 @@ suscli_multicast_processor_register(
     RB_EXACT,
     NULL);
 
-  if (result == NULL) {
+  if (result != NULL) {
     SU_ERROR("Superframe processor already registered\n");
     goto done;
   }
@@ -91,9 +91,10 @@ SUPRIVATE SU_METHOD(
     type = impl->sf_type;
 
     SU_TRY(state = (impl->ctor) (self));
-    SU_TRY(rbtree_insert(self->processor_tree, type, state));
+    SU_TRYC(rbtree_insert(self->processor_tree, type, state));
     
     state = NULL;
+    impl  = NULL;
 
     this = this->next;
   }
@@ -171,11 +172,13 @@ SU_METHOD(
   const struct suscli_multicast_processor_impl *impl = NULL;
   void *state = NULL;
   int8_t delta;
+  SUBOOL refresh;
   SUBOOL ok = SU_FALSE;
 
   /* Announces are gracefully ignored. */
   if (header->sf_type == SUSCAN_ANALYZER_SUPERFRAME_TYPE_ANNOUNCE)
     return SU_TRUE;
+  
   /* 
    * Two situations possible:
    *  1. This ID is old. Discard.
@@ -192,7 +195,11 @@ SU_METHOD(
 
   if (delta >= 0 || first) {
     /* Check if we must refresh the current ID */
-    if (delta > 1 || first) {
+    refresh 
+        = (self->curr_type != header->sf_type)
+          || delta > 1
+          || first;
+    if (refresh) {
       if (self->curr_impl != NULL) {
         /* 
          * We are about to drop the current cached processor, 
@@ -211,7 +218,9 @@ SU_METHOD(
         SU_WARNING("Unknown superframe type %d\n", header->sf_type);
         self->curr_impl  = NULL;
         self->curr_state = NULL;
-        self->curr_id    = header->sf_id;  
+        self->curr_id    = header->sf_id;
+        self->curr_type  = header->sf_type;
+        
         return SU_TRUE;
       }
 
@@ -224,9 +233,10 @@ SU_METHOD(
       self->curr_impl  = impl;
       self->curr_state = state;
       self->curr_id    = header->sf_id;
+      self->curr_type  = header->sf_type;
     }
 
-    (self->curr_impl->on_fragment) (self->curr_state, header);
+    SU_TRY((self->curr_impl->on_fragment) (self->curr_state, header));
 
     /* We do not trigger on_call here. We let on_fragment decide that */
   }
