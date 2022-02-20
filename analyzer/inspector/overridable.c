@@ -115,10 +115,10 @@ suscan_inspector_request_manager_commit_overridable(
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
-  if (!list_is_empty(AS_LIST(self->overridable_alloc_list))) {
-    SU_TRYCATCH(pthread_mutex_lock(&self->overridable_mutex) == 0, goto done);
-    mutex_acquired = SU_TRUE;
+  mutex_acquired = pthread_mutex_trylock(&self->overridable_mutex) == 0;
 
+  if (mutex_acquired
+    && !list_is_empty(AS_LIST(self->overridable_alloc_list))) {
     /* vvvvvvvvvvvvvvvvvvvv overridable mutex acquired vvvvvvvvvvvvvvvvvvvv */
     FOR_EACH_SAFE(this, tmp, self->overridable_alloc_list) {
       if (!this->dead) {
