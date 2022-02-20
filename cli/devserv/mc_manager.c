@@ -21,7 +21,7 @@
 
 #include <analyzer/impl/multicast.h>
 #include <util/compat-poll.h>
-#include <arpa/inet.h>
+#include <util/compat-inet.h>
 #include <analyzer/msg.h>
 
 SUPRIVATE
