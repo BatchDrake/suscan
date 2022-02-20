@@ -42,6 +42,7 @@ enum suscan_remote_analyzer_auth_result {
   SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_SUCCESS,
   SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INVALID_SERVER,
   SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION,
+  SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_STARTUP_ERROR,
   SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_REJECTED,
   SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_DISCONNECTED
 };
@@ -460,6 +461,9 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
     case SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED:
       break;
 
+    case SUSCAN_ANALYZER_REMOTE_STARTUP_ERROR:
+      break;
+
     default:
       SU_ERROR("Invalid remote call `%d'\n", self->type);
       break;
@@ -560,6 +564,9 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
       break;
 
     case SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED:
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_STARTUP_ERROR:
       break;
 
     default:
@@ -1467,12 +1474,28 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           SUSCAN_REMOTE_ANALYZER_AUTH_TIMEOUT_MS),
       goto done);
 
-  if (call->type == SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED) {
-    result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_REJECTED;
+  /* Check server response */
+  if (call->type != SUSCAN_ANALYZER_REMOTE_SOURCE_INFO) {
+    switch (call->type) {
+      case SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED:
+        result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_REJECTED;
+        break;
+
+      case SUSCAN_ANALYZER_REMOTE_STARTUP_ERROR:
+        result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_STARTUP_ERROR;
+        break;
+
+      default:
+        SU_WARNING(
+          "Unexpected server message type %d, incompatible versions?",
+          call->type);
+        result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION;
+        break;
+    }
+
     goto done;
   }
 
-  SU_TRYCATCH(call->type == SUSCAN_ANALYZER_REMOTE_SOURCE_INFO, goto done);
   SU_INFO("Authentication successful, source info received\n");
 
   SU_TRYCATCH(
@@ -1722,6 +1745,14 @@ suscan_remote_analyzer_connect_to_peer(suscan_remote_analyzer_t *self)
           SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
           SUSCAN_ANALYZER_INIT_FAILURE,
           "Authentication rejected (wrong user and/or password?)");
+      goto done;
+
+    case SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_STARTUP_ERROR:
+      (void) suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
+          SUSCAN_ANALYZER_INIT_FAILURE,
+          "Server-side analyzer failed to start (remote device error?)");
       goto done;
 
     case SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_SUCCESS:

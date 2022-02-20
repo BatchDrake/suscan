@@ -820,6 +820,7 @@ suscli_analyzer_server_process_call(
       if (self->analyzer == NULL) {
         if (!suscli_analyzer_server_start_analyzer(self)) {
           SU_ERROR("Failed to initialize analyzer. Rejecting client\n");
+          suscli_analyzer_client_send_startup_error(client);
           suscli_analyzer_server_kick_client(self, client);
 
           /* Yep, no errors. Assume graceful disconnection. */

@@ -526,6 +526,31 @@ done:
   return ok;
 }
 
+SUBOOL
+suscli_analyzer_client_send_startup_error(suscli_analyzer_client_t *self)
+{
+  struct suscan_analyzer_remote_call *call = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      call = malloc(sizeof(struct suscan_analyzer_remote_call)),
+      goto done);
+
+  suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_STARTUP_ERROR);
+
+  SU_TRYCATCH(suscli_analyzer_client_deliver_call(self, call), goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (call != NULL) {
+    suscan_analyzer_remote_call_finalize(call);
+    free(call);
+  }
+
+  return ok;
+}
+
 void
 suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
 {

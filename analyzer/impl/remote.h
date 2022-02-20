@@ -40,7 +40,7 @@ extern "C" {
 
 #define SUSCAN_REMOTE_PROTOCOL_TOKEN_SIZE   SHA256_BLOCK_SIZE
 #define SUSCAN_REMOTE_PROTOCOL_MAJOR_VERSION                0
-#define SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION                6
+#define SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION                7
 
 #define SUSCAN_REMOTE_AUTH_MODE_NONE                        0
 #define SUSCAN_REMOTE_AUTH_MODE_USER_PASSWORD               1
@@ -74,6 +74,7 @@ enum suscan_analyzer_remote_type {
   SUSCAN_ANALYZER_REMOTE_MESSAGE,
   SUSCAN_ANALYZER_REMOTE_REQ_HALT,
   SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED,
+  SUSCAN_ANALYZER_REMOTE_STARTUP_ERROR,
 };
 
 enum suscan_analyzer_superframe_type {
