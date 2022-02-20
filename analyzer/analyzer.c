@@ -89,7 +89,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_params)
 
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_params)
 {
-  int32_t int32;
+  int32_t int32 = 0;
   SUSCAN_UNPACK_BOILERPLATE_START;
 
   SUSCAN_UNPACK(int32,  int32);
@@ -254,8 +254,8 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   SUBOOL end_required = SU_FALSE;
   size_t i;
   uint64_t nelem = 0;
-  uint64_t tv_sec;
-  uint32_t tv_usec;
+  uint64_t tv_sec = 0;
+  uint32_t tv_usec = 0;
 
   SUSCAN_UNPACK(uint64, self->source_samp_rate);
   SUSCAN_UNPACK(uint64, self->effective_samp_rate);

@@ -21,17 +21,16 @@
 
 #include <util/compat-socket.h>
 #include <util/compat-unistd.h>
+#include <util/compat-netdb.h>
+#include <util/compat-inet.h>
+#include <util/compat-fcntl.h>
+#include <util/compat-poll.h>
 
 #include "remote.h"
 #include "msg.h"
 #include "multicast.h"
-
 #include <zlib.h>
-#include <util/compat-fcntl.h>
-#include <util/compat-poll.h>
 #include <analyzer/realtime.h>
-#include <util/compat-netdb.h>
-#include <arpa/inet.h>
 
 #ifdef bool
 #  undef bool
