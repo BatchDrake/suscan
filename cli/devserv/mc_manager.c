@@ -22,6 +22,7 @@
 #include <analyzer/impl/multicast.h>
 #include <util/compat-poll.h>
 #include <util/compat-inet.h>
+#include <util/compat-unistd.h>
 #include <analyzer/msg.h>
 
 SUPRIVATE
@@ -111,7 +112,7 @@ suscli_multicast_manager_tx_cb(
         size = SUSCLI_MULTICAST_FRAG_SIZE(ntohs(header->size));
         if ((ret = sendto(
           self->fd,
-          header,
+          (void *) header,
           size,
           0,
           (struct sockaddr *) &self->mc_addr,
@@ -168,7 +169,7 @@ suscli_multicast_manager_announce_cb(
     if (!self->cancelled) {
       if ((ret = sendto(
         self->fd,
-        &header,
+        (void *) &header,
         sizeof(header),
         0,
         (struct sockaddr *) &self->mc_addr,
@@ -434,7 +435,7 @@ SUPRIVATE SU_METHOD(
   deliver_encap,
   const struct suscan_analyzer_remote_call *call)
 {
-  struct suscan_analyzer_fragment_header *header;
+  struct suscan_analyzer_fragment_header *header = NULL;
   grow_buf_t pdu = grow_buf_INITIALIZER;
   unsigned int usable;
   unsigned int i, count, size;

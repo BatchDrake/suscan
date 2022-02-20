@@ -1112,7 +1112,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_config)
   char *global_name = NULL;
   char *field_name = NULL;
   SUBOOL boolean = SU_FALSE;
-  int64_t integer;
+  int64_t integer = 0;
   SUFLOAT real;
   char *string = NULL;
   suscan_config_desc_t *desc = NULL;
