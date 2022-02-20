@@ -953,8 +953,8 @@ suscan_source_config_deserialize_ex(
   struct suscan_source_gain_value *gain = NULL;
   suscan_source_device_t *device = NULL;
   SoapySDRKwargs args;
-  uint64_t sec;
-  uint32_t usec;
+  uint64_t sec = 0;
+  uint32_t usec = 0;
   char *type = NULL;
   char *iface = NULL;
 
@@ -962,9 +962,9 @@ suscan_source_config_deserialize_ex(
   char *desc = NULL;
 
   char *host = NULL;
-  uint16_t port;
+  uint16_t port = 0;
   char port_str[8];
-  unsigned int gain_count, i;
+  unsigned int gain_count = 0, i;
 
   memset(&args, 0, sizeof (SoapySDRKwargs));
   memset(&gain_desc, 0, sizeof (struct suscan_source_gain_desc));

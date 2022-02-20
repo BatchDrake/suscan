@@ -205,8 +205,8 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
 
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
 {
-  uint64_t tv_sec;
-  uint32_t tv_usec;
+  uint64_t tv_sec = 0;
+  uint32_t tv_usec = 0;
   SUSCAN_UNPACK_BOILERPLATE_START;
 
   SUSCAN_UNPACK(int64,  self->fc);
@@ -742,8 +742,8 @@ suscan_analyzer_inspector_msg_deserialize_orbit_report(
     struct suscan_analyzer_inspector_msg *self)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
-  uint64_t tv_sec;
-  uint32_t tv_usec;
+  uint64_t tv_sec = 0;
+  uint32_t tv_usec = 0;
 
   SUSCAN_UNPACK(uint64, tv_sec);
   SUSCAN_UNPACK(uint32, tv_usec);
@@ -853,8 +853,8 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
-  uint64_t tv_sec;
-  uint32_t tv_usec;
+  uint64_t tv_sec = 0;
+  uint32_t tv_usec = 0;
 
   SUSCAN_UNPACK(uint32, self->int32_kind);
   SUSCAN_UNPACK(uint32, self->inspector_id);
@@ -1117,8 +1117,8 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_seek_msg)
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_seek_msg)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
-  uint64_t tv_sec;
-  uint32_t tv_usec;
+  uint64_t tv_sec = 0;
+  uint32_t tv_usec = 0;
 
   SUSCAN_UNPACK(uint64, tv_sec);
   SUSCAN_UNPACK(uint32, tv_usec);

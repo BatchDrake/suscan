@@ -1191,7 +1191,7 @@ suscan_remote_analyzer_receive_call(
     if (n > 2 && (fds[2].revents & POLLIN)) {
       ret = recvfrom(
         self->peer.mc_fd,
-        read_buf,
+        (void *) read_buf,
         SUSCAN_REMOTE_READ_BUFFER,
         0,
         (struct sockaddr *) &addr,

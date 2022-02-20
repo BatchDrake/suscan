@@ -171,7 +171,7 @@ suscan_unpack_compact_single_array(
     SUSCOUNT *osize)
 {
   SUSINGLE *array = *oarray;
-  SUSCOUNT array_length;
+  SUSCOUNT array_length = 0;
   size_t array_size = *osize * sizeof(SUSINGLE);
   SUBOOL ok = SU_FALSE;
 
@@ -210,7 +210,7 @@ suscan_unpack_compact_double_array(
 {
   SUDOUBLE *array = *oarray;
   size_t array_size = *osize * sizeof(SUDOUBLE);
-  SUSCOUNT array_length;
+  SUSCOUNT array_length = 0;
   SUBOOL ok = SU_FALSE;
 
   SUSCAN_UNPACK(uint64, array_length);
