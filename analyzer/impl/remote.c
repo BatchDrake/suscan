@@ -1228,6 +1228,8 @@ done:
       call = NULL;
   }
 
+  grow_buf_finalize(&buf);
+  
   return call;
 }
 
