@@ -19,11 +19,12 @@
 
 #define _COMPAT_BARRIERS
 
-#define SU_LOG_DOMAIN "compat"
-
 #include <stdlib.h>
 #include <sigutils/log.h>
 
+#include "compat-socket.h"
+#include "compat-in.h"
+#include "compat-inet.h"
 #include "compat.h"
 
 /* Bundle implementations */
