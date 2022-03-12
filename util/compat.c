@@ -75,7 +75,7 @@ suscan_nic_new(const char *name, uint32_t saddr)
   SU_ALLOCATE_FAIL(new, struct suscan_nic);
 
   SU_TRY_FAIL(new->name = strdup(name));
-  new->s_addr = saddr;
+  new->addr = saddr;
 
   return new;
 

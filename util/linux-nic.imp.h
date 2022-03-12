@@ -44,7 +44,7 @@ suscan_get_nic_addr(const char *name)
   
   for (i = 0; i < g_nic_info.nic_count; ++i)
     if (strcmp(g_nic_info.nic_list[i]->name, name) == 0)
-      return g_nic_info.nic_list[i]->s_addr;
+      return g_nic_info.nic_list[i]->addr;
 
   return 0;
 }

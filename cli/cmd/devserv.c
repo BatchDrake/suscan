@@ -24,7 +24,6 @@
 #include <util/compat-inet.h>
 #include <util/compat-in.h>
 #include <util/compat-time.h>
-#include <util/compat.h>
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>
 #include <analyzer/discovery.h>

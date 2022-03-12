@@ -37,7 +37,7 @@ const char *suscan_bundle_get_soapysdr_module_path(void);
 
 struct suscan_nic {
   char    *name;
-  uint32_t s_addr;
+  uint32_t addr;
 };
 
 typedef struct suscan_nic suscan_nic_t;
