@@ -19,9 +19,14 @@
 
 #define _COMPAT_BARRIERS
 
+#define SU_LOG_DOMAIN "compat"
+
 #include <stdlib.h>
+#include <sigutils/log.h>
+
 #include "compat.h"
 
+/* Bundle implementations */
 #if defined(__APPLE__)
 #  include "macos-barriers.imp.h"
 #  include "macos-bundle.imp.h"
@@ -42,3 +47,80 @@ suscan_bundle_get_soapysdr_module_path(void)
 
 #endif /* defined(__APPLE__) */
 
+/* NIC-related implementations */
+#if defined(__linux__)
+#  include "linux-nic.imp.h"
+#else
+SUBOOL
+suscan_get_nic_info(struct suscan_nic_info *self)
+{
+  return SU_FALSE;
+}
+
+uint32_t
+suscan_get_nic_addr(const char *name)
+{
+  return 0;
+}
+
+#endif /* __linux __ */
+
+/*************************** Common methods *******************************/
+struct suscan_nic *
+suscan_nic_new(const char *name, uint32_t s_addr)
+{
+  struct suscan_nic *new = NULL;
+
+  SU_ALLOCATE_FAIL(new, struct suscan_nic);
+
+  SU_TRY_FAIL(new->name = strdup(name));
+  new->s_addr = s_addr;
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscan_nic_destroy(new);
+
+  return new;
+}
+
+void
+suscan_nic_destroy(struct suscan_nic *self)
+{
+  if (self->name != NULL)
+    free(self->name);
+
+  free(self);
+}
+
+void
+suscan_nic_info_finalize(struct suscan_nic_info *self)
+{
+  unsigned int i;
+
+  for (i = 0; i < self->nic_count; ++i)
+    if (self->nic_list[i] != NULL)
+      suscan_nic_destroy(self->nic_list[i]);
+
+  if (self->nic_list != NULL)
+    free(self->nic_list);
+}
+
+uint32_t
+suscan_ifdesc_to_addr(const char *ifdesc)
+{
+  uint32_t value;
+
+  value = inet_addr(ifdesc);
+  if (ntohl(value) != 0xffffffff) {
+    /* Does it look like an IP address? */
+    return value;
+  } else {
+    /* Does it look like a network address? */
+    if ((value = suscan_get_nic_addr(ifdesc)) != 0)
+      return value;
+  }
+
+  return htonl(0xffffffff);
+}

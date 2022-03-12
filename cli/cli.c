@@ -22,6 +22,7 @@
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>
 #include <util/confdb.h>
+#include <util/compat.h>
 #include <codec/codec.h>
 #include <string.h>
 

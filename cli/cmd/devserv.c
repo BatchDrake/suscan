@@ -23,6 +23,8 @@
 #include <util/compat-socket.h>
 #include <util/compat-inet.h>
 #include <util/compat-in.h>
+#include <util/compat-time.h>
+#include <util/compat.h>
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>
 #include <analyzer/discovery.h>
@@ -33,7 +35,6 @@
 #include <cli/devserv/devserv.h>
 #include <cli/cli.h>
 #include <cli/cmds.h>
-#include <util/compat-time.h>
 
 #define SUSCLI_DEVSERV_DEFAULT_PORT_BASE 28000
 SUPRIVATE SUBOOL su_log_cr = SU_TRUE;
@@ -202,12 +203,12 @@ suscli_devserv_ctx_new(
           sizeof(loopch)) != -1,
       goto fail);
 
-  mc_if.s_addr = inet_addr(iface);
+  mc_if.s_addr = suscan_ifdesc_to_addr(iface);
 
   /* Not necessary, but coherent. */
   if (ntohl(mc_if.s_addr) == 0xffffffff) {
     SU_ERROR(
-        "Invalid interface address `%s' (does not look like a valid IP address)\n",
+        "Invalid network interface `%s'\n",
         iface);
     goto fail;
   }
@@ -227,8 +228,10 @@ suscli_devserv_ctx_new(
           (char *) &mc_if,
           sizeof (struct in_addr)) == -1) {
     if (errno == EADDRNOTAVAIL) {
-      SU_ERROR("Invalid interface address. Please verify that there is a "
-          "local network interface with IP `%s'\n", iface);
+      SU_ERROR(
+        "Invalid interface address. Please verify that there is a "
+        "local network interface with IP `%s'\n",
+        inet_ntoa(mc_if));
     } else {
       SU_ERROR(
           "failed to set network interface for multicast: %s\n",

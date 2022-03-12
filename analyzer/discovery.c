@@ -21,6 +21,7 @@
 #include <util/compat-socket.h>
 #include <util/compat-inet.h>
 #include <util/compat-in.h>
+#include <util/compat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -264,7 +265,7 @@ suscan_device_net_discovery_ctx_new(const char *iface, const char *mcaddr)
       goto fail);
 
   group.imr_multiaddr.s_addr = inet_addr(mcaddr);
-  group.imr_interface.s_addr = inet_addr(iface);
+  group.imr_interface.s_addr = suscan_ifdesc_to_addr(iface);
 
   if (ntohl(group.imr_interface.s_addr) == 0xffffffff) {
     SU_ERROR(

@@ -23,6 +23,7 @@
 #include <util/compat-poll.h>
 #include <util/compat-inet.h>
 #include <util/compat-unistd.h>
+#include <util/compat.h>
 #include <analyzer/msg.h>
 
 SUPRIVATE
@@ -45,7 +46,7 @@ SU_METHOD(
           (char *) &loopch,
           sizeof(loopch)));
 
-  mc_if.s_addr = inet_addr(ifname);
+  mc_if.s_addr = suscan_ifdesc_to_addr(ifname);
 
   if (ntohl(mc_if.s_addr) == 0xffffffff) {
     SU_ERROR(

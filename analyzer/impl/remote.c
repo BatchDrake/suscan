@@ -25,6 +25,7 @@
 #include <util/compat-inet.h>
 #include <util/compat-fcntl.h>
 #include <util/compat-poll.h>
+#include <util/compat.h>
 
 #include "remote.h"
 #include "msg.h"
@@ -1588,7 +1589,7 @@ suscan_remote_analyzer_open_multicast(
           sizeof(struct sockaddr)));
 
   group.imr_multiaddr.s_addr = inet_addr(SUSCLI_MULTICAST_GROUP);
-  group.imr_interface.s_addr = inet_addr(iface);
+  group.imr_interface.s_addr = suscan_ifdesc_to_addr(iface);
 
   if (ntohl(group.imr_interface.s_addr) == 0xffffffff) {
     SU_ERROR(
