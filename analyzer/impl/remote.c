@@ -25,7 +25,6 @@
 #include <util/compat-inet.h>
 #include <util/compat-fcntl.h>
 #include <util/compat-poll.h>
-#include <util/compat.h>
 
 #include "remote.h"
 #include "msg.h"

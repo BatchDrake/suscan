@@ -68,14 +68,14 @@ suscan_get_nic_addr(const char *name)
 
 /*************************** Common methods *******************************/
 struct suscan_nic *
-suscan_nic_new(const char *name, uint32_t s_addr)
+suscan_nic_new(const char *name, uint32_t saddr)
 {
   struct suscan_nic *new = NULL;
 
   SU_ALLOCATE_FAIL(new, struct suscan_nic);
 
   SU_TRY_FAIL(new->name = strdup(name));
-  new->s_addr = s_addr;
+  new->s_addr = saddr;
 
   return new;
 
