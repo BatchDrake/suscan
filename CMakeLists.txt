@@ -157,12 +157,14 @@ set(UTIL_SOURCES
   ${UTILDIR}/com.c
   ${UTILDIR}/compat.c
   ${UTILDIR}/confdb.c
-  ${UTILDIR}/deserialize.c
+  ${UTILDIR}/deserialize-xml.c
+  ${UTILDIR}/deserialize-yaml.c
   ${UTILDIR}/hashlist.c
   ${UTILDIR}/list.c
   ${UTILDIR}/object.c
   ${UTILDIR}/rbtree.c
-  ${UTILDIR}/serialize.c
+  ${UTILDIR}/serialize-xml.c
+  ${UTILDIR}/serialize-yaml.c
   ${UTILDIR}/sha256.c)
 
 set(SGDP4_HEADERS

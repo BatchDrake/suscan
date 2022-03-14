@@ -181,7 +181,7 @@ suscan_config_context_new(const char *name)
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_config_context_t)), goto fail);
 
   SU_TRYCATCH(new->name = strdup(name), goto fail);
-  SU_TRYCATCH(new->save_file = strbuild("%s.xml", name), goto fail);
+  SU_TRYCATCH(new->save_file = strdup(name), goto fail);
   SU_TRYCATCH(new->list = suscan_object_new(SUSCAN_OBJECT_TYPE_SET), goto fail);
 
   new->save = SU_TRUE;
@@ -298,13 +298,24 @@ suscan_config_context_scan(suscan_config_context_t *context)
   void *mmap_base = (void *) -1;
   suscan_object_t *set = NULL;
   struct stat sbuf;
-
+  SUBOOL xml;
   SUBOOL ok = SU_FALSE;
 
   for (i = 0; i < context->path_count; ++i) {
+    /* Try to open as YAML */
+    xml = SU_FALSE;
     SU_TRYCATCH(
-        path = strbuild("%s/%s", context->path_list[i], context->save_file),
+        path = strbuild("%s/%s.yaml", context->path_list[i], context->save_file),
         goto done);
+
+    if (access(path, F_OK) == -1) {
+      /* Nope, try to open as XML */
+      free(path);
+      SU_TRYCATCH(
+        path = strbuild("%s/%s.xml", context->path_list[i], context->save_file),
+        goto done);
+      xml = SU_TRUE;
+    }
 
     if (stat(path, &sbuf) != -1) {
       SU_TRYCATCH((fd = open(path, O_RDONLY)) != -1, goto done);
@@ -322,7 +333,10 @@ suscan_config_context_scan(suscan_config_context_t *context)
       close(fd);
       fd = -1;
 
-      set = suscan_object_from_xml(path, mmap_base, sbuf.st_size);
+      if (xml)
+        set = suscan_object_from_xml(path, mmap_base, sbuf.st_size);
+      else
+        set = suscan_object_from_yaml(mmap_base, sbuf.st_size);
 
       if (set != NULL) {
         for (j = 0; j < set->object_count; ++j)
@@ -394,11 +408,11 @@ suscan_config_context_save(suscan_config_context_t *context)
   if (context->on_save != NULL)
     SU_TRYCATCH((context->on_save)(context, context->userdata), goto done);
 
-  SU_TRYCATCH(suscan_object_to_xml(context->list, &data, &size), goto done);
+  SU_TRYCATCH(suscan_object_to_yaml(context->list, &data, &size), goto done);
 
   for (i = 0; i < context->path_count; ++i) {
     SU_TRYCATCH(
-        path = strbuild("%s/%s", context->path_list[i], context->save_file),
+        path = strbuild("%s/%s.yaml", context->path_list[i], context->save_file),
         goto done);
 
     if ((fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600)) != -1) {
@@ -452,14 +466,18 @@ SUBOOL
 suscan_confdb_save_all(void)
 {
   unsigned int i;
+  SUBOOL any_ok = SU_FALSE;
 
-  for (i = 0; i < context_count; ++i)
+  for (i = 0; i < context_count; ++i) {
     if (!suscan_config_context_save(context_list[i]))
       SU_WARNING(
           "Failed to save configuration context `%s'\n",
           context_list[i]->name);
+    else
+      any_ok = SU_TRUE;
+  }
 
-  return SU_TRUE;
+  return any_ok;
 }
 
 SUBOOL
