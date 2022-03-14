@@ -177,7 +177,7 @@ suscan_object_parse_yaml_event(
       break;
 
     default:
-
+      ; /* Do nothing */
   }
 
   /* Transfer ownership */
