@@ -132,10 +132,10 @@ install(
   
 ############################ Suscan library build #############################
 set(RSRC_CONFIG_FILES
-  ${RSRCDIR}/autogains.xml
-  ${RSRCDIR}/palettes.xml
-  ${RSRCDIR}/frequency_allocations.xml
-  ${RSRCDIR}/locations.xml)
+  ${RSRCDIR}/autogains.yaml
+  ${RSRCDIR}/palettes.yaml
+  ${RSRCDIR}/frequency_allocations.yaml
+  ${RSRCDIR}/locations.yaml)
   
 set(UTIL_HEADERS
   ${UTILDIR}/cbor.h
