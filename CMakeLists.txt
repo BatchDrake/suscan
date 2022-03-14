@@ -69,6 +69,7 @@ set(UTILDIR      util)
 set(RSRCDIR      rsrc)
 set(CLIDIR       cli)
 set(VERSIONDIR   analyzer)
+set(YAMLDIR      yaml)
 
 # Compiler flags
 if(NOT CMAKE_BUILD_TYPE)
@@ -131,10 +132,10 @@ install(
   
 ############################ Suscan library build #############################
 set(RSRC_CONFIG_FILES
-  ${RSRCDIR}/autogains.xml
-  ${RSRCDIR}/palettes.xml
-  ${RSRCDIR}/frequency_allocations.xml
-  ${RSRCDIR}/locations.xml)
+  ${RSRCDIR}/autogains.yaml
+  ${RSRCDIR}/palettes.yaml
+  ${RSRCDIR}/frequency_allocations.yaml
+  ${RSRCDIR}/locations.yaml)
   
 set(UTIL_HEADERS
   ${UTILDIR}/cbor.h
@@ -156,12 +157,14 @@ set(UTIL_SOURCES
   ${UTILDIR}/com.c
   ${UTILDIR}/compat.c
   ${UTILDIR}/confdb.c
-  ${UTILDIR}/deserialize.c
+  ${UTILDIR}/deserialize-xml.c
+  ${UTILDIR}/deserialize-yaml.c
   ${UTILDIR}/hashlist.c
   ${UTILDIR}/list.c
   ${UTILDIR}/object.c
   ${UTILDIR}/rbtree.c
-  ${UTILDIR}/serialize.c
+  ${UTILDIR}/serialize-xml.c
+  ${UTILDIR}/serialize-yaml.c
   ${UTILDIR}/sha256.c)
 
 set(SGDP4_HEADERS
@@ -174,6 +177,20 @@ set(SGDP4_SOURCES
   ${SGDP4DIR}/predict.c
   ${SGDP4DIR}/sgdp4.c
   ${SGDP4DIR}/tle.c)
+
+set(YAML_HEADERS
+  ${YAMLDIR}/yaml.h
+  ${YAMLDIR}/yaml_private.h)
+
+set(YAML_SOURCES
+  ${YAMLDIR}/api.c
+  ${YAMLDIR}/dumper.c
+  ${YAMLDIR}/emitter.c
+  ${YAMLDIR}/loader.c
+  ${YAMLDIR}/parser.c
+  ${YAMLDIR}/reader.c
+  ${YAMLDIR}/scanner.c
+  ${YAMLDIR}/writer.c)
 
 set(VERSION_HEADERS ${VERSIONDIR}/version.h)
 
@@ -298,6 +315,8 @@ add_library(
   suscan SHARED
   ${UTIL_HEADERS}
   ${UTIL_SOURCES}
+  ${YAML_HEADERS}
+  ${YAML_SOURCES}
   ${INSPECTOR_LIB_HEADERS}
   ${INSPECTOR_LIB_SOURCES}
   ${CODEC_LIB_HEADERS}
@@ -375,6 +394,10 @@ install(
 install(
   FILES ${UTIL_HEADERS} 
   DESTINATION include/suscan/util)
+
+install(
+  FILES ${YAML_HEADERS} 
+  DESTINATION include/suscan/yaml)
 
 install(
   FILES ${VERSION_HEADERS}

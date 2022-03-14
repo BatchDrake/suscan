@@ -1,0 +1,4324 @@
+%TAG ! tag:actinid.org,2022:suscan:
+---
+- !palette
+  name: Turbo (Gqrx)
+  stops:
+  - position: 0
+    red: 0.188235
+    green: 0.0705882
+    blue: 0.231373
+  - position: 1
+    red: 0.196078
+    green: 0.0823529
+    blue: 0.262745
+  - position: 2
+    red: 0.2
+    green: 0.0941176
+    blue: 0.290196
+  - position: 3
+    red: 0.203922
+    green: 0.105882
+    blue: 0.317647
+  - position: 4
+    red: 0.207843
+    green: 0.117647
+    blue: 0.345098
+  - position: 5
+    red: 0.211765
+    green: 0.129412
+    blue: 0.372549
+  - position: 6
+    red: 0.215686
+    green: 0.141176
+    blue: 0.4
+  - position: 7
+    red: 0.219608
+    green: 0.152941
+    blue: 0.427451
+  - position: 8
+    red: 0.223529
+    green: 0.164706
+    blue: 0.45098
+  - position: 9
+    red: 0.227451
+    green: 0.176471
+    blue: 0.47451
+  - position: 10
+    red: 0.231373
+    green: 0.184314
+    blue: 0.501961
+  - position: 11
+    red: 0.235294
+    green: 0.196078
+    blue: 0.52549
+  - position: 12
+    red: 0.239216
+    green: 0.207843
+    blue: 0.545098
+  - position: 13
+    red: 0.243137
+    green: 0.219608
+    blue: 0.568627
+  - position: 14
+    red: 0.247059
+    green: 0.231373
+    blue: 0.592157
+  - position: 15
+    red: 0.247059
+    green: 0.243137
+    blue: 0.611765
+  - position: 16
+    red: 0.25098
+    green: 0.25098
+    blue: 0.635294
+  - position: 17
+    red: 0.254902
+    green: 0.262745
+    blue: 0.654902
+  - position: 18
+    red: 0.254902
+    green: 0.27451
+    blue: 0.67451
+  - position: 19
+    red: 0.258824
+    green: 0.286275
+    blue: 0.694118
+  - position: 20
+    red: 0.258824
+    green: 0.294118
+    blue: 0.709804
+  - position: 21
+    red: 0.262745
+    green: 0.305882
+    blue: 0.729412
+  - position: 22
+    red: 0.266667
+    green: 0.317647
+    blue: 0.74902
+  - position: 23
+    red: 0.266667
+    green: 0.329412
+    blue: 0.764706
+  - position: 24
+    red: 0.266667
+    green: 0.337255
+    blue: 0.780392
+  - position: 25
+    red: 0.270588
+    green: 0.34902
+    blue: 0.796078
+  - position: 26
+    red: 0.270588
+    green: 0.360784
+    blue: 0.811765
+  - position: 27
+    red: 0.270588
+    green: 0.368627
+    blue: 0.827451
+  - position: 28
+    red: 0.27451
+    green: 0.380392
+    blue: 0.839216
+  - position: 29
+    red: 0.27451
+    green: 0.392157
+    blue: 0.854902
+  - position: 30
+    red: 0.27451
+    green: 0.4
+    blue: 0.866667
+  - position: 31
+    red: 0.27451
+    green: 0.411765
+    blue: 0.878431
+  - position: 32
+    red: 0.27451
+    green: 0.419608
+    blue: 0.890196
+  - position: 33
+    red: 0.278431
+    green: 0.431373
+    blue: 0.901961
+  - position: 34
+    red: 0.278431
+    green: 0.443137
+    blue: 0.913725
+  - position: 35
+    red: 0.278431
+    green: 0.45098
+    blue: 0.921569
+  - position: 36
+    red: 0.278431
+    green: 0.462745
+    blue: 0.933333
+  - position: 37
+    red: 0.278431
+    green: 0.470588
+    blue: 0.941176
+  - position: 38
+    red: 0.278431
+    green: 0.482353
+    blue: 0.94902
+  - position: 39
+    red: 0.27451
+    green: 0.490196
+    blue: 0.956863
+  - position: 40
+    red: 0.27451
+    green: 0.501961
+    blue: 0.964706
+  - position: 41
+    red: 0.27451
+    green: 0.509804
+    blue: 0.972549
+  - position: 42
+    red: 0.27451
+    green: 0.521569
+    blue: 0.980392
+  - position: 43
+    red: 0.27451
+    green: 0.529412
+    blue: 0.984314
+  - position: 44
+    red: 0.270588
+    green: 0.541176
+    blue: 0.988235
+  - position: 45
+    red: 0.270588
+    green: 0.54902
+    blue: 0.992157
+  - position: 46
+    red: 0.266667
+    green: 0.560784
+    blue: 0.996078
+  - position: 47
+    red: 0.262745
+    green: 0.568627
+    blue: 0.996078
+  - position: 48
+    red: 0.258824
+    green: 0.580392
+    blue: 1
+  - position: 49
+    red: 0.254902
+    green: 0.588235
+    blue: 1
+  - position: 50
+    red: 0.25098
+    green: 0.6
+    blue: 1
+  - position: 51
+    red: 0.243137
+    green: 0.607843
+    blue: 0.996078
+  - position: 52
+    red: 0.239216
+    green: 0.619608
+    blue: 0.996078
+  - position: 53
+    red: 0.231373
+    green: 0.627451
+    blue: 0.992157
+  - position: 54
+    red: 0.227451
+    green: 0.639216
+    blue: 0.988235
+  - position: 55
+    red: 0.219608
+    green: 0.647059
+    blue: 0.984314
+  - position: 56
+    red: 0.215686
+    green: 0.658824
+    blue: 0.980392
+  - position: 57
+    red: 0.207843
+    green: 0.670588
+    blue: 0.972549
+  - position: 58
+    red: 0.2
+    green: 0.678431
+    blue: 0.968627
+  - position: 59
+    red: 0.192157
+    green: 0.686275
+    blue: 0.960784
+  - position: 60
+    red: 0.184314
+    green: 0.698039
+    blue: 0.956863
+  - position: 61
+    red: 0.180392
+    green: 0.705882
+    blue: 0.94902
+  - position: 62
+    red: 0.172549
+    green: 0.717647
+    blue: 0.941176
+  - position: 63
+    red: 0.164706
+    green: 0.72549
+    blue: 0.933333
+  - position: 64
+    red: 0.156863
+    green: 0.737255
+    blue: 0.921569
+  - position: 65
+    red: 0.152941
+    green: 0.745098
+    blue: 0.913725
+  - position: 66
+    red: 0.145098
+    green: 0.752941
+    blue: 0.905882
+  - position: 67
+    red: 0.137255
+    green: 0.764706
+    blue: 0.894118
+  - position: 68
+    red: 0.133333
+    green: 0.772549
+    blue: 0.886275
+  - position: 69
+    red: 0.12549
+    green: 0.780392
+    blue: 0.87451
+  - position: 70
+    red: 0.121569
+    green: 0.788235
+    blue: 0.866667
+  - position: 71
+    red: 0.117647
+    green: 0.796078
+    blue: 0.854902
+  - position: 72
+    red: 0.109804
+    green: 0.803922
+    blue: 0.847059
+  - position: 73
+    red: 0.105882
+    green: 0.815686
+    blue: 0.835294
+  - position: 74
+    red: 0.101961
+    green: 0.823529
+    blue: 0.823529
+  - position: 75
+    red: 0.101961
+    green: 0.831373
+    blue: 0.815686
+  - position: 76
+    red: 0.0980392
+    green: 0.835294
+    blue: 0.803922
+  - position: 77
+    red: 0.0941176
+    green: 0.843137
+    blue: 0.792157
+  - position: 78
+    red: 0.0941176
+    green: 0.85098
+    blue: 0.784314
+  - position: 79
+    red: 0.0941176
+    green: 0.858824
+    blue: 0.772549
+  - position: 80
+    red: 0.0941176
+    green: 0.866667
+    blue: 0.760784
+  - position: 81
+    red: 0.0941176
+    green: 0.870588
+    blue: 0.752941
+  - position: 82
+    red: 0.0941176
+    green: 0.878431
+    blue: 0.741176
+  - position: 83
+    red: 0.0980392
+    green: 0.886275
+    blue: 0.733333
+  - position: 84
+    red: 0.0980392
+    green: 0.890196
+    blue: 0.72549
+  - position: 85
+    red: 0.101961
+    green: 0.894118
+    blue: 0.713725
+  - position: 86
+    red: 0.109804
+    green: 0.901961
+    blue: 0.705882
+  - position: 87
+    red: 0.113725
+    green: 0.905882
+    blue: 0.698039
+  - position: 88
+    red: 0.121569
+    green: 0.913725
+    blue: 0.686275
+  - position: 89
+    red: 0.12549
+    green: 0.917647
+    blue: 0.67451
+  - position: 90
+    red: 0.133333
+    green: 0.921569
+    blue: 0.666667
+  - position: 91
+    red: 0.145098
+    green: 0.92549
+    blue: 0.654902
+  - position: 92
+    red: 0.152941
+    green: 0.933333
+    blue: 0.643137
+  - position: 93
+    red: 0.164706
+    green: 0.937255
+    blue: 0.631373
+  - position: 94
+    red: 0.172549
+    green: 0.941176
+    blue: 0.619608
+  - position: 95
+    red: 0.184314
+    green: 0.945098
+    blue: 0.607843
+  - position: 96
+    red: 0.196078
+    green: 0.94902
+    blue: 0.596078
+  - position: 97
+    red: 0.207843
+    green: 0.952941
+    blue: 0.580392
+  - position: 98
+    red: 0.219608
+    green: 0.956863
+    blue: 0.568627
+  - position: 99
+    red: 0.235294
+    green: 0.960784
+    blue: 0.556863
+  - position: 100
+    red: 0.247059
+    green: 0.964706
+    blue: 0.541176
+  - position: 101
+    red: 0.262745
+    green: 0.968627
+    blue: 0.529412
+  - position: 102
+    red: 0.27451
+    green: 0.972549
+    blue: 0.517647
+  - position: 103
+    red: 0.290196
+    green: 0.972549
+    blue: 0.501961
+  - position: 104
+    red: 0.305882
+    green: 0.976471
+    blue: 0.490196
+  - position: 105
+    red: 0.321569
+    green: 0.980392
+    blue: 0.478431
+  - position: 106
+    red: 0.333333
+    green: 0.980392
+    blue: 0.462745
+  - position: 107
+    red: 0.34902
+    green: 0.984314
+    blue: 0.45098
+  - position: 108
+    red: 0.364706
+    green: 0.988235
+    blue: 0.435294
+  - position: 109
+    red: 0.380392
+    green: 0.988235
+    blue: 0.423529
+  - position: 110
+    red: 0.396078
+    green: 0.992157
+    blue: 0.411765
+  - position: 111
+    red: 0.411765
+    green: 0.992157
+    blue: 0.4
+  - position: 112
+    red: 0.427451
+    green: 0.996078
+    blue: 0.384314
+  - position: 113
+    red: 0.443137
+    green: 0.996078
+    blue: 0.372549
+  - position: 114
+    red: 0.458824
+    green: 0.996078
+    blue: 0.360784
+  - position: 115
+    red: 0.47451
+    green: 0.996078
+    blue: 0.34902
+  - position: 116
+    red: 0.490196
+    green: 1
+    blue: 0.337255
+  - position: 117
+    red: 0.501961
+    green: 1
+    blue: 0.32549
+  - position: 118
+    red: 0.517647
+    green: 1
+    blue: 0.317647
+  - position: 119
+    red: 0.533333
+    green: 1
+    blue: 0.305882
+  - position: 120
+    red: 0.545098
+    green: 1
+    blue: 0.294118
+  - position: 121
+    red: 0.560784
+    green: 1
+    blue: 0.286275
+  - position: 122
+    red: 0.572549
+    green: 1
+    blue: 0.278431
+  - position: 123
+    red: 0.588235
+    green: 0.996078
+    blue: 0.266667
+  - position: 124
+    red: 0.6
+    green: 0.996078
+    blue: 0.258824
+  - position: 125
+    red: 0.611765
+    green: 0.996078
+    blue: 0.25098
+  - position: 126
+    red: 0.623529
+    green: 0.992157
+    blue: 0.247059
+  - position: 127
+    red: 0.631373
+    green: 0.992157
+    blue: 0.239216
+  - position: 128
+    red: 0.643137
+    green: 0.988235
+    blue: 0.235294
+  - position: 129
+    red: 0.654902
+    green: 0.988235
+    blue: 0.227451
+  - position: 130
+    red: 0.662745
+    green: 0.984314
+    blue: 0.223529
+  - position: 131
+    red: 0.67451
+    green: 0.984314
+    blue: 0.219608
+  - position: 132
+    red: 0.686275
+    green: 0.980392
+    blue: 0.215686
+  - position: 133
+    red: 0.694118
+    green: 0.976471
+    blue: 0.211765
+  - position: 134
+    red: 0.705882
+    green: 0.972549
+    blue: 0.211765
+  - position: 135
+    red: 0.717647
+    green: 0.968627
+    blue: 0.207843
+  - position: 136
+    red: 0.72549
+    green: 0.964706
+    blue: 0.207843
+  - position: 137
+    red: 0.737255
+    green: 0.960784
+    blue: 0.203922
+  - position: 138
+    red: 0.745098
+    green: 0.956863
+    blue: 0.203922
+  - position: 139
+    red: 0.756863
+    green: 0.952941
+    blue: 0.203922
+  - position: 140
+    red: 0.764706
+    green: 0.945098
+    blue: 0.203922
+  - position: 141
+    red: 0.776471
+    green: 0.941176
+    blue: 0.203922
+  - position: 142
+    red: 0.784314
+    green: 0.937255
+    blue: 0.203922
+  - position: 143
+    red: 0.796078
+    green: 0.929412
+    blue: 0.203922
+  - position: 144
+    red: 0.803922
+    green: 0.92549
+    blue: 0.203922
+  - position: 145
+    red: 0.815686
+    green: 0.917647
+    blue: 0.203922
+  - position: 146
+    red: 0.823529
+    green: 0.913725
+    blue: 0.207843
+  - position: 147
+    red: 0.831373
+    green: 0.905882
+    blue: 0.207843
+  - position: 148
+    red: 0.843137
+    green: 0.898039
+    blue: 0.207843
+  - position: 149
+    red: 0.85098
+    green: 0.894118
+    blue: 0.211765
+  - position: 150
+    red: 0.858824
+    green: 0.886275
+    blue: 0.211765
+  - position: 151
+    red: 0.866667
+    green: 0.878431
+    blue: 0.215686
+  - position: 152
+    red: 0.87451
+    green: 0.87451
+    blue: 0.215686
+  - position: 153
+    red: 0.882353
+    green: 0.866667
+    blue: 0.215686
+  - position: 154
+    red: 0.890196
+    green: 0.858824
+    blue: 0.219608
+  - position: 155
+    red: 0.898039
+    green: 0.85098
+    blue: 0.219608
+  - position: 156
+    red: 0.905882
+    green: 0.843137
+    blue: 0.223529
+  - position: 157
+    red: 0.913725
+    green: 0.835294
+    blue: 0.223529
+  - position: 158
+    red: 0.921569
+    green: 0.827451
+    blue: 0.223529
+  - position: 159
+    red: 0.92549
+    green: 0.819608
+    blue: 0.227451
+  - position: 160
+    red: 0.933333
+    green: 0.811765
+    blue: 0.227451
+  - position: 161
+    red: 0.937255
+    green: 0.803922
+    blue: 0.227451
+  - position: 162
+    red: 0.945098
+    green: 0.796078
+    blue: 0.227451
+  - position: 163
+    red: 0.94902
+    green: 0.788235
+    blue: 0.227451
+  - position: 164
+    red: 0.956863
+    green: 0.780392
+    blue: 0.227451
+  - position: 165
+    red: 0.960784
+    green: 0.772549
+    blue: 0.227451
+  - position: 166
+    red: 0.964706
+    green: 0.764706
+    blue: 0.227451
+  - position: 167
+    red: 0.968627
+    green: 0.756863
+    blue: 0.227451
+  - position: 168
+    red: 0.972549
+    green: 0.745098
+    blue: 0.223529
+  - position: 169
+    red: 0.976471
+    green: 0.737255
+    blue: 0.223529
+  - position: 170
+    red: 0.980392
+    green: 0.729412
+    blue: 0.223529
+  - position: 171
+    red: 0.984314
+    green: 0.721569
+    blue: 0.219608
+  - position: 172
+    red: 0.984314
+    green: 0.713725
+    blue: 0.215686
+  - position: 173
+    red: 0.988235
+    green: 0.701961
+    blue: 0.211765
+  - position: 174
+    red: 0.988235
+    green: 0.694118
+    blue: 0.211765
+  - position: 175
+    red: 0.992157
+    green: 0.682353
+    blue: 0.207843
+  - position: 176
+    red: 0.992157
+    green: 0.67451
+    blue: 0.203922
+  - position: 177
+    red: 0.996078
+    green: 0.662745
+    blue: 0.2
+  - position: 178
+    red: 0.996078
+    green: 0.654902
+    blue: 0.196078
+  - position: 179
+    red: 0.996078
+    green: 0.643137
+    blue: 0.192157
+  - position: 180
+    red: 0.996078
+    green: 0.631373
+    blue: 0.188235
+  - position: 181
+    red: 0.996078
+    green: 0.619608
+    blue: 0.184314
+  - position: 182
+    red: 0.996078
+    green: 0.607843
+    blue: 0.176471
+  - position: 183
+    red: 0.996078
+    green: 0.6
+    blue: 0.172549
+  - position: 184
+    red: 0.996078
+    green: 0.588235
+    blue: 0.168627
+  - position: 185
+    red: 0.996078
+    green: 0.576471
+    blue: 0.164706
+  - position: 186
+    red: 0.996078
+    green: 0.564706
+    blue: 0.160784
+  - position: 187
+    red: 0.992157
+    green: 0.552941
+    blue: 0.152941
+  - position: 188
+    red: 0.992157
+    green: 0.541176
+    blue: 0.14902
+  - position: 189
+    red: 0.988235
+    green: 0.529412
+    blue: 0.145098
+  - position: 190
+    red: 0.988235
+    green: 0.517647
+    blue: 0.137255
+  - position: 191
+    red: 0.984314
+    green: 0.505882
+    blue: 0.133333
+  - position: 192
+    red: 0.984314
+    green: 0.494118
+    blue: 0.129412
+  - position: 193
+    red: 0.980392
+    green: 0.482353
+    blue: 0.121569
+  - position: 194
+    red: 0.976471
+    green: 0.470588
+    blue: 0.117647
+  - position: 195
+    red: 0.976471
+    green: 0.458824
+    blue: 0.113725
+  - position: 196
+    red: 0.972549
+    green: 0.447059
+    blue: 0.109804
+  - position: 197
+    red: 0.968627
+    green: 0.435294
+    blue: 0.101961
+  - position: 198
+    red: 0.964706
+    green: 0.423529
+    blue: 0.0980392
+  - position: 199
+    red: 0.960784
+    green: 0.411765
+    blue: 0.0941176
+  - position: 200
+    red: 0.956863
+    green: 0.4
+    blue: 0.0901961
+  - position: 201
+    red: 0.952941
+    green: 0.388235
+    blue: 0.0823529
+  - position: 202
+    red: 0.94902
+    green: 0.376471
+    blue: 0.0784314
+  - position: 203
+    red: 0.945098
+    green: 0.364706
+    blue: 0.0745098
+  - position: 204
+    red: 0.941176
+    green: 0.356863
+    blue: 0.0705882
+  - position: 205
+    red: 0.937255
+    green: 0.345098
+    blue: 0.0666667
+  - position: 206
+    red: 0.929412
+    green: 0.333333
+    blue: 0.0627451
+  - position: 207
+    red: 0.92549
+    green: 0.32549
+    blue: 0.0588235
+  - position: 208
+    red: 0.921569
+    green: 0.313725
+    blue: 0.054902
+  - position: 209
+    red: 0.917647
+    green: 0.305882
+    blue: 0.0509804
+  - position: 210
+    red: 0.909804
+    green: 0.294118
+    blue: 0.0470588
+  - position: 211
+    red: 0.905882
+    green: 0.286275
+    blue: 0.0470588
+  - position: 212
+    red: 0.898039
+    green: 0.278431
+    blue: 0.0431373
+  - position: 213
+    red: 0.894118
+    green: 0.270588
+    blue: 0.0392157
+  - position: 214
+    red: 0.886275
+    green: 0.262745
+    blue: 0.0392157
+  - position: 215
+    red: 0.882353
+    green: 0.254902
+    blue: 0.0352941
+  - position: 216
+    red: 0.87451
+    green: 0.247059
+    blue: 0.0313725
+  - position: 217
+    red: 0.866667
+    green: 0.239216
+    blue: 0.0313725
+  - position: 218
+    red: 0.862745
+    green: 0.231373
+    blue: 0.027451
+  - position: 219
+    red: 0.854902
+    green: 0.223529
+    blue: 0.027451
+  - position: 220
+    red: 0.847059
+    green: 0.215686
+    blue: 0.0235294
+  - position: 221
+    red: 0.839216
+    green: 0.207843
+    blue: 0.0235294
+  - position: 222
+    red: 0.831373
+    green: 0.2
+    blue: 0.0196078
+  - position: 223
+    red: 0.823529
+    green: 0.192157
+    blue: 0.0196078
+  - position: 224
+    red: 0.815686
+    green: 0.184314
+    blue: 0.0196078
+  - position: 225
+    red: 0.807843
+    green: 0.176471
+    blue: 0.0156863
+  - position: 226
+    red: 0.8
+    green: 0.168627
+    blue: 0.0156863
+  - position: 227
+    red: 0.792157
+    green: 0.164706
+    blue: 0.0156863
+  - position: 228
+    red: 0.784314
+    green: 0.156863
+    blue: 0.0117647
+  - position: 229
+    red: 0.772549
+    green: 0.14902
+    blue: 0.0117647
+  - position: 230
+    red: 0.764706
+    green: 0.145098
+    blue: 0.0117647
+  - position: 231
+    red: 0.756863
+    green: 0.137255
+    blue: 0.00784314
+  - position: 232
+    red: 0.745098
+    green: 0.129412
+    blue: 0.00784314
+  - position: 233
+    red: 0.737255
+    green: 0.12549
+    blue: 0.00784314
+  - position: 234
+    red: 0.72549
+    green: 0.117647
+    blue: 0.00784314
+  - position: 235
+    red: 0.717647
+    green: 0.113725
+    blue: 0.00784314
+  - position: 236
+    red: 0.705882
+    green: 0.105882
+    blue: 0.00392157
+  - position: 237
+    red: 0.698039
+    green: 0.101961
+    blue: 0.00392157
+  - position: 238
+    red: 0.686275
+    green: 0.0941176
+    blue: 0.00392157
+  - position: 239
+    red: 0.67451
+    green: 0.0901961
+    blue: 0.00392157
+  - position: 240
+    red: 0.662745
+    green: 0.0862745
+    blue: 0.00392157
+  - position: 241
+    red: 0.654902
+    green: 0.0784314
+    blue: 0.00392157
+  - position: 242
+    red: 0.643137
+    green: 0.0745098
+    blue: 0.00392157
+  - position: 243
+    red: 0.631373
+    green: 0.0705882
+    blue: 0.00392157
+  - position: 244
+    red: 0.619608
+    green: 0.0627451
+    blue: 0.00392157
+  - position: 245
+    red: 0.607843
+    green: 0.0588235
+    blue: 0.00392157
+  - position: 246
+    red: 0.596078
+    green: 0.054902
+    blue: 0.00392157
+  - position: 247
+    red: 0.584314
+    green: 0.0509804
+    blue: 0.00392157
+  - position: 248
+    red: 0.572549
+    green: 0.0431373
+    blue: 0.00392157
+  - position: 249
+    red: 0.556863
+    green: 0.0392157
+    blue: 0.00392157
+  - position: 250
+    red: 0.545098
+    green: 0.0352941
+    blue: 0.00784314
+  - position: 251
+    red: 0.533333
+    green: 0.0313725
+    blue: 0.00784314
+  - position: 252
+    red: 0.521569
+    green: 0.027451
+    blue: 0.00784314
+  - position: 253
+    red: 0.505882
+    green: 0.0235294
+    blue: 0.00784314
+  - position: 254
+    red: 0.494118
+    green: 0.0196078
+    blue: 0.00784314
+  - position: 255
+    red: 0.478431
+    green: 0.0156863
+    blue: 0.0117647
+- !palette
+  name: Plasma (Gqrx)
+  stops:
+  - position: 0
+    red: 0.0470588
+    green: 0.027451
+    blue: 0.52549
+  - position: 1
+    red: 0.0627451
+    green: 0.027451
+    blue: 0.529412
+  - position: 2
+    red: 0.0745098
+    green: 0.0235294
+    blue: 0.537255
+  - position: 3
+    red: 0.0823529
+    green: 0.0235294
+    blue: 0.541176
+  - position: 4
+    red: 0.0941176
+    green: 0.0235294
+    blue: 0.545098
+  - position: 5
+    red: 0.105882
+    green: 0.0235294
+    blue: 0.54902
+  - position: 6
+    red: 0.113725
+    green: 0.0235294
+    blue: 0.552941
+  - position: 7
+    red: 0.121569
+    green: 0.0196078
+    blue: 0.556863
+  - position: 8
+    red: 0.129412
+    green: 0.0196078
+    blue: 0.560784
+  - position: 9
+    red: 0.137255
+    green: 0.0196078
+    blue: 0.564706
+  - position: 10
+    red: 0.145098
+    green: 0.0196078
+    blue: 0.568627
+  - position: 11
+    red: 0.152941
+    green: 0.0196078
+    blue: 0.572549
+  - position: 12
+    red: 0.160784
+    green: 0.0196078
+    blue: 0.576471
+  - position: 13
+    red: 0.168627
+    green: 0.0196078
+    blue: 0.580392
+  - position: 14
+    red: 0.176471
+    green: 0.0156863
+    blue: 0.580392
+  - position: 15
+    red: 0.184314
+    green: 0.0156863
+    blue: 0.584314
+  - position: 16
+    red: 0.192157
+    green: 0.0156863
+    blue: 0.588235
+  - position: 17
+    red: 0.2
+    green: 0.0156863
+    blue: 0.592157
+  - position: 18
+    red: 0.203922
+    green: 0.0156863
+    blue: 0.596078
+  - position: 19
+    red: 0.211765
+    green: 0.0156863
+    blue: 0.596078
+  - position: 20
+    red: 0.219608
+    green: 0.0156863
+    blue: 0.6
+  - position: 21
+    red: 0.227451
+    green: 0.0156863
+    blue: 0.603922
+  - position: 22
+    red: 0.231373
+    green: 0.0117647
+    blue: 0.603922
+  - position: 23
+    red: 0.239216
+    green: 0.0117647
+    blue: 0.607843
+  - position: 24
+    red: 0.247059
+    green: 0.0117647
+    blue: 0.611765
+  - position: 25
+    red: 0.25098
+    green: 0.0117647
+    blue: 0.611765
+  - position: 26
+    red: 0.258824
+    green: 0.0117647
+    blue: 0.615686
+  - position: 27
+    red: 0.266667
+    green: 0.0117647
+    blue: 0.619608
+  - position: 28
+    red: 0.270588
+    green: 0.0117647
+    blue: 0.619608
+  - position: 29
+    red: 0.278431
+    green: 0.00784314
+    blue: 0.623529
+  - position: 30
+    red: 0.286275
+    green: 0.00784314
+    blue: 0.623529
+  - position: 31
+    red: 0.290196
+    green: 0.00784314
+    blue: 0.627451
+  - position: 32
+    red: 0.298039
+    green: 0.00784314
+    blue: 0.631373
+  - position: 33
+    red: 0.305882
+    green: 0.00784314
+    blue: 0.631373
+  - position: 34
+    red: 0.309804
+    green: 0.00784314
+    blue: 0.635294
+  - position: 35
+    red: 0.317647
+    green: 0.00392157
+    blue: 0.635294
+  - position: 36
+    red: 0.321569
+    green: 0.00392157
+    blue: 0.639216
+  - position: 37
+    red: 0.329412
+    green: 0.00392157
+    blue: 0.639216
+  - position: 38
+    red: 0.337255
+    green: 0.00392157
+    blue: 0.639216
+  - position: 39
+    red: 0.341176
+    green: 0.00392157
+    blue: 0.643137
+  - position: 40
+    red: 0.34902
+    green: 0.00392157
+    blue: 0.643137
+  - position: 41
+    red: 0.352941
+    green: 0
+    blue: 0.647059
+  - position: 42
+    red: 0.360784
+    green: 0
+    blue: 0.647059
+  - position: 43
+    red: 0.368627
+    green: 0
+    blue: 0.647059
+  - position: 44
+    red: 0.372549
+    green: 0
+    blue: 0.65098
+  - position: 45
+    red: 0.380392
+    green: 0
+    blue: 0.65098
+  - position: 46
+    red: 0.384314
+    green: 0
+    blue: 0.65098
+  - position: 47
+    red: 0.392157
+    green: 0
+    blue: 0.654902
+  - position: 48
+    red: 0.396078
+    green: 0
+    blue: 0.654902
+  - position: 49
+    red: 0.403922
+    green: 0
+    blue: 0.654902
+  - position: 50
+    red: 0.407843
+    green: 0
+    blue: 0.654902
+  - position: 51
+    red: 0.415686
+    green: 0
+    blue: 0.654902
+  - position: 52
+    red: 0.423529
+    green: 0
+    blue: 0.658824
+  - position: 53
+    red: 0.427451
+    green: 0
+    blue: 0.658824
+  - position: 54
+    red: 0.435294
+    green: 0
+    blue: 0.658824
+  - position: 55
+    red: 0.439216
+    green: 0
+    blue: 0.658824
+  - position: 56
+    red: 0.447059
+    green: 0
+    blue: 0.658824
+  - position: 57
+    red: 0.45098
+    green: 0
+    blue: 0.658824
+  - position: 58
+    red: 0.458824
+    green: 0
+    blue: 0.658824
+  - position: 59
+    red: 0.462745
+    green: 0.00392157
+    blue: 0.658824
+  - position: 60
+    red: 0.470588
+    green: 0.00392157
+    blue: 0.658824
+  - position: 61
+    red: 0.47451
+    green: 0.00392157
+    blue: 0.658824
+  - position: 62
+    red: 0.482353
+    green: 0.00784314
+    blue: 0.658824
+  - position: 63
+    red: 0.486275
+    green: 0.00784314
+    blue: 0.654902
+  - position: 64
+    red: 0.494118
+    green: 0.0117647
+    blue: 0.654902
+  - position: 65
+    red: 0.498039
+    green: 0.0117647
+    blue: 0.654902
+  - position: 66
+    red: 0.505882
+    green: 0.0156863
+    blue: 0.654902
+  - position: 67
+    red: 0.509804
+    green: 0.0156863
+    blue: 0.654902
+  - position: 68
+    red: 0.517647
+    green: 0.0196078
+    blue: 0.65098
+  - position: 69
+    red: 0.521569
+    green: 0.0235294
+    blue: 0.65098
+  - position: 70
+    red: 0.52549
+    green: 0.027451
+    blue: 0.65098
+  - position: 71
+    red: 0.533333
+    green: 0.027451
+    blue: 0.647059
+  - position: 72
+    red: 0.537255
+    green: 0.0313725
+    blue: 0.647059
+  - position: 73
+    red: 0.545098
+    green: 0.0352941
+    blue: 0.643137
+  - position: 74
+    red: 0.54902
+    green: 0.0392157
+    blue: 0.643137
+  - position: 75
+    red: 0.556863
+    green: 0.0470588
+    blue: 0.643137
+  - position: 76
+    red: 0.560784
+    green: 0.0509804
+    blue: 0.639216
+  - position: 77
+    red: 0.564706
+    green: 0.054902
+    blue: 0.639216
+  - position: 78
+    red: 0.572549
+    green: 0.0588235
+    blue: 0.635294
+  - position: 79
+    red: 0.576471
+    green: 0.0627451
+    blue: 0.631373
+  - position: 80
+    red: 0.584314
+    green: 0.0666667
+    blue: 0.631373
+  - position: 81
+    red: 0.588235
+    green: 0.0705882
+    blue: 0.627451
+  - position: 82
+    red: 0.592157
+    green: 0.0745098
+    blue: 0.627451
+  - position: 83
+    red: 0.6
+    green: 0.0784314
+    blue: 0.623529
+  - position: 84
+    red: 0.603922
+    green: 0.0823529
+    blue: 0.619608
+  - position: 85
+    red: 0.607843
+    green: 0.0901961
+    blue: 0.619608
+  - position: 86
+    red: 0.615686
+    green: 0.0941176
+    blue: 0.615686
+  - position: 87
+    red: 0.619608
+    green: 0.0980392
+    blue: 0.611765
+  - position: 88
+    red: 0.623529
+    green: 0.101961
+    blue: 0.607843
+  - position: 89
+    red: 0.627451
+    green: 0.105882
+    blue: 0.607843
+  - position: 90
+    red: 0.635294
+    green: 0.109804
+    blue: 0.603922
+  - position: 91
+    red: 0.639216
+    green: 0.113725
+    blue: 0.6
+  - position: 92
+    red: 0.643137
+    green: 0.117647
+    blue: 0.596078
+  - position: 93
+    red: 0.647059
+    green: 0.121569
+    blue: 0.592157
+  - position: 94
+    red: 0.654902
+    green: 0.129412
+    blue: 0.592157
+  - position: 95
+    red: 0.658824
+    green: 0.133333
+    blue: 0.588235
+  - position: 96
+    red: 0.662745
+    green: 0.137255
+    blue: 0.584314
+  - position: 97
+    red: 0.666667
+    green: 0.141176
+    blue: 0.580392
+  - position: 98
+    red: 0.67451
+    green: 0.145098
+    blue: 0.576471
+  - position: 99
+    red: 0.678431
+    green: 0.14902
+    blue: 0.572549
+  - position: 100
+    red: 0.682353
+    green: 0.152941
+    blue: 0.568627
+  - position: 101
+    red: 0.686275
+    green: 0.156863
+    blue: 0.564706
+  - position: 102
+    red: 0.690196
+    green: 0.164706
+    blue: 0.560784
+  - position: 103
+    red: 0.694118
+    green: 0.168627
+    blue: 0.560784
+  - position: 104
+    red: 0.698039
+    green: 0.172549
+    blue: 0.556863
+  - position: 105
+    red: 0.705882
+    green: 0.176471
+    blue: 0.552941
+  - position: 106
+    red: 0.709804
+    green: 0.180392
+    blue: 0.54902
+  - position: 107
+    red: 0.713725
+    green: 0.184314
+    blue: 0.545098
+  - position: 108
+    red: 0.717647
+    green: 0.188235
+    blue: 0.541176
+  - position: 109
+    red: 0.721569
+    green: 0.196078
+    blue: 0.537255
+  - position: 110
+    red: 0.72549
+    green: 0.2
+    blue: 0.533333
+  - position: 111
+    red: 0.729412
+    green: 0.203922
+    blue: 0.529412
+  - position: 112
+    red: 0.733333
+    green: 0.207843
+    blue: 0.52549
+  - position: 113
+    red: 0.737255
+    green: 0.211765
+    blue: 0.521569
+  - position: 114
+    red: 0.741176
+    green: 0.215686
+    blue: 0.517647
+  - position: 115
+    red: 0.745098
+    green: 0.219608
+    blue: 0.513725
+  - position: 116
+    red: 0.74902
+    green: 0.223529
+    blue: 0.509804
+  - position: 117
+    red: 0.752941
+    green: 0.231373
+    blue: 0.505882
+  - position: 118
+    red: 0.756863
+    green: 0.235294
+    blue: 0.501961
+  - position: 119
+    red: 0.760784
+    green: 0.239216
+    blue: 0.501961
+  - position: 120
+    red: 0.764706
+    green: 0.243137
+    blue: 0.498039
+  - position: 121
+    red: 0.768627
+    green: 0.247059
+    blue: 0.494118
+  - position: 122
+    red: 0.772549
+    green: 0.25098
+    blue: 0.490196
+  - position: 123
+    red: 0.776471
+    green: 0.254902
+    blue: 0.486275
+  - position: 124
+    red: 0.780392
+    green: 0.258824
+    blue: 0.482353
+  - position: 125
+    red: 0.784314
+    green: 0.266667
+    blue: 0.478431
+  - position: 126
+    red: 0.788235
+    green: 0.270588
+    blue: 0.47451
+  - position: 127
+    red: 0.792157
+    green: 0.27451
+    blue: 0.470588
+  - position: 128
+    red: 0.796078
+    green: 0.278431
+    blue: 0.466667
+  - position: 129
+    red: 0.8
+    green: 0.282353
+    blue: 0.462745
+  - position: 130
+    red: 0.803922
+    green: 0.286275
+    blue: 0.458824
+  - position: 131
+    red: 0.807843
+    green: 0.290196
+    blue: 0.458824
+  - position: 132
+    red: 0.811765
+    green: 0.294118
+    blue: 0.454902
+  - position: 133
+    red: 0.815686
+    green: 0.301961
+    blue: 0.45098
+  - position: 134
+    red: 0.819608
+    green: 0.305882
+    blue: 0.447059
+  - position: 135
+    red: 0.819608
+    green: 0.309804
+    blue: 0.443137
+  - position: 136
+    red: 0.823529
+    green: 0.313725
+    blue: 0.439216
+  - position: 137
+    red: 0.827451
+    green: 0.317647
+    blue: 0.435294
+  - position: 138
+    red: 0.831373
+    green: 0.321569
+    blue: 0.431373
+  - position: 139
+    red: 0.835294
+    green: 0.32549
+    blue: 0.427451
+  - position: 140
+    red: 0.839216
+    green: 0.333333
+    blue: 0.427451
+  - position: 141
+    red: 0.843137
+    green: 0.337255
+    blue: 0.423529
+  - position: 142
+    red: 0.843137
+    green: 0.341176
+    blue: 0.419608
+  - position: 143
+    red: 0.847059
+    green: 0.345098
+    blue: 0.415686
+  - position: 144
+    red: 0.85098
+    green: 0.34902
+    blue: 0.411765
+  - position: 145
+    red: 0.854902
+    green: 0.352941
+    blue: 0.407843
+  - position: 146
+    red: 0.858824
+    green: 0.356863
+    blue: 0.403922
+  - position: 147
+    red: 0.862745
+    green: 0.364706
+    blue: 0.4
+  - position: 148
+    red: 0.862745
+    green: 0.368627
+    blue: 0.4
+  - position: 149
+    red: 0.866667
+    green: 0.372549
+    blue: 0.396078
+  - position: 150
+    red: 0.870588
+    green: 0.376471
+    blue: 0.392157
+  - position: 151
+    red: 0.87451
+    green: 0.380392
+    blue: 0.388235
+  - position: 152
+    red: 0.87451
+    green: 0.384314
+    blue: 0.384314
+  - position: 153
+    red: 0.878431
+    green: 0.392157
+    blue: 0.380392
+  - position: 154
+    red: 0.882353
+    green: 0.396078
+    blue: 0.376471
+  - position: 155
+    red: 0.886275
+    green: 0.4
+    blue: 0.376471
+  - position: 156
+    red: 0.890196
+    green: 0.403922
+    blue: 0.372549
+  - position: 157
+    red: 0.890196
+    green: 0.407843
+    blue: 0.368627
+  - position: 158
+    red: 0.894118
+    green: 0.415686
+    blue: 0.364706
+  - position: 159
+    red: 0.898039
+    green: 0.419608
+    blue: 0.360784
+  - position: 160
+    red: 0.898039
+    green: 0.423529
+    blue: 0.356863
+  - position: 161
+    red: 0.901961
+    green: 0.427451
+    blue: 0.352941
+  - position: 162
+    red: 0.905882
+    green: 0.431373
+    blue: 0.352941
+  - position: 163
+    red: 0.909804
+    green: 0.439216
+    blue: 0.34902
+  - position: 164
+    red: 0.909804
+    green: 0.443137
+    blue: 0.345098
+  - position: 165
+    red: 0.913725
+    green: 0.447059
+    blue: 0.341176
+  - position: 166
+    red: 0.917647
+    green: 0.45098
+    blue: 0.337255
+  - position: 167
+    red: 0.917647
+    green: 0.454902
+    blue: 0.333333
+  - position: 168
+    red: 0.921569
+    green: 0.462745
+    blue: 0.329412
+  - position: 169
+    red: 0.92549
+    green: 0.466667
+    blue: 0.329412
+  - position: 170
+    red: 0.92549
+    green: 0.470588
+    blue: 0.32549
+  - position: 171
+    red: 0.929412
+    green: 0.47451
+    blue: 0.321569
+  - position: 172
+    red: 0.929412
+    green: 0.482353
+    blue: 0.317647
+  - position: 173
+    red: 0.933333
+    green: 0.486275
+    blue: 0.313725
+  - position: 174
+    red: 0.937255
+    green: 0.490196
+    blue: 0.309804
+  - position: 175
+    red: 0.937255
+    green: 0.494118
+    blue: 0.305882
+  - position: 176
+    red: 0.941176
+    green: 0.501961
+    blue: 0.301961
+  - position: 177
+    red: 0.941176
+    green: 0.505882
+    blue: 0.301961
+  - position: 178
+    red: 0.945098
+    green: 0.509804
+    blue: 0.298039
+  - position: 179
+    red: 0.94902
+    green: 0.517647
+    blue: 0.294118
+  - position: 180
+    red: 0.94902
+    green: 0.521569
+    blue: 0.290196
+  - position: 181
+    red: 0.952941
+    green: 0.52549
+    blue: 0.286275
+  - position: 182
+    red: 0.952941
+    green: 0.529412
+    blue: 0.282353
+  - position: 183
+    red: 0.956863
+    green: 0.537255
+    blue: 0.278431
+  - position: 184
+    red: 0.956863
+    green: 0.541176
+    blue: 0.278431
+  - position: 185
+    red: 0.960784
+    green: 0.545098
+    blue: 0.27451
+  - position: 186
+    red: 0.960784
+    green: 0.552941
+    blue: 0.270588
+  - position: 187
+    red: 0.964706
+    green: 0.556863
+    blue: 0.266667
+  - position: 188
+    red: 0.964706
+    green: 0.560784
+    blue: 0.262745
+  - position: 189
+    red: 0.964706
+    green: 0.568627
+    blue: 0.258824
+  - position: 190
+    red: 0.968627
+    green: 0.572549
+    blue: 0.254902
+  - position: 191
+    red: 0.968627
+    green: 0.576471
+    blue: 0.254902
+  - position: 192
+    red: 0.972549
+    green: 0.584314
+    blue: 0.25098
+  - position: 193
+    red: 0.972549
+    green: 0.588235
+    blue: 0.247059
+  - position: 194
+    red: 0.972549
+    green: 0.596078
+    blue: 0.243137
+  - position: 195
+    red: 0.976471
+    green: 0.6
+    blue: 0.239216
+  - position: 196
+    red: 0.976471
+    green: 0.603922
+    blue: 0.235294
+  - position: 197
+    red: 0.980392
+    green: 0.611765
+    blue: 0.231373
+  - position: 198
+    red: 0.980392
+    green: 0.615686
+    blue: 0.227451
+  - position: 199
+    red: 0.980392
+    green: 0.623529
+    blue: 0.227451
+  - position: 200
+    red: 0.980392
+    green: 0.627451
+    blue: 0.223529
+  - position: 201
+    red: 0.984314
+    green: 0.635294
+    blue: 0.219608
+  - position: 202
+    red: 0.984314
+    green: 0.639216
+    blue: 0.215686
+  - position: 203
+    red: 0.984314
+    green: 0.643137
+    blue: 0.211765
+  - position: 204
+    red: 0.988235
+    green: 0.65098
+    blue: 0.207843
+  - position: 205
+    red: 0.988235
+    green: 0.654902
+    blue: 0.207843
+  - position: 206
+    red: 0.988235
+    green: 0.662745
+    blue: 0.203922
+  - position: 207
+    red: 0.988235
+    green: 0.666667
+    blue: 0.2
+  - position: 208
+    red: 0.988235
+    green: 0.67451
+    blue: 0.196078
+  - position: 209
+    red: 0.988235
+    green: 0.678431
+    blue: 0.192157
+  - position: 210
+    red: 0.992157
+    green: 0.686275
+    blue: 0.192157
+  - position: 211
+    red: 0.992157
+    green: 0.690196
+    blue: 0.188235
+  - position: 212
+    red: 0.992157
+    green: 0.698039
+    blue: 0.184314
+  - position: 213
+    red: 0.992157
+    green: 0.701961
+    blue: 0.180392
+  - position: 214
+    red: 0.992157
+    green: 0.709804
+    blue: 0.176471
+  - position: 215
+    red: 0.992157
+    green: 0.713725
+    blue: 0.176471
+  - position: 216
+    red: 0.992157
+    green: 0.721569
+    blue: 0.172549
+  - position: 217
+    red: 0.992157
+    green: 0.72549
+    blue: 0.168627
+  - position: 218
+    red: 0.992157
+    green: 0.733333
+    blue: 0.168627
+  - position: 219
+    red: 0.992157
+    green: 0.737255
+    blue: 0.164706
+  - position: 220
+    red: 0.992157
+    green: 0.745098
+    blue: 0.160784
+  - position: 221
+    red: 0.992157
+    green: 0.752941
+    blue: 0.160784
+  - position: 222
+    red: 0.992157
+    green: 0.756863
+    blue: 0.156863
+  - position: 223
+    red: 0.992157
+    green: 0.764706
+    blue: 0.156863
+  - position: 224
+    red: 0.992157
+    green: 0.768627
+    blue: 0.152941
+  - position: 225
+    red: 0.992157
+    green: 0.776471
+    blue: 0.14902
+  - position: 226
+    red: 0.988235
+    green: 0.780392
+    blue: 0.14902
+  - position: 227
+    red: 0.988235
+    green: 0.788235
+    blue: 0.14902
+  - position: 228
+    red: 0.988235
+    green: 0.796078
+    blue: 0.145098
+  - position: 229
+    red: 0.988235
+    green: 0.8
+    blue: 0.145098
+  - position: 230
+    red: 0.988235
+    green: 0.807843
+    blue: 0.145098
+  - position: 231
+    red: 0.984314
+    green: 0.815686
+    blue: 0.141176
+  - position: 232
+    red: 0.984314
+    green: 0.819608
+    blue: 0.141176
+  - position: 233
+    red: 0.984314
+    green: 0.827451
+    blue: 0.141176
+  - position: 234
+    red: 0.980392
+    green: 0.835294
+    blue: 0.141176
+  - position: 235
+    red: 0.980392
+    green: 0.839216
+    blue: 0.141176
+  - position: 236
+    red: 0.980392
+    green: 0.847059
+    blue: 0.141176
+  - position: 237
+    red: 0.976471
+    green: 0.85098
+    blue: 0.141176
+  - position: 238
+    red: 0.976471
+    green: 0.858824
+    blue: 0.141176
+  - position: 239
+    red: 0.972549
+    green: 0.866667
+    blue: 0.141176
+  - position: 240
+    red: 0.972549
+    green: 0.87451
+    blue: 0.141176
+  - position: 241
+    red: 0.968627
+    green: 0.878431
+    blue: 0.141176
+  - position: 242
+    red: 0.968627
+    green: 0.886275
+    blue: 0.145098
+  - position: 243
+    red: 0.964706
+    green: 0.894118
+    blue: 0.145098
+  - position: 244
+    red: 0.964706
+    green: 0.898039
+    blue: 0.145098
+  - position: 245
+    red: 0.960784
+    green: 0.905882
+    blue: 0.14902
+  - position: 246
+    red: 0.960784
+    green: 0.913725
+    blue: 0.14902
+  - position: 247
+    red: 0.956863
+    green: 0.917647
+    blue: 0.14902
+  - position: 248
+    red: 0.952941
+    green: 0.92549
+    blue: 0.14902
+  - position: 249
+    red: 0.952941
+    green: 0.933333
+    blue: 0.14902
+  - position: 250
+    red: 0.94902
+    green: 0.941176
+    blue: 0.14902
+  - position: 251
+    red: 0.94902
+    green: 0.945098
+    blue: 0.14902
+  - position: 252
+    red: 0.945098
+    green: 0.952941
+    blue: 0.14902
+  - position: 253
+    red: 0.941176
+    green: 0.960784
+    blue: 0.145098
+  - position: 254
+    red: 0.941176
+    green: 0.964706
+    blue: 0.137255
+  - position: 255
+    red: 0.937255
+    green: 0.972549
+    blue: 0.129412
+- !palette
+  name: Cool (Feely)
+  stops:
+  - position: 0
+    red: 0.431373
+    green: 0.25098
+    blue: 0.666667
+  - position: 28
+    red: 0.380392
+    green: 0.329412
+    blue: 0.784314
+  - position: 56
+    red: 0.298039
+    green: 0.431373
+    blue: 0.858824
+  - position: 85
+    red: 0.211765
+    green: 0.54902
+    blue: 0.882353
+  - position: 113
+    red: 0.141176
+    green: 0.666667
+    blue: 0.847059
+  - position: 141
+    red: 0.101961
+    green: 0.780392
+    blue: 0.760784
+  - position: 170
+    red: 0.113725
+    green: 0.870588
+    blue: 0.639216
+  - position: 198
+    red: 0.188235
+    green: 0.933333
+    blue: 0.513725
+  - position: 226
+    red: 0.321569
+    green: 0.964706
+    blue: 0.403922
+  - position: 255
+    red: 0.494118
+    green: 0.964706
+    blue: 0.345098
+- !palette
+  name: Viridis (Feely)
+  stops:
+  - position: 0
+    red: 0.266667
+    green: 0.00392157
+    blue: 0.329412
+  - position: 28
+    red: 0.282353
+    green: 0.141176
+    blue: 0.458824
+  - position: 56
+    red: 0.254902
+    green: 0.266667
+    blue: 0.529412
+  - position: 85
+    red: 0.207843
+    green: 0.372549
+    blue: 0.552941
+  - position: 113
+    red: 0.164706
+    green: 0.470588
+    blue: 0.556863
+  - position: 141
+    red: 0.129412
+    green: 0.564706
+    blue: 0.552941
+  - position: 170
+    red: 0.133333
+    green: 0.658824
+    blue: 0.517647
+  - position: 198
+    red: 0.258824
+    green: 0.745098
+    blue: 0.443137
+  - position: 226
+    red: 0.478431
+    green: 0.819608
+    blue: 0.317647
+  - position: 255
+    red: 0.741176
+    green: 0.87451
+    blue: 0.14902
+- !palette
+  name: Inferno (Feely)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0.0156863
+  - position: 28
+    red: 0.0862745
+    green: 0.0431373
+    blue: 0.223529
+  - position: 56
+    red: 0.258824
+    green: 0.0392157
+    blue: 0.407843
+  - position: 85
+    red: 0.415686
+    green: 0.0901961
+    blue: 0.431373
+  - position: 113
+    red: 0.576471
+    green: 0.14902
+    blue: 0.403922
+  - position: 141
+    red: 0.729412
+    green: 0.211765
+    blue: 0.333333
+  - position: 170
+    red: 0.866667
+    green: 0.317647
+    blue: 0.227451
+  - position: 198
+    red: 0.952941
+    green: 0.462745
+    blue: 0.105882
+  - position: 226
+    red: 0.988235
+    green: 0.647059
+    blue: 0.0392157
+  - position: 255
+    red: 0.964706
+    green: 0.843137
+    blue: 0.27451
+- !palette
+  name: Magma (Feely)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0.0156863
+  - position: 28
+    red: 0.0784314
+    green: 0.054902
+    blue: 0.211765
+  - position: 56
+    red: 0.231373
+    green: 0.0588235
+    blue: 0.439216
+  - position: 85
+    red: 0.392157
+    green: 0.101961
+    blue: 0.501961
+  - position: 113
+    red: 0.54902
+    green: 0.160784
+    blue: 0.505882
+  - position: 141
+    red: 0.709804
+    green: 0.211765
+    blue: 0.478431
+  - position: 170
+    red: 0.870588
+    green: 0.286275
+    blue: 0.407843
+  - position: 198
+    red: 0.964706
+    green: 0.431373
+    blue: 0.360784
+  - position: 226
+    red: 0.996078
+    green: 0.623529
+    blue: 0.427451
+  - position: 255
+    red: 0.996078
+    green: 0.811765
+    blue: 0.572549
+- !palette
+  name: Warm (Feely)
+  stops:
+  - position: 0
+    red: 0.431373
+    green: 0.25098
+    blue: 0.666667
+  - position: 28
+    red: 0.588235
+    green: 0.239216
+    blue: 0.701961
+  - position: 56
+    red: 0.74902
+    green: 0.235294
+    blue: 0.686275
+  - position: 85
+    red: 0.890196
+    green: 0.254902
+    blue: 0.619608
+  - position: 113
+    red: 0.996078
+    green: 0.294118
+    blue: 0.513725
+  - position: 141
+    red: 1
+    green: 0.368627
+    blue: 0.392157
+  - position: 170
+    red: 1
+    green: 0.466667
+    blue: 0.278431
+  - position: 198
+    red: 0.984314
+    green: 0.588235
+    blue: 0.2
+  - position: 226
+    red: 0.886275
+    green: 0.717647
+    blue: 0.184314
+  - position: 255
+    red: 0.780392
+    green: 0.839216
+    blue: 0.235294
+- !palette
+  name: Spectral (Feely)
+  stops:
+  - position: 0
+    red: 0.619608
+    green: 0.00392157
+    blue: 0.258824
+  - position: 28
+    red: 0.819608
+    green: 0.231373
+    blue: 0.294118
+  - position: 56
+    red: 0.941176
+    green: 0.439216
+    blue: 0.290196
+  - position: 85
+    red: 0.988235
+    green: 0.670588
+    blue: 0.388235
+  - position: 113
+    red: 0.996078
+    green: 0.862745
+    blue: 0.54902
+  - position: 141
+    red: 0.984314
+    green: 0.972549
+    blue: 0.690196
+  - position: 170
+    red: 0.878431
+    green: 0.952941
+    blue: 0.631373
+  - position: 198
+    red: 0.666667
+    green: 0.866667
+    blue: 0.635294
+  - position: 226
+    red: 0.411765
+    green: 0.741176
+    blue: 0.662745
+  - position: 255
+    red: 0.258824
+    green: 0.533333
+    blue: 0.709804
+- !palette
+  name: Rainbow (Feely)
+  stops:
+  - position: 0
+    red: 0.431373
+    green: 0.25098
+    blue: 0.666667
+  - position: 28
+    red: 0.745098
+    green: 0.235294
+    blue: 0.686275
+  - position: 56
+    red: 0.996078
+    green: 0.294118
+    blue: 0.513725
+  - position: 85
+    red: 1
+    green: 0.466667
+    blue: 0.278431
+  - position: 113
+    red: 0.890196
+    green: 0.713725
+    blue: 0.184314
+  - position: 141
+    red: 0.690196
+    green: 0.937255
+    blue: 0.352941
+  - position: 170
+    red: 0.32549
+    green: 0.964706
+    blue: 0.4
+  - position: 198
+    red: 0.117647
+    green: 0.87451
+    blue: 0.635294
+  - position: 226
+    red: 0.137255
+    green: 0.67451
+    blue: 0.847059
+  - position: 255
+    red: 0.298039
+    green: 0.435294
+    blue: 0.862745
+- !palette
+  name: Cubehelix (Feely)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 28
+    red: 0.101961
+    green: 0.0823529
+    blue: 0.188235
+  - position: 56
+    red: 0.0862745
+    green: 0.239216
+    blue: 0.305882
+  - position: 85
+    red: 0.121569
+    green: 0.4
+    blue: 0.258824
+  - position: 113
+    red: 0.32549
+    green: 0.47451
+    blue: 0.184314
+  - position: 141
+    red: 0.627451
+    green: 0.47451
+    blue: 0.286275
+  - position: 170
+    red: 0.815686
+    green: 0.494118
+    blue: 0.576471
+  - position: 198
+    red: 0.815686
+    green: 0.611765
+    blue: 0.85098
+  - position: 226
+    red: 0.756863
+    green: 0.792157
+    blue: 0.952941
+  - position: 255
+    red: 0.823529
+    green: 0.933333
+    blue: 0.937255
+- !palette
+  name: RdYlGn (Feely)
+  stops:
+  - position: 0
+    red: 0.647059
+    green: 0
+    blue: 0.14902
+  - position: 28
+    red: 0.827451
+    green: 0.196078
+    blue: 0.168627
+  - position: 56
+    red: 0.945098
+    green: 0.427451
+    blue: 0.262745
+  - position: 85
+    red: 0.988235
+    green: 0.670588
+    blue: 0.388235
+  - position: 113
+    red: 0.996078
+    green: 0.862745
+    blue: 0.54902
+  - position: 141
+    red: 0.976471
+    green: 0.968627
+    blue: 0.682353
+  - position: 170
+    red: 0.843137
+    green: 0.933333
+    blue: 0.556863
+  - position: 198
+    red: 0.643137
+    green: 0.847059
+    blue: 0.435294
+  - position: 226
+    red: 0.392157
+    green: 0.737255
+    blue: 0.380392
+  - position: 255
+    red: 0.137255
+    green: 0.588235
+    blue: 0.309804
+- !palette
+  name: RdYlBu (Feely)
+  stops:
+  - position: 0
+    red: 0.647059
+    green: 0
+    blue: 0.14902
+  - position: 28
+    red: 0.827451
+    green: 0.196078
+    blue: 0.168627
+  - position: 56
+    red: 0.945098
+    green: 0.427451
+    blue: 0.262745
+  - position: 85
+    red: 0.988235
+    green: 0.670588
+    blue: 0.392157
+  - position: 113
+    red: 0.996078
+    green: 0.862745
+    blue: 0.564706
+  - position: 141
+    red: 0.980392
+    green: 0.972549
+    blue: 0.752941
+  - position: 170
+    red: 0.862745
+    green: 0.945098
+    blue: 0.92549
+  - position: 198
+    red: 0.670588
+    green: 0.839216
+    blue: 0.909804
+  - position: 226
+    red: 0.462745
+    green: 0.670588
+    blue: 0.815686
+  - position: 255
+    red: 0.290196
+    green: 0.454902
+    blue: 0.705882
+- !palette
+  name: PuBuGn (Feely)
+  stops:
+  - position: 0
+    red: 1
+    green: 0.968627
+    blue: 0.984314
+  - position: 28
+    red: 0.937255
+    green: 0.905882
+    blue: 0.94902
+  - position: 56
+    red: 0.858824
+    green: 0.847059
+    blue: 0.917647
+  - position: 85
+    red: 0.74902
+    green: 0.788235
+    blue: 0.886275
+  - position: 113
+    red: 0.596078
+    green: 0.72549
+    blue: 0.85098
+  - position: 141
+    red: 0.415686
+    green: 0.658824
+    blue: 0.811765
+  - position: 170
+    red: 0.25098
+    green: 0.588235
+    blue: 0.752941
+  - position: 198
+    red: 0.0980392
+    green: 0.529412
+    blue: 0.627451
+  - position: 226
+    red: 0.0156863
+    green: 0.470588
+    blue: 0.466667
+  - position: 255
+    red: 0.00392157
+    green: 0.388235
+    blue: 0.32549
+- !palette
+  name: YlGnBu (Feely)
+  stops:
+  - position: 0
+    red: 1
+    green: 1
+    blue: 0.85098
+  - position: 28
+    red: 0.937255
+    green: 0.976471
+    blue: 0.741176
+  - position: 56
+    red: 0.835294
+    green: 0.937255
+    blue: 0.701961
+  - position: 85
+    red: 0.662745
+    green: 0.866667
+    blue: 0.717647
+  - position: 113
+    red: 0.454902
+    green: 0.788235
+    blue: 0.741176
+  - position: 141
+    red: 0.27451
+    green: 0.705882
+    blue: 0.760784
+  - position: 170
+    red: 0.156863
+    green: 0.592157
+    blue: 0.74902
+  - position: 198
+    red: 0.12549
+    green: 0.45098
+    blue: 0.698039
+  - position: 226
+    red: 0.137255
+    green: 0.305882
+    blue: 0.627451
+  - position: 255
+    red: 0.113725
+    green: 0.192157
+    blue: 0.521569
+- !palette
+  name: GnBu (Feely)
+  stops:
+  - position: 0
+    red: 0.968627
+    green: 0.988235
+    blue: 0.941176
+  - position: 28
+    red: 0.898039
+    green: 0.960784
+    blue: 0.87451
+  - position: 56
+    red: 0.831373
+    green: 0.933333
+    blue: 0.807843
+  - position: 85
+    red: 0.741176
+    green: 0.898039
+    blue: 0.74902
+  - position: 113
+    red: 0.623529
+    green: 0.85098
+    blue: 0.733333
+  - position: 141
+    red: 0.482353
+    green: 0.796078
+    blue: 0.768627
+  - position: 170
+    red: 0.345098
+    green: 0.717647
+    blue: 0.803922
+  - position: 198
+    red: 0.223529
+    green: 0.611765
+    blue: 0.776471
+  - position: 226
+    red: 0.117647
+    green: 0.494118
+    blue: 0.717647
+  - position: 255
+    red: 0.0431373
+    green: 0.376471
+    blue: 0.631373
+- !palette
+  name: YlOrRd (Feely)
+  stops:
+  - position: 0
+    red: 1
+    green: 1
+    blue: 0.8
+  - position: 28
+    red: 1
+    green: 0.945098
+    blue: 0.662745
+  - position: 56
+    red: 0.996078
+    green: 0.878431
+    blue: 0.529412
+  - position: 85
+    red: 0.996078
+    green: 0.788235
+    blue: 0.4
+  - position: 113
+    red: 0.996078
+    green: 0.670588
+    blue: 0.294118
+  - position: 141
+    red: 0.992157
+    green: 0.537255
+    blue: 0.235294
+  - position: 170
+    red: 0.980392
+    green: 0.360784
+    blue: 0.180392
+  - position: 198
+    red: 0.92549
+    green: 0.188235
+    blue: 0.137255
+  - position: 226
+    red: 0.827451
+    green: 0.0666667
+    blue: 0.129412
+  - position: 255
+    red: 0.686275
+    green: 0.00784314
+    blue: 0.145098
+- !palette
+  name: YlOrBr (Feely)
+  stops:
+  - position: 0
+    red: 1
+    green: 1
+    blue: 0.898039
+  - position: 28
+    red: 1
+    green: 0.972549
+    blue: 0.768627
+  - position: 56
+    red: 0.996078
+    green: 0.921569
+    blue: 0.635294
+  - position: 85
+    red: 0.996078
+    green: 0.839216
+    blue: 0.462745
+  - position: 113
+    red: 0.996078
+    green: 0.733333
+    blue: 0.290196
+  - position: 141
+    red: 0.984314
+    green: 0.603922
+    blue: 0.172549
+  - position: 170
+    red: 0.933333
+    green: 0.47451
+    blue: 0.0980392
+  - position: 198
+    red: 0.847059
+    green: 0.356863
+    blue: 0.0392157
+  - position: 226
+    red: 0.717647
+    green: 0.262745
+    blue: 0.0156863
+  - position: 255
+    red: 0.560784
+    green: 0.196078
+    blue: 0.0156863
+- !palette
+  name: RdBu (Feely)
+  stops:
+  - position: 0
+    red: 0.403922
+    green: 0
+    blue: 0.121569
+  - position: 28
+    red: 0.670588
+    green: 0.12549
+    blue: 0.180392
+  - position: 56
+    red: 0.835294
+    green: 0.372549
+    blue: 0.313725
+  - position: 85
+    red: 0.941176
+    green: 0.635294
+    blue: 0.521569
+  - position: 113
+    red: 0.980392
+    green: 0.839216
+    blue: 0.764706
+  - position: 141
+    red: 0.94902
+    green: 0.937255
+    blue: 0.933333
+  - position: 170
+    red: 0.803922
+    green: 0.890196
+    blue: 0.933333
+  - position: 198
+    red: 0.564706
+    green: 0.760784
+    blue: 0.866667
+  - position: 226
+    red: 0.294118
+    green: 0.580392
+    blue: 0.768627
+  - position: 255
+    red: 0.133333
+    green: 0.396078
+    blue: 0.639216
+- !palette
+  name: BuGn (Feely)
+  stops:
+  - position: 0
+    red: 0.968627
+    green: 0.988235
+    blue: 0.992157
+  - position: 28
+    red: 0.909804
+    green: 0.964706
+    blue: 0.976471
+  - position: 56
+    red: 0.835294
+    green: 0.937255
+    blue: 0.929412
+  - position: 85
+    red: 0.717647
+    green: 0.894118
+    blue: 0.854902
+  - position: 113
+    red: 0.560784
+    green: 0.831373
+    blue: 0.756863
+  - position: 141
+    red: 0.411765
+    green: 0.760784
+    blue: 0.639216
+  - position: 170
+    red: 0.286275
+    green: 0.694118
+    blue: 0.498039
+  - position: 198
+    red: 0.184314
+    green: 0.6
+    blue: 0.352941
+  - position: 226
+    red: 0.0823529
+    green: 0.498039
+    blue: 0.235294
+  - position: 255
+    red: 0.0117647
+    green: 0.392157
+    blue: 0.160784
+- !palette
+  name: BuPu (Feely)
+  stops:
+  - position: 0
+    red: 0.968627
+    green: 0.988235
+    blue: 0.992157
+  - position: 28
+    red: 0.894118
+    green: 0.937255
+    blue: 0.960784
+  - position: 56
+    red: 0.8
+    green: 0.866667
+    blue: 0.92549
+  - position: 85
+    red: 0.698039
+    green: 0.792157
+    blue: 0.882353
+  - position: 113
+    red: 0.611765
+    green: 0.701961
+    blue: 0.835294
+  - position: 141
+    red: 0.560784
+    green: 0.584314
+    blue: 0.776471
+  - position: 170
+    red: 0.54902
+    green: 0.454902
+    blue: 0.709804
+  - position: 198
+    red: 0.537255
+    green: 0.321569
+    blue: 0.647059
+  - position: 226
+    red: 0.521569
+    green: 0.176471
+    blue: 0.560784
+  - position: 255
+    red: 0.45098
+    green: 0.0588235
+    blue: 0.443137
+- !palette
+  name: PuBu (Feely)
+  stops:
+  - position: 0
+    red: 1
+    green: 0.968627
+    blue: 0.984314
+  - position: 28
+    red: 0.937255
+    green: 0.917647
+    blue: 0.956863
+  - position: 56
+    red: 0.858824
+    green: 0.854902
+    blue: 0.921569
+  - position: 85
+    red: 0.74902
+    green: 0.788235
+    blue: 0.886275
+  - position: 113
+    red: 0.611765
+    green: 0.72549
+    blue: 0.85098
+  - position: 141
+    red: 0.447059
+    green: 0.658824
+    blue: 0.811765
+  - position: 170
+    red: 0.266667
+    green: 0.580392
+    blue: 0.764706
+  - position: 198
+    red: 0.105882
+    green: 0.490196
+    blue: 0.713725
+  - position: 226
+    red: 0.0235294
+    green: 0.407843
+    blue: 0.631373
+  - position: 255
+    red: 0.0156863
+    green: 0.321569
+    blue: 0.505882
+- !palette
+  name: RdPu (Feely)
+  stops:
+  - position: 0
+    red: 1
+    green: 0.968627
+    blue: 0.952941
+  - position: 28
+    red: 0.992157
+    green: 0.894118
+    blue: 0.882353
+  - position: 56
+    red: 0.988235
+    green: 0.811765
+    blue: 0.8
+  - position: 85
+    red: 0.984314
+    green: 0.709804
+    blue: 0.737255
+  - position: 113
+    red: 0.976471
+    green: 0.576471
+    blue: 0.690196
+  - position: 141
+    red: 0.952941
+    green: 0.411765
+    blue: 0.639216
+  - position: 170
+    red: 0.878431
+    green: 0.247059
+    blue: 0.596078
+  - position: 198
+    red: 0.756863
+    green: 0.0941176
+    blue: 0.537255
+  - position: 226
+    red: 0.6
+    green: 0.0117647
+    blue: 0.486275
+  - position: 255
+    red: 0.443137
+    green: 0.00392157
+    blue: 0.454902
+- !palette
+  name: PuRd (Feely)
+  stops:
+  - position: 0
+    red: 0.968627
+    green: 0.956863
+    blue: 0.976471
+  - position: 28
+    red: 0.917647
+    green: 0.890196
+    blue: 0.941176
+  - position: 56
+    red: 0.862745
+    green: 0.788235
+    blue: 0.886275
+  - position: 85
+    red: 0.815686
+    green: 0.666667
+    blue: 0.823529
+  - position: 113
+    red: 0.815686
+    green: 0.541176
+    blue: 0.760784
+  - position: 141
+    red: 0.866667
+    green: 0.388235
+    blue: 0.682353
+  - position: 170
+    red: 0.890196
+    green: 0.219608
+    blue: 0.564706
+  - position: 198
+    red: 0.843137
+    green: 0.109804
+    blue: 0.423529
+  - position: 226
+    red: 0.721569
+    green: 0.0431373
+    blue: 0.313725
+  - position: 255
+    red: 0.560784
+    green: 0.00784314
+    blue: 0.227451
+- !palette
+  name: YlGn (Feely)
+  stops:
+  - position: 0
+    red: 1
+    green: 1
+    blue: 0.898039
+  - position: 28
+    red: 0.968627
+    green: 0.988235
+    blue: 0.768627
+  - position: 56
+    red: 0.894118
+    green: 0.956863
+    blue: 0.67451
+  - position: 85
+    red: 0.780392
+    green: 0.909804
+    blue: 0.607843
+  - position: 113
+    red: 0.635294
+    green: 0.847059
+    blue: 0.541176
+  - position: 141
+    red: 0.470588
+    green: 0.772549
+    blue: 0.470588
+  - position: 170
+    red: 0.305882
+    green: 0.686275
+    blue: 0.388235
+  - position: 198
+    red: 0.184314
+    green: 0.580392
+    blue: 0.305882
+  - position: 226
+    red: 0.0823529
+    green: 0.47451
+    blue: 0.247059
+  - position: 255
+    red: 0.0117647
+    green: 0.376471
+    blue: 0.203922
+- !palette
+  name: OrRd (Feely)
+  stops:
+  - position: 0
+    red: 1
+    green: 0.968627
+    blue: 0.92549
+  - position: 28
+    red: 0.996078
+    green: 0.921569
+    blue: 0.811765
+  - position: 56
+    red: 0.992157
+    green: 0.862745
+    blue: 0.686275
+  - position: 85
+    red: 0.992157
+    green: 0.792157
+    blue: 0.580392
+  - position: 113
+    red: 0.992157
+    green: 0.690196
+    blue: 0.478431
+  - position: 141
+    red: 0.980392
+    green: 0.556863
+    blue: 0.364706
+  - position: 170
+    red: 0.945098
+    green: 0.423529
+    blue: 0.286275
+  - position: 198
+    red: 0.878431
+    green: 0.27451
+    blue: 0.188235
+  - position: 226
+    red: 0.784314
+    green: 0.117647
+    blue: 0.0745098
+  - position: 255
+    red: 0.654902
+    green: 0.0156863
+    blue: 0.0117647
+- !palette
+  name: PiYg (Feely)
+  stops:
+  - position: 0
+    red: 0.556863
+    green: 0.00392157
+    blue: 0.321569
+  - position: 28
+    red: 0.752941
+    green: 0.14902
+    blue: 0.494118
+  - position: 56
+    red: 0.866667
+    green: 0.447059
+    blue: 0.678431
+  - position: 85
+    red: 0.941176
+    green: 0.698039
+    blue: 0.839216
+  - position: 113
+    red: 0.980392
+    green: 0.866667
+    blue: 0.929412
+  - position: 141
+    red: 0.960784
+    green: 0.952941
+    blue: 0.937255
+  - position: 170
+    red: 0.882353
+    green: 0.94902
+    blue: 0.792157
+  - position: 198
+    red: 0.717647
+    green: 0.870588
+    blue: 0.533333
+  - position: 226
+    red: 0.505882
+    green: 0.733333
+    blue: 0.282353
+  - position: 255
+    red: 0.309804
+    green: 0.568627
+    blue: 0.145098
+- !palette
+  name: PRGn (Feely)
+  stops:
+  - position: 0
+    red: 0.25098
+    green: 0
+    blue: 0.294118
+  - position: 28
+    red: 0.447059
+    green: 0.180392
+    blue: 0.501961
+  - position: 56
+    red: 0.603922
+    green: 0.427451
+    blue: 0.666667
+  - position: 85
+    red: 0.756863
+    green: 0.643137
+    blue: 0.803922
+  - position: 113
+    red: 0.890196
+    green: 0.823529
+    blue: 0.901961
+  - position: 141
+    red: 0.937255
+    green: 0.941176
+    blue: 0.937255
+  - position: 170
+    red: 0.839216
+    green: 0.933333
+    blue: 0.819608
+  - position: 198
+    red: 0.635294
+    green: 0.843137
+    blue: 0.623529
+  - position: 226
+    red: 0.364706
+    green: 0.678431
+    blue: 0.396078
+  - position: 255
+    red: 0.129412
+    green: 0.47451
+    blue: 0.223529
+- !palette
+  name: PuOr (Feely)
+  stops:
+  - position: 0
+    red: 0.498039
+    green: 0.231373
+    blue: 0.0313725
+  - position: 28
+    red: 0.694118
+    green: 0.352941
+    blue: 0.0352941
+  - position: 56
+    red: 0.866667
+    green: 0.517647
+    blue: 0.121569
+  - position: 85
+    red: 0.972549
+    green: 0.713725
+    blue: 0.392157
+  - position: 113
+    red: 0.992157
+    green: 0.866667
+    blue: 0.698039
+  - position: 141
+    red: 0.952941
+    green: 0.933333
+    blue: 0.917647
+  - position: 170
+    red: 0.843137
+    green: 0.843137
+    blue: 0.913725
+  - position: 198
+    red: 0.690196
+    green: 0.666667
+    blue: 0.815686
+  - position: 226
+    red: 0.505882
+    green: 0.439216
+    blue: 0.678431
+  - position: 255
+    red: 0.333333
+    green: 0.176471
+    blue: 0.517647
+- !palette
+  name: RdGy (Feely)
+  stops:
+  - position: 0
+    red: 0.403922
+    green: 0
+    blue: 0.121569
+  - position: 28
+    red: 0.670588
+    green: 0.12549
+    blue: 0.180392
+  - position: 56
+    red: 0.835294
+    green: 0.372549
+    blue: 0.313725
+  - position: 85
+    red: 0.941176
+    green: 0.635294
+    blue: 0.521569
+  - position: 113
+    red: 0.988235
+    green: 0.847059
+    blue: 0.768627
+  - position: 141
+    red: 0.980392
+    green: 0.956863
+    blue: 0.941176
+  - position: 170
+    red: 0.87451
+    green: 0.87451
+    blue: 0.87451
+  - position: 198
+    red: 0.721569
+    green: 0.721569
+    blue: 0.721569
+  - position: 226
+    red: 0.52549
+    green: 0.52549
+    blue: 0.52549
+  - position: 255
+    red: 0.305882
+    green: 0.305882
+    blue: 0.305882
+- !palette
+  name: BrBG (Feely)
+  stops:
+  - position: 0
+    red: 0.329412
+    green: 0.188235
+    blue: 0.0196078
+  - position: 28
+    red: 0.545098
+    green: 0.32549
+    blue: 0.0588235
+  - position: 56
+    red: 0.737255
+    green: 0.517647
+    blue: 0.203922
+  - position: 85
+    red: 0.866667
+    green: 0.741176
+    blue: 0.482353
+  - position: 113
+    red: 0.94902
+    green: 0.894118
+    blue: 0.74902
+  - position: 141
+    red: 0.933333
+    green: 0.945098
+    blue: 0.917647
+  - position: 170
+    red: 0.764706
+    green: 0.905882
+    blue: 0.886275
+  - position: 198
+    red: 0.501961
+    green: 0.788235
+    blue: 0.74902
+  - position: 226
+    red: 0.223529
+    green: 0.596078
+    blue: 0.564706
+  - position: 255
+    red: 0.0392157
+    green: 0.403922
+    blue: 0.372549
+- !palette
+  name: Red & Lime
+  stops:
+  - position: 0
+    red: 1
+    green: 0
+    blue: 0
+  - position: 255
+    red: 0
+    green: 1
+    blue: 0
+- !palette
+  name: banana (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .23137254901960784313
+    green: .23137254901960784313
+    blue: .10588235294117647058
+  - position: 63
+    red: .46666666666666666666
+    green: .46666666666666666666
+    blue: .23137254901960784313
+  - position: 95
+    red: .70196078431372549019
+    green: .70196078431372549019
+    blue: .35686274509803921568
+  - position: 127
+    red: .89019607843137254901
+    green: .89019607843137254901
+    blue: .48235294117647058823
+  - position: 159
+    red: .92156862745098039215
+    green: .92156862745098039215
+    blue: .59215686274509803921
+  - position: 191
+    red: .93725490196078431372
+    green: .93725490196078431372
+    blue: .71764705882352941176
+  - position: 223
+    red: .96862745098039215686
+    green: .96862745098039215686
+    blue: .85882352941176470588
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: blue1 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: .00784313725490196078
+  - position: 31
+    red: 0
+    green: 0
+    blue: .25098039215686274509
+  - position: 63
+    red: .02745098039215686274
+    green: .04313725490196078431
+    blue: .50196078431372549019
+  - position: 95
+    red: .15294117647058823529
+    green: .18431372549019607843
+    blue: .75294117647058823529
+  - position: 127
+    red: .37254901960784313725
+    green: .45098039215686274509
+    blue: .85098039215686274509
+  - position: 159
+    red: .59215686274509803921
+    green: .70196078431372549019
+    blue: .90588235294117647058
+  - position: 191
+    red: .73333333333333333333
+    green: .79607843137254901960
+    blue: .93725490196078431372
+  - position: 223
+    red: .85882352941176470588
+    green: .89019607843137254901
+    blue: .96862745098039215686
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: blue2 (fldigi)
+  stops:
+  - position: 0
+    red: .01176470588235294117
+    green: .01176470588235294117
+    blue: .25098039215686274509
+  - position: 31
+    red: .02745098039215686274
+    green: .04313725490196078431
+    blue: .50196078431372549019
+  - position: 63
+    red: .15294117647058823529
+    green: .18431372549019607843
+    blue: .75294117647058823529
+  - position: 95
+    red: .37254901960784313725
+    green: .45098039215686274509
+    blue: .85098039215686274509
+  - position: 127
+    red: .59215686274509803921
+    green: .70196078431372549019
+    blue: .90588235294117647058
+  - position: 159
+    red: .73333333333333333333
+    green: .79607843137254901960
+    blue: .93725490196078431372
+  - position: 191
+    red: .85882352941176470588
+    green: .89019607843137254901
+    blue: .96862745098039215686
+  - position: 223
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+  - position: 255
+    red: 1.00000000000000000000
+    green: .99215686274509803921
+    blue: .42352941176470588235
+- !palette
+  name: blue3 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .12156862745098039215
+    green: .12156862745098039215
+    blue: .12156862745098039215
+  - position: 63
+    red: .24705882352941176470
+    green: .24705882352941176470
+    blue: .24705882352941176470
+  - position: 95
+    red: .35686274509803921568
+    green: .35686274509803921568
+    blue: .65490196078431372549
+  - position: 127
+    red: .46666666666666666666
+    green: .46666666666666666666
+    blue: .74901960784313725490
+  - position: 159
+    red: .60784313725490196078
+    green: .60784313725490196078
+    blue: .85882352941176470588
+  - position: 191
+    red: .74901960784313725490
+    green: .74901960784313725490
+    blue: .74901960784313725490
+  - position: 223
+    red: .87450980392156862745
+    green: .87450980392156862745
+    blue: .87450980392156862745
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: brown (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .41960784313725490196
+    green: .24705882352941176470
+    blue: .04313725490196078431
+  - position: 63
+    red: .68627450980392156862
+    green: .37254901960784313725
+    blue: .12156862745098039215
+  - position: 95
+    red: .78039215686274509803
+    green: .46666666666666666666
+    blue: .16862745098039215686
+  - position: 127
+    red: .84313725490196078431
+    green: .63921568627450980392
+    blue: .24705882352941176470
+  - position: 159
+    red: .90588235294117647058
+    green: .82745098039215686274
+    blue: .34117647058823529411
+  - position: 191
+    red: .95294117647058823529
+    green: .96862745098039215686
+    blue: .43529411764705882352
+  - position: 223
+    red: .96862745098039215686
+    green: .98431372549019607843
+    blue: .70196078431372549019
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: cyan1 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .01960784313725490196
+    green: .03921568627450980392
+    blue: .03921568627450980392
+  - position: 63
+    red: .08627450980392156862
+    green: .16470588235294117647
+    blue: .16470588235294117647
+  - position: 95
+    red: .20392156862745098039
+    green: .38823529411764705882
+    blue: .38823529411764705882
+  - position: 127
+    red: .36862745098039215686
+    green: .68627450980392156862
+    blue: .68627450980392156862
+  - position: 159
+    red: .51372549019607843137
+    green: .81960784313725490196
+    blue: .81960784313725490196
+  - position: 191
+    red: .63529411764705882352
+    green: .87843137254901960784
+    blue: .87843137254901960784
+  - position: 223
+    red: .79215686274509803921
+    green: .93725490196078431372
+    blue: .93725490196078431372
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: cyan2 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .13725490196078431372
+    green: .20000000000000000000
+    blue: .20000000000000000000
+  - position: 63
+    red: .29411764705882352941
+    green: .40392156862745098039
+    blue: .40392156862745098039
+  - position: 95
+    red: .45098039215686274509
+    green: .62352941176470588235
+    blue: .62352941176470588235
+  - position: 127
+    red: .60784313725490196078
+    green: .82745098039215686274
+    blue: .82745098039215686274
+  - position: 159
+    red: .71764705882352941176
+    green: .90588235294117647058
+    blue: .90588235294117647058
+  - position: 191
+    red: .79607843137254901960
+    green: .93725490196078431372
+    blue: .93725490196078431372
+  - position: 223
+    red: .89019607843137254901
+    green: .96862745098039215686
+    blue: .96862745098039215686
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: cyan3 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .36862745098039215686
+    green: .44705882352941176470
+    blue: .44705882352941176470
+  - position: 63
+    red: .54117647058823529411
+    green: .63529411764705882352
+    blue: .63529411764705882352
+  - position: 95
+    red: .67058823529411764705
+    green: .78823529411764705882
+    blue: .78823529411764705882
+  - position: 127
+    red: .78039215686274509803
+    green: .90980392156862745098
+    blue: .90980392156862745098
+  - position: 159
+    red: .84705882352941176470
+    green: .95294117647058823529
+    blue: .95294117647058823529
+  - position: 191
+    red: .89411764705882352941
+    green: .96862745098039215686
+    blue: .96862745098039215686
+  - position: 223
+    red: .94509803921568627450
+    green: .98431372549019607843
+    blue: .98431372549019607843
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: default (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: 0
+    green: .02352941176470588235
+    blue: .53333333333333333333
+  - position: 63
+    red: 0
+    green: .07450980392156862745
+    blue: .77647058823529411764
+  - position: 95
+    red: 0
+    green: .12549019607843137254
+    blue: .93725490196078431372
+  - position: 127
+    red: .67450980392156862745
+    green: .65490196078431372549
+    blue: .41176470588235294117
+  - position: 159
+    red: .76078431372549019607
+    green: .77647058823529411764
+    blue: .19215686274509803921
+  - position: 191
+    red: .88235294117647058823
+    green: .89411764705882352941
+    blue: .41960784313725490196
+  - position: 223
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 0
+  - position: 255
+    red: 1.00000000000000000000
+    green: .20000000000000000000
+    blue: 0
+- !palette
+  name: digipan (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: 0
+    green: 0
+    blue: .25098039215686274509
+  - position: 63
+    red: 0
+    green: 0
+    blue: .50196078431372549019
+  - position: 95
+    red: 0
+    green: 0
+    blue: .85098039215686274509
+  - position: 127
+    red: .58823529411764705882
+    green: .57647058823529411764
+    blue: .36078431372549019607
+  - position: 159
+    red: .71764705882352941176
+    green: .72941176470588235294
+    blue: .18039215686274509803
+  - position: 191
+    red: .88235294117647058823
+    green: .89411764705882352941
+    blue: .41960784313725490196
+  - position: 223
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 0
+  - position: 255
+    red: 1.00000000000000000000
+    green: .20000000000000000000
+    blue: 0
+- !palette
+  name: fldigi (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: 0
+    green: 0
+    blue: .69411764705882352941
+  - position: 63
+    red: .01176470588235294117
+    green: .43137254901960784313
+    blue: .89019607843137254901
+  - position: 95
+    red: 0
+    green: .80000000000000000000
+    blue: .80000000000000000000
+  - position: 127
+    red: .87450980392156862745
+    green: .87450980392156862745
+    blue: .87450980392156862745
+  - position: 159
+    red: 0
+    green: .91764705882352941176
+    blue: 0
+  - position: 191
+    red: .95686274509803921568
+    green: .95686274509803921568
+    blue: 0
+  - position: 223
+    red: .98039215686274509803
+    green: .49411764705882352941
+    blue: 0
+  - position: 255
+    red: .95686274509803921568
+    green: 0
+    blue: 0
+- !palette
+  name: gmfsk (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 1.00392156862745098039
+  - position: 31
+    red: 0
+    green: .24313725490196078431
+    blue: .76078431372549019607
+  - position: 63
+    red: 0
+    green: .49411764705882352941
+    blue: .50980392156862745098
+  - position: 95
+    red: 0
+    green: .74509803921568627450
+    blue: .25882352941176470588
+  - position: 127
+    red: 0
+    green: .99607843137254901960
+    blue: .00784313725490196078
+  - position: 159
+    red: .24313725490196078431
+    green: .76078431372549019607
+    blue: 0
+  - position: 191
+    red: .49411764705882352941
+    green: .50980392156862745098
+    blue: 0
+  - position: 223
+    red: .74509803921568627450
+    green: .25882352941176470588
+    blue: 0
+  - position: 255
+    red: .99607843137254901960
+    green: .00784313725490196078
+    blue: 0
+- !palette
+  name: gray1 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .27058823529411764705
+    green: .27058823529411764705
+    blue: .27058823529411764705
+  - position: 63
+    red: .38823529411764705882
+    green: .38823529411764705882
+    blue: .38823529411764705882
+  - position: 95
+    red: .47450980392156862745
+    green: .47450980392156862745
+    blue: .47450980392156862745
+  - position: 127
+    red: .54901960784313725490
+    green: .54901960784313725490
+    blue: .54901960784313725490
+  - position: 159
+    red: .61568627450980392156
+    green: .61568627450980392156
+    blue: .61568627450980392156
+  - position: 191
+    red: .67450980392156862745
+    green: .67450980392156862745
+    blue: .67450980392156862745
+  - position: 223
+    red: .72941176470588235294
+    green: .72941176470588235294
+    blue: .72941176470588235294
+  - position: 255
+    red: .78039215686274509803
+    green: .78039215686274509803
+    blue: .78039215686274509803
+- !palette
+  name: gray2 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .34509803921568627450
+    green: .34509803921568627450
+    blue: .34509803921568627450
+  - position: 63
+    red: .49411764705882352941
+    green: .49411764705882352941
+    blue: .49411764705882352941
+  - position: 95
+    red: .60784313725490196078
+    green: .60784313725490196078
+    blue: .60784313725490196078
+  - position: 127
+    red: .70196078431372549019
+    green: .70196078431372549019
+    blue: .70196078431372549019
+  - position: 159
+    red: .78431372549019607843
+    green: .78431372549019607843
+    blue: .78431372549019607843
+  - position: 191
+    red: .86274509803921568627
+    green: .86274509803921568627
+    blue: .86274509803921568627
+  - position: 223
+    red: .92941176470588235294
+    green: .92941176470588235294
+    blue: .92941176470588235294
+  - position: 255
+    red: .99607843137254901960
+    green: .99607843137254901960
+    blue: .99607843137254901960
+- !palette
+  name: green1 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: 0
+    green: .12549019607843137254
+    blue: 0
+  - position: 63
+    red: 0
+    green: .25098039215686274509
+    blue: 0
+  - position: 95
+    red: 0
+    green: .37647058823529411764
+    blue: 0
+  - position: 127
+    red: 0
+    green: .50196078431372549019
+    blue: 0
+  - position: 159
+    red: 0
+    green: .62745098039215686274
+    blue: 0
+  - position: 191
+    red: 0
+    green: .75294117647058823529
+    blue: 0
+  - position: 223
+    red: 0
+    green: .87843137254901960784
+    blue: 0
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: green2 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: 0
+    green: .23529411764705882352
+    blue: 0
+  - position: 63
+    red: 0
+    green: .40000000000000000000
+    blue: 0
+  - position: 95
+    red: 0
+    green: .59215686274509803921
+    blue: 0
+  - position: 127
+    red: 0
+    green: .94901960784313725490
+    blue: 0
+  - position: 159
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: .34901960784313725490
+  - position: 191
+    red: .94117647058823529411
+    green: .47058823529411764705
+    blue: 0
+  - position: 223
+    red: 1.00000000000000000000
+    green: .58039215686274509803
+    blue: .15686274509803921568
+  - position: 255
+    red: 1.00000000000000000000
+    green: 0
+    blue: 0
+- !palette
+  name: jungle (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .41960784313725490196
+    green: .26274509803921568627
+    blue: 0
+  - position: 63
+    red: .87450980392156862745
+    green: .56078431372549019607
+    blue: 0
+  - position: 95
+    red: 1.00000000000000000000
+    green: .48235294117647058823
+    blue: .10588235294117647058
+  - position: 127
+    red: 1.00000000000000000000
+    green: .35686274509803921568
+    blue: .27843137254901960784
+  - position: 159
+    red: 1.00000000000000000000
+    green: .76470588235294117647
+    blue: .37254901960784313725
+  - position: 191
+    red: .76470588235294117647
+    green: 1.00000000000000000000
+    blue: .43529411764705882352
+  - position: 223
+    red: .59215686274509803921
+    green: 1.00000000000000000000
+    blue: .59215686274509803921
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: negative (fldigi)
+  stops:
+  - position: 0
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+  - position: 31
+    red: .87450980392156862745
+    green: .87450980392156862745
+    blue: .87450980392156862745
+  - position: 63
+    red: .74901960784313725490
+    green: .74901960784313725490
+    blue: .74901960784313725490
+  - position: 95
+    red: .62352941176470588235
+    green: .62352941176470588235
+    blue: .62352941176470588235
+  - position: 127
+    red: .49803921568627450980
+    green: .49803921568627450980
+    blue: .49803921568627450980
+  - position: 159
+    red: .37254901960784313725
+    green: .37254901960784313725
+    blue: .37254901960784313725
+  - position: 191
+    red: .24705882352941176470
+    green: .24705882352941176470
+    blue: .24705882352941176470
+  - position: 223
+    red: .12156862745098039215
+    green: .12156862745098039215
+    blue: .12156862745098039215
+  - position: 255
+    red: 0
+    green: 0
+    blue: 0
+- !palette
+  name: orange (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .24705882352941176470
+    green: .10588235294117647058
+    blue: 0
+  - position: 63
+    red: .51372549019607843137
+    green: .24705882352941176470
+    blue: 0
+  - position: 95
+    red: .78039215686274509803
+    green: .37254901960784313725
+    blue: 0
+  - position: 127
+    red: .98431372549019607843
+    green: .49803921568627450980
+    blue: .04313725490196078431
+  - position: 159
+    red: .98431372549019607843
+    green: .60784313725490196078
+    blue: .27843137254901960784
+  - position: 191
+    red: .98431372549019607843
+    green: .73333333333333333333
+    blue: .51372549019607843137
+  - position: 223
+    red: .98431372549019607843
+    green: .85882352941176470588
+    blue: .74901960784313725490
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: pink (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .24705882352941176470
+    green: .13725490196078431372
+    blue: .13725490196078431372
+  - position: 63
+    red: .52941176470588235294
+    green: .29411764705882352941
+    blue: .29411764705882352941
+  - position: 95
+    red: .79607843137254901960
+    green: .43529411764705882352
+    blue: .43529411764705882352
+  - position: 127
+    red: 1.00000000000000000000
+    green: .57647058823529411764
+    blue: .57647058823529411764
+  - position: 159
+    red: 1.00000000000000000000
+    green: .68627450980392156862
+    blue: .68627450980392156862
+  - position: 191
+    red: 1.00000000000000000000
+    green: .78039215686274509803
+    blue: .78039215686274509803
+  - position: 223
+    red: 1.00000000000000000000
+    green: .89019607843137254901
+    blue: .89019607843137254901
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: rainbow (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: .63921568627450980392
+  - position: 31
+    red: 0
+    green: .34117647058823529411
+    blue: .74901960784313725490
+  - position: 63
+    red: 0
+    green: .81176470588235294117
+    blue: .85882352941176470588
+  - position: 95
+    red: 0
+    green: .96862745098039215686
+    blue: .54509803921568627450
+  - position: 127
+    red: 0
+    green: 1.00000000000000000000
+    blue: .09019607843137254901
+  - position: 159
+    red: .37254901960784313725
+    green: 1.00000000000000000000
+    blue: 0
+  - position: 191
+    red: .85882352941176470588
+    green: 1.00000000000000000000
+    blue: 0
+  - position: 223
+    red: 1.00000000000000000000
+    green: .67058823529411764705
+    blue: .60784313725490196078
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: scope (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: 0
+    green: 0
+    blue: .65490196078431372549
+  - position: 63
+    red: 0
+    green: .30980392156862745098
+    blue: 1.00000000000000000000
+  - position: 95
+    red: 0
+    green: .93725490196078431372
+    blue: 1.00000000000000000000
+  - position: 127
+    red: 0
+    green: 1.00000000000000000000
+    blue: .29411764705882352941
+  - position: 159
+    red: .37254901960784313725
+    green: 1.00000000000000000000
+    blue: 0
+  - position: 191
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 0
+  - position: 223
+    red: 1.00000000000000000000
+    green: .49803921568627450980
+    blue: 0
+  - position: 255
+    red: 1.00000000000000000000
+    green: 0
+    blue: 0
+- !palette
+  name: sunburst (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: 0
+    green: 0
+    blue: .23137254901960784313
+  - position: 63
+    red: 0
+    green: 0
+    blue: .48235294117647058823
+  - position: 95
+    red: .51372549019607843137
+    green: 0
+    blue: .70196078431372549019
+  - position: 127
+    red: .92156862745098039215
+    green: 0
+    blue: .29411764705882352941
+  - position: 159
+    red: 1.00000000000000000000
+    green: .16862745098039215686
+    blue: .16862745098039215686
+  - position: 191
+    red: 1.00000000000000000000
+    green: .84313725490196078431
+    blue: .43529411764705882352
+  - position: 223
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: .71764705882352941176
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: vk4bdj (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: 0
+    green: .12549019607843137254
+    blue: 0
+  - position: 63
+    red: 0
+    green: .60392156862745098039
+    blue: 0
+  - position: 95
+    red: 0
+    green: .63137254901960784313
+    blue: 0
+  - position: 127
+    red: 0
+    green: .69411764705882352941
+    blue: 0
+  - position: 159
+    red: .61176470588235294117
+    green: .81960784313725490196
+    blue: .56470588235294117647
+  - position: 191
+    red: .75294117647058823529
+    green: .72549019607843137254
+    blue: .71764705882352941176
+  - position: 223
+    red: .83921568627450980392
+    green: .87058823529411764705
+    blue: .87843137254901960784
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: yellow1 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .12156862745098039215
+    green: .12156862745098039215
+    blue: 0
+  - position: 63
+    red: .24705882352941176470
+    green: .24705882352941176470
+    blue: 0
+  - position: 95
+    red: .37254901960784313725
+    green: .37254901960784313725
+    blue: 0
+  - position: 127
+    red: .49803921568627450980
+    green: .49803921568627450980
+    blue: 0
+  - position: 159
+    red: .62352941176470588235
+    green: .62352941176470588235
+    blue: 0
+  - position: 191
+    red: .74901960784313725490
+    green: .74901960784313725490
+    blue: 0
+  - position: 223
+    red: .87450980392156862745
+    green: .87450980392156862745
+    blue: 0
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 0
+- !palette
+  name: yellow2 (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: .15294117647058823529
+    green: .15294117647058823529
+    blue: 0
+  - position: 63
+    red: .29411764705882352941
+    green: .29411764705882352941
+    blue: 0
+  - position: 95
+    red: .43529411764705882352
+    green: .43529411764705882352
+    blue: 0
+  - position: 127
+    red: .57647058823529411764
+    green: .57647058823529411764
+    blue: 0
+  - position: 159
+    red: .71764705882352941176
+    green: .71764705882352941176
+    blue: 0
+  - position: 191
+    red: .85882352941176470588
+    green: .85882352941176470588
+    blue: 0
+  - position: 223
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 0
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: 1.00000000000000000000
+- !palette
+  name: yl2kf (fldigi)
+  stops:
+  - position: 0
+    red: 0
+    green: 0
+    blue: 0
+  - position: 31
+    red: 0
+    green: 0
+    blue: .46666666666666666666
+  - position: 63
+    red: .02745098039215686274
+    green: .04313725490196078431
+    blue: .76470588235294117647
+  - position: 95
+    red: .15294117647058823529
+    green: .18431372549019607843
+    blue: .62352941176470588235
+  - position: 127
+    red: .37254901960784313725
+    green: .45098039215686274509
+    blue: .79607843137254901960
+  - position: 159
+    red: .59215686274509803921
+    green: .70196078431372549019
+    blue: 1.00000000000000000000
+  - position: 191
+    red: .73333333333333333333
+    green: .79607843137254901960
+    blue: 1.00000000000000000000
+  - position: 223
+    red: .85882352941176470588
+    green: .89019607843137254901
+    blue: 1.00000000000000000000
+  - position: 255
+    red: 1.00000000000000000000
+    green: 1.00000000000000000000
+    blue: .01960784313725490196

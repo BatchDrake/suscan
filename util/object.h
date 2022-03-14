@@ -27,7 +27,9 @@
 extern "C" {
 #endif /* __cplusplus */
 
-  enum suscan_object_type {
+#define SUSCAN_YAML_PFX "tag:actinid.org,2022:suscan:"
+
+enum suscan_object_type {
   SUSCAN_OBJECT_TYPE_OBJECT,
   SUSCAN_OBJECT_TYPE_SET,
   SUSCAN_OBJECT_TYPE_FIELD,
@@ -57,7 +59,16 @@ suscan_object_t *suscan_object_from_xml(
     const void *data,
     size_t size);
 
+suscan_object_t *suscan_object_from_yaml(
+    const void *data,
+    size_t size);
+
 SUBOOL suscan_object_to_xml(
+    const suscan_object_t *object,
+    void **data,
+    size_t *size);
+
+SUBOOL suscan_object_to_yaml(
     const suscan_object_t *object,
     void **data,
     size_t *size);
