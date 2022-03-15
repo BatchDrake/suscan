@@ -47,15 +47,22 @@ extern "C" {
 #define SUSCAN_ANALYZER_FS_MEASURE_INTERVAL   1.0
 
 /* Permissions */
-#define SUSCAN_ANALYZER_PERM_HALT               1
-#define SUSCAN_ANALYZER_PERM_SET_FREQ           2
-#define SUSCAN_ANALYZER_PERM_SET_LOFREQ         4
-#define SUSCAN_ANALYZER_PERM_OPEN_AUDIO         8
-#define SUSCAN_ANALYZER_PERM_OPEN_RAW          16
-#define SUSCAN_ANALYZER_PERM_OPEN_INSPECTOR    32
-#define SUSCAN_ANALYZER_PERM_SET_FFT_SIZE      64
-#define SUSCAN_ANALYZER_PERM_SET_FFT_FPS      128
-#define SUSCAN_ANALYZER_PERM_SET_FFT_WINDOW   256
+#define SUSCAN_ANALYZER_PERM_HALT               (1ull << 0)
+#define SUSCAN_ANALYZER_PERM_SET_FREQ           (1ull << 1)
+#define SUSCAN_ANALYZER_PERM_SET_GAIN           (1ull << 2)
+#define SUSCAN_ANALYZER_PERM_SET_ANTENNA        (1ull << 3)
+#define SUSCAN_ANALYZER_PERM_SET_BW             (1ull << 4)
+#define SUSCAN_ANALYZER_PERM_SET_PPM            (1ull << 5)
+#define SUSCAN_ANALYZER_PERM_SET_DC_REMOVE      (1ull << 6)
+#define SUSCAN_ANALYZER_PERM_SET_IQ_REVERSE     (1ull << 7)
+#define SUSCAN_ANALYZER_PERM_SET_AGC            (1ull << 8)
+#define SUSCAN_ANALYZER_PERM_OPEN_AUDIO         (1ull << 9)
+#define SUSCAN_ANALYZER_PERM_OPEN_RAW           (1ull << 10)
+#define SUSCAN_ANALYZER_PERM_OPEN_INSPECTOR     (1ull << 11)
+#define SUSCAN_ANALYZER_PERM_SET_FFT_SIZE       (1ull << 12)
+#define SUSCAN_ANALYZER_PERM_SET_FFT_FPS        (1ull << 13)
+#define SUSCAN_ANALYZER_PERM_SET_FFT_WINDOW     (1ull << 14)
+#define SUSCAN_ANALYZER_PERM_SEEK               (1ull << 15)
 
 #define SUSCAN_ANALYZER_PERM_ALL              0xffffffffffffffffull
 

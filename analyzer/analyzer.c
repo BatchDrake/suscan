@@ -353,6 +353,8 @@ void
 suscan_analyzer_source_info_init(struct suscan_analyzer_source_info *self)
 {
   memset(self, 0, sizeof(struct suscan_analyzer_source_info));
+
+  self->permissions = SUSCAN_ANALYZER_PERM_ALL;
 }
 
 SUBOOL
@@ -632,10 +634,27 @@ suscan_analyzer_destroy(suscan_analyzer_t *self)
   free(self);
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_test_permissions(const suscan_analyzer_t *self, uint64_t perm)
+{
+  const struct suscan_analyzer_source_info *info = 
+    suscan_analyzer_get_source_info(self);
+
+  return (info->permissions & perm) == perm;
+}
+
+#define CHECK_PERMISSION(self, perm)                                 \
+  if (!suscan_analyzer_test_permissions(self, perm)) {               \
+    SU_ERROR("Action `%s' not allowed by analyzer\n", __FUNCTION__); \
+    return SU_FALSE;                                                 \
+  }
+
 /* Source-related methods */
 SUBOOL
 suscan_analyzer_set_freq(suscan_analyzer_t *self, SUFREQ freq, SUFREQ lnb)
 {
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_FREQ);
+
   return (self->iface->set_frequency) (self->impl, freq, lnb);
 }
 
@@ -645,43 +664,56 @@ suscan_analyzer_set_gain(
     const char *name,
     SUFLOAT value)
 {
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_GAIN);
+
   return (self->iface->set_gain) (self->impl, name, value);
 }
-
 
 SUBOOL
 suscan_analyzer_set_antenna(suscan_analyzer_t *self, const char *name)
 {
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_ANTENNA);
+
   return (self->iface->set_antenna) (self->impl, name);
 }
 
 SUBOOL
 suscan_analyzer_set_bw(suscan_analyzer_t *self, SUFLOAT bw)
 {
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_BW);
+
   return (self->iface->set_bandwidth) (self->impl, bw);
 }
 
 SUBOOL
 suscan_analyzer_set_ppm(suscan_analyzer_t *self, SUFLOAT ppm)
 {
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_PPM);
+
   return (self->iface->set_ppm) (self->impl, ppm);
 }
 
 SUBOOL
 suscan_analyzer_set_dc_remove(suscan_analyzer_t *self, SUBOOL val)
 {
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_DC_REMOVE);
+
   return (self->iface->set_dc_remove) (self->impl, val);
 }
 
 SUBOOL
 suscan_analyzer_set_iq_reverse(suscan_analyzer_t *self, SUBOOL val)
 {
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_IQ_REVERSE);
+
   return (self->iface->set_iq_reverse) (self->impl, val);
 }
 
 SUBOOL
 suscan_analyzer_set_agc(suscan_analyzer_t *self, SUBOOL val)
 {
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_AGC);
+
   return (self->iface->set_agc) (self->impl, val);
 }
 

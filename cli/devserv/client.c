@@ -290,7 +290,9 @@ suscli_analyzer_client_intercept_message(
 
   /*
    * Some messages must be intercepted prior being delivered to
-   * the analyzer. This is the case for messages setting the inspector_id
+   * the analyzer. This is the case for messages setting the inspector_id.
+   * 
+   * Others are not allowed and must be discarded.
    */
 
   if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR) {
@@ -335,6 +337,23 @@ suscli_analyzer_client_intercept_message(
       }
     }
     /* ^^^^^^^^^^^^^^^^^^^^^^ Inspector mutex acquired ^^^^^^^^^^^^^^^^^^^^^ */
+  } else {
+    switch (type) {
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
+        /* TODO: Check analyzer params and fix request */
+        break;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_SEEK)) {
+          SU_WARNING(
+            "%s: client not allowed to seek sources\n",
+            suscli_analyzer_client_get_name(self));
+          goto done;
+        }
+        break;
+    }
   }
 
   ok = SU_TRUE;

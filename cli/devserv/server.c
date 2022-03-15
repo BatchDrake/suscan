@@ -524,6 +524,25 @@ done:
 }
 
 SUPRIVATE SUBOOL
+suscli_analyzer_client_can_open(
+  const suscli_analyzer_client_t *self,
+  const char *class)
+{
+  if (strcmp(class, "audio") == 0)
+    return suscli_analyzer_client_test_permission(
+      self,
+      SUSCAN_ANALYZER_PERM_OPEN_AUDIO);
+  else if (strcmp(class, "raw") == 0)
+    return suscli_analyzer_client_test_permission(
+      self,
+      SUSCAN_ANALYZER_PERM_OPEN_RAW);
+  else
+    return suscli_analyzer_client_test_permission(
+      self,
+      SUSCAN_ANALYZER_PERM_OPEN_INSPECTOR);
+}
+
+SUPRIVATE SUBOOL
 suscli_analyzer_server_on_open(
     void *userdata,
     suscli_analyzer_client_t *client,
@@ -531,6 +550,12 @@ suscli_analyzer_server_on_open(
 {
   struct suscli_analyzer_client_inspector_entry *entry;
 
+  if (!suscli_analyzer_client_can_open(client, inspmsg->class_name)) {
+    SU_INFO("%s: open request of `%s' inspector rejected\n",
+        suscli_analyzer_client_get_name(client),
+        inspmsg->class_name);
+    return SU_TRUE;
+  }
   /*
    * Client requested opening a inspector. This implies matching the request
    * with the corresponding response. We do this by adjusting the request ID
@@ -690,6 +715,18 @@ done:
     (void) pthread_mutex_unlock(&self->client_list.client_mutex);
 }
 
+#define CHECK_PERMISSION(caller, perm)                  \
+    if (!suscli_analyzer_client_test_permission(        \
+        caller,                                         \
+        JOIN(SUSCAN_ANALYZER_PERM_, perm))) {           \
+        SU_WARNING(                                     \
+          "%s: client not allowed to call "             \
+          STRINGIFY(perm)                               \
+          "\n",                                         \
+          suscli_analyzer_client_get_name(caller));     \
+        break;                                          \
+      }
+
 SUPRIVATE SUBOOL
 suscli_analyzer_server_deliver_call(
     suscli_analyzer_server_t *self,
@@ -707,12 +744,16 @@ suscli_analyzer_server_deliver_call(
 
   switch (call->type) {
     case SUSCAN_ANALYZER_REMOTE_SET_FREQUENCY:
+      CHECK_PERMISSION(caller, SET_FREQ);
+
       SU_TRYCATCH(
           suscan_analyzer_set_freq(self->analyzer, call->freq, call->lnb),
           goto done);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_GAIN:
+      CHECK_PERMISSION(caller, SET_GAIN);
+
       SU_TRYCATCH(
           suscan_analyzer_set_gain(
               self->analyzer,
@@ -722,36 +763,48 @@ suscli_analyzer_server_deliver_call(
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_ANTENNA:
+      CHECK_PERMISSION(caller, SET_ANTENNA);
+
       SU_TRYCATCH(
           suscan_analyzer_set_antenna(self->analyzer, call->antenna),
           goto done);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_BANDWIDTH:
+      CHECK_PERMISSION(caller, SET_BW);
+
       SU_TRYCATCH(
           suscan_analyzer_set_bw(self->analyzer, call->bandwidth),
           goto done);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_PPM:
+      CHECK_PERMISSION(caller, SET_PPM);
+
       SU_TRYCATCH(
           suscan_analyzer_set_ppm(self->analyzer, call->ppm),
           goto done);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_DC_REMOVE:
+      CHECK_PERMISSION(caller, SET_DC_REMOVE);
+
       SU_TRYCATCH(
           suscan_analyzer_set_dc_remove(self->analyzer, call->dc_remove),
           goto done);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_IQ_REVERSE:
+      CHECK_PERMISSION(caller, SET_IQ_REVERSE);
+
       SU_TRYCATCH(
           suscan_analyzer_set_iq_reverse(self->analyzer, call->iq_reverse),
           goto done);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_AGC:
+      CHECK_PERMISSION(caller, SET_AGC);
+
       SU_TRYCATCH(
           suscan_analyzer_set_agc(self->analyzer, call->agc),
           goto done);

@@ -2009,6 +2009,8 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   SU_TRY_FAIL(suscan_mq_init(&new->peer.call_queue));
   new->peer.call_queue_init = SU_TRUE;
 
+  suscan_analyzer_source_info_init(&new->source_info);
+
   val = suscan_source_config_get_param(config, "host");
   if (val == NULL) {
     SU_ERROR("Cannot initialize remote source: no remote host provided\n");

@@ -151,6 +151,17 @@ struct suscli_analyzer_client_interceptors {
       uint32_t req_id);
 };
 
+SUINLINE SUBOOL
+suscli_analyzer_client_test_permission(
+  const suscli_analyzer_client_t *self,
+  uint64_t perm)
+{
+  if (self->user_entry == NULL)
+    return SU_FALSE;
+
+  return (self->user_entry->permissions & perm) == perm;
+}
+
 SUINLINE void
 suscli_analyzer_client_inc_inspector_open_request(
     suscli_analyzer_client_t *self)
