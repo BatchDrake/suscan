@@ -367,6 +367,7 @@ suscan_analyzer_source_info_init_copy(
 
   suscan_analyzer_source_info_init(self);
 
+  self->permissions         = origin->permissions;
   self->source_samp_rate    = origin->source_samp_rate;
   self->effective_samp_rate = origin->effective_samp_rate;
   self->measured_samp_rate  = origin->measured_samp_rate;
