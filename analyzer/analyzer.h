@@ -46,6 +46,19 @@ extern "C" {
 #define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.1
 #define SUSCAN_ANALYZER_FS_MEASURE_INTERVAL   1.0
 
+/* Permissions */
+#define SUSCAN_ANALYZER_PERM_HALT               1
+#define SUSCAN_ANALYZER_PERM_SET_FREQ           2
+#define SUSCAN_ANALYZER_PERM_SET_LOFREQ         4
+#define SUSCAN_ANALYZER_PERM_OPEN_AUDIO         8
+#define SUSCAN_ANALYZER_PERM_OPEN_RAW          16
+#define SUSCAN_ANALYZER_PERM_OPEN_INSPECTOR    32
+#define SUSCAN_ANALYZER_PERM_SET_FFT_SIZE      64
+#define SUSCAN_ANALYZER_PERM_SET_FFT_FPS      128
+#define SUSCAN_ANALYZER_PERM_SET_FFT_WINDOW   256
+
+#define SUSCAN_ANALYZER_PERM_ALL              0xffffffffffffffffull
+
 /* Entirely empirical */
 #define SUSCAN_ANALYZER_SLOW_RATE             44100
 #define SUSCAN_ANALYZER_SLOW_READ_SIZE        32
@@ -191,6 +204,7 @@ typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
       SUSCOUNT length);
 
 SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
+  uint64_t permissions;
   SUSCOUNT source_samp_rate;
   SUSCOUNT effective_samp_rate;
   SUFLOAT  measured_samp_rate;

@@ -23,6 +23,7 @@
 #include <util/compat-unistd.h>
 #include <analyzer/impl/remote.h>
 #include <util/rbtree.h>
+#include <util/hashlist.h>
 #include <util/compat-inet.h>
 
 #define SUSCLI_ANSERV_LISTEN_FD 0
@@ -30,6 +31,19 @@
 #define SUSCLI_ANSERV_FD_OFFSET 2
 
 enum suscan_analyzer_inspector_msgkind;
+
+struct suscli_user_entry {
+  char    *user;
+  char    *password;
+  uint64_t permissions;
+};
+
+struct suscli_user_entry *suscli_user_entry_new(
+  const char *user,
+  const char *password,
+  uint64_t permissions);
+
+void suscli_user_entry_destroy(struct suscli_user_entry *self);
 
 struct suscli_analyzer_client_inspector_entry {
   SUHANDLE global_handle;
@@ -95,7 +109,9 @@ struct suscli_analyzer_client {
   unsigned int compress_threshold;
   struct timeval conntime;
   struct in_addr remote_addr;
-
+  
+  const struct suscli_user_entry *user_entry;
+  
   struct suscan_remote_partial_pdu_state pdu_state;
 
   char *name;
@@ -445,8 +461,6 @@ void suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *);
 struct suscli_analyzer_server_params {
   suscan_source_config_t *profile;
   uint16_t    port;
-  const char *user;
-  const char *password;
   const char *ifname;
   size_t      compress_threshold;
 };
@@ -457,8 +471,6 @@ struct suscli_analyzer_server_params {
 {                                                 \
   NULL,        /* profile */                      \
   28001,       /* port */                         \
-  "anonymous", /* user */                         \
-  "",          /* password */                     \
   NULL,        /* ifname */                       \
   SUSCLI_ANALYZER_DEFAULT_COMPRESS_THRESHOLD      \
 }
@@ -466,11 +478,11 @@ struct suscli_analyzer_server_params {
 struct suscli_analyzer_server {
   struct suscli_analyzer_server_params params;
   struct suscli_analyzer_client_list client_list;
-  
+
   uint16_t listen_port;
 
-  char *user;
-  char *password;
+  hashlist_t *user_hash;
+  PTR_LIST(struct suscli_user_entry, user);
 
   suscan_analyzer_t *analyzer;
   suscan_source_config_t *config;
@@ -505,9 +517,7 @@ suscli_analyzer_server_get_port(const suscli_analyzer_server_t *self)
 suscli_analyzer_server_t *
 suscli_analyzer_server_new(
     suscan_source_config_t *profile,
-    uint16_t port,
-    const char *user,
-    const char *password);
+    uint16_t port);
 
 suscli_analyzer_server_t *
 suscli_analyzer_server_new_with_params(
@@ -519,6 +529,17 @@ suscli_analyzer_server_is_running(suscli_analyzer_server_t *self)
 {
   return self->rx_thread_running;
 }
+
+const struct suscli_user_entry *
+suscli_analyzer_server_find_user(
+  const suscli_analyzer_server_t *self,
+  const char *user);
+
+SUBOOL suscli_analyzer_server_add_user(
+  suscli_analyzer_server_t *self,
+  const char *user,
+  const char *password,
+  uint64_t permissions);
 
 void suscli_analyzer_server_destroy(suscli_analyzer_server_t *self);
 

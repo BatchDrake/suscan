@@ -246,8 +246,6 @@ suscli_devserv_ctx_new(
   new->mc_addr.sin_addr.s_addr = inet_addr(mcaddr);
   new->mc_addr.sin_port = htons(SURPC_DISCOVERY_PROTOCOL_PORT);
 
-  params.user               = user;
-  params.password           = password;
   params.compress_threshold = compress_threshold;
   params.ifname             = iface;
 
@@ -258,12 +256,16 @@ suscli_devserv_ctx_new(
     if (cfg != NULL && !suscan_source_config_is_remote(cfg)) {
       params.profile = cfg;
       params.port    = new->port_base + i;
-      SU_TRYCATCH(
-          server = suscli_analyzer_server_new_with_params(
-              &params),
-          goto fail);
+      SU_TRY_FAIL(
+          server = suscli_analyzer_server_new_with_params(&params));
 
-      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(new->server, server) != -1, goto fail);
+      SU_TRY_FAIL(suscli_analyzer_server_add_user(
+        server,
+        user,
+        password,
+        SUSCAN_ANALYZER_PERM_ALL));
+
+      SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(new->server, server));
 
       SU_INFO(
           "  Port %d: server `%s'\n",

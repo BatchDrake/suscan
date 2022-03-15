@@ -33,6 +33,39 @@ SUPRIVATE void suscli_analyzer_server_kick_client_unsafe(
     suscli_analyzer_server_t *self,
     suscli_analyzer_client_t *client);
 
+
+struct suscli_user_entry *
+suscli_user_entry_new(const char *user, const char *password, uint64_t perm)
+{
+  struct suscli_user_entry *new = NULL;
+
+  SU_ALLOCATE_FAIL(new, struct suscli_user_entry);
+  SU_TRY_FAIL(new->user = strdup(user));
+  SU_TRY_FAIL(new->password = strdup(password));
+  
+  new->permissions = perm;
+
+  return new;
+
+fail:
+  if (new != NULL)
+    suscli_user_entry_destroy(new);
+  
+  return NULL;
+}
+
+void
+suscli_user_entry_destroy(struct suscli_user_entry *self)
+{
+  if (self->user != NULL)
+    free(self->user);
+
+  if (self->password != NULL)
+    free(self->password);
+
+  free(self);
+}
+
 /***************************** TX Thread **************************************/
 
 /*
@@ -373,6 +406,7 @@ suscli_analyzer_server_process_auth_message(
     const struct suscan_analyzer_remote_call *call)
 {
   uint8_t auth_token[SHA256_BLOCK_SIZE];
+  const struct suscli_user_entry *entry = NULL;
   char *new_name;
 
   SUBOOL ok = SU_FALSE;
@@ -391,10 +425,22 @@ suscli_analyzer_server_process_auth_message(
       call->client_auth.client_name,
       call->client_auth.user);
 
+  entry = suscli_analyzer_server_find_user(self, call->client_auth.user);
+  if (entry == NULL) {
+    SU_INFO(
+          "%s (%s): user `%s' does not exist\n",
+          suscli_analyzer_client_get_name(client),
+          call->client_auth.client_name,
+          call->client_auth.user);
+
+    ok = SU_TRUE;
+    goto done;
+  }
+
   suscan_analyzer_server_compute_auth_token(
         auth_token,
-        self->user,
-        self->password,
+        entry->user,
+        entry->password,
         client->server_hello.sha256salt);
 
   /* Compare tokens */
@@ -421,6 +467,7 @@ suscli_analyzer_server_process_auth_message(
 
     free(client->name);
 
+    client->user_entry = entry;
     client->name = new_name;
     client->auth = SU_TRUE;
     client->accepts_multicast = 
@@ -1071,21 +1118,50 @@ done:
   return sfd;
 }
 
+const struct suscli_user_entry *
+suscli_analyzer_server_find_user(
+  const suscli_analyzer_server_t *self,
+  const char *user)
+{
+  return hashlist_get(self->user_hash, user);
+}
+
+SUBOOL
+suscli_analyzer_server_add_user(
+  suscli_analyzer_server_t *self,
+  const char *user,
+  const char *password,
+  uint64_t permissions)
+{
+  struct suscli_user_entry *entry, *ecopy = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_MAKE(entry, suscli_user_entry, user, password, permissions);
+  SU_TRYC(PTR_LIST_APPEND_CHECK(self->user, entry));
+  ecopy = entry;
+  entry = NULL;
+
+  SU_TRY(hashlist_set(self->user_hash, user, ecopy));
+
+  ok = SU_TRUE;
+
+done:
+  if (entry != NULL)
+    suscli_user_entry_destroy(entry);
+  
+  return ok;
+}
 
 suscli_analyzer_server_t *
 suscli_analyzer_server_new(
     suscan_source_config_t *profile,
-    uint16_t port,
-    const char *user,
-    const char *password)
+    uint16_t port)
 {
   struct suscli_analyzer_server_params params =
     suscli_analyzer_server_params_INITIALIZER;
 
   params.profile  = profile;
   params.port     = port;
-  params.user     = user;
-  params.password = password;
 
   return suscli_analyzer_server_new_with_params(&params);
 }
@@ -1097,7 +1173,7 @@ suscli_analyzer_server_new_with_params(
   suscli_analyzer_server_t *new = NULL;
   int sfd = -1;
 
-  SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_server_t)), goto done);
+  SU_ALLOCATE(new, suscli_analyzer_server_t);
 
   new->params = *params;
 
@@ -1107,38 +1183,32 @@ suscli_analyzer_server_new_with_params(
   new->cancel_pipefd[0] = -1;
   new->cancel_pipefd[1] = -1;
 
-  SU_TRYCATCH(suscan_mq_init(&new->mq), goto done);
+  SU_CONSTRUCT_CATCH(suscan_mq, &new->mq, goto done);
   new->mq_init = SU_TRUE;
 
-  SU_TRYCATCH(new->user = strdup(params->user), goto done);
-  SU_TRYCATCH(new->password = strdup(params->password), goto done);
+  SU_MAKE(new->user_hash, hashlist);
 
   new->listen_port = params->port;
-  SU_TRYCATCH(
-    new->config = suscan_source_config_clone(params->profile), 
-    goto done);
+  SU_TRY(new->config = suscan_source_config_clone(params->profile));
 
-  SU_TRYCATCH(pipe(new->cancel_pipefd) != -1, goto done);
+  SU_TRYC(pipe(new->cancel_pipefd));
 
-  SU_TRYCATCH(
-      (sfd = suscli_analyzer_server_create_socket(params->port)) != -1,
-      goto done);
+  SU_TRYC(sfd = suscli_analyzer_server_create_socket(params->port));
 
-  SU_TRYCATCH(
-      suscli_analyzer_client_list_init(
-          &new->client_list,
-          sfd,
-          new->cancel_pipefd[0],
-          params->ifname),
-      goto done);
+  SU_CONSTRUCT(
+    suscli_analyzer_client_list,
+    &new->client_list,
+    sfd,
+    new->cancel_pipefd[0],
+    params->ifname);
 
-  SU_TRYCATCH(
+  SU_TRYC(
       pthread_create(
           &new->rx_thread,
           NULL,
           suscli_analyzer_server_rx_thread,
-          new) != -1,
-      goto done);
+          new));
+
   new->rx_thread_running = SU_TRUE;
 
   return new;
@@ -1156,6 +1226,21 @@ suscli_analyzer_server_cancel_rx_thread(suscli_analyzer_server_t *self)
   char b = 1;
 
   IGNORE_RESULT(int, write(self->cancel_pipefd[1], &b, 1));
+}
+
+SUPRIVATE void
+suscli_analyzer_server_destroy_userlist(suscli_analyzer_server_t *self)
+{
+  unsigned int i;
+
+  for (i = 0; i < self->user_count; ++i)
+    suscli_user_entry_destroy(self->user_list[i]);
+
+  if (self->user_list != NULL)
+    free(self->user_list);
+
+  if (self->user_hash != NULL)
+    hashlist_destroy(self->user_hash);
 }
 
 void
@@ -1191,11 +1276,7 @@ suscli_analyzer_server_destroy(suscli_analyzer_server_t *self)
   if (self->config != NULL)
     suscan_source_config_destroy(self->config);
 
-  if (self->user != NULL)
-    free(self->user);
-
-  if (self->password != NULL)
-    free(self->password);
+  suscli_analyzer_server_destroy_userlist(self);
 
   if (self->mq_init)
     suscan_mq_finalize(&self->mq);

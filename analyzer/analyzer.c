@@ -203,6 +203,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_source_info)
   SUSCAN_PACK_BOILERPLATE_START;
   unsigned int i;
 
+  SUSCAN_PACK(uint,  self->permissions);
   SUSCAN_PACK(uint,  self->source_samp_rate);
   SUSCAN_PACK(uint,  self->effective_samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
@@ -257,6 +258,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
   uint64_t tv_sec = 0;
   uint32_t tv_usec = 0;
 
+  SUSCAN_UNPACK(uint64, self->permissions);
   SUSCAN_UNPACK(uint64, self->source_samp_rate);
   SUSCAN_UNPACK(uint64, self->effective_samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);

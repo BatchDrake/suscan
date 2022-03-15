@@ -591,11 +591,12 @@ suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
   char *dup = NULL;
   SUBOOL ok = SU_FALSE;
 
-  info->source_samp_rate = suscan_source_get_samp_rate(self->source);
+  info->permissions         = SUSCAN_ANALYZER_PERM_ALL;
+  info->source_samp_rate    = suscan_source_get_samp_rate(self->source);
   info->effective_samp_rate = self->effective_samp_rate;
-  info->measured_samp_rate = self->measured_samp_rate;
-
-  info->frequency = suscan_source_get_freq(self->source);
+  info->measured_samp_rate  = self->measured_samp_rate;
+  
+  info->frequency           = suscan_source_get_freq(self->source);
 
   suscan_local_analyzer_get_freq_limits(
       self,

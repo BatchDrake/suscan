@@ -484,6 +484,8 @@ suscli_analyzer_client_send_source_info(
       suscan_analyzer_source_info_init_copy(&call->source_info, info),
       goto done);
 
+  /* Intersect client permissions and source permissions */
+  call->source_info.permissions &= self->user_entry->permissions;
   call->source_info.source_time = *tv;
   
   SU_TRYCATCH(suscli_analyzer_client_deliver_call(self, call), goto done);
