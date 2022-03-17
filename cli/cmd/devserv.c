@@ -263,7 +263,7 @@ suscli_devserv_ctx_new(
         server,
         user,
         password,
-        SUSCAN_ANALYZER_PERM_ALL));
+        SUSCAN_ANALYZER_PERM_ALL & ~(SUSCAN_ANALYZER_PERM_SET_FFT_FPS | SUSCAN_ANALYZER_PERM_SET_FFT_SIZE)));
 
       SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(new->server, server));
 

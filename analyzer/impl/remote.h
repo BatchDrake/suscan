@@ -325,7 +325,7 @@ struct suscan_remote_analyzer {
 
   pthread_mutex_t call_mutex;
   SUBOOL call_mutex_initialized;
-
+  
   struct suscan_analyzer_source_info      source_info;
   struct suscan_analyzer_remote_call      call;
   struct suscan_remote_analyzer_peer_info peer;

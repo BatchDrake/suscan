@@ -610,6 +610,9 @@ suscan_analyzer_remote_call_deliver_message(
 {
   uint32_t type = 0;
   struct suscan_analyzer_psd_msg *psd_msg;
+  struct suscan_analyzer_source_info *as_source_info;
+  uint64_t old_permissions = analyzer->source_info.permissions;
+
   void *priv = NULL;
 
   SUBOOL ok = SU_FALSE;
@@ -625,10 +628,15 @@ suscan_analyzer_remote_call_deliver_message(
   switch (type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
       /* Source info must be kept in sync. */
+      as_source_info = priv;
+      as_source_info->permissions = old_permissions;
+
       suscan_analyzer_source_info_finalize(&analyzer->source_info);
+
       SU_TRYCATCH(
           suscan_analyzer_source_info_init_copy(&analyzer->source_info, priv),
           goto done);
+
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
@@ -1505,6 +1513,7 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           call,
           &self->source_info),
       goto done);
+
   SU_TRYCATCH(
       suscan_analyzer_send_source_info(self->parent, &self->source_info),
       goto done);
@@ -1784,7 +1793,7 @@ SUPRIVATE void *
 suscan_remote_analyzer_rx_thread(void *ptr)
 {
   suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
-
+  uint64_t old_permissions = self->source_info.permissions;
   struct suscan_analyzer_remote_call *call;
 
   while ((call = suscan_remote_analyzer_receive_call(
@@ -1800,6 +1809,8 @@ suscan_remote_analyzer_rx_thread(void *ptr)
                 call,
                 &self->source_info),
             goto done);
+
+        self->source_info.permissions = old_permissions;
 
         SU_TRYCATCH(
             suscan_analyzer_send_source_info(self->parent, &self->source_info),

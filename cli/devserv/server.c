@@ -81,7 +81,6 @@ suscli_analyzer_server_intercept_message_unsafe(
 {
   struct suscan_analyzer_inspector_msg *inspmsg;
   struct suscan_analyzer_sample_batch_msg *samplemsg;
-
   int32_t itl_index;
   suscli_analyzer_client_t *client = NULL;
   struct suscli_analyzer_itl_entry *entry = NULL;
@@ -234,7 +233,6 @@ suscli_analyzer_server_intercept_message_unsafe(
       }
 
       break;
-
   }
 
   *oclient = client;
@@ -483,8 +481,6 @@ done:
 SUPRIVATE SUBOOL
 suscli_analyzer_server_start_analyzer(suscli_analyzer_server_t *self)
 {
-  struct suscan_analyzer_params params =
-      suscan_analyzer_params_INITIALIZER;
   suscan_analyzer_t *analyzer = NULL;
   SUBOOL ok = SU_FALSE;
 
@@ -493,11 +489,11 @@ suscli_analyzer_server_start_analyzer(suscli_analyzer_server_t *self)
 
   SU_TRYCATCH(
       analyzer = suscan_analyzer_new(
-          &params,
+          &self->analyzer_params,
           self->config,
           &self->mq),
       goto done);
-
+ 
   self->analyzer = analyzer;
   self->tx_halted = SU_FALSE;
 
@@ -981,6 +977,10 @@ suscli_analyzer_server_register_clients(suscli_analyzer_server_t *self)
         client = suscli_analyzer_client_new(fd, self->params.compress_threshold),
         goto done);
 
+    suscli_analyzer_client_set_analyzer_params(
+      client,
+      &self->analyzer_params);
+
     if (suscli_analyzer_client_list_supports_multicast(
         &self->client_list))
       suscli_analyzer_client_enable_flags(
@@ -1224,11 +1224,14 @@ suscli_analyzer_server_new_with_params(
     const struct suscli_analyzer_server_params *params)
 {
   suscli_analyzer_server_t *new = NULL;
+  struct suscan_analyzer_params analyzer_params =
+      suscan_analyzer_params_INITIALIZER;
   int sfd = -1;
 
   SU_ALLOCATE(new, suscli_analyzer_server_t);
 
   new->params = *params;
+  new->analyzer_params = analyzer_params;
 
   new->client_list.listen_fd = -1;
   new->client_list.cancel_fd = -1;

@@ -1452,7 +1452,7 @@ suscan_analyzer_send_source_info(
 
   /* Send source info */
   suscan_analyzer_get_source_time(self, &copy->source_time);
-    
+  
   SU_TRYCATCH(
       suscan_mq_write(
           self->mq_out,

@@ -300,9 +300,13 @@ suscan_analyzer_thread(void *data)
       SUSCAN_ANALYZER_INIT_SUCCESS,
       NULL);
 
+  /* Send source info */
   suscan_analyzer_send_source_info(
       self->parent,
       &self->source_info);
+
+  /* Notify source of the new parameters */
+  suscan_local_analyzer_notify_params(self);
 
   /* Pop all messages from queue before reading from the source */
   for (;;) {

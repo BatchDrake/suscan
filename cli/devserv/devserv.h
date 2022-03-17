@@ -112,6 +112,7 @@ struct suscli_analyzer_client {
   
   const struct suscli_user_entry *user_entry;
   
+  struct suscan_analyzer_params analyzer_params;
   struct suscan_remote_partial_pdu_state pdu_state;
 
   char *name;
@@ -260,6 +261,14 @@ suscli_analyzer_client_mark_failed(suscli_analyzer_client_t *self)
 suscli_analyzer_client_t *suscli_analyzer_client_new(
   int sfd,
   unsigned int compress_threshold);
+
+SUINLINE void
+suscli_analyzer_client_set_analyzer_params(
+  suscli_analyzer_client_t *self,
+  const struct suscan_analyzer_params *params)
+{
+  self->analyzer_params = *params;
+}
 
 SUBOOL suscli_analyzer_client_read(suscli_analyzer_client_t *self);
 
@@ -489,6 +498,7 @@ struct suscli_analyzer_server_params {
 struct suscli_analyzer_server {
   struct suscli_analyzer_server_params params;
   struct suscli_analyzer_client_list client_list;
+  struct suscan_analyzer_params analyzer_params;
 
   uint16_t listen_port;
 

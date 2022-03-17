@@ -34,6 +34,7 @@ suscli_analyzer_client_t *
 suscli_analyzer_client_new(int sfd, unsigned int compress_threshold)
 {
   struct sockaddr_in sin;
+  struct suscan_analyzer_params params = suscan_analyzer_params_INITIALIZER;
   socklen_t len = sizeof(struct sockaddr_in);
   suscli_analyzer_client_t *new = NULL;
 #ifdef SO_NOSIGPIPE
@@ -43,6 +44,7 @@ suscli_analyzer_client_new(int sfd, unsigned int compress_threshold)
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_client_t)), goto fail);
   SU_TRYCATCH(new->inspectors.inspector_tree = rbtree_new(), goto fail);
 
+  new->analyzer_params = params;
   new->sfd   = -1;
   rbtree_set_dtor(new->inspectors.inspector_tree, rbtree_node_free_dtor, NULL);
   
@@ -284,6 +286,7 @@ suscli_analyzer_client_intercept_message(
 {
   struct suscan_analyzer_inspector_msg *inspmsg;
   struct suscli_analyzer_client_inspector_entry *entry;
+  struct suscan_analyzer_params *params;
   SUBOOL mutex_acquired = SU_FALSE;
   SUHANDLE handle;
   SUBOOL ok = SU_FALSE;
@@ -340,7 +343,36 @@ suscli_analyzer_client_intercept_message(
   } else {
     switch (type) {
       case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
-        /* TODO: Check analyzer params and fix request */
+        params = (struct suscan_analyzer_params *) message;
+
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_SET_FFT_FPS))
+          params->psd_update_int = self->analyzer_params.psd_update_int;
+        
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_SET_FFT_SIZE))
+          params->detector_params.window_size 
+            = self->analyzer_params.detector_params.window_size;
+        
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_SET_FFT_WINDOW))
+          params->detector_params.window 
+            = self->analyzer_params.detector_params.window;
+        
+        /* We only adjust these parameters */
+        self->analyzer_params.detector_params.window 
+          = params->detector_params.window;
+        self->analyzer_params.detector_params.window_size 
+          = params->detector_params.window_size;
+        self->analyzer_params.psd_update_int
+          = params->psd_update_int;
+
+        /* Sanitize parameters */
+        *params = self->analyzer_params;
+        
         break;
 
       case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
