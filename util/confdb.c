@@ -317,7 +317,7 @@ suscan_config_context_scan(suscan_config_context_t *context)
       xml = SU_TRUE;
     }
 
-    if (stat(path, &sbuf) != -1) {
+    if (stat(path, &sbuf) != -1 && sbuf.st_size > 0) {
       SU_TRYCATCH((fd = open(path, O_RDONLY)) != -1, goto done);
 
       SU_TRYCATCH(

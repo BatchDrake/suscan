@@ -415,13 +415,27 @@ suscli_devserv_cb(const hashlist_t *params)
 
   if (!suscli_devserv_load_users()) {
     fprintf(stderr, "devserv: no default users found\n");
-    fprintf(stderr, "Default anonymous user support has been deprecated. User\n");
-    fprintf(stderr, "lists must be defined explicitly in ~/.suscan/config/users.yaml\n");
+    fprintf(stderr, "\033[1mPlease note that default anonymous user support has been deprecated.\n");
+    fprintf(stderr, "User lists must be defined in ~/.suscan/config/users.yaml explicitly\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "A good starting point (for testing purposes) is the following\n");
     fprintf(stderr, "user list, containing two users: a full-access root user and\n");
-    fprintf(stderr, "a password-less view-only anonymous user:\n\n");
-
+    fprintf(stderr, "a password-less view-only anonymous user. Save this list\n");
+    fprintf(stderr, "as ~/.suscan/config/users.yaml and run suscli devserv again:\033[0m\n\n");
+    fprintf(stderr, 
+      "%%TAG ! tag:actinid.org,2022:suscan:\n"
+      "---\n"
+      "- !UserEntry\n"
+      "  user: root\n"
+      "  password: '\033[1;31mSetAGoodRootPasswordHere!123\033[0m'\n"
+      "  default_access: allow\n"
+      "\n"
+      "- !UserEntry\n"
+      "  user: anonymous\n"
+      "  password:\n"
+      "  default_access: deny\n"
+      "  exceptions:\n"
+      "    - inspector.open.audio\n\n");
     goto done;
   }
 
