@@ -173,8 +173,6 @@ SUPRIVATE struct suscli_devserv_ctx *
 suscli_devserv_ctx_new(
     const char *iface,
     const char *mcaddr,
-    const char *user,
-    const char *password,
     size_t compress_threshold)
 {
   struct suscli_devserv_ctx *new = NULL;
@@ -375,7 +373,6 @@ suscli_devserv_cb(const hashlist_t *params)
 {
   struct suscli_devserv_ctx *ctx = NULL;
   const char *iface, *mc;
-  const char *user, *password;
   int threshold = 0;
 
   pthread_t thread;
@@ -386,14 +383,6 @@ suscli_devserv_cb(const hashlist_t *params)
 
   SU_TRYCATCH(
       suscli_param_read_string(params, "if", &iface, NULL),
-      goto done);
-
-  SU_TRYCATCH(
-      suscli_param_read_string(params, "user", &user, "anonymous"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscli_param_read_string(params, "password", &password, ""),
       goto done);
 
   SU_TRYCATCH(
@@ -457,8 +446,6 @@ suscli_devserv_cb(const hashlist_t *params)
       ctx = suscli_devserv_ctx_new(
         iface, 
         mc, 
-        user, 
-        password,
         threshold),
       goto done);
 
