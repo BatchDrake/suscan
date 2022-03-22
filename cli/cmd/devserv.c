@@ -24,6 +24,7 @@
 #include <util/compat-inet.h>
 #include <util/compat-in.h>
 #include <util/compat-time.h>
+#include <util/confdb.h>
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>
 #include <analyzer/discovery.h>
@@ -256,17 +257,9 @@ suscli_devserv_ctx_new(
     if (cfg != NULL && !suscan_source_config_is_remote(cfg)) {
       params.profile = cfg;
       params.port    = new->port_base + i;
-      SU_TRY_FAIL(
-          server = suscli_analyzer_server_new_with_params(&params));
-
-      SU_TRY_FAIL(suscli_analyzer_server_add_user(
-        server,
-        user,
-        password,
-        SUSCAN_ANALYZER_PERM_ALL & ~(SUSCAN_ANALYZER_PERM_SET_FFT_FPS | SUSCAN_ANALYZER_PERM_SET_FFT_SIZE)));
-
+      SU_TRY_FAIL(server = suscli_analyzer_server_new_with_params(&params));
+      SU_TRY_FAIL(suscli_analyzer_server_add_all_users(server));
       SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(new->server, server));
-
       SU_INFO(
           "  Port %d: server `%s'\n",
           params.port,
@@ -415,6 +408,20 @@ suscli_devserv_cb(const hashlist_t *params)
     fprintf(
         stderr,
         "devserv: need to specify a multicast interface address with if=\n");
+    goto done;
+  }
+
+  SU_TRY(suscan_confdb_use("users"));
+
+  if (!suscli_devserv_load_users()) {
+    fprintf(stderr, "devserv: no default users found\n");
+    fprintf(stderr, "Default anonymous user support has been deprecated. User\n");
+    fprintf(stderr, "lists must be defined explicitly in ~/.suscan/config/users.yaml\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "A good starting point (for testing purposes) is the following\n");
+    fprintf(stderr, "user list, containing two users: a full-access root user and\n");
+    fprintf(stderr, "a password-less view-only anonymous user:\n\n");
+
     goto done;
   }
 

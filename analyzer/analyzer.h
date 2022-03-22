@@ -63,6 +63,7 @@ extern "C" {
 #define SUSCAN_ANALYZER_PERM_SET_FFT_FPS        (1ull << 13)
 #define SUSCAN_ANALYZER_PERM_SET_FFT_WINDOW     (1ull << 14)
 #define SUSCAN_ANALYZER_PERM_SEEK               (1ull << 15)
+#define SUSCAN_ANALYZER_PERM_THROTTLE           (1ull << 16)
 
 #define SUSCAN_ANALYZER_PERM_ALL              0xffffffffffffffffull
 

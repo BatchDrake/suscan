@@ -496,6 +496,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/devserv/mc_manager.c
   ${CLIDIR}/devserv/server.c
   ${CLIDIR}/devserv/tx.c
+  ${CLIDIR}/devserv/user.c
   ${SRCDIR}/suscli.c)
 
 add_executable(

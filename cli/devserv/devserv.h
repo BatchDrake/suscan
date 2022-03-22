@@ -45,6 +45,8 @@ struct suscli_user_entry *suscli_user_entry_new(
 
 void suscli_user_entry_destroy(struct suscli_user_entry *self);
 
+SUBOOL suscli_devserv_load_users(void);
+
 struct suscli_analyzer_client_inspector_entry {
   SUHANDLE global_handle;
   int32_t  itl_index;
@@ -561,6 +563,8 @@ SUBOOL suscli_analyzer_server_add_user(
   const char *user,
   const char *password,
   uint64_t permissions);
+
+SUBOOL suscli_analyzer_server_add_all_users(suscli_analyzer_server_t *server);
 
 void suscli_analyzer_server_destroy(suscli_analyzer_server_t *self);
 
