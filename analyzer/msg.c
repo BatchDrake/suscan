@@ -1269,7 +1269,7 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
           msgptr = calloc(1, sizeof (struct suscan_analyzer_throttle_msg)),
           goto fail);
       SU_TRYCATCH(
-          suscan_analyzer_throttle_msg_serialize(msgptr, buffer),
+          suscan_analyzer_throttle_msg_deserialize(msgptr, buffer),
           goto fail);
       break;
 
