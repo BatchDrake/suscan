@@ -112,6 +112,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_sample_batch_msg) {
  * updates are treated separately
  */
 enum suscan_analyzer_inspector_msgkind {
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG,

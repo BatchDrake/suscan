@@ -190,6 +190,7 @@ suscli_analyzer_server_intercept_message_unsafe(
           suscli_analyzer_client_dec_inspector_open_request(client);
           break;
 
+        case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP:
         case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
         case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_HANDLE:
           break;
@@ -546,10 +547,13 @@ suscli_analyzer_server_on_open(
 {
   struct suscli_analyzer_client_inspector_entry *entry;
 
+  inspmsg->req_id = client->sfd;
+
   if (!suscli_analyzer_client_can_open(client, inspmsg->class_name)) {
     SU_INFO("%s: open request of `%s' inspector rejected\n",
         suscli_analyzer_client_get_name(client),
         inspmsg->class_name);
+    inspmsg->kind = SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP;
     return SU_TRUE;
   }
   /*
@@ -557,10 +561,7 @@ suscli_analyzer_server_on_open(
    * with the corresponding response. We do this by adjusting the request ID
    * to the socket descriptor (sfd) of the client.
    */
-
   suscli_analyzer_client_inc_inspector_open_request(client);
-
-  inspmsg->req_id = client->sfd;
 
   SU_INFO(
         "%s: open request of `%s' inspector on freq %+lg MHz (bw = %g kHz)\n",
@@ -587,7 +588,6 @@ suscli_analyzer_server_on_open(
       SU_WARNING(
         "%s: suspicious client behavior (invalid parent inspector handle)\n",
         suscli_analyzer_client_get_name(client));
-
     }
   }
 

@@ -207,6 +207,11 @@ suscan_local_analyzer_insp_from_msg(
   return insp;
 }
 
+DEF_MSGCB(NOOP)
+{
+  return SU_TRUE;
+}
+
 DEF_MSGCB(OPEN)
 {
   suscan_inspector_t *insp = NULL;
@@ -700,6 +705,7 @@ done:
 SUBOOL
 suscan_insp_server_init(void)
 {
+  INIT_MSGCB(NOOP);
   INIT_MSGCB(OPEN);
   INIT_MSGCB(SET_ID);
   INIT_MSGCB(ESTIMATOR);

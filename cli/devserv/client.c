@@ -375,6 +375,16 @@ suscli_analyzer_client_intercept_message(
         
         break;
 
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_THROTTLE)) {
+          SU_WARNING(
+            "%s: client not allowed to override throttle ocnfig\n",
+            suscli_analyzer_client_get_name(self));
+          goto done;
+        }
+        break;
       case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
         if (!suscli_analyzer_client_test_permission(
           self,
