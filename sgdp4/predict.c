@@ -74,7 +74,7 @@ sgdp4_prediction_update(
   return SU_TRUE;
 }
 
-SUPRIVATE SUBOOL
+SUBOOL
 orbit_is_geo(const orbit_t *orbit)
 {
   /* 
@@ -98,7 +98,7 @@ orbit_is_geo(const orbit_t *orbit)
  *            2 * pi 
  */
 
-SUPRIVATE SUBOOL
+SUBOOL
 orbit_is_decayed(const orbit_t *orbit, const struct timeval *tv)
 {
   struct timeval epoch, diff;
@@ -176,6 +176,7 @@ sgdp4_prediction_find_aos(
   struct timeval *aos)
 {
   SUDOUBLE delta_t;
+  SUBOOL was_visible;
   struct timeval t = *tv;
 
   sgdp4_prediction_update(self, tv);
@@ -183,7 +184,9 @@ sgdp4_prediction_find_aos(
   if (!sgdp4_prediction_has_aos(self))
     return SU_FALSE;
 
-  if (self->pos_azel.elevation > 0.0) {
+  was_visible = self->pos_azel.elevation > 0.0;
+
+  if (was_visible) {
     if (!sgdp4_prediction_find_los(self, tv, window, &t))
       return SU_FALSE;
 
@@ -191,7 +194,7 @@ sgdp4_prediction_find_aos(
   }
 
   sgdp4_prediction_update(self, &t);
-
+  
   /* Coarse search of the AOS */
   while (self->pos_azel.elevation < -0.015
     && (window <= 0 || timeval_elapsed(&t, tv) < window)) {
@@ -202,41 +205,47 @@ sgdp4_prediction_find_aos(
     sgdp4_prediction_update(self, &t);
   }
 
+  if (self->pos_azel.elevation < -0.015)
+    return SU_FALSE;
+
   /* Fine grained search of AOS */
   while (window <= 0 || timeval_elapsed(&t, tv) < window) {
     if (sufeq(self->pos_azel.elevation, 0, 8.7e-5)) {
       *aos = t;
-      break;
+      return SU_TRUE;
     }
 
-    timeval_add_double(
-      &t,
-      -.163
+    delta_t = -.163
         * SU_RAD2DEG(self->pos_azel.elevation) 
-        * sqrt(self->alt));
+        * sqrt(self->alt);
+    timeval_add_double(&t, delta_t);
     sgdp4_prediction_update(self, &t);
   }
 
-  return SU_TRUE;
+  return SU_FALSE;
 }
 
 SUBOOL
 sgdp4_prediction_find_los(
   sgdp4_prediction_t *self, 
   const struct timeval *tv, 
-  SUDOUBLE delta_t, /* In seconds */
+  SUDOUBLE window, /* In seconds */
   struct timeval *los)
 {
   struct timeval t = *tv;
   SUDOUBLE tmpel;
+  SUDOUBLE delta_t;
+  SUBOOL was_hidden;
 
   sgdp4_prediction_update(self, tv);
 
   if (!sgdp4_prediction_has_aos(self))
     return SU_FALSE;
 
-  if (self->pos_azel.elevation < 0.0) {
-    if (!sgdp4_prediction_find_aos(self, tv, delta_t, &t))
+  was_hidden = self->pos_azel.elevation < 0.0;
+
+  if (was_hidden) {
+    if (!sgdp4_prediction_find_aos(self, tv, window, &t))
       return SU_FALSE;
 
     t.tv_sec += 90; /* 1.5 min */
@@ -245,23 +254,24 @@ sgdp4_prediction_find_los(
   sgdp4_prediction_update(self, &t);
 
   /* Coarse search of the LOS */
-  while (self->pos_azel.elevation < -0.015
-    && (delta_t <= 0 || timeval_elapsed(&t, tv) < delta_t)) {
-    timeval_add_double(
-      &t,
-      3.456 
+  while (self->pos_azel.elevation >= -0.015
+    && (window <= 0 || timeval_elapsed(&t, tv) < window)) {
+    delta_t = 3.456 
         * cos(self->pos_azel.elevation - .017) 
-        * sqrt(self->alt));
+        * sqrt(self->alt);
+    timeval_add_double(&t, delta_t);
     sgdp4_prediction_update(self, &t);
   }
 
+  if (self->pos_azel.elevation >= -0.015)
+    return SU_FALSE;
+
   /* Fine grained search of LOS */
-  while (delta_t <= 0 || timeval_elapsed(&t, tv) < delta_t) {
-    timeval_add_double(
-      &t,
-      .1719 
+  while (window <= 0 || timeval_elapsed(&t, tv) < window) {
+    delta_t = .1719 
         * SU_RAD2DEG(self->pos_azel.elevation) 
-        * sqrt(self->alt));
+        * sqrt(self->alt);
+    timeval_add_double(&t, delta_t);
     sgdp4_prediction_update(self, &t);
 
     if (sufeq(self->pos_azel.elevation, 0, 8.7e-5)) {
@@ -271,12 +281,12 @@ sgdp4_prediction_find_los(
 
       if (self->pos_azel.elevation > tmpel) {
         *los = t;
-        break;
+        return SU_TRUE;
       }
     }
   }
 
-  return SU_TRUE;
+  return SU_FALSE;
 }
 
 void 

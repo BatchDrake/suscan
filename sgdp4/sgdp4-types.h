@@ -136,6 +136,9 @@ typedef struct orbit_s {
   0,                                            \
   0}
 
+SUBOOL orbit_is_geo(const orbit_t *orbit);
+SUBOOL orbit_is_decayed(const orbit_t *orbit, const struct timeval *tv);
+
 typedef struct xyz_s {
   union {
     SUDOUBLE x;
