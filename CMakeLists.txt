@@ -349,6 +349,11 @@ endif()
 if(WIN32)
   # Windows winsock2
   target_link_libraries(suscan ws2_32)
+
+  # Under MINGW, somehow regex is not included in libc
+  if (MINGW)
+    target_link_libraries(suscan regex)
+  endif()
 endif()
 
 target_link_libraries(suscan m ${SIGUTILS_LIBRARIES})
