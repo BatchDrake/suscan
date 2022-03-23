@@ -63,6 +63,7 @@ suscan_local_analyzer_set_gain_cb(
   SUBOOL mutex_acquired = SU_FALSE;
   PTR_LIST_LOCAL(struct suscan_analyzer_gain_info, request);
   unsigned int i, j;
+  SUBOOL updated = SU_FALSE;
 
   /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
   SU_TRYCATCH(pthread_mutex_lock(&self->hotconf_mutex) != -1, goto fail);
@@ -95,6 +96,8 @@ suscan_local_analyzer_set_gain_cb(
         self->source_info.gain_list[j]->value = request_list[i]->value;
   }
 
+  updated = SU_TRUE;
+
 fail:
   if (mutex_acquired)
     pthread_mutex_unlock(&self->hotconf_mutex);
@@ -105,6 +108,9 @@ fail:
   if (request_list != NULL)
     free(request_list);
 
+  if (updated)
+    suscan_analyzer_send_source_info(self->parent, &self->source_info);
+  
   return SU_FALSE;
 }
 
@@ -114,32 +120,36 @@ suscan_local_analyzer_set_antenna_cb(
     void *wk_private,
     void *cb_private)
 {
-  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
   SUBOOL mutex_acquired = SU_FALSE;
   char *req = NULL;
+  SUBOOL updated = SU_FALSE;
 
   /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
-  SU_TRYCATCH(pthread_mutex_lock(&analyzer->hotconf_mutex) != -1, goto fail);
+  SU_TRYCATCH(pthread_mutex_lock(&self->hotconf_mutex) != -1, goto fail);
   mutex_acquired = SU_TRUE;
 
-  req = analyzer->antenna_req;
-  analyzer->antenna_req = NULL;
+  req = self->antenna_req;
+  self->antenna_req = NULL;
 
-  pthread_mutex_unlock(&analyzer->hotconf_mutex);
+  pthread_mutex_unlock(&self->hotconf_mutex);
   mutex_acquired = SU_FALSE;
   /* ^^^^^^^^^^^^^^^^^^ Release hotconf request mutex ^^^^^^^^^^^^^^^^^^^^^^^^^ */
 
-  suscan_source_set_antenna(analyzer->source, req);
+  suscan_source_set_antenna(self->source, req);
 
-  /* TODO: Protect with mutex, set antenna and deliver source info */
+  updated = SU_TRUE;
 
 fail:
   if (mutex_acquired)
-    pthread_mutex_unlock(&analyzer->hotconf_mutex);
+    pthread_mutex_unlock(&self->hotconf_mutex);
 
   if (req != NULL)
     free(req);
 
+  if (updated)
+    suscan_analyzer_send_source_info(self->parent, &self->source_info);
+  
   return SU_FALSE;
 }
 
