@@ -481,13 +481,13 @@ suscan_analyzer_inspector_msg_deserialize_open(
   SU_TRYCATCH(
       self->spectsrc_list = calloc(
           self->spectsrc_count,
-          sizeof(struct suscan_estimator_class *)),
+          sizeof(struct suscan_spectsrc_class *)),
       goto fail);
 
   for (i = 0; i < self->spectsrc_count; ++i) {
     SUSCAN_UNPACK(str, name);
     self->spectsrc_list[i] = suscan_spectsrc_class_lookup(name);
-    if (self->estimator_list[i] == NULL)
+    if (self->spectsrc_list[i] == NULL)
       SU_WARNING("Spectrum source class `%s' not found\n", name);
 
     free(name);
