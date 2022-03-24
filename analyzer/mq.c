@@ -29,22 +29,22 @@
 
 #ifdef SUSCAN_MQ_USE_POOL
 
-SUPRIVATE pthread_mutex_t msg_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
-SUPRIVATE struct suscan_msg *msg_pool = NULL;
-SUPRIVATE int msg_pool_size;
-SUPRIVATE int msg_pool_peak;
+SUPRIVATE pthread_mutex_t g_msg_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
+SUPRIVATE struct suscan_msg *g_msg_pool = NULL;
+SUPRIVATE int g_msg_pool_size;
+SUPRIVATE int g_msg_pool_peak;
 
 SUPRIVATE void
 suscan_msg_pool_enter(void)
 {
-  (void) pthread_mutex_lock(&msg_pool_mutex);
+  (void) pthread_mutex_lock(&g_msg_pool_mutex);
 }
 
 
 SUPRIVATE void
 suscan_msg_pool_leave(void)
 {
-  (void) pthread_mutex_unlock(&msg_pool_mutex);
+  (void) pthread_mutex_unlock(&g_msg_pool_mutex);
 }
 
 SUPRIVATE struct suscan_msg *
@@ -53,11 +53,11 @@ suscan_mq_alloc_msg(void)
   struct suscan_msg *msg = NULL;
   suscan_msg_pool_enter();
 
-  if (msg_pool != NULL) {
-    msg = msg_pool;
-    msg_pool = msg->free_next;
+  if (g_msg_pool != NULL) {
+    msg = g_msg_pool;
+    g_msg_pool = msg->free_next;
 
-    --msg_pool_size;
+    --g_msg_pool_size;
   }
 
   suscan_msg_pool_leave();
@@ -73,23 +73,33 @@ SUPRIVATE void
 suscan_mq_return_msg(struct suscan_msg *msg)
 {
   int msg_pool_peak_copy = -1;
+  SUBOOL in_pool = SU_FALSE;
+
   suscan_msg_pool_enter();
 
-  msg->free_next = msg_pool;
-  msg_pool = msg;
+  if (g_msg_pool_size < SUSCAN_MQ_POOL_OVERFLOW_THRESHOLD) {
+    msg->free_next = g_msg_pool;
+    g_msg_pool = msg;
 
-  ++msg_pool_size;
-  if (msg_pool_size > msg_pool_peak) {
-    msg_pool_peak = msg_pool_size;
-    msg_pool_peak_copy = msg_pool_peak;
+    ++g_msg_pool_size;
+    if (g_msg_pool_size > g_msg_pool_peak) {
+      g_msg_pool_peak    = g_msg_pool_size;
+      msg_pool_peak_copy = g_msg_pool_peak;
+    }
+
+    in_pool = SU_TRUE;
   }
 
   suscan_msg_pool_leave();
 
-  if ((msg_pool_peak_copy % SUSCAN_MQ_POOL_WARNING_THRESHOLD) == 0)
+  if (!in_pool) {
+    /* Pool is full. Just free the message. */
+    free(msg);
+  } else if ((msg_pool_peak_copy % SUSCAN_MQ_POOL_WARNING_THRESHOLD) == 0) {
     SU_WARNING(
         "Message pool freelist grew to %d elements!\n",
         msg_pool_peak_copy);
+  }
 }
 
 #else
@@ -185,6 +195,85 @@ suscan_msg_destroy(struct suscan_msg *msg)
   suscan_mq_return_msg(msg);
 }
 
+SUPRIVATE SUBOOL
+suscan_mq_trigger_cleanup(struct suscan_mq *mq)
+{
+  void *cu_user = NULL;
+  void *mq_user = mq->callbacks.userdata;
+  struct suscan_msg *this, *next, *prev = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  /* Allocate context, if needed */
+  if (mq->callbacks.pre_cleanup != NULL)
+    SU_TRY(cu_user = (mq->callbacks.pre_cleanup) (mq, mq_user));
+  
+  if (mq->callbacks.try_destroy != NULL) {
+    this = mq->head;
+
+    while (this != NULL) {
+      next = this->next;
+
+      if ((mq->callbacks.try_destroy) (
+        mq_user,
+        cu_user,
+        this->type,
+        this->privdata)) {
+        /* 
+         * Cleanup callback informs that we should remove
+         * this message. There are three cases here:
+         * 
+         * - Remove the first element
+         * - Remove an intermediate element
+         * - Remove the last element
+         * 
+         * These cases are not mutually exclusive, as the
+         * first element could be the last.
+         */
+
+        if (prev != NULL)
+          prev->next = next;
+        else
+          mq->head = next;
+        
+        if (next == NULL)
+          mq->tail = prev;
+        
+        /* 
+         * Remove this message. try_destroy should have released
+         * all associated resources to the message (i.e. privdata).
+         */
+        suscan_msg_destroy(this);
+        --mq->count;
+      } else {
+        /* We keep this one, move to the next */
+        prev = this;
+      }
+
+      this = next;
+    }
+  }
+  
+done:
+  /* Release context, if needed */
+  if (cu_user != NULL && mq->callbacks.post_cleanup != NULL)
+    (mq->callbacks.post_cleanup) (mq_user, cu_user);
+  
+  return ok;
+}
+
+SUPRIVATE void
+suscan_mq_cleanup_if_needed(struct suscan_mq *mq)
+{
+  if (mq->cleanup_watermark > 0 && mq->count >= mq->cleanup_watermark) {
+    SU_WARNING(
+      "Too many messages in queue (%d), triggering cleanup\n",
+      mq->count);
+
+    if (!suscan_mq_trigger_cleanup(mq))
+      SU_ERROR("Failed to trigger cleanup\n");
+  }
+}
+
 SUPRIVATE void
 suscan_mq_push_front(struct suscan_mq *mq, struct suscan_msg *msg)
 {
@@ -193,6 +282,9 @@ suscan_mq_push_front(struct suscan_mq *mq, struct suscan_msg *msg)
 
   if (mq->tail == NULL)
     mq->tail = msg;
+
+  ++mq->count;
+  suscan_mq_cleanup_if_needed(mq);
 }
 
 SUPRIVATE void
@@ -205,6 +297,9 @@ suscan_mq_push(struct suscan_mq *mq, struct suscan_msg *msg)
 
   if (mq->head == NULL)
     mq->head = msg;
+
+  ++mq->count;
+  suscan_mq_cleanup_if_needed(mq);
 }
 
 SUPRIVATE struct suscan_msg *
@@ -221,6 +316,8 @@ suscan_mq_pop(struct suscan_mq *mq)
     mq->tail = NULL;
 
   msg->next = NULL;
+
+  --mq->count;
 
   return msg;
 }
@@ -251,6 +348,9 @@ suscan_mq_pop_w_type(struct suscan_mq *mq, uint32_t type)
 
     this->next = NULL;
   }
+
+  if (this != NULL)
+    --mq->count;
 
   return this;
 }
@@ -514,6 +614,22 @@ suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *private)
 }
 
 void
+suscan_mq_set_cleanup_watermark(
+  struct suscan_mq *self,
+  unsigned int watermark)
+{
+  self->cleanup_watermark = watermark;
+}
+
+void
+suscan_mq_set_callbacks(
+  struct suscan_mq *self,
+  const struct suscan_mq_callbacks *callbacks)
+{
+  self->callbacks = *callbacks;
+}
+
+void
 suscan_mq_finalize(struct suscan_mq *mq)
 {
   struct suscan_msg *msg = NULL;
@@ -529,15 +645,22 @@ suscan_mq_finalize(struct suscan_mq *mq)
 SUBOOL
 suscan_mq_init(struct suscan_mq *mq)
 {
-  if (pthread_mutex_init(&mq->acquire_lock, NULL) == -1)
-    return SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+  SUBOOL mutex_init = SU_FALSE;
 
-  if (pthread_cond_init(&mq->acquire_cond, NULL) == -1)
-    return SU_FALSE;
+  memset(mq, 0, sizeof(struct suscan_mq));
+  
+  SU_TRYZ(pthread_mutex_init(&mq->acquire_lock, NULL));
+  mutex_init = SU_TRUE;
 
-  mq->head = NULL;
-  mq->tail = NULL;
+  SU_TRYZ(pthread_cond_init(&mq->acquire_cond, NULL));
+  
+  ok = SU_TRUE;
 
-  return SU_TRUE;
+done:
+  if (!ok && mutex_init)
+    pthread_mutex_destroy(&mq->acquire_lock);
+  
+  return ok;
 }
 

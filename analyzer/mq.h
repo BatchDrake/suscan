@@ -30,7 +30,8 @@ extern "C" {
 
 #define SUSCAN_MQ_USE_POOL
 
-#define SUSCAN_MQ_POOL_WARNING_THRESHOLD 100
+#define SUSCAN_MQ_POOL_WARNING_THRESHOLD  100
+#define SUSCAN_MQ_POOL_OVERFLOW_THRESHOLD 300
 
 struct suscan_msg {
   uint32_t type;
@@ -42,16 +43,41 @@ struct suscan_msg {
 #endif
 };
 
+struct suscan_mq;
+
+struct suscan_mq_callbacks {
+  void    *userdata;
+  void  *(*pre_cleanup)  (struct suscan_mq *, void *);
+  SUBOOL (*try_destroy)  (void *, void *, uint32_t, void *);
+  void   (*post_cleanup) (void *, void *);
+};
+
+#define suscan_mq_callbacks_INITIALIZER \
+{                                       \
+  NULL, /* userdata */                  \
+  NULL, /* pre_cleanup */               \
+  NULL, /* should_remove */             \
+  NULL, /* post_cleanup */              \
+}
+
 struct suscan_mq {
   pthread_mutex_t acquire_lock;
   pthread_cond_t  acquire_cond;
 
   struct suscan_msg *head;
   struct suscan_msg *tail;
+  unsigned int count;
+  unsigned int cleanup_watermark;
+  struct suscan_mq_callbacks callbacks;
 };
 
 /*************************** Message queue API *******************************/
 SUBOOL suscan_mq_init(struct suscan_mq *mq);
+void   suscan_mq_set_cleanup_watermark(struct suscan_mq *mq, unsigned int);
+void   suscan_mq_set_callbacks(
+  struct suscan_mq *mq,
+  const struct suscan_mq_callbacks *);
+
 void   suscan_mq_finalize(struct suscan_mq *mq);
 
 void  *suscan_mq_read(struct suscan_mq *mq, uint32_t *type);

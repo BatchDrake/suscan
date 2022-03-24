@@ -143,7 +143,7 @@ suscli_devserv_permission_match(const char *expr)
   SUBOOL compiled = SU_FALSE;
   regex_t preg;
 
-  SU_TRY(regcomp(&preg, expr, REG_EXTENDED) == 0);
+  SU_TRYZ(regcomp(&preg, expr, REG_EXTENDED));
   compiled = SU_TRUE;
 
   count = sizeof(g_perm_strings) / sizeof(g_perm_strings[0]);
