@@ -266,14 +266,9 @@ done:
 SUPRIVATE void
 suscan_mq_cleanup_if_needed(struct suscan_mq *mq)
 {
-  if (mq->cleanup_watermark > 0 && mq->count >= mq->cleanup_watermark) {
-    SU_WARNING(
-      "Too many messages in queue (%d), triggering cleanup\n",
-      mq->count);
-
+  if (mq->cleanup_watermark > 0 && mq->count >= mq->cleanup_watermark)
     if (!suscan_mq_trigger_cleanup(mq))
       SU_ERROR("Failed to trigger cleanup\n");
-  }
 }
 
 SUPRIVATE void

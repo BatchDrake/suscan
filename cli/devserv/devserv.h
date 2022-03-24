@@ -64,7 +64,7 @@ struct suscli_analyzer_client_inspector_list {
 #define SUSCLI_ANALYZER_CLIENT_TX_MESSAGE 0
 #define SUSCLI_ANALYZER_CLIENT_TX_CANCEL  1
 
-#define SUSCLI_ANALYZER_CLIENT_TX_CLEANUP_WATERMARK 75
+#define SUSCLI_ANALYZER_CLIENT_TX_CLEANUP_WATERMARK 50
 
 struct suscli_analyzer_client_tx_thread {
   unsigned int      compress_threshold;

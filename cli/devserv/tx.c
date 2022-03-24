@@ -537,7 +537,9 @@ suscli_analyzer_client_tx_thread_post_cleanup(
       ctx->head_source_info);
   }
 
-  SU_WARNING("%d PSD messages discarded\n", ctx->discarded);
+  SU_WARNING(
+    "Slow network (%d PSD messages discarded)\n",
+    ctx->discarded);
   
   free(ctx);
 }
