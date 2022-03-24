@@ -490,6 +490,8 @@ suscli_analyzer_client_tx_thread_try_destroy(
          * TODO: Maybe keep looped messages?
          */
         case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+          grow_buf_finalize(buffer);
+          free(buffer);
           ++ctx->discarded;
           return SU_TRUE;
 
@@ -499,6 +501,8 @@ suscli_analyzer_client_tx_thread_try_destroy(
 
           /* Spectrum message. Discard */
           if (msg_kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
+            grow_buf_finalize(buffer);
+            free(buffer);
             ++ctx->discarded;
             return SU_TRUE;
           }
