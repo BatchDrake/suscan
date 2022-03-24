@@ -21,6 +21,7 @@
 
 #include "devserv.h"
 #include <util/compat-poll.h>
+#include <analyzer/msg.h>
 #include <sys/fcntl.h>
 #include <zlib.h>
 
@@ -379,12 +380,176 @@ done:
   return ok;
 }
 
+/* Cleanup callbacks */
+struct suscli_analyzer_client_tx_thread_cleanup_ctx
+{
+  struct suscan_mq *mq;
+  grow_buf_t *head_source_info;
+  SUBOOL      critical_reached;
+};
+
+/* 
+ * This is what the cleanup strategy looks like: we classify messages
+ * in three categories:
+ *   - Overridable messages
+ *   - Discardable messages
+ *   - Critical messages (other)
+ * 
+ * Overridable messages are messages whose validity is revoked by
+ * posterior messages. This is the case for source info messages
+ * 
+ * Discardable messages are messages that are delivered to the client
+ * in a "best-effort" policy. It is desirable that they arrive to the
+ * client, but can be discarded safely if the network does not support
+ * such rates. This is the case for non-loop PSD messages.
+ * 
+ * Other messages are critical, and are needed to be delivered always,
+ * in order, to keep the client in sync with the server.
+ * 
+ * --------8<---------------------------------------------------------
+ * 
+ * In case we need to perform an emergency cleanup, we discard all PSD
+ * messages and discard source info messages that happen in the front
+ * of the message queue, up to the first critical message.
+ */
+
+SUPRIVATE void *
+suscli_analyzer_client_tx_thread_pre_cleanup(
+  struct suscan_mq *mq,
+  void *mq_user)
+{
+  struct suscli_analyzer_client_tx_thread_cleanup_ctx *ctx = NULL;
+
+  SU_ALLOCATE_FAIL(ctx, struct suscli_analyzer_client_tx_thread_cleanup_ctx);
+
+  ctx->mq = mq;
+
+  return ctx;
+
+fail:
+  free(ctx);
+
+  return NULL;
+}
+
+SUPRIVATE void
+suscli_analyzer_client_tx_thread_cleanup_ctx_save_source_info(
+  struct suscli_analyzer_client_tx_thread_cleanup_ctx *ctx,
+  grow_buf_t *buffer)
+{
+  /* These are the first source info messages */
+  if (ctx->head_source_info != NULL) {
+    grow_buf_finalize(ctx->head_source_info);
+    free(ctx->head_source_info);
+  }
+
+  ctx->head_source_info = buffer;
+}
+
+SUPRIVATE SUBOOL
+suscli_analyzer_client_tx_thread_try_destroy(
+  void *mq_user,
+  void *cu_user,
+  uint32_t type,
+  void *data)
+{
+  struct suscli_analyzer_client_tx_thread_cleanup_ctx *ctx = cu_user;
+  struct suscan_analyzer_remote_call call;
+  uint32_t msg_type, msg_kind;
+  grow_buf_t *buffer;
+
+  suscan_analyzer_remote_call_init(&call, SUSCAN_ANALYZER_REMOTE_NONE);
+
+  if (type == SUSCLI_ANALYZER_CLIENT_TX_MESSAGE) {
+    buffer = data;
+
+    /* Rewind */
+    grow_buf_seek(buffer, 0, SEEK_SET);
+    
+    SU_TRY(suscan_analyzer_remote_call_deserialize_partial(&call, buffer));
+
+    if (call.type == SUSCAN_ANALYZER_REMOTE_MESSAGE) {
+      SU_TRY(
+        suscan_analyzer_msg_deserialize_partial(
+          &msg_type,
+          buffer));
+      
+      switch (msg_type) {
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
+          if (!ctx->critical_reached) {
+            suscli_analyzer_client_tx_thread_cleanup_ctx_save_source_info(
+              ctx,
+              buffer);
+            return SU_TRUE;
+          }
+          break;
+
+        /*
+         * TODO: Maybe keep looped messages?
+         */
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+          return SU_TRUE;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
+          /* Deserialize inspector message kind */
+          SU_TRYZ(cbor_unpack_uint32(buffer, &msg_kind));
+
+          /* Spectrum message. Discard */
+          if (msg_kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM)
+            return SU_TRUE;
+
+          /* Other message. Assume critical */
+          ctx->critical_reached = SU_TRUE;
+          break;
+        
+        default:
+          /* Other message. Assume critical */
+          ctx->critical_reached = SU_TRUE;
+          break;
+      }
+    } else {
+      /* Not an analyzer message. Assume critical */
+      ctx->critical_reached = SU_TRUE;
+    }
+  }
+
+done:
+  return SU_FALSE;
+}
+
+SUPRIVATE void
+suscli_analyzer_client_tx_thread_post_cleanup(
+  void *mq_user,
+  void *cu_user)
+{
+  struct suscli_analyzer_client_tx_thread_cleanup_ctx *ctx = cu_user;
+
+  if (ctx->head_source_info != NULL) {
+    /* Give ownership away */
+    suscan_mq_write_urgent_unsafe(
+      ctx->mq,
+      SUSCLI_ANALYZER_CLIENT_TX_MESSAGE,
+      ctx->head_source_info);
+  }
+
+  free(ctx);
+}
+
+/* Initialization */
 SUBOOL
 suscli_analyzer_client_tx_thread_initialize(
     struct suscli_analyzer_client_tx_thread *self,
     int fd,
     unsigned int compress_threshold)
 {
+  struct suscan_mq_callbacks callbacks = 
+  {
+    NULL,
+    suscli_analyzer_client_tx_thread_pre_cleanup,
+    suscli_analyzer_client_tx_thread_try_destroy,
+    suscli_analyzer_client_tx_thread_post_cleanup
+  };
+
   SUBOOL ok = SU_FALSE;
 
   memset(self, 0, sizeof(struct suscli_analyzer_client_tx_thread));
@@ -397,6 +562,14 @@ suscli_analyzer_client_tx_thread_initialize(
   self->pool_initialized = SU_TRUE;
 
   SU_TRYCATCH(suscan_mq_init(&self->queue), goto done);
+  suscan_mq_set_callbacks(
+    &self->queue,
+    &callbacks);
+
+  suscan_mq_set_cleanup_watermark(
+    &self->queue,
+    SUSCLI_ANALYZER_CLIENT_TX_CLEANUP_WATERMARK);
+
   self->queue_initialized = SU_TRUE;
 
   SU_TRYCATCH(pipe(self->cancel_pipefd) != -1, goto done);

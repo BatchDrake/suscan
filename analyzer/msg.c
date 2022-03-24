@@ -203,7 +203,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
   SUSCAN_PACK_BOILERPLATE_END;
 }
 
-SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
+SUSCAN_PARTIAL_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
 {
   uint64_t tv_sec = 0;
   uint32_t tv_usec = 0;
@@ -227,13 +227,21 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
   SUSCAN_UNPACK(float,  self->N0);
 
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
 
-  SU_TRYCATCH(
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SU_TRY_FAIL(
+    suscan_analyzer_psd_msg_deserialize_partial(self, buffer));
+
+  SU_TRY_FAIL(
       suscan_unpack_compact_single_array(
           buffer,
           &self->psd_data,
-          &self->psd_size),
-      goto fail);
+          &self->psd_size));
 
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
@@ -1205,12 +1213,22 @@ suscan_analyzer_msg_serialize(
 }
 
 SUBOOL
+suscan_analyzer_msg_deserialize_partial(uint32_t *type, grow_buf_t *buffer)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(uint32, *type);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+SUBOOL
 suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
   void *msgptr = NULL;
 
-  SUSCAN_UNPACK(uint32, *type);
+  SU_TRY_FAIL(suscan_analyzer_msg_deserialize_partial(type, buffer));
 
   switch (*type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:

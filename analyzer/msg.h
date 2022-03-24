@@ -100,6 +100,9 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
   SUFLOAT *psd_data;
 };
 
+/* These messages allow partial deserialization */
+SUSCAN_PARTIAL_DESERIALIZER_PROTO(suscan_analyzer_psd_msg);
+
 /* Channel sample batch */
 SUSCAN_SERIALIZABLE(suscan_analyzer_sample_batch_msg) {
   uint32_t   inspector_id;
@@ -309,6 +312,9 @@ suscan_analyzer_msg_serialize(
     uint32_t type,
     const void *ptr,
     grow_buf_t *buffer);
+
+SUBOOL
+suscan_analyzer_msg_deserialize_partial(uint32_t *type, grow_buf_t *buffer);
 
 SUBOOL
 suscan_analyzer_msg_deserialize(

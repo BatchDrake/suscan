@@ -600,6 +600,14 @@ suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *private)
   return SU_TRUE;
 }
 
+void
+suscan_mq_write_msg_urgent_unsafe(struct suscan_mq *mq, struct suscan_msg *msg)
+{
+  suscan_mq_push_front(mq, msg);
+
+  suscan_mq_notify(mq);
+}
+
 SUBOOL
 suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *private)
 {
@@ -609,6 +617,20 @@ suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *private)
     return SU_FALSE;
 
   suscan_mq_write_msg_urgent(mq, msg);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_mq_write_urgent_unsafe(struct suscan_mq *mq, uint32_t type, void *private)
+{
+  struct suscan_msg *msg;
+
+  if ((msg = suscan_msg_new(type, private)) == NULL)
+    return SU_FALSE;
+
+  suscan_mq_push_front(mq, msg);
+  suscan_mq_notify(mq);
 
   return SU_TRUE;
 }

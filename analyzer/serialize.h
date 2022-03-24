@@ -36,6 +36,13 @@ JOIN(structname, _serialize)(                          \
     const struct structname *self,                     \
     grow_buf_t *buffer)                                \
 
+#define SUSCAN_PARTIAL_DESERIALIZER_PROTO(structname)  \
+SUBOOL                                                 \
+JOIN(structname, _deserialize_partial)(                \
+    struct structname *self,                           \
+    grow_buf_t *buffer)                                \
+
+
 #define SUSCAN_DESERIALIZER_PROTO(structname)          \
 SUBOOL                                                 \
 JOIN(structname, _deserialize)(                        \

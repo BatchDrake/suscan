@@ -472,11 +472,22 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
   SUSCAN_PACK_BOILERPLATE_END;
 }
 
-SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
+
+SUSCAN_PARTIAL_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
 
   SUSCAN_UNPACK(uint32, self->type);
+  
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SU_TRY_FAIL(suscan_analyzer_remote_call_deserialize_partial(self, buffer));
 
   switch (self->type) {
     case SUSCAN_ANALYZER_REMOTE_AUTH_INFO:

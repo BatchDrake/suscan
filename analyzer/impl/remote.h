@@ -218,6 +218,9 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call) {
   };
 };
 
+/* Remote calls can be partially deserialized */
+SUSCAN_PARTIAL_DESERIALIZER_PROTO(suscan_analyzer_remote_call);
+
 #define suscan_analyzer_remote_call_INITIALIZER         \
 {                                                       \
   SUSCAN_ANALYZER_REMOTE_NONE /* type */                \
