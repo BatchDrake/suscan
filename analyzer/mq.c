@@ -252,6 +252,8 @@ suscan_mq_trigger_cleanup(struct suscan_mq *mq)
       this = next;
     }
   }
+
+  ok = SU_TRUE;
   
 done:
   /* Release context, if needed */

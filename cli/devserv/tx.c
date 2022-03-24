@@ -384,8 +384,9 @@ done:
 struct suscli_analyzer_client_tx_thread_cleanup_ctx
 {
   struct suscan_mq *mq;
-  grow_buf_t *head_source_info;
-  SUBOOL      critical_reached;
+  grow_buf_t       *head_source_info;
+  SUBOOL            critical_reached;
+  unsigned int      discarded;
 };
 
 /* 
@@ -480,6 +481,7 @@ suscli_analyzer_client_tx_thread_try_destroy(
             suscli_analyzer_client_tx_thread_cleanup_ctx_save_source_info(
               ctx,
               buffer);
+            ++ctx->discarded;
             return SU_TRUE;
           }
           break;
@@ -488,6 +490,7 @@ suscli_analyzer_client_tx_thread_try_destroy(
          * TODO: Maybe keep looped messages?
          */
         case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+          ++ctx->discarded;
           return SU_TRUE;
 
         case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
@@ -495,8 +498,10 @@ suscli_analyzer_client_tx_thread_try_destroy(
           SU_TRYZ(cbor_unpack_uint32(buffer, &msg_kind));
 
           /* Spectrum message. Discard */
-          if (msg_kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM)
+          if (msg_kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
+            ++ctx->discarded;
             return SU_TRUE;
+          }
 
           /* Other message. Assume critical */
           ctx->critical_reached = SU_TRUE;
@@ -532,6 +537,8 @@ suscli_analyzer_client_tx_thread_post_cleanup(
       ctx->head_source_info);
   }
 
+  SU_WARNING("%d PSD messages discarded\n", ctx->discarded);
+  
   free(ctx);
 }
 
