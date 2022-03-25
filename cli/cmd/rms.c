@@ -733,10 +733,8 @@ suscli_rms_on_data_cb(
     }
   }
 
-  if (state->halting) {
-    SU_ERROR("Stopping capture.\n");
+  if (state->halting)
     return SU_FALSE;
-  }
 
   return SU_TRUE;
 }
@@ -745,7 +743,7 @@ void
 suscli_rms_interrupt_handler(int sig)
 {
   if (g_state != NULL) {
-    fprintf(stderr, "Ctrl+C hit, stopping capture...\n");
+    SU_INFO("Ctrl+C hit, stopping capture...\n");
     suscli_rms_state_mark_halting(g_state);
     g_state = NULL;
   }

@@ -511,6 +511,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/devserv/server.c
   ${CLIDIR}/devserv/tx.c
   ${CLIDIR}/devserv/user.c
+  ${CLIDIR}/log.c
   ${SRCDIR}/suscli.c)
 
 add_executable(

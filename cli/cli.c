@@ -509,6 +509,8 @@ suscli_init(void)
 {
   SUBOOL ok = SU_FALSE;
 
+  suscli_log_init();
+  
   SU_TRYCATCH(
       suscli_command_register(
           "list",

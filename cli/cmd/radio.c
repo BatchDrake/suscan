@@ -698,10 +698,8 @@ suscli_radio_on_data_cb(
   if (state->got_termios)
     suscli_radio_state_parse_stdin_commands(state);
 
-  if (state->halting) {
-    SU_ERROR("Stopping capture.\n");
+  if (state->halting)
     return SU_FALSE;
-  }
 
   return SU_TRUE;
 }
@@ -711,7 +709,7 @@ suscli_radio_interrupt_handler(int sig)
 {
   if (g_state != NULL) {
     suscli_radio_state_mark_halting(g_state);
-    fprintf(stderr, "Ctrl+C hit, halting...\n");
+    SU_INFO("Ctrl+C hit, halting...\n");
     g_state = NULL;
   }
 }

@@ -96,5 +96,6 @@ SUBOOL suscli_run_command(const char *name, const char **argv);
 suscan_source_config_t *suscli_resolve_profile(const char *spec);
 
 SUBOOL suscli_init(void);
+void suscli_log_init(void);
 
 #endif /* _SUSCLI_CLI_H */

@@ -58,6 +58,7 @@ SUPRIVATE void
 su_log_func(void *private, const struct sigutils_log_message *msg)
 {
   SUBOOL *cr = (SUBOOL *) private;
+  SUBOOL is_except;
   size_t msglen;
 
   if (*cr) {
@@ -75,16 +76,21 @@ su_log_func(void *private, const struct sigutils_log_message *msg)
 
       case SU_LOG_SEVERITY_WARNING:
         print_date();
-        printf(" - \033[1;33mwarning[%s]\033[0m: ", msg->domain);
+        printf(" - \033[1;33mwarning [%s]\033[0m: ", msg->domain);
         break;
 
       case SU_LOG_SEVERITY_ERROR:
         print_date();
-        printf(
-            " - \033[1;31merror[%s] in %s:%d\033[0m: ",
-            msg->domain,
-            msg->function,
-            msg->line);
+
+        is_except = 
+             strstr(msg->message, "exception in \"") != NULL
+          || strstr(msg->message, "failed to create instance") != NULL;
+
+        if (is_except)
+          printf("\033[1;30m   ");
+        else
+          printf(" - \033[1;31merror   [%s]\033[0;1m: ", msg->domain);
+        
         break;
 
       case SU_LOG_SEVERITY_CRITICAL:
