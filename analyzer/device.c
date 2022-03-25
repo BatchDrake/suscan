@@ -50,6 +50,7 @@ SUPRIVATE int    stderr_copy = -1;
 SUPRIVATE void
 suscan_source_disable_stderr(void)
 {
+#ifndef _WIN32
   int fd = -1;
 
   if (!stderr_disabled) {
@@ -69,17 +70,20 @@ fail:
       stderr_copy = -1;
     }
   }
+#endif /* _WIN32 */
 }
 
 SUPRIVATE void
 suscan_source_enable_stderr(void)
 {
+#ifndef _WIN32
   if (stderr_disabled) {
     SU_TRYCATCH(dup2(stderr_copy, STDERR_FILENO) != -1, return);
     close(stderr_copy);
     stderr_copy = -1;
     stderr_disabled = SU_FALSE;
   }
+#endif /* _WIN32 */
 }
 
 /******************************* Source devices ******************************/
