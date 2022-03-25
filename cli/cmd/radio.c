@@ -436,8 +436,10 @@ suscli_radio_state_finalize(struct suscli_radio_state *self)
 SUPRIVATE void
 suscli_radio_state_mark_halting(struct suscli_radio_state *self)
 {
+#ifndef _WIN32
   if (self->params.disable_stderr)
     IGNORE_RESULT(FILE *, freopen("/dev/tty", "w", stderr));
+#endif /* _WIN32 */
 
   if (self->got_termios)
     tcsetattr(0, TCSANOW, &self->old_termios);
@@ -481,8 +483,10 @@ suscli_radio_state_init(
 
   state->freq_step = 1e4;
 
+#ifndef _WIN32
   if (state->params.disable_stderr)
     IGNORE_RESULT(FILE *, freopen("/dev/null", "w", stderr));
+#endif /* _WIN32 */
 
   /* User requested audio play */
   audio_params.userdata  = state;
