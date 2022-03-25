@@ -128,7 +128,7 @@ suscli_tleinfo_doppler(
   printf("VLOS velocity:  %+8.2lf km/s (distance = %8.2lf km)\n", projvel, dist);
 
   if (freq > 0)
-    printf("Doppler:           %+g Hz\n", projvel / SPEED_OF_LIGHT_KM_S * freq);
+    printf("Doppler:           %+g Hz\n", -projvel / SPEED_OF_LIGHT_KM_S * freq);
 }
 
 SUBOOL
