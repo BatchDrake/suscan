@@ -26,6 +26,9 @@ set(SUSCAN_VERSION_PATCH 0)
 
 set(SUSCAN_ABI_VERSION   1)
 
+option(ENABLE_ALSA      "Check for ALSA libraries" ON)
+option(ENABLE_PORTAUDIO "Check for PortAudio libraries" ON)
+
 set(
   SUSCAN_VERSION
   ${SUSCAN_VERSION_MAJOR}.${SUSCAN_VERSION_MINOR}.${SUSCAN_VERSION_PATCH})
@@ -52,8 +55,14 @@ pkg_check_modules(FFTW3    REQUIRED fftw3f>=3.0)
 pkg_check_modules(SOAPYSDR REQUIRED SoapySDR>=0.5.0)
 pkg_check_modules(XML2     REQUIRED libxml-2.0>=2.9.0)
 pkg_check_modules(VOLK              volk>=1.0)
-pkg_check_modules(ALSA              alsa>=1.2)
-pkg_check_modules(PORTAUDIO         portaudio-2.0>=19)
+
+if (ENABLE_ALSA)
+  pkg_check_modules(ALSA              alsa>=1.2)
+endif()
+
+if (ENABLE_PORTAUDIO)
+  pkg_check_modules(PORTAUDIO         portaudio-2.0>=19)
+endif()
 
 # Source location
 set(SRCDIR       src)
