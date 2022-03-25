@@ -81,7 +81,8 @@ suscli_tleinfo_doppler(
   sgdp4_ctx_t *ctx,
   orbit_t *orbit,
   const struct timeval *tv,
-  const xyz_t *site)
+  const xyz_t *site,
+  SUDOUBLE freq)
 {
   SUDOUBLE dist, projvel, t0;
   SUDOUBLE discriminator;
@@ -125,6 +126,9 @@ suscli_tleinfo_doppler(
     : "\033[1;32mYES\033[0m");
   
   printf("VLOS velocity:  %+8.2lf km/s (distance = %8.2lf km)\n", projvel, dist);
+
+  if (freq > 0)
+    printf("Doppler:           %+g Hz\n", projvel / SPEED_OF_LIGHT_KM_S * freq);
 }
 
 SUBOOL
@@ -142,7 +146,8 @@ suscli_tleinfo_cb(const hashlist_t *params)
   SUDOUBLE t_unix;
   SUDOUBLE t_epoch;
   SUDOUBLE t0;
-  
+  SUDOUBLE freq = 0;
+
   struct timeval tv_now;
   time_t epoch, now;
   kep_t kep;
@@ -168,6 +173,10 @@ suscli_tleinfo_cb(const hashlist_t *params)
   
   SU_TRYCATCH(
     suscli_param_read_double(params, "lon", &site.lon, INFINITY),
+    goto done);
+
+  SU_TRYCATCH(
+    suscli_param_read_double(params, "freq", &freq, 0),
     goto done);
 
   SU_TRYCATCH(
@@ -244,7 +253,7 @@ suscli_tleinfo_cb(const hashlist_t *params)
   if (!isinf(site.lat) && !isinf(site.lon)) {
     site.lat = SU_DEG2RAD(site.lat);
     site.lon = SU_DEG2RAD(site.lon);
-    suscli_tleinfo_doppler(&ctx, &orbit, &tv_now, &site);
+    suscli_tleinfo_doppler(&ctx, &orbit, &tv_now, &site, freq);
   }
 
   if (orbit_file != NULL)
