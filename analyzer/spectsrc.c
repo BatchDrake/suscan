@@ -181,7 +181,7 @@ suscan_spectsrc_feed(
 void
 suscan_spectsrc_destroy(suscan_spectsrc_t *self)
 {
-  if (self != NULL)
+  if (self->privdata != NULL)
     (self->classptr->dtor) (self->privdata);
 
   if (self->buffer != NULL)
