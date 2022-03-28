@@ -65,7 +65,10 @@ extern "C" {
 /* Generic status message */
 SUSCAN_SERIALIZABLE(suscan_analyzer_status_msg) {
   int32_t code;
-  char *err_msg;
+  union {
+    char *err_msg;
+    char *message;
+  };
   const suscan_analyzer_t *sender;
 };
 

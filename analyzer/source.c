@@ -2421,7 +2421,7 @@ suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb)
     return SU_FALSE;
 
   if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
-    return SU_FALSE;
+    return SU_TRUE;
 
   /* Update config */
   suscan_source_config_set_freq(source->config, freq);

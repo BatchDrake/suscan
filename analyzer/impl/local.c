@@ -1003,8 +1003,12 @@ suscan_local_analyzer_set_iq_reverse(void *ptr, SUBOOL value)
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
 
-  self->iq_rev = value;
-
+  if (self->iq_rev != value) {
+    self->iq_rev = value;
+    self->source_info.iq_reverse = self->iq_rev;
+    return suscan_analyzer_send_source_info(self->parent, &self->source_info);
+  }
+  
   return SU_TRUE;
 }
 
