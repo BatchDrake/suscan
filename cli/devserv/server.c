@@ -128,6 +128,14 @@ suscli_analyzer_server_intercept_message_unsafe(
                   client)) != -1,
                   goto done);
 
+          /* Proactively set this global inspector ID */
+          SU_TRY(
+            suscan_analyzer_set_inspector_id_async(
+              self->analyzer,
+              inspmsg->handle,
+              itl_index,
+              -1));
+          
           entry = suscli_analyzer_client_list_get_itl_entry_unsafe(
               &self->client_list,
               itl_index);
