@@ -76,6 +76,9 @@ suscli_chanloop_open(
           &new->mq),
       goto fail);
 
+  /* Wait for analyzer to be initialized */
+  SU_TRY_FAIL(suscan_analyzer_wait_until_ready(new->analyzer, NULL));
+
   true_samp_rate = suscan_analyzer_get_samp_rate(new->analyzer);
 
   /* Second step: deduce bandwidth/lo from sample rate and relative bw/lo */
@@ -91,24 +94,20 @@ suscli_chanloop_open(
   timeout.tv_sec  = SUSCAN_CHANLOOP_MSG_TIMEOUT_MS / 1000;
   timeout.tv_usec = (SUSCAN_CHANLOOP_MSG_TIMEOUT_MS % 1000) * 1000;
 
+  SU_TRY_FAIL(
+      suscan_analyzer_open_ex_async(
+          new->analyzer,
+          new->params.type,
+          &ch,
+          SU_TRUE, /* Precise centering */
+          -1, /* parent = source channelizer */
+          SUSCAN_CHANLOOP_REQ_ID));
+
   while (!have_inspector && (rawmsg = suscan_analyzer_read_timeout(
       new->analyzer,
       &type,
       &timeout)) != NULL) {
     switch (type) {
-      case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
-        SU_TRYCATCH(
-            suscan_analyzer_open_ex_async(
-                new->analyzer,
-                new->params.type,
-                &ch,
-                SU_TRUE, /* Precise centering */
-                -1, /* parent = source channelizer */
-                SUSCAN_CHANLOOP_REQ_ID),
-            goto fail);
-
-        break;
-
       case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
         suscan_analyzer_dispose_message(type, rawmsg);
         goto fail;

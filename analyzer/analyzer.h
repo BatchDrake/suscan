@@ -688,6 +688,22 @@ struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg_timeout
     const struct timeval *timeout);
 
 /*!
+ * Read messages from the output queue until a SOURCE_INFO message is found.
+ * This prevents retrieving data from the analyzer before the source has been
+ * completely initialized (this is particularly important for remote analyzers)
+ * \param analyzer a pointer to the analyzer object
+ * \param timeout pointer to the timeval struct with the read timeout. A timeout
+ * of 0.000000 seconds returns immediately if no pending messages are present.
+ * Passing a NULL pointer waits indefinitely until a message is present.
+ * \return SU_TRUE if a SOURCE_INFO message has been received in the specified
+ * period of time, SU_FALSE otherwise, or if the analyzer failed to start.
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_wait_until_ready(
+  suscan_analyzer_t *self,
+  struct timeval *timeout);
+
+/*!
  * Send a message to the analyzer object. The object is created by the usual
  * message constructors. The ownership of the message object is transferred to
  * the analyzer object if and only if the method succeeds.

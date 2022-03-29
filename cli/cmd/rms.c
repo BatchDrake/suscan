@@ -788,6 +788,7 @@ suscli_rms_cb(const hashlist_t *params)
 
   state.capturing = SU_TRUE;
 
+  printf("Working...\n");
   SU_TRYCATCH(suscli_chanloop_work(chanloop), goto fail);
 
   ok = SU_TRUE;
