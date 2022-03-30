@@ -106,7 +106,7 @@ suscli_snoop_msg_to_string(uint32_t type)
 
 #define JSON_MSG_SUSCOUNT(field) JSON_MSG_FIELD(field, "%" PRIu64)
 #define JSON_MSG_INT32(field) JSON_MSG_FIELD(field, "%" PRId32)
-#define JSON_MSG_HANDLE(field) JSON_MSG_FIELD(field, "0x%x")
+#define JSON_MSG_HANDLE(field) JSON_MSG_FIELD(field, "%u")
 #define JSON_MSG_INT64(field) JSON_MSG_FIELD(field, "%" PRId64)
 #define JSON_MSG_SUFLOAT(field) JSON_MSG_FIELD(field, "%g")
 #define JSON_MSG_SUFREQ(field) JSON_MSG_FIELD(field, "%.0f")
@@ -273,7 +273,7 @@ suscli_snoop_msg_debug_source_info(
     printf("      \"step\": \"%g\"", msg->gain_list[i]->step);
     printf("    }");
   }
-  printf("]\n");
+  printf("],\n");
 
   ok = SU_TRUE;
 
@@ -333,11 +333,12 @@ suscli_snoop_msg_debug(uint32_t type, void *message)
       break;
 
     default:
-      printf("  \"numeric_type\": 0x%x,\n", type);
+      printf("  \"numeric_type\": %u,\n", type);
   }
 
   printf("  \"local_timestamp\": %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
   printf("}\n");
+  fflush(stdout);
 }
 
 SUPRIVATE SUBOOL
