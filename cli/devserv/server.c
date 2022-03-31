@@ -99,10 +99,18 @@ suscli_analyzer_server_intercept_message_unsafe(
               &self->client_list,
               inspmsg->req_id);
           if (client == NULL) {
-            SU_ERROR(
-                "open: consistency error: no client with given sfd %d\n",
-                inspmsg->req_id);
-            goto done;
+            SU_INFO(
+              "open: client left before attending this request, closing 0x%x\n",
+              inspmsg->handle);
+            
+            *ignore = SU_TRUE;
+
+            suscan_analyzer_close_async(
+              self->analyzer,
+              inspmsg->handle,
+              inspmsg->req_id);
+
+            break;
           }
 
           if (client->sfd != inspmsg->req_id) {
@@ -120,6 +128,14 @@ suscli_analyzer_server_intercept_message_unsafe(
                   client)) != -1,
                   goto done);
 
+          /* Proactively set this global inspector ID */
+          SU_TRY(
+            suscan_analyzer_set_inspector_id_async(
+              self->analyzer,
+              inspmsg->handle,
+              itl_index,
+              -1));
+          
           entry = suscli_analyzer_client_list_get_itl_entry_unsafe(
               &self->client_list,
               itl_index);
@@ -180,14 +196,10 @@ suscli_analyzer_server_intercept_message_unsafe(
               &self->client_list,
               inspmsg->req_id);
 
-          if (client == NULL) {
-            SU_ERROR(
-                "status(channel): consistency error: no client with given sfd %d\n",
-                inspmsg->req_id);
-            goto done;
-          }
-
-          suscli_analyzer_client_dec_inspector_open_request(client);
+          if (client == NULL)
+            *ignore = SU_TRUE;
+          else
+            suscli_analyzer_client_dec_inspector_open_request(client);
           break;
 
         case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP:

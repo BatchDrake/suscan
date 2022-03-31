@@ -146,8 +146,8 @@ suscan_refcount_dec(suscan_refcount_t *ref)
   if (ref->counter == 0) {
 #ifdef SUSCAN_REFCOUNT_DEBUG
     fprintf(stderr, "%p: destructor called\n", ref->owner);
-    (ref->dtor)(ref->owner);
 #endif /* SUSCAN_RECOUNT_DEBUG */
+    (ref->dtor)(ref->owner);
   }
 
   return SU_TRUE;
@@ -174,7 +174,7 @@ do {                                                       \
   (void) suscan_refcount_inc(&(ptr)->SUSCAN_REFCNT_FIELD); \
 
 #  define SU_DEREF(ptr, context)                           \
-  (void) suscan_refcount_inc(&(ptr)->SUSCAN_REFCNT_FIELD)
+  (void) suscan_refcount_dec(&(ptr)->SUSCAN_REFCNT_FIELD)
 #endif /* SUSCAN_REFCOUNT_DEBUG */
 
 #define SUSCAN_INIT_REFCOUNT(clsname, ptr)                 \

@@ -502,6 +502,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/cmd/radio.c
   ${CLIDIR}/cmd/rms.c
   ${CLIDIR}/cmd/profinfo.c
+  ${CLIDIR}/cmd/snoop.c
   ${CLIDIR}/cmd/tleinfo.c
   ${CLIDIR}/datasavers/mat5.c
   ${CLIDIR}/datasavers/matlab.c

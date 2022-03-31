@@ -37,7 +37,7 @@ print_date(void)
 
   strftime(mytime, sizeof(mytime), "%d %b %Y - %H:%M:%S", &tm);
 
-  printf("%s", mytime);
+  fprintf(stderr, "%s", mytime);
 }
 
 SUPRIVATE void
@@ -50,19 +50,19 @@ su_log_func(void *private, const struct sigutils_log_message *msg)
   if (*cr) {
     switch (msg->severity) {
       case SU_LOG_SEVERITY_DEBUG:
-        printf("\033[1;30m");
+        fprintf(stderr, "\033[1;30m");
         print_date();
-        printf(" - debug: ");
+        fprintf(stderr, " - debug: ");
         break;
 
       case SU_LOG_SEVERITY_INFO:
         print_date();
-        printf(" - ");
+        fprintf(stderr, " - ");
         break;
 
       case SU_LOG_SEVERITY_WARNING:
         print_date();
-        printf(" - \033[1;33mwarning [%s]\033[0m: ", msg->domain);
+        fprintf(stderr, " - \033[1;33mwarning [%s]\033[0m: ", msg->domain);
         break;
 
       case SU_LOG_SEVERITY_ERROR:
@@ -73,15 +73,15 @@ su_log_func(void *private, const struct sigutils_log_message *msg)
           || strstr(msg->message, "failed to create instance") != NULL;
 
         if (is_except)
-          printf("\033[1;30m   ");
+          fprintf(stderr, "\033[1;30m   ");
         else
-          printf(" - \033[1;31merror   [%s]\033[0;1m: ", msg->domain);
+          fprintf(stderr, " - \033[1;31merror   [%s]\033[0;1m: ", msg->domain);
         
         break;
 
       case SU_LOG_SEVERITY_CRITICAL:
         print_date();
-        printf(
+        fprintf(stderr, 
             " - \033[1;37;41mcritical[%s] in %s:%d\033[0m: ",
             msg->domain,
             msg->function,
@@ -94,10 +94,10 @@ su_log_func(void *private, const struct sigutils_log_message *msg)
 
   *cr = msg->message[msglen - 1] == '\n' || msg->message[msglen - 1] == '\r';
 
-  fputs(msg->message, stdout);
+  fputs(msg->message, stderr);
 
   if (*cr)
-    fputs("\033[0m", stdout);
+    fputs("\033[0m", stderr);
 }
 
 /* Log config */

@@ -530,6 +530,32 @@ suscan_analyzer_read_timeout(
   return ret;
 }
 
+SUBOOL
+suscan_analyzer_wait_until_ready(
+  suscan_analyzer_t *self,
+  struct timeval *timeout)
+{
+  uint32_t type;
+  void *msg;
+  SUBOOL ready = SU_FALSE;
+  SUBOOL do_break = SU_FALSE;
+
+  do {
+    msg = suscan_analyzer_read_timeout(self, &type, timeout);
+    if ( type == SUSCAN_ANALYZER_MESSAGE_TYPE_INVALID
+      || type == SUSCAN_ANALYZER_MESSAGE_TYPE_EOS
+      || type == SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR
+      || type == SUSCAN_WORKER_MSG_TYPE_HALT)
+      do_break = SU_TRUE;
+
+    ready = type == SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO;
+    
+    suscan_analyzer_dispose_message(type, msg);
+  } while (!do_break && !ready);
+
+  return ready;
+}
+
 struct suscan_analyzer_inspector_msg *
 suscan_analyzer_read_inspector_msg(suscan_analyzer_t *analyzer)
 {

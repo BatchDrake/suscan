@@ -1068,6 +1068,10 @@ suscli_analyzer_client_list_lookup_unsafe(
 
   client = node->data;
 
+  /* This can also happen if descriptors are reused */
+  if (client == NULL)
+    return NULL;
+
   if (client->sfd != fd) {
     SU_ERROR("client->sfd does not match fd!\n");
     return NULL;

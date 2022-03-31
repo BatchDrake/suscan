@@ -668,6 +668,9 @@ suscan_inspector_destroy(suscan_inspector_t *self)
   if (self->sc_stuner_init)
     pthread_mutex_destroy(&self->sc_stuner_mutex);
 
+  if (self->sc_stuner != NULL)
+    su_specttuner_destroy(self->sc_stuner);
+    
   if (self->mutex_init)
     pthread_mutex_destroy(&self->mutex);
 
@@ -817,27 +820,29 @@ suscan_inspector_add_spectsrc(
     const struct suscan_spectsrc_class *class)
 {
   suscan_spectsrc_t *src = NULL;
+  SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(
-      src = suscan_spectsrc_new(
-          class,
-          insp->samp_info.equiv_fs,
-          1. / insp->interval_spectrum,
-          SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE,
-          SU_CHANNEL_DETECTOR_WINDOW_BLACKMANN_HARRIS,
-          suscan_inspector_on_spectrum_data,
-          insp),
-      goto fail);
+  SU_MAKE(
+    src,
+    suscan_spectsrc,
+    class,
+    insp->samp_info.equiv_fs,
+    1. / insp->interval_spectrum,
+    SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE,
+    SU_CHANNEL_DETECTOR_WINDOW_BLACKMANN_HARRIS,
+    suscan_inspector_on_spectrum_data,
+    insp);
 
-  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(insp->spectsrc, src) != -1, goto fail);
+  SU_TRYC(PTR_LIST_APPEND_CHECK(insp->spectsrc, src));
+  src = NULL;
 
-  return SU_TRUE;
+  ok = SU_TRUE;
 
-fail:
+done:
   if (src != NULL)
     suscan_spectsrc_destroy(src);
 
-  return SU_FALSE;
+  return ok;
 }
 
 SUBOOL

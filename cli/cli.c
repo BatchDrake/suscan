@@ -584,6 +584,14 @@ suscli_init(void)
           suscli_tleinfo_cb) != -1,
       goto fail);
 
+  SU_TRYCATCH(
+      suscli_command_register(
+          "snoop",
+          "Debug analyzer messages as JSON strings",
+          SUSCLI_COMMAND_REQ_ALL,
+          suscli_snoop_cb) != -1,
+      goto fail);
+
   ok = SU_TRUE;
 
 fail:
