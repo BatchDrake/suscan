@@ -266,11 +266,11 @@ suscli_snoop_msg_debug_source_info(
     printf("\n");
 
     printf("    {\n");
-    printf("      \"name\": \"%s\"", msg->gain_list[i]->name);
-    printf("      \"value\": \"%g\"", msg->gain_list[i]->value);
-    printf("      \"min\": \"%g\"", msg->gain_list[i]->min);
-    printf("      \"max\": \"%g\"", msg->gain_list[i]->max);
-    printf("      \"step\": \"%g\"", msg->gain_list[i]->step);
+    printf("      \"name\": \"%s\",\n", msg->gain_list[i]->name);
+    printf("      \"value\": \"%g\",\n", msg->gain_list[i]->value);
+    printf("      \"min\": \"%g\",\n", msg->gain_list[i]->min);
+    printf("      \"max\": \"%g\",\n", msg->gain_list[i]->max);
+    printf("      \"step\": \"%g\"\n", msg->gain_list[i]->step);
     printf("    }");
   }
   printf("],\n");
