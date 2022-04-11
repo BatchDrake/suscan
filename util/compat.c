@@ -20,6 +20,7 @@
 #define _COMPAT_BARRIERS
 
 #include <stdlib.h>
+#include <string.h>
 #include <sigutils/log.h>
 
 #include "compat-socket.h"
