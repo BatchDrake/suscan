@@ -55,7 +55,7 @@
     NULL,                                                         \
     NULL,                                                         \
     0,                                                            \
-    YAML_BLOCK_MAPPING_STYLE)
+    YAML_BLOCK_SEQUENCE_STYLE)
 
 #define SUSCAN_YAML_SEQ_END() SUSCAN_YAML_EMIT(sequence_end)
 
