@@ -24,6 +24,7 @@
 #include <analyzer/version.h>
 #include <sigutils/log.h>
 #include <util/compat-poll.h>
+#include <util/compat-socket.h>
 #include <sys/fcntl.h>
 #include <analyzer/impl/multicast.h>
 

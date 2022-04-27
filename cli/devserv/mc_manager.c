@@ -23,6 +23,7 @@
 #include <util/compat-poll.h>
 #include <util/compat-inet.h>
 #include <util/compat-unistd.h>
+#include <util/compat-socket.h>
 #include <util/compat.h>
 #include <analyzer/msg.h>
 
