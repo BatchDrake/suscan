@@ -66,8 +66,6 @@ endif()
 
 # Source location
 set(SRCDIR       src)
-set(CODECLIBDIR  codec)
-set(CODECDIR     ${CODECLIBDIR}/codecs)
 set(ANALYZERDIR  analyzer)
 set(ESTIMATORDIR ${ANALYZERDIR}/estimators)
 set(CORRECTORDIR ${ANALYZERDIR}/correctors)
@@ -223,12 +221,6 @@ set(INSPECTOR_LIB_SOURCES
   ${INSPECTORDIR}/fsk.c
   ${INSPECTORDIR}/psk.c
   ${INSPECTORDIR}/raw.c)
-
-set(CODEC_LIB_HEADERS ${CODECLIBDIR}/codec.h)
-
-set(CODEC_LIB_SOURCES 
-  ${CODECLIBDIR}/codec.c
-  ${CODECDIR}/diff.c)
 
 set(CORRECTOR_HEADERS 
   ${CORRECTORDIR}/tle.h)
@@ -400,10 +392,6 @@ install(
 install(
   FILES ${INSPECTOR_LIB_HEADERS} 
   DESTINATION include/suscan/analyzer/inspector)
-
-install(
-  FILES ${CODEC_LIB_HEADERS} 
-  DESTINATION include/suscan/codec)
 
 install(
   FILES ${UTIL_HEADERS} 

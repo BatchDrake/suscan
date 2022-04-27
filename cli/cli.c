@@ -23,7 +23,6 @@
 #include <analyzer/analyzer.h>
 #include <util/confdb.h>
 #include <util/compat.h>
-#include <codec/codec.h>
 #include <string.h>
 
 #include <cli/cli.h>
@@ -450,9 +449,6 @@ suscli_run_command(const char *name, const char **argv)
     fprintf(stderr, "%s: command does not exist\n", name);
     goto fail;
   }
-  SUSCLI_ASSERT_INIT(
-      SUSCLI_COMMAND_REQ_CODECS,
-      suscan_codec_class_register_builtin());
 
   SUSCLI_ASSERT_INIT(
       SUSCLI_COMMAND_REQ_SOURCES,
