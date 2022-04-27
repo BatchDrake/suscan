@@ -83,6 +83,60 @@ fail:
   return NULL;
 }
 
+suscan_object_t *
+suscan_object_copy(const suscan_object_t *object)
+{
+  suscan_object_t *new = NULL;
+  suscan_object_t *dup = NULL;
+  unsigned int i;
+
+  SU_MAKE_FAIL(new, suscan_object, object->type);
+
+  if (object->name != NULL)
+    SU_TRY_FAIL(suscan_object_set_name(new, object->name));
+
+  if (object->class_name != NULL)
+    SU_TRY_FAIL(suscan_object_set_class(new, object->class_name));
+
+  switch (object->type) {
+    case SUSCAN_OBJECT_TYPE_FIELD:
+      SU_TRY_FAIL(suscan_object_set_value(new, object->value));
+      break;
+
+    case SUSCAN_OBJECT_TYPE_OBJECT:
+      for (i = 0; i < object->field_count; ++i) {
+        if (object->field_list[i] != NULL)
+          SU_TRY_FAIL(dup = suscan_object_copy(object->field_list[i]));
+        SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(new->field, dup));
+        dup = NULL;
+      }
+    break;
+
+    case SUSCAN_OBJECT_TYPE_SET:
+      for (i = 0; i < object->object_count; ++i) {
+        if (object->object_list[i] != NULL)
+          SU_TRY_FAIL(dup = suscan_object_copy(object->field_list[i]));
+        SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(new->field, dup));
+        dup = NULL;
+      }
+      break;
+
+    default:
+      SU_ERROR("Invalid object type during deep copy (%d)\n", object->type);
+      goto fail;
+  }
+
+  return new;
+
+fail:
+  if (dup != NULL)
+    suscan_object_destroy(dup);
+
+  if (new != NULL)
+    suscan_object_destroy(new);
+
+  return NULL;
+}
 
 const char *
 suscan_object_get_class(const suscan_object_t *object)

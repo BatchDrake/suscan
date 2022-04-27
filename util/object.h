@@ -75,6 +75,8 @@ SUBOOL suscan_object_to_yaml(
 
 suscan_object_t *suscan_object_new(enum suscan_object_type type);
 
+suscan_object_t *suscan_object_copy(const suscan_object_t *object);
+
 void suscan_object_destroy(suscan_object_t *object);
 
 const char *suscan_object_get_class(const suscan_object_t *object);
