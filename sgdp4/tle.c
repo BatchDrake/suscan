@@ -238,6 +238,8 @@ orbit_init_from_data(orbit_t *self, const void *data, SUSCOUNT len)
 
   consumed = 0;
   
+  memset(self, 0, sizeof(orbit_t));
+
   for (i = 0; consumed == 0 && i < len; ++i) {
     switch (as_string[i]) {
       case '\r':
@@ -278,6 +280,9 @@ orbit_init_from_data(orbit_t *self, const void *data, SUSCOUNT len)
   }
 
 done:
+  if (consumed <= 0)
+    orbit_finalize(self);
+
   if (linebuf != NULL)
     free(linebuf);
 
