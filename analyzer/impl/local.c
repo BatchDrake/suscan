@@ -891,6 +891,10 @@ suscan_local_analyzer_dtor(void *ptr)
   /* Deinitialize request manager */
   suscan_inspector_request_manager_finalize(&self->insp_reqmgr);
 
+  /* Delete inspector hash tree */
+  if (self->insp_hash)
+    rbtree_destroy(self->insp_hash);
+
   /* Destroy inspectors */
   if (self->insp_factory != NULL)
     suscan_inspector_factory_destroy(self->insp_factory);
