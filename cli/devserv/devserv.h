@@ -143,6 +143,14 @@ suscli_analyzer_client_dispose_request_unsafe(
   struct suscli_analyzer_client *self,
   struct suscli_analyzer_request_entry *entry);
 
+SUBOOL
+suscli_analyzer_client_walk_requests_unsafe(
+  const struct suscli_analyzer_client *self,
+  SUBOOL (*func) (
+    struct suscli_analyzer_request_entry *,
+    void *userdata),
+  void *userdata);
+
 struct suscli_analyzer_client {
   int sfd;
   SUBOOL auth;
