@@ -138,18 +138,20 @@ suscli_analyzer_client_allocate_request_unsafe(
   uint32_t client_req_id,
   uint32_t global_req_id);
 
-SUBOOL
-suscli_analyzer_client_dispose_request_unsafe(
+SUBOOL suscli_analyzer_client_dispose_request_unsafe(
   struct suscli_analyzer_client *self,
   struct suscli_analyzer_request_entry *entry);
 
-SUBOOL
-suscli_analyzer_client_walk_requests_unsafe(
+SUBOOL suscli_analyzer_client_walk_requests_unsafe(
   const struct suscli_analyzer_client *self,
   SUBOOL (*func) (
     struct suscli_analyzer_request_entry *,
     void *userdata),
   void *userdata);
+
+void suscli_analyzer_client_dispose_all_requests(
+  struct suscli_analyzer_client *self);
+
 
 struct suscli_analyzer_client {
   int sfd;

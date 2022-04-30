@@ -82,6 +82,8 @@ suscli_analyzer_client_new(int sfd, unsigned int compress_threshold)
         compress_threshold),
       goto fail);
 
+  SU_MAKE_FAIL(new->req_table, rbtree);
+
 #ifdef SO_NOSIGPIPE
   SU_TRYCATCH(
       setsockopt(
@@ -120,6 +122,144 @@ suscli_analyzer_client_read(suscli_analyzer_client_t *self)
     self->name,
     self->sfd);
 }
+
+SUPRIVATE void
+suscli_analyzer_request_entry_destroy(
+  struct suscli_analyzer_request_entry *self)
+{
+  free(self);
+}
+
+SUPRIVATE struct suscli_analyzer_request_entry *
+suscli_analyzer_request_entry_new(void)
+{
+  struct suscli_analyzer_request_entry *new = NULL;
+
+  SU_ALLOCATE_FAIL(
+    new,
+    struct suscli_analyzer_request_entry);
+  
+  return new;
+
+fail:
+  if (new != NULL)
+    suscli_analyzer_request_entry_destroy(new);
+
+  return NULL;
+}
+
+struct suscli_analyzer_request_entry *
+suscli_analyzer_client_allocate_request_unsafe(
+  struct suscli_analyzer_client *self,
+  uint32_t client_req_id,
+  uint32_t global_req_id)
+{
+  struct suscli_analyzer_request_entry *entry = NULL;
+
+  SU_MAKE_FAIL(entry, suscli_analyzer_request_entry);
+
+  entry->client = self;
+  entry->client_req_id = client_req_id;
+  entry->global_req_id = global_req_id;
+  entry->entry_index   = self->last_entry_index++;
+
+  /* Ensure it has not been registered earlier */
+  SU_TRY_FAIL(
+    rbtree_search_data(
+      self->req_table,
+      entry->entry_index,
+      RB_EXACT,
+      NULL) == NULL);
+
+  /* Register now */
+  SU_TRYC_FAIL(
+    rbtree_insert(
+      self->req_table,
+      entry->entry_index,
+      entry));
+
+  return entry;
+
+fail:
+  if (entry != NULL)
+    suscli_analyzer_request_entry_destroy(entry);
+
+  return NULL;
+}
+
+SUBOOL
+suscli_analyzer_client_dispose_request_unsafe(
+  struct suscli_analyzer_client *self,
+  struct suscli_analyzer_request_entry *entry)
+{
+  SUBOOL ok = SU_FALSE;
+
+  /* Sanity check */
+  SU_TRY(
+    rbtree_search_data(
+      self->req_table,
+      entry->entry_index,
+      RB_EXACT,
+      NULL) == entry);
+
+  /* Put a whiteout in here */
+  SU_TRYC(
+    rbtree_insert(
+      self->req_table,
+      entry->entry_index,
+      NULL));
+
+  /* This is the last available index now */
+  self->last_entry_index = entry->entry_index;
+
+  /* Safe to free now */
+  suscli_analyzer_request_entry_destroy(entry);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_walk_requests_unsafe(
+  const struct suscli_analyzer_client *self,
+  SUBOOL (*func) (
+    struct suscli_analyzer_request_entry *,
+    void *userdata),
+  void *userdata)
+{
+  struct rbtree_node *this;
+  SUBOOL ok = SU_FALSE;
+
+  this = rbtree_get_first(self->req_table);
+
+  while (this != NULL)
+    if (this->data != NULL)
+      SU_TRY((func) (this->data, userdata));
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+void
+suscli_analyzer_client_dispose_all_requests(
+  struct suscli_analyzer_client *self)
+{
+  struct rbtree_node *this;
+
+  this = rbtree_get_first(self->req_table);
+
+  while (this != NULL) {
+    if (this->data != NULL) {
+      suscli_analyzer_request_entry_destroy(this->data);
+      this->data = NULL;
+    }
+  }
+}
+
 
 /* Elements in the freelist are negative! */
 SUHANDLE
@@ -615,6 +755,7 @@ done:
   return ok;
 }
 
+
 void
 suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
 {
@@ -637,6 +778,11 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
   if (self->inspectors.inspector_mutex_initialized)
     pthread_mutex_destroy(&self->inspectors.inspector_mutex);
 
+  if (self->req_table != NULL) {
+    suscli_analyzer_client_dispose_all_requests(self);
+    rbtree_destroy(self->req_table);
+  }
+  
   free(self);
 }
 
