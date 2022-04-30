@@ -782,7 +782,7 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
     suscli_analyzer_client_dispose_all_requests(self);
     rbtree_destroy(self->req_table);
   }
-  
+
   free(self);
 }
 
@@ -1031,8 +1031,9 @@ suscli_analyzer_client_list_init(
       SUSCLI_MULTICAST_PORT);
   }
 
-  SU_TRYCATCH(self->client_tree = rbtree_new(), goto done);
-  SU_TRYCATCH(self->itl_tree    = rbtree_new(), goto done);
+  SU_MAKE(self->client_tree, rbtree);
+  SU_MAKE(self->itl_tree,    rbtree);
+  SU_MAKE(self->req_tree,    rbtree);
 
   rbtree_set_dtor(self->itl_tree, rbtree_node_free_dtor, NULL);
 
@@ -1043,12 +1044,74 @@ suscli_analyzer_client_list_init(
       suscli_analyzer_client_list_update_pollfds_unsafe(self),
       goto done);
 
+
   ok = SU_TRUE;
 
 done:
   if (!ok)
     suscli_analyzer_client_list_finalize(self);
 
+  return ok;
+}
+
+uint32_t
+suscli_analyzer_client_list_alloc_global_id_unsafe(
+  struct suscli_analyzer_client_list *self)
+{
+  uint32_t randn;
+
+  do {
+    randn = rand() ^ (rand() << 16);
+  } while (rbtree_search_data(self->req_tree, randn, RB_EXACT, NULL) != NULL);
+
+  return randn;
+}
+
+struct suscli_analyzer_request_entry *
+suscli_analyzer_client_list_translate_request_unsafe(
+  const struct suscli_analyzer_client_list *self,
+  uint32_t global_id)
+{
+  return rbtree_search_data(self->req_tree, global_id, RB_EXACT, NULL);
+}
+
+SUBOOL
+suscli_analyzer_client_list_register_request_unsafe(
+  struct suscli_analyzer_client_list *self,
+  struct suscli_analyzer_request_entry *entry)
+{
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRY(
+    suscli_analyzer_client_list_translate_request_unsafe(
+      self,
+      entry->global_req_id) == NULL);
+
+  SU_TRYC(rbtree_insert(self->req_tree, entry->global_req_id, entry));
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_list_unregister_request_unsafe(
+  struct suscli_analyzer_client_list *self,
+  struct suscli_analyzer_request_entry *entry)
+{
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRY(
+    suscli_analyzer_client_list_translate_request_unsafe(
+      self,
+      entry->global_req_id) == entry);
+
+  SU_TRYC(rbtree_insert(self->req_tree, entry->global_req_id, NULL));
+  
+  ok = SU_TRUE;
+
+done:
   return ok;
 }
 
@@ -1296,5 +1359,8 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
   if (self->itl_tree != NULL)
     rbtree_destroy(self->itl_tree);
 
+  if (self->req_tree != NULL)
+    rbtree_destroy(self->req_tree);
+  
   memset(self, 0, sizeof(struct suscli_analyzer_client_list));
 }
