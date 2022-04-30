@@ -102,6 +102,47 @@ SUBOOL suscli_analyzer_client_tx_thread_initialize(
     int fd,
     unsigned int compress_threshold);
 
+/* 
+ * This strucure relates global request IDs with per-client
+ * request IDs and the corresponding client pointer
+ *
+ * The lifecycle is as follows:
+ *   - A client performs a request with a request ID
+ *   - A global request ID is allocated
+ *   - A request entry is registered, along with the
+ *     the global request ID, the client request ID
+ *     and a client pointer.
+ *      * This requests BELONG to the client
+ *      * They are accessed through an rbtree with a monotonic index
+ *      * TODO: How do we handle stale requests?
+ *   - The request ID is changed to the global ID
+ *   - The request is performed
+ *   - THe request is answered
+ *   - The request ID (global) is translated
+ *   - The client is determined and the entry is removed
+ * 
+ * When a client disconnects, all requests are removed. The
+ * access to this list is protected by the client list mutex.
+ */
+
+struct suscli_analyzer_request_entry {
+  uint32_t client_req_id;
+  uint32_t global_req_id;
+  int      entry_index;
+  struct suscli_analyzer_client *client;
+};
+
+struct suscli_analyzer_request_entry *
+suscli_analyzer_client_allocate_request_unsafe(
+  struct suscli_analyzer_client *self,
+  uint32_t client_req_id,
+  uint32_t global_req_id);
+
+SUBOOL
+suscli_analyzer_client_dispose_request_unsafe(
+  struct suscli_analyzer_client *self,
+  struct suscli_analyzer_request_entry *entry);
+
 struct suscli_analyzer_client {
   int sfd;
   SUBOOL auth;
@@ -127,6 +168,10 @@ struct suscli_analyzer_client {
 
   /* List of opened inspectors. */
   struct suscli_analyzer_client_inspector_list inspectors;
+
+  /* List of created requests */
+  rbtree_t *req_table; /* Indexed by entry_index */
+  int last_entry_index;
 
   struct suscli_analyzer_client *next;
   struct suscli_analyzer_client *prev;
@@ -388,7 +433,28 @@ struct suscli_analyzer_client_list {
 
   /* Inspector translation table */
   rbtree_t       *itl_tree;
+
+  /* Global request table */
+  rbtree_t       *req_tree;
 };
+
+uint32_t suscli_analyzer_client_list_alloc_global_id_unsafe(
+  struct suscli_analyzer_client_list *self);
+
+struct suscli_analyzer_request_entry *
+suscli_analyzer_client_list_translate_request_unsafe(
+  const struct suscli_analyzer_client_list *self,
+  uint32_t global_id);
+
+SUBOOL
+suscli_analyzer_client_list_register_request_unsafe(
+  struct suscli_analyzer_client_list *self,
+  struct suscli_analyzer_request_entry *entry);
+
+SUBOOL
+suscli_analyzer_client_list_unregister_request_unsafe(
+  struct suscli_analyzer_client_list *self,
+  struct suscli_analyzer_request_entry *entry);
 
 SUINLINE SUBOOL
 suscli_analyzer_client_list_supports_multicast(
