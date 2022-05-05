@@ -138,12 +138,29 @@ suscli_analyzer_client_allocate_request_unsafe(
   uint32_t client_req_id,
   uint32_t global_req_id);
 
+struct suscli_analyzer_request_entry *
+suscli_analyzer_client_allocate_request(
+  struct suscli_analyzer_client *self,
+  uint32_t client_req_id,
+  uint32_t global_req_id);
+
 SUBOOL suscli_analyzer_client_dispose_request_unsafe(
+  struct suscli_analyzer_client *self,
+  struct suscli_analyzer_request_entry *entry);
+
+SUBOOL suscli_analyzer_client_dispose_request(
   struct suscli_analyzer_client *self,
   struct suscli_analyzer_request_entry *entry);
 
 SUBOOL suscli_analyzer_client_walk_requests_unsafe(
   const struct suscli_analyzer_client *self,
+  SUBOOL (*func) (
+    struct suscli_analyzer_request_entry *,
+    void *userdata),
+  void *userdata);
+
+SUBOOL suscli_analyzer_client_walk_requests(
+  struct suscli_analyzer_client *self,
   SUBOOL (*func) (
     struct suscli_analyzer_request_entry *,
     void *userdata),
@@ -180,6 +197,8 @@ struct suscli_analyzer_client {
   struct suscli_analyzer_client_inspector_list inspectors;
 
   /* List of created requests */
+  pthread_mutex_t req_mutex;
+  SUBOOL req_mutex_allocd;
   rbtree_t *req_table; /* Indexed by entry_index */
   int last_entry_index;
 
@@ -451,6 +470,9 @@ struct suscli_analyzer_client_list {
 uint32_t suscli_analyzer_client_list_alloc_global_id_unsafe(
   struct suscli_analyzer_client_list *self);
 
+uint32_t suscli_analyzer_client_list_alloc_global_id(
+  struct suscli_analyzer_client_list *self);
+
 struct suscli_analyzer_request_entry *
 suscli_analyzer_client_list_translate_request_unsafe(
   const struct suscli_analyzer_client_list *self,
@@ -458,6 +480,11 @@ suscli_analyzer_client_list_translate_request_unsafe(
 
 SUBOOL
 suscli_analyzer_client_list_register_request_unsafe(
+  struct suscli_analyzer_client_list *self,
+  struct suscli_analyzer_request_entry *entry);
+
+SUBOOL
+suscli_analyzer_client_list_register_request(
   struct suscli_analyzer_client_list *self,
   struct suscli_analyzer_request_entry *entry);
 

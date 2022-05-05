@@ -72,6 +72,46 @@ suscli_user_entry_destroy(struct suscli_user_entry *self)
 /*
  * This function is called inside the client list mutex
  */
+
+SUPRIVATE suscli_analyzer_client_t *
+suscli_analyzer_server_translate_insp_message(
+  suscli_analyzer_server_t *self,
+  struct suscan_analyzer_inspector_msg *inspmsg)
+{
+  struct suscli_analyzer_request_entry *entry = NULL;
+  suscli_analyzer_client_t *client = NULL;
+  uint32_t global_id = inspmsg->req_id;
+  SUBOOL ok = SU_FALSE;
+
+  entry = suscli_analyzer_client_list_translate_request_unsafe(
+    &self->client_list,
+    global_id);
+
+  if (entry == NULL)
+    return NULL;
+
+  client = entry->client;
+  inspmsg->req_id = entry->client_req_id;
+
+  SU_TRY(
+    suscli_analyzer_client_list_unregister_request_unsafe(
+      &self->client_list,
+      entry));
+
+  SU_TRY(
+    suscli_analyzer_client_dispose_request(
+      client,
+      entry));
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok)
+    client = NULL;
+
+  return client;
+}
+
 SUPRIVATE SUBOOL
 suscli_analyzer_server_intercept_message_unsafe(
     suscli_analyzer_server_t *self,
@@ -93,12 +133,13 @@ suscli_analyzer_server_intercept_message_unsafe(
   switch (type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
       inspmsg = (struct suscan_analyzer_inspector_msg *) message;
-
+      
+      client = suscli_analyzer_server_translate_insp_message(
+                self,
+                inspmsg);
+          
       switch (inspmsg->kind) {
         case  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
-          client = suscli_analyzer_client_list_lookup_unsafe(
-              &self->client_list,
-              inspmsg->req_id);
           if (client == NULL) {
             SU_INFO(
               "open: client left before attending this request, closing 0x%x\n",
@@ -106,19 +147,12 @@ suscli_analyzer_server_intercept_message_unsafe(
             
             *ignore = SU_TRUE;
 
+            /* We can do this because req_id remains unchanged */
             suscan_analyzer_close_async(
               self->analyzer,
               inspmsg->handle,
               inspmsg->req_id);
-
             break;
-          }
-
-          if (client->sfd != inspmsg->req_id) {
-            SU_ERROR(
-                "open: consistency error: sfd %d does not match req_id\n",
-                client->sfd, inspmsg->req_id);
-            goto done;
           }
 
           suscli_analyzer_client_dec_inspector_open_request(client);
@@ -171,12 +205,13 @@ suscli_analyzer_server_intercept_message_unsafe(
           } else {
             client = entry->client;
             inspmsg->inspector_id = entry->local_inspector_id;
+            private_handle = entry->private_handle;
 
             /* Close local handle */
             SU_TRYCATCH(
                 suscli_analyzer_client_dispose_inspector_handle(
                     client,
-                    entry->private_handle),
+                    private_handle),
                 goto done);
 
             /* Remove entry from ITL */
@@ -188,15 +223,11 @@ suscli_analyzer_server_intercept_message_unsafe(
             SU_INFO(
                 "%s: inspector (handle 0x%x) closed\n",
                 suscli_analyzer_client_get_name(client),
-                entry->private_handle);
+                private_handle);
           }
           break;
 
         case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
-          client = suscli_analyzer_client_list_lookup_unsafe(
-              &self->client_list,
-              inspmsg->req_id);
-
           if (client == NULL)
             *ignore = SU_TRUE;
           else
@@ -560,8 +591,6 @@ suscli_analyzer_server_on_open(
 {
   struct suscli_analyzer_client_inspector_entry *entry;
 
-  inspmsg->req_id = client->sfd;
-
   if (!suscli_analyzer_client_can_open(client, inspmsg->class_name)) {
     SU_INFO("%s: open request of `%s' inspector rejected\n",
         suscli_analyzer_client_get_name(client),
@@ -737,6 +766,41 @@ done:
       }
 
 SUPRIVATE SUBOOL
+suscli_analyzer_server_fix_inspector_message(
+  suscli_analyzer_server_t *self,
+  suscli_analyzer_client_t *caller,
+  struct suscan_analyzer_inspector_msg *msg)
+{
+  uint32_t global_id;
+  struct suscli_analyzer_request_entry *entry;
+  SUBOOL ok = SU_FALSE;
+
+  global_id = suscli_analyzer_client_list_alloc_global_id(
+    &self->client_list);
+
+  SU_TRY(entry = suscli_analyzer_client_allocate_request(
+    caller,
+    msg->req_id,
+    global_id));
+
+  SU_TRY(
+    suscli_analyzer_client_list_register_request(
+      &self->client_list,
+      entry));
+
+  /* All set, change */
+  msg->req_id = global_id;
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok && entry != NULL)
+    suscli_analyzer_client_dispose_request(caller, entry);
+  
+  return ok;
+}
+
+SUPRIVATE SUBOOL
 suscli_analyzer_server_deliver_call(
     suscli_analyzer_server_t *self,
     suscli_analyzer_client_t *caller,
@@ -864,6 +928,13 @@ suscli_analyzer_server_deliver_call(
       break;
 
     case SUSCAN_ANALYZER_REMOTE_MESSAGE:
+      if (call->msg.type == SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR)
+        SU_TRY(
+          suscli_analyzer_server_fix_inspector_message(
+            self,
+            caller,
+            call->msg.ptr));
+      
       if (suscli_analyzer_client_intercept_message(
           caller,
           call->msg.type,

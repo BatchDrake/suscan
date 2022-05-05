@@ -84,6 +84,9 @@ suscli_analyzer_client_new(int sfd, unsigned int compress_threshold)
 
   SU_MAKE_FAIL(new->req_table, rbtree);
 
+  SU_TRYZ_FAIL(pthread_mutex_init(&new->req_mutex, NULL));
+  new->req_mutex_allocd = SU_TRUE;
+
 #ifdef SO_NOSIGPIPE
   SU_TRYCATCH(
       setsockopt(
@@ -161,15 +164,28 @@ suscli_analyzer_client_allocate_request_unsafe(
   entry->client = self;
   entry->client_req_id = client_req_id;
   entry->global_req_id = global_req_id;
+
+  while (
+    rbtree_search_data(
+      self->req_table,
+      self->last_entry_index,
+      RB_EXACT,
+      NULL) != NULL)
+    ++self->last_entry_index;
+
   entry->entry_index   = self->last_entry_index++;
 
   /* Ensure it has not been registered earlier */
-  SU_TRY_FAIL(
-    rbtree_search_data(
+  if (rbtree_search_data(
       self->req_table,
       entry->entry_index,
       RB_EXACT,
-      NULL) == NULL);
+      NULL) != NULL) {
+    SU_ERROR(
+      "Inconsistency: request entry index %d should be free\n",
+      entry->entry_index);
+    goto fail;
+  }
 
   /* Register now */
   SU_TRYC_FAIL(
@@ -185,6 +201,30 @@ fail:
     suscli_analyzer_request_entry_destroy(entry);
 
   return NULL;
+}
+
+struct suscli_analyzer_request_entry *
+suscli_analyzer_client_allocate_request(
+  struct suscli_analyzer_client *self,
+  uint32_t client_req_id,
+  uint32_t global_req_id)
+{
+  struct suscli_analyzer_request_entry *result = NULL;
+  SUBOOL mutex_alloc = SU_FALSE;
+
+  SU_TRYZ(pthread_mutex_lock(&self->req_mutex));
+  mutex_alloc = SU_TRUE;
+
+  result = suscli_analyzer_client_allocate_request_unsafe(
+    self,
+    client_req_id,
+    global_req_id);
+
+done:
+  if (mutex_alloc)
+    (void) pthread_mutex_unlock(&self->req_mutex);
+
+  return result;
 }
 
 SUBOOL
@@ -221,6 +261,28 @@ done:
   return ok;
 }
 
+
+SUBOOL
+suscli_analyzer_client_dispose_request(
+  struct suscli_analyzer_client *self,
+  struct suscli_analyzer_request_entry *entry)
+{
+  SUBOOL ok = SU_FALSE;
+  SUBOOL mutex_alloc = SU_FALSE;
+
+  SU_TRYZ(pthread_mutex_lock(&self->req_mutex));
+  mutex_alloc = SU_TRUE;
+
+  ok = suscli_analyzer_client_dispose_request_unsafe(self, entry);
+
+done:
+  if (mutex_alloc)
+    (void) pthread_mutex_unlock(&self->req_mutex);
+
+  return ok;
+}
+
+
 SUBOOL
 suscli_analyzer_client_walk_requests_unsafe(
   const struct suscli_analyzer_client *self,
@@ -234,15 +296,41 @@ suscli_analyzer_client_walk_requests_unsafe(
 
   this = rbtree_get_first(self->req_table);
 
-  while (this != NULL)
+  while (this != NULL) {
     if (this->data != NULL)
       SU_TRY((func) (this->data, userdata));
+    this = this->next;
+  }
 
   ok = SU_TRUE;
 
 done:
   return ok;
 }
+
+SUBOOL
+suscli_analyzer_client_walk_requests(
+  struct suscli_analyzer_client *self,
+  SUBOOL (*func) (
+    struct suscli_analyzer_request_entry *,
+    void *userdata),
+  void *userdata)
+{
+  SUBOOL ok = SU_FALSE;
+  SUBOOL mutex_alloc = SU_FALSE;
+
+  SU_TRYZ(pthread_mutex_lock(&self->req_mutex));
+  mutex_alloc = SU_TRUE;
+
+  ok = suscli_analyzer_client_walk_requests_unsafe(self, func, userdata);
+
+done:
+  if (mutex_alloc)
+    (void) pthread_mutex_unlock(&self->req_mutex);
+
+  return ok;
+}
+
 
 void
 suscli_analyzer_client_dispose_all_requests(
@@ -257,6 +345,8 @@ suscli_analyzer_client_dispose_all_requests(
       suscli_analyzer_request_entry_destroy(this->data);
       this->data = NULL;
     }
+
+    this = this->next;
   }
 }
 
@@ -767,6 +857,9 @@ suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
   if (self->name != NULL)
     free(self->name);
 
+  if (self->req_mutex_allocd)
+    pthread_mutex_destroy(&self->req_mutex);
+
   suscan_remote_partial_pdu_state_finalize(&self->pdu_state);
 
   suscan_analyzer_server_hello_finalize(&self->server_hello);
@@ -1067,6 +1160,21 @@ suscli_analyzer_client_list_alloc_global_id_unsafe(
   return randn;
 }
 
+uint32_t
+suscli_analyzer_client_list_alloc_global_id(
+  struct suscli_analyzer_client_list *self)
+{
+  uint32_t result;
+
+  (void) pthread_mutex_lock(&self->client_mutex);
+
+  result = suscli_analyzer_client_list_alloc_global_id_unsafe(self);
+
+  (void) pthread_mutex_unlock(&self->client_mutex);
+
+  return result;
+}
+
 struct suscli_analyzer_request_entry *
 suscli_analyzer_client_list_translate_request_unsafe(
   const struct suscli_analyzer_client_list *self,
@@ -1092,6 +1200,26 @@ suscli_analyzer_client_list_register_request_unsafe(
   ok = SU_TRUE;
 
 done:
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_list_register_request(
+  struct suscli_analyzer_client_list *self,
+  struct suscli_analyzer_request_entry *entry)
+{
+  SUBOOL mutex_allocd = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYZ(pthread_mutex_lock(&self->client_mutex));
+  mutex_allocd = SU_TRUE;
+
+  ok = suscli_analyzer_client_list_register_request_unsafe(self, entry);
+
+done:
+  if (mutex_allocd)
+    (void) pthread_mutex_unlock(&self->client_mutex);
+
   return ok;
 }
 
@@ -1290,6 +1418,18 @@ suscli_analyzer_client_list_lookup_unsafe(
   return client;
 }
 
+SUPRIVATE SUBOOL
+suscli_analyzer_client_list_unreg_global_id_cb(
+  struct suscli_analyzer_request_entry *entry,
+  void *userdata)
+{
+  struct suscli_analyzer_client_list *self = userdata;
+
+  return suscli_analyzer_client_list_unregister_request_unsafe(
+    self,
+    entry);
+}
+
 SUBOOL
 suscli_analyzer_client_list_remove_unsafe(
     struct suscli_analyzer_client_list *self,
@@ -1324,6 +1464,12 @@ suscli_analyzer_client_list_remove_unsafe(
   client->prev = client->next = NULL;
 
   --self->client_count;
+
+  SU_TRY(
+    suscli_analyzer_client_walk_requests_unsafe(
+      client,
+      suscli_analyzer_client_list_unreg_global_id_cb,
+      self));
 
   ok = SU_TRUE;
 
