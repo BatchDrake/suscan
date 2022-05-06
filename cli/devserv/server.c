@@ -806,7 +806,7 @@ suscli_analyzer_server_deliver_call(
     suscli_analyzer_client_t *caller,
     struct suscan_analyzer_remote_call *call)
 {
-  SUBOOL ok = SU_FALSE;
+  SUBOOL ok = SU_TRUE; /* Succeed by default */
 
   struct suscli_analyzer_client_interceptors interceptors = {
       .userdata               = self,
@@ -928,6 +928,7 @@ suscli_analyzer_server_deliver_call(
       break;
 
     case SUSCAN_ANALYZER_REMOTE_MESSAGE:
+      ok = SU_FALSE;
       if (call->msg.type == SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR)
         SU_TRY(
           suscli_analyzer_server_fix_inspector_message(
@@ -950,6 +951,7 @@ suscli_analyzer_server_deliver_call(
         /* Message delivered, give ownership */
         call->msg.ptr = NULL;
       }
+      ok = SU_TRUE;
       break;
 
     case SUSCAN_ANALYZER_REMOTE_REQ_HALT:
@@ -966,8 +968,6 @@ suscli_analyzer_server_deliver_call(
       SU_ERROR("Invalid call code %d\n", call->type);
       goto done;
   }
-
-  ok = SU_TRUE;
 
 done:
   return ok;

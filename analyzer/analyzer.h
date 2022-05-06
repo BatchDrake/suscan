@@ -67,6 +67,20 @@ extern "C" {
 
 #define SUSCAN_ANALYZER_PERM_ALL              0xffffffffffffffffull
 
+#define SUSCAN_ANALYZER_ALL_FILE_PERMISSIONS \
+  (SUSCAN_ANALYZER_PERM_ALL &                \
+  ~(SUSCAN_ANALYZER_PERM_SET_GAIN       |    \
+    SUSCAN_ANALYZER_PERM_SET_ANTENNA    |    \
+    SUSCAN_ANALYZER_PERM_SET_BW         |    \
+    SUSCAN_ANALYZER_PERM_SET_PPM        |    \
+    SUSCAN_ANALYZER_PERM_SET_DC_REMOVE  |    \
+    SUSCAN_ANALYZER_PERM_SET_AGC))
+
+#define SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS  \
+  (SUSCAN_ANALYZER_PERM_ALL &                \
+  ~(SUSCAN_ANALYZER_PERM_SEEK |              \
+    SUSCAN_ANALYZER_PERM_THROTTLE))
+
 /* Entirely empirical */
 #define SUSCAN_ANALYZER_SLOW_RATE             44100
 #define SUSCAN_ANALYZER_SLOW_READ_SIZE        32
