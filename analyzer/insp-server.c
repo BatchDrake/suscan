@@ -310,6 +310,9 @@ DEF_MSGCB(OPEN)
             (void *) new_insp->spectsrc_list[i]->classptr) != -1,
         goto done);
 
+  if (msg->config != NULL)
+    suscan_config_destroy(msg->config);
+  
   SU_TRYCATCH(
     msg->config = suscan_inspector_create_config(new_insp),
     goto done);

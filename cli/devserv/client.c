@@ -189,7 +189,7 @@ suscli_analyzer_client_allocate_request_unsafe(
 
   /* Register now */
   SU_TRYC_FAIL(
-    rbtree_insert(
+    rbtree_set(
       self->req_table,
       entry->entry_index,
       entry));
@@ -244,7 +244,7 @@ suscli_analyzer_client_dispose_request_unsafe(
 
   /* Put a whiteout in here */
   SU_TRYC(
-    rbtree_insert(
+    rbtree_set(
       self->req_table,
       entry->entry_index,
       NULL));
@@ -447,7 +447,7 @@ suscli_analyzer_client_dispose_inspector_handle_unsafe(
     return SU_FALSE;
   }
 
-  if (rbtree_insert(
+  if (rbtree_set(
     self->inspectors.inspector_tree,
     private_handle,
     NULL) == -1)
@@ -648,7 +648,6 @@ suscli_analyzer_client_take_call(suscli_analyzer_client_t *self)
 
   if (suscan_remote_partial_pdu_state_take(&self->pdu_state, &buf)) {
     call = &self->incoming_call;
-
     suscan_analyzer_remote_call_finalize(call);
     suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_NONE);
 
@@ -1094,7 +1093,7 @@ suscli_analyzer_client_list_dispose_itl_entry_unsafe(
     return SU_FALSE;
   }
 
-  if (rbtree_insert(self->itl_tree, handle, NULL) == -1)
+  if (rbtree_set(self->itl_tree, handle, NULL) == -1)
     return SU_FALSE;
 
   return SU_TRUE;
@@ -1235,7 +1234,7 @@ suscli_analyzer_client_list_unregister_request_unsafe(
       self,
       entry->global_req_id) == entry);
 
-  SU_TRYC(rbtree_insert(self->req_tree, entry->global_req_id, NULL));
+  SU_TRYC(rbtree_set(self->req_tree, entry->global_req_id, NULL));
   
   ok = SU_TRUE;
 
