@@ -107,6 +107,7 @@ rbtree_t *rbtree_new (void);
 void rbtree_node_free_dtor (void *data, void *userdata); /* Convenience */
 void rbtree_set_dtor (rbtree_t *, void (*) (void *, void *), void *);
 void rbtree_debug (rbtree_t *, FILE *);
+int  rbtree_set (rbtree_t *self, int64_t key, void *data);
 int  rbtree_insert (rbtree_t *, int64_t, void *);
 void rbtree_clear (rbtree_t *);
 void rbtree_destroy (rbtree_t *);

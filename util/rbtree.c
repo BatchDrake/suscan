@@ -422,6 +422,24 @@ rbtree_insert_case_5 (struct rbtree_node *node)
 }
 
 int
+rbtree_set (rbtree_t *self, int64_t key, void *data)
+{
+  struct rbtree_node *node;
+
+  node = rbtree_search(self, key, RB_EXACT);
+
+  if (node != NULL) {
+    if (node->data != NULL && self->node_dtor != NULL)
+      (self->node_dtor) (node->data, self->node_dtor_data);
+    node->data = data;
+
+    return 0;
+  }
+
+  return rbtree_insert(self, key, data);
+}
+
+int
 rbtree_insert (rbtree_t *tree, int64_t key, void *data)
 {
   struct rbtree_node *node;

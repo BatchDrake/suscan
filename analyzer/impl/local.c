@@ -595,7 +595,10 @@ suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
   char *dup = NULL;
   SUBOOL ok = SU_FALSE;
 
-  info->permissions         = SUSCAN_ANALYZER_PERM_ALL;
+  info->permissions         =  suscan_local_analyzer_is_real_time(self)
+    ? SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS
+    : SUSCAN_ANALYZER_ALL_FILE_PERMISSIONS;
+  
   info->source_samp_rate    = suscan_source_get_samp_rate(self->source);
   info->effective_samp_rate = self->effective_samp_rate;
   info->measured_samp_rate  = self->measured_samp_rate;

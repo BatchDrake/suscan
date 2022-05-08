@@ -671,7 +671,7 @@ suscan_analyzer_test_permissions(const suscan_analyzer_t *self, uint64_t perm)
 
 #define CHECK_PERMISSION(self, perm)                                 \
   if (!suscan_analyzer_test_permissions(self, perm)) {               \
-    SU_ERROR("Action `%s' not allowed by analyzer\n", __FUNCTION__); \
+    SU_WARNING("Action `%s' not allowed by analyzer\n", __FUNCTION__); \
     return SU_FALSE;                                                 \
   }
 
