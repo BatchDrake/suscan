@@ -36,13 +36,15 @@ suscan_bundle_get_resource_path(CFStringRef relpath)
   const char *path = NULL;
 
   if ((main_bundle = CFBundleGetMainBundle()) != NULL) {
-    SU_TRYCATCH(
-        dir_url = CFBundleCopyResourceURL(
+    dir_url = CFBundleCopyResourceURL(
                   main_bundle,
                   relpath,
                   NULL, /* resourceType */
-                  NULL /* dirName */),
-        goto done);
+                  NULL /* dirName */);
+
+    /* Not an error */
+    if (dir_url == NULL)
+      goto done;
 
     SU_TRYCATCH(
         dir_path = CFURLCopyFileSystemPath(dir_url, kCFURLPOSIXPathStyle),
