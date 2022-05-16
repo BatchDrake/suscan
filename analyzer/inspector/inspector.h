@@ -231,6 +231,8 @@ suscan_inspector_feed_sc_sample(suscan_inspector_t *self, SUCOMPLEX x)
         ok = su_specttuner_feed_all_channels(self->sc_stuner);
         (void) pthread_mutex_unlock(&self->sc_stuner_mutex);
       }
+    } else {
+      su_specttuner_ack_data(self->sc_stuner);
     }
   }
 

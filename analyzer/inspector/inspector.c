@@ -986,6 +986,8 @@ suscan_inspector_new(
     }
 
     sparams.window_size = SUSCAN_INSPECTOR_TUNER_BUF_SIZE;
+    sparams.early_windowing = SU_TRUE;
+
     SU_TRYCATCH(
       new->sc_stuner = su_specttuner_new(&sparams),
       goto fail);
