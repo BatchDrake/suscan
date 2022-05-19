@@ -382,6 +382,9 @@ suscan_source_config_sf_open(const suscan_source_config_t *self, SF_INFO *sf_inf
     return NULL;
   }
 
+  /* Make sure we start on a known state */
+  memset(sf_info, 0, sizeof(SF_INFO));
+
   switch (self->format) {
     case SUSCAN_SOURCE_FORMAT_WAV:
     case SUSCAN_SOURCE_FORMAT_AUTO:
