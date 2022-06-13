@@ -85,7 +85,8 @@ suscan_spectsrc_set_throttle_factor(
 {
   if (!sufeq(throttle_factor, self->throttle_factor, 1e-6)) {
     self->throttle_factor = throttle_factor;
-    self->smooth_psd_params.refresh_rate = self->refresh_rate / self->throttle_factor;
+    self->smooth_psd_params.samp_rate = 
+      su_smoothpsd_get_nominal_samp_rate(self->smooth_psd) * self->throttle_factor;
     (void) su_smoothpsd_set_params(self->smooth_psd, &self->smooth_psd_params);
   }
 }
