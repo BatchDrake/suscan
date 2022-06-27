@@ -141,6 +141,11 @@ install(
   FILES "${SIGUTILS_PC_FILE_PATH}"
   DESTINATION "${INSTALL_PKGCONFIG_DIR}")
   
+########################## Mac-OS specific kludges ############################
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  include_directories(/opt/local/include)
+endif()
+
 ############################ Suscan library build #############################
 set(RSRC_CONFIG_FILES
   ${RSRCDIR}/autogains.yaml
