@@ -121,9 +121,12 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -ffast-math -DNDEBUG")
 set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -s")
 set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -s")
 
+########################## Mac-OS specific kludges ############################
+
 # Fix for MacOS X broken libxml2 Homebrew installation in MacOS Catalina
 if(APPLE)
   set(XML2_INCLUDE_DIRS "/usr/local/opt/libxml2/include/libxml2")
+  include_directories(/opt/local/include)
 endif()
 
 ########################## pkg-config description #############################
@@ -140,11 +143,6 @@ configure_file(suscan.pc.in "${SIGUTILS_PC_FILE_PATH}" @ONLY)
 install(
   FILES "${SIGUTILS_PC_FILE_PATH}"
   DESTINATION "${INSTALL_PKGCONFIG_DIR}")
-  
-########################## Mac-OS specific kludges ############################
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  include_directories(/opt/local/include)
-endif()
 
 ############################ Suscan library build #############################
 set(RSRC_CONFIG_FILES
