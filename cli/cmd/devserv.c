@@ -96,7 +96,7 @@ su_log_func(void *private, const struct sigutils_log_message *msg)
       case SU_LOG_SEVERITY_CRITICAL:
         print_date();
         printf(
-            " - \033[1;37;41mcritical[%s] in %s:%d\033[0m: ",
+            " - \033[1;37;41mcritical[%s] in %s:%u\033[0m: ",
             msg->domain,
             msg->function,
             msg->line);

@@ -33,7 +33,7 @@ suscli_profiles_cb(const hashlist_t *params)
 
   for (i = 1; i <= suscli_get_source_count(); ++i) {
     printf(
-          "[%3d] \"%s\"\n",
+          "[%3u] \"%s\"\n",
           i,
           suscan_source_config_get_label(
               suscli_get_source(i)));

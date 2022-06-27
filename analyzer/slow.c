@@ -394,8 +394,7 @@ suscan_local_analyzer_set_inspector_throttle_slow(
       req->throttle_request = SU_TRUE;
       req->new_throttle     = factor;
 
-      if (req != NULL)
-        suscan_inspector_request_manager_submit_overridable(
+      suscan_inspector_request_manager_submit_overridable(
         &self->insp_reqmgr,
         req);
     }

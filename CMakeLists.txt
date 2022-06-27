@@ -64,6 +64,10 @@ if (ENABLE_PORTAUDIO)
   pkg_check_modules(PORTAUDIO         portaudio-2.0>=19)
 endif()
 
+# Find cppcheck (if available)
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
+include(CodeAnalysis)
+
 # Source location
 set(SRCDIR       src)
 set(ANALYZERDIR  analyzer)

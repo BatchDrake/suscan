@@ -90,7 +90,7 @@ suscli_audio_open_stream(
           pcm,
           params,
           buffer_size),
-        "set buffer size to %d",
+        "set buffer size to %u",
         buffer_size);
 
   ATTEMPT(
@@ -99,7 +99,7 @@ suscli_audio_open_stream(
 
   ATTEMPT(
         snd_pcm_hw_params_set_rate_near(pcm, params, &samp_rate, NULL),
-        "set sample rate to %d",
+        "set sample rate to %u",
         samp_rate);
 
   ATTEMPT(snd_pcm_hw_params(pcm, params), "set device params");

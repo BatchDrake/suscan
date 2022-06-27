@@ -62,7 +62,7 @@ suscli_profinfo_cb(const hashlist_t *params)
       "LNB:         %.0lf Hz\n",
       suscan_source_config_get_lnb_freq(profile));
   printf(
-      "Sample rate: %d sps\n",
+      "Sample rate: %u sps\n",
       suscan_source_config_get_samp_rate(profile));
   printf(
       "Decimation:  %u\n",

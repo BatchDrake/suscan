@@ -120,8 +120,8 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_params) {
 #define suscan_analyzer_params_INITIALIZER {                               \
   SUSCAN_ANALYZER_MODE_CHANNEL,                 /* mode */                  \
   sigutils_channel_detector_params_INITIALIZER, /* detector_params */       \
-  SU_ADDSFX(.1),                                /* channel_update_int */    \
-  SU_ADDSFX(.04),                               /* psd_update_int */        \
+  SU_ADDSFX(0.1),                               /* channel_update_int */    \
+  SU_ADDSFX(0.04),                              /* psd_update_int */        \
   0,                                            /* min_freq */              \
   0,                                            /* max_freq */              \
 }

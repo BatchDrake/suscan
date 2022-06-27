@@ -157,7 +157,7 @@ suscan_print_report(
 
   for (i = 0; i < report->result_count; ++i)
     printf(
-        "%2d. | %+8.1lf Hz | %7.1lf (%7.1lf) Hz | %5.1lf dB | %8s | %8s \n",
+        "%2u. | %+8.1lf Hz | %7.1lf (%7.1lf) Hz | %5.1lf dB | %8s | %8s \n",
         i + 1,
         report->results[i].channel.fc,
         report->results[i].channel.bw,

@@ -296,7 +296,7 @@ suscli_radio_params_debug(const struct suscli_radio_params *self)
       "  Squelch level: %g\n",
       self->squelch_level);
   printf(
-      "  Sample rate:   %d sp/s\n",
+      "  Sample rate:   %u sp/s\n",
       self->samp_rate);
   printf(
       "  Volume:        %g dB\n",

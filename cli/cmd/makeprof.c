@@ -189,7 +189,7 @@ suscli_makeprof_cb(const hashlist_t *params)
     if (ask) {
       fprintf(
           stderr,
-          "You are about to generate %d profiles:\n\n",
+          "You are about to generate %u profiles:\n\n",
           ctx.profile_count);
 
       for (i = 0; i < ctx.profile_count; ++i) {

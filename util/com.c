@@ -29,7 +29,7 @@ suscan_refcount_debug(const suscan_refcount_t *self)
   unsigned int i;
 #endif /* SUSCAN_REFCOUNT_DEBUG */
 
-  fprintf(stderr, "%p: %d outstanding references\n", self->owner, self->counter);
+  fprintf(stderr, "%p: %u outstanding references\n", self->owner, self->counter);
 
 #ifdef SUSCAN_REFCOUNT_DEBUG
   for (i = 0; i < self->ref_count; ++i)

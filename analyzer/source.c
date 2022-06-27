@@ -796,11 +796,12 @@ done:
   if (gain != NULL)
     suscan_source_gain_value_destroy(gain);
 
-  for (i = 0; i < gain_count; ++i)
-    suscan_source_gain_value_destroy(gain_list[i]);
+  if (gain_list != NULL) {
+    for (i = 0; i < gain_count; ++i)
+      suscan_source_gain_value_destroy(gain_list[i]);
 
-  if (gain_list != NULL)
     free(gain_list);
+  }
 
   return ok;
 }

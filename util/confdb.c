@@ -39,6 +39,10 @@ SUPRIVATE const char *confdb_system_path;
 SUPRIVATE const char *confdb_local_path;
 SUPRIVATE const char *confdb_tle_path;
 
+#ifndef PKGDATADIR
+#  define PKGDATADIR ""
+#endif /* PKGDATADIR */
+
 const char *
 suscan_confdb_get_system_path(void)
 {

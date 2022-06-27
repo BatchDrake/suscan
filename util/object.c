@@ -352,7 +352,7 @@ suscan_object_get_field_int(
     int dfl)
 {
   const char *text;
-  unsigned int got;
+  int got;
 
   if ((text = suscan_object_get_field_value(object, name)) != NULL)
     if (sscanf(text, "%i", &got) == 1)
