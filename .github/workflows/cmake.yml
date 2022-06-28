@@ -115,9 +115,6 @@ jobs:
         sudo chmod -R a+rw /usr/local/lib/SoapySDR/modules0.8
         brew install soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyairspyhf soapyredpitaya soapyiris limesuite soapyplutosdr
 
-    - name: Install ICU
-      run: brew install icu4c
-      
     - name: Install libxml2
       run: brew install libxml2
 

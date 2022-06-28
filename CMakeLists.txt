@@ -125,8 +125,7 @@ set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -s")
 
 # Fix for MacOS X broken libxml2 Homebrew installation in MacOS Catalina
 if(APPLE)
-  set(XML2_INCLUDE_DIRS "/usr/local/opt/libxml2/include/libxml2")
-  include_directories(/opt/local/include)
+  set(XML2_INCLUDE_DIRS "/usr/local/opt/libxml2/include/libxml2;/opt/homebrew/opt/icu4c/include")
 endif()
 
 ########################## pkg-config description #############################
