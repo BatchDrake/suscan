@@ -443,6 +443,10 @@ suscan_source_config_sf_open(const suscan_source_config_t *self, SF_INFO *sf_inf
     case SUSCAN_SOURCE_FORMAT_RAW_SIGNED16:
       sf = suscan_source_config_open_file_raw(self, SF_FORMAT_PCM_16, sf_info);
       break;
+    
+    case SUSCAN_SOURCE_FORMAT_RAW_SIGNED8:
+      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_PCM_S8, sf_info);
+      break;
   }
 
   return sf;
@@ -1320,6 +1324,9 @@ suscan_source_config_helper_format_to_str(enum suscan_source_format type)
     case SUSCAN_SOURCE_FORMAT_RAW_SIGNED16:
       return "RAW_SIGNED16";
 
+    case SUSCAN_SOURCE_FORMAT_RAW_SIGNED8:
+      return "RAW_SIGNED8";
+
     case SUSCAN_SOURCE_FORMAT_WAV:
       return "WAV";
   }
@@ -1341,6 +1348,8 @@ suscan_source_type_config_helper_str_to_format(const char *format)
       return SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8;
     else if (strcasecmp(format, "RAW_SIGNED16") == 0)
       return SUSCAN_SOURCE_FORMAT_RAW_SIGNED16;
+    else if (strcasecmp(format, "RAW_SIGNED8") == 0)
+      return SUSCAN_SOURCE_FORMAT_RAW_SIGNED8;
     else if (strcasecmp(format, "WAV") == 0)
       return SUSCAN_SOURCE_FORMAT_WAV;
   }
