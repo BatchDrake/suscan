@@ -2,15 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ master ]
   pull_request:
-    branches: [ develop ]
+    branches: [ master ]
   workflow_dispatch:
     inputs:
-    debug_enabled:
-      description: 'Build and run interactive shell'     
-      required: false
-      default: false
+      debug_enabled:
+        description: 'Build and run interactive shell'
+        required: false
+        default: false
     
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -52,7 +52,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: BatchDrake/sigutils
-        ref: refs/heads/develop
+        ref: refs/heads/master
         path: sigutils
 
     - name: Configure CMake (sigutils)
@@ -98,6 +98,9 @@ jobs:
     - name: Install SoapySDR (Pothos)
       run: brew install pothossoapy
 
+    - name: Creating modules0.8
+      run: sudo mkdir -p /usr/local/lib/SoapySDR/modules0.8
+
     - name: Install SDRPlay API
       run: wget https://www.sdrplay.com/software/SDRplay_RSP_API-MacOSX-3.07.3.pkg && sudo installer -pkg SDRplay_RSP_API-MacOSX-3.07.3.pkg -target /
 
@@ -105,8 +108,12 @@ jobs:
       run: git clone https://github.com/pothosware/SoapySDRPlay3 && cd SoapySDRPlay3 && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j3 && sudo make install && cd ../../
 
     # soapyaudio removed from due to deprecated hamlib API
+    # soapyosmo  removed because of random compilation errors
+    # soapyuhd   removed for the same reason
     - name: Install SoapySDR modules (Pothos)
-      run: brew install soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyairspyhf soapyosmo soapyuhd soapyredpitaya soapyiris limesuite soapyplutosdr
+      run: |
+        sudo chmod -R a+rw /usr/local/lib/SoapySDR/modules0.8
+        brew install soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyairspyhf soapyredpitaya soapyiris limesuite soapyplutosdr
 
     - name: Install libxml2
       run: brew install libxml2
@@ -118,11 +125,13 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: BatchDrake/sigutils
-        ref: refs/heads/develop
+        ref: refs/heads/master
         path: sigutils
 
     - name: Configure CMake (sigutils)
-      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
+      run: |
+        export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+        cmake -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
 
     - name: Build (sigutils)
       run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}}
@@ -136,7 +145,99 @@ jobs:
         path: suscan
 
     - name: Configure CMake (suscan)
-      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
+      run: |
+        export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+        cmake -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
 
     - name: Build (suscan)
       run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
+      
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: git mingw-w64-x86_64-cc mingw-w64-x86_64-make mingw-w64-x86_64-cmake mingw-w64-x86_64-libsndfile mingw-w64-x86_64-fftw mingw-w64-x86_64-volk mingw-w64-x86_64-libxml2 mingw-w64-x86_64-libusb
+          
+      # SigUtils
+      - name: Checkout (sigutils)
+        uses: actions/checkout@v2
+        with:
+          repository: BatchDrake/sigutils
+          ref: refs/heads/master
+          path: sigutils
+        
+      - name: Configure sigutils
+        run: /mingw64/bin/cmake -G"MinGW Makefiles" -B D:\\a\\suscan\\suscan\\sigutils\\build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} D:\\a\\suscan\\suscan\\sigutils
+        
+      - name: Build sigutils
+        run: /mingw64/bin/cmake --build D:\\a\\suscan\\suscan\\sigutils\\build --config ${{env.BUILD_TYPE}}
+        
+      - name: Install sigutils
+        run: /mingw64/bin/cmake --build D:\\a\\suscan\\suscan\\sigutils\\build --config ${{env.BUILD_TYPE}} --target install
+        
+      # SoapySDR
+      - name: Checkout (soapysdr)
+        uses: actions/checkout@v2
+        with:
+          repository: pothosware/SoapySDR
+          ref: refs/heads/master
+          path: SoapySDR
+        
+      - name: Configure
+        run: /mingw64/bin/cmake -G"MinGW Makefiles" -B  D:\\a\\suscan\\suscan\\SoapySDR\\build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\SoapySDR\\
+        
+      - name: Build
+        run: /mingw64/bin/cmake --build  D:\\a\\suscan\\suscan\\SoapySDR\\build --config ${{env.BUILD_TYPE}}
+        
+      - name: Install sigutils
+        run: /mingw64/bin/cmake --build  D:\\a\\suscan\\suscan\\SoapySDR\\build --config ${{env.BUILD_TYPE}} --target install
+        
+      # BatchDrake's fixed rtl-sdr
+      - name: Checkout (rtl-sdr-blog)
+        uses: actions/checkout@v2
+        with:
+          repository: BatchDrake/rtl-sdr-blog
+          ref: refs/heads/feature/xfer-completion
+          path: rtl-sdr-blog
+        
+      - name: Configure
+        run: /mingw64/bin/cmake -G"MinGW Makefiles" -B  D:\\a\\suscan\\suscan\\rtl-sdr-blog\\build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\rtl-sdr-blog\\
+        
+      - name: Build
+        run: /mingw64/bin/cmake --build  D:\\a\\suscan\\suscan\\rtl-sdr-blog\\build --config ${{env.BUILD_TYPE}}
+        
+      - name: Install
+        run: /mingw64/bin/cmake --build  D:\\a\\suscan\\suscan\\rtl-sdr-blog\\build --config ${{env.BUILD_TYPE}} --target install
+        
+      # SoapyRTLSDR
+      - name: Checkout (soapyrtlsdr)
+        uses: actions/checkout@v2
+        with:
+          repository: pothosware/SoapyRTLSDR
+          ref: refs/heads/master
+          path: SoapyRTLSDR
+        
+      - name: Configure
+        run: /mingw64/bin/cmake -G"MinGW Makefiles" -B  D:\\a\\suscan\\suscan\\SoapyRTLSDR/build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\SoapyRTLSDR\\
+        
+      - name: Build
+        run: /mingw64/bin/cmake --build  D:\\a\\suscan\\suscan\\SoapyRTLSDR\\build --config ${{env.BUILD_TYPE}}
+        
+      - name: Install
+        run: /mingw64/bin/cmake --build  D:\\a\\suscan\\suscan\\SoapyRTLSDR\\build --config ${{env.BUILD_TYPE}} --target install
+        
+      # suscan
+      - name: Configure CMake
+        run: |
+          export PKG_CONFIG_PATH=C:\\msys64\\mingw64\\lib\\pkgconfig\\
+          /mingw64/bin/cmake -B  D:\\a\\suscan\\suscan\\build -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\
+        
+      - name: Build
+        run: /mingw64/bin/cmake --build  D:\\a\\suscan\\suscan\\build --config ${{env.BUILD_TYPE}}

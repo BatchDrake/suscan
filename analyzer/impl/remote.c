@@ -19,15 +19,18 @@
 
 #define SU_LOG_DOMAIN "remote-analyzer"
 
-#include <sys/socket.h>
+#include <util/compat-socket.h>
+#include <util/compat-unistd.h>
+#include <util/compat-netdb.h>
+#include <util/compat-inet.h>
+#include <util/compat-fcntl.h>
+#include <util/compat-poll.h>
 
 #include "remote.h"
 #include "msg.h"
-
-#include <fcntl.h>
-#include <sys/poll.h>
+#include "multicast.h"
+#include <zlib.h>
 #include <analyzer/realtime.h>
-#include <netdb.h>
 
 #ifdef bool
 #  undef bool
@@ -39,6 +42,7 @@ enum suscan_remote_analyzer_auth_result {
   SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_SUCCESS,
   SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INVALID_SERVER,
   SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION,
+  SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_STARTUP_ERROR,
   SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_REJECTED,
   SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_DISCONNECTED
 };
@@ -56,6 +60,132 @@ grow_buffer_debug(const grow_buf_t *buffer)
 }
 #endif
 
+SUBOOL
+suscan_remote_partial_pdu_state_read(
+  struct suscan_remote_partial_pdu_state *self,
+  const char *remote,
+  int sfd)
+{
+  size_t chunksize;
+  size_t ret;
+  SUBOOL do_close = SU_TRUE;
+  SUBOOL ok = SU_FALSE;
+
+  if (!self->have_header) {
+    chunksize =
+        sizeof(struct suscan_analyzer_remote_pdu_header) - self->header_ptr;
+
+    ret = read(sfd, self->header_bytes + self->header_ptr, chunksize);
+
+    if (ret == 0) {
+      SU_INFO("%s: peer left\n", remote);
+    } else if (ret == -1) {
+      SU_INFO("%s: read error: %s\n", remote, strerror(errno));
+    } else {
+      do_close = SU_FALSE;
+    }
+
+    if (do_close)
+      goto done;
+
+    self->header_ptr += ret;
+
+    if (self->header_ptr == sizeof(struct suscan_analyzer_remote_pdu_header)) {
+      /* Full header received */
+      self->header.magic = ntohl(self->header.magic);
+      self->header.size  = ntohl(self->header.size);
+      self->header_ptr   = 0;
+
+      if (self->header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC
+      && self->header.magic != SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC) {
+        SU_ERROR("Protocol error: invalid remote PDU header magic\n");
+        goto done;
+      }
+
+      self->have_header = self->header.size != 0;
+
+      grow_buf_shrink(&self->incoming_pdu);
+    }
+  } else if (!self->have_body) {
+    if ((chunksize = self->header.size) > SUSCAN_REMOTE_READ_BUFFER)
+      chunksize = SUSCAN_REMOTE_READ_BUFFER;
+
+    if ((ret = read(sfd, self->read_buffer, chunksize)) < 1) {
+      SU_ERROR("Failed to read from socket: %s\n", strerror(errno));
+      goto done;
+    }
+
+    SU_TRYCATCH(
+        grow_buf_append(&self->incoming_pdu, self->read_buffer, ret) != -1,
+        goto done);
+
+    self->header.size -= ret;
+
+    if (self->header.size == 0) {
+      if (self->header.magic == SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC)
+        SU_TRYCATCH(
+          suscan_remote_inflate_pdu(&self->incoming_pdu), 
+          goto done);
+
+      grow_buf_seek(&self->incoming_pdu, 0, SEEK_SET);
+      self->have_body = SU_TRUE;
+    }
+  } else {
+    SU_ERROR("BUG: Current PDU not consumed yet\n");
+    goto done;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscan_remote_partial_pdu_state_take(
+  struct suscan_remote_partial_pdu_state *self,
+  grow_buf_t *pdu)
+{
+  if (self->have_header && self->have_body) {
+    *pdu = self->incoming_pdu;
+    memset(&self->incoming_pdu, 0, sizeof(grow_buf_t));
+
+    self->header_ptr  = 0;
+    self->have_header = SU_FALSE;
+    self->have_body   = SU_FALSE;
+
+    return SU_TRUE;
+  }
+
+  return SU_FALSE;
+}
+
+void
+suscan_remote_partial_pdu_state_finalize(
+  struct suscan_remote_partial_pdu_state *self)
+{
+  grow_buf_finalize(&self->incoming_pdu);
+}
+
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_multicast_info) {
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(uint, self->multicast_addr);
+  SUSCAN_PACK(uint, self->multicast_port);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_multicast_info) {
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(uint32, self->multicast_addr);
+  SUSCAN_UNPACK(uint16, self->multicast_port);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_server_hello) {
   SUSCAN_PACK_BOILERPLATE_START;
 
@@ -65,9 +195,15 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_server_hello) {
   SUSCAN_PACK(uint, self->auth_mode);
   SUSCAN_PACK(uint, self->enc_type);
   SUSCAN_PACK(blob, self->sha256buf, SHA256_BLOCK_SIZE);
+  SUSCAN_PACK(uint, self->flags);
+
+  if (self->flags & SUSCAN_REMOTE_FLAGS_MULTICAST)
+    SU_TRYCATCH(
+      suscan_analyzer_multicast_info_serialize(&self->mc_info, buffer),
+      goto fail);
 
   SUSCAN_PACK_BOILERPLATE_END;
-};
+}
 
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_hello) {
   SUSCAN_UNPACK_BOILERPLATE_START;
@@ -79,14 +215,20 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_hello) {
   SUSCAN_UNPACK(uint8, self->auth_mode);
   SUSCAN_UNPACK(uint8, self->enc_type);
   SUSCAN_UNPACK(blob,  self->sha256buf, &size);
+  SUSCAN_UNPACK(uint32, self->flags);
 
   if (size != SHA256_BLOCK_SIZE) {
     SU_ERROR("Invalid salt size %d (expected %d)\n", size, SHA256_BLOCK_SIZE);
     goto fail;
   }
 
+  if (self->flags & SUSCAN_REMOTE_FLAGS_MULTICAST)
+    SU_TRYCATCH(
+      suscan_analyzer_multicast_info_deserialize(&self->mc_info, buffer),
+      goto fail);
+
   SUSCAN_UNPACK_BOILERPLATE_END;
-};
+}
 
 SUBOOL
 suscan_analyzer_server_hello_init(
@@ -141,6 +283,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_server_client_auth) {
   SUSCAN_PACK(uint, self->protocol_version_minor);
   SUSCAN_PACK(str,  self->user);
   SUSCAN_PACK(blob, self->sha256buf, SHA256_BLOCK_SIZE);
+  SUSCAN_PACK(uint, self->flags);
 
   SUSCAN_PACK_BOILERPLATE_END;
 }
@@ -160,6 +303,8 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_server_client_auth) {
     goto fail;
   }
 
+  SUSCAN_UNPACK(uint32, self->flags);
+
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
@@ -174,9 +319,9 @@ suscan_analyzer_server_compute_auth_token(
 
   suscan_sha256_init(&ctx);
 
-  suscan_sha256_update(&ctx, (const BYTE *) user, strlen(user) + 1);
-  suscan_sha256_update(&ctx, (const BYTE *) password, strlen(password) + 1);
-  suscan_sha256_update(&ctx, (const BYTE *) sha256salt, SHA256_BLOCK_SIZE);
+  suscan_sha256_update(&ctx, (const uint8_t *) user, strlen(user) + 1);
+  suscan_sha256_update(&ctx, (const uint8_t *) password, strlen(password) + 1);
+  suscan_sha256_update(&ctx, (const uint8_t *) sha256salt, SHA256_BLOCK_SIZE);
 
   suscan_sha256_final(&ctx, result);
 }
@@ -316,6 +461,9 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
     case SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED:
       break;
 
+    case SUSCAN_ANALYZER_REMOTE_STARTUP_ERROR:
+      break;
+
     default:
       SU_ERROR("Invalid remote call `%d'\n", self->type);
       break;
@@ -324,11 +472,22 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
   SUSCAN_PACK_BOILERPLATE_END;
 }
 
-SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
+
+SUSCAN_PARTIAL_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
 
   SUSCAN_UNPACK(uint32, self->type);
+  
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SU_TRY_FAIL(suscan_analyzer_remote_call_deserialize_partial(self, buffer));
 
   switch (self->type) {
     case SUSCAN_ANALYZER_REMOTE_AUTH_INFO:
@@ -410,13 +569,15 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
               &self->msg.ptr,
               buffer),
           goto fail);
-
       break;
 
     case SUSCAN_ANALYZER_REMOTE_REQ_HALT:
       break;
 
     case SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED:
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_STARTUP_ERROR:
       break;
 
     default:
@@ -456,9 +617,13 @@ suscan_analyzer_remote_call_take_source_info(
 SUBOOL
 suscan_analyzer_remote_call_deliver_message(
     struct suscan_analyzer_remote_call *self,
-    suscan_analyzer_t *analyzer)
+    suscan_remote_analyzer_t *analyzer)
 {
   uint32_t type = 0;
+  struct suscan_analyzer_psd_msg *psd_msg;
+  struct suscan_analyzer_source_info *as_source_info;
+  uint64_t old_permissions = analyzer->source_info.permissions;
+
   void *priv = NULL;
 
   SUBOOL ok = SU_FALSE;
@@ -470,14 +635,31 @@ suscan_analyzer_remote_call_deliver_message(
   type = self->msg.type;
   priv = self->msg.ptr;
 
-  if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO) {
-    suscan_analyzer_source_info_finalize(&self->source_info);
-    SU_TRYCATCH(
-        suscan_analyzer_source_info_init_copy(&self->source_info, priv),
-        goto done);
-  }
+  /* Certain messages imply an update of the remote state */
+  switch (type) {
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
+      /* Source info must be kept in sync. */
+      as_source_info = priv;
+      as_source_info->permissions = old_permissions;
 
-  SU_TRYCATCH(suscan_mq_write(analyzer->mq_out, type, priv), goto done);
+      suscan_analyzer_source_info_finalize(&analyzer->source_info);
+
+      SU_TRYCATCH(
+          suscan_analyzer_source_info_init_copy(&analyzer->source_info, priv),
+          goto done);
+
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+      /* Timestamp is also important */
+      psd_msg = priv;
+      analyzer->source_info.source_time = psd_msg->timestamp;
+      break;
+  }
+  
+  SU_TRYCATCH(
+    suscan_mq_write(analyzer->parent->mq_out, type, priv),
+    goto done);
 
   self->type = SUSCAN_ANALYZER_REMOTE_NONE;
 
@@ -552,7 +734,7 @@ suscan_remote_read(
     SU_TRYCATCH(poll(fds, 2, timeout_ms) != -1, return -1);
 
     if (fds[1].revents & POLLIN) {
-      (void) read(cancelfd, &cancel_byte, 1);
+      IGNORE_RESULT(int, read(cancelfd, &cancel_byte, 1));
       errno = ECANCELED;
       return -1;
     } else if (fds[0].revents & POLLIN) {
@@ -578,6 +760,204 @@ done:
 }
 
 SUBOOL
+suscan_remote_deflate_pdu(grow_buf_t *buffer, grow_buf_t *dest)
+{
+  z_stream stream;
+  grow_buf_t tmpbuf      = grow_buf_INITIALIZER;
+  grow_buf_t swapbuf;
+  uint8_t *buffer_bytes  = grow_buf_get_buffer(buffer);
+  size_t   buffer_size   = grow_buf_get_size(buffer);
+  uint8_t *output        = NULL;
+  uint32_t avail_size;
+  SUBOOL   deflate_init  = SU_TRUE;
+  int      last_err      = Z_OK;
+  int      flush         = Z_NO_FLUSH;
+  SUBOOL   ok = SU_FALSE;
+
+  if (dest == NULL)
+    dest = &tmpbuf;
+
+  SU_TRYCATCH(grow_buf_get_size(dest) == 0, goto done);
+  SU_TRYCATCH(output = grow_buf_alloc(dest, sizeof(uint32_t) + 5), goto done);
+
+  /* Step 1: allocate and compress */
+  stream.zalloc   = Z_NULL;
+  stream.zfree    = Z_NULL;
+  stream.opaque   = Z_NULL;
+
+  stream.next_in   = buffer_bytes;
+  stream.avail_in  = buffer_size;
+
+  stream.next_out  = output + sizeof(uint32_t);
+  stream.avail_out = grow_buf_get_size(dest) - sizeof(uint32_t);
+
+  SU_TRYCATCH(
+    deflateInit(&stream, 9) == Z_OK,
+    goto done);
+
+  deflate_init     = SU_TRUE;
+  /* Begin compression */
+  while ((last_err = deflate(&stream, flush)) == Z_OK) {
+    /* Buffer was not completely consumed, reallocate */
+
+    if (stream.avail_out == 0) {
+      avail_size = grow_buf_get_size(dest);
+
+      if (avail_size > 4 * buffer_size) {
+        SU_ERROR("Compressed buffer grew beyond a reasonable size.\n");
+        goto done;
+      }
+
+      SU_TRYCATCH(
+          output = grow_buf_alloc(dest, avail_size), 
+          goto done);
+
+      /* Update stream properties */
+      stream.next_out  = output;
+      stream.avail_out = avail_size;
+    }
+
+    if (stream.total_in == buffer_size)
+      flush = Z_FINISH;
+  }
+
+  SU_TRYCATCH(last_err == Z_STREAM_END, goto done);
+
+  /* TODO: Expose API!! */
+  dest->size = stream.total_out + sizeof(uint32_t);
+
+  /* Step 2: update PDU size */
+  output = grow_buf_get_buffer(dest);
+  *(uint32_t *) output = htonl(buffer_size);
+
+  if (dest == &tmpbuf) {
+    swapbuf = tmpbuf;
+    tmpbuf  = *buffer;
+    *buffer = swapbuf;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (deflate_init)
+    deflateEnd(&stream);
+
+  grow_buf_finalize(&tmpbuf);
+
+  return ok;
+}
+
+SUBOOL
+suscan_remote_inflate_pdu(grow_buf_t *buffer)
+{
+  uint32_t cmpsize;
+  uint8_t *cmpbytes;
+  uint32_t size;
+  z_stream stream;
+  uint8_t *output;
+  uint32_t out_alloc;
+  grow_buf_t swapbuf;
+  grow_buf_t tmpbuf = grow_buf_INITIALIZER;
+  int last_err;
+  int flush = Z_NO_FLUSH;
+  SUBOOL inflate_init = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  cmpsize  = grow_buf_get_size(buffer);
+  cmpbytes = grow_buf_get_buffer(buffer);
+
+  if (cmpsize <= sizeof(uint32_t)) {
+    SU_ERROR("Compressed frame too short\n");
+    goto done;
+  }
+
+  size = ntohl(*(uint32_t *) cmpbytes);
+
+  cmpsize  -= sizeof(uint32_t);
+  cmpbytes += sizeof(uint32_t);
+
+  /* Initialize buffers */
+  stream.zalloc = Z_NULL;
+  stream.zfree  = Z_NULL;
+  stream.opaque = Z_NULL;
+
+  out_alloc = cmpsize;
+  
+  SU_TRYCATCH(
+    output = grow_buf_alloc(&tmpbuf, out_alloc), 
+    goto done);
+
+  stream.next_in   = cmpbytes;
+  stream.avail_in  = cmpsize;
+
+  stream.next_out  = output;
+  stream.avail_out = out_alloc;
+
+  /* Initialize inflate */
+  SU_TRYCATCH(inflateInit(&stream) == Z_OK, goto done);
+  inflate_init     = SU_TRUE;
+
+  /* Begin decompression */
+  while ((last_err = inflate(&stream, flush)) == Z_OK) {
+    if (stream.avail_out == 0) {
+      /* Buffer was not completely consumed, reallocate */
+      out_alloc = grow_buf_get_size(&tmpbuf);
+
+      if (grow_buf_get_size(&tmpbuf) + out_alloc > size)
+        out_alloc = size - grow_buf_get_size(&tmpbuf);
+
+      if (out_alloc > 0) {
+        SU_TRYCATCH(
+        output = grow_buf_alloc(&tmpbuf, out_alloc), 
+        goto done);
+      } else {
+        output = Z_NULL;
+      }
+      
+      stream.next_out  = output;
+      stream.avail_out = out_alloc;
+    }
+
+    if (stream.total_in == cmpsize)
+      flush = Z_FINISH;
+  }
+
+  if (last_err != Z_STREAM_END) {
+    SU_ERROR(
+      "Inflate error %d (%d/%d bytes decompressed, corrupted data?)\n", 
+      last_err,
+      stream.total_out,
+      size);
+    SU_ERROR("%02x %02x %02x %02x\n", cmpbytes[0], cmpbytes[1], cmpbytes[2], cmpbytes[3]);
+    SU_ERROR("Consumed: %d/%d\n", cmpsize - stream.avail_in, cmpsize);
+    goto done;
+  }
+
+  if (size != stream.total_out) {
+    SU_ERROR(
+      "Inflated packet size mismatch (%d != %d)\n", 
+      stream.total_out, 
+      size);
+    goto done;
+  }
+
+  /* Swap these */
+  swapbuf = *buffer;
+  *buffer = tmpbuf;
+  tmpbuf  = swapbuf;
+
+  ok = SU_TRUE;
+
+done:
+  if (inflate_init)
+    inflateEnd(&stream);
+
+  grow_buf_finalize(&tmpbuf);
+
+  return ok;
+}
+
+SUBOOL
 suscan_remote_read_pdu(
     int sfd,
     int cancelfd,
@@ -586,6 +966,7 @@ suscan_remote_read_pdu(
 {
   uint32_t chunksiz;
   struct suscan_analyzer_remote_pdu_header header;
+  SUBOOL compressed = SU_FALSE;
   void *chunk;
   size_t got;
   SUBOOL ok = SU_FALSE;
@@ -593,21 +974,38 @@ suscan_remote_read_pdu(
   grow_buf_clear(buffer);
 
   /* Attempt to read header */
-  SU_TRYCATCH(
-      (got = suscan_remote_read(
-          sfd,
-          cancelfd,
-          &header,
-          sizeof(struct suscan_analyzer_remote_pdu_header),
-          timeout_ms)) == sizeof(struct suscan_analyzer_remote_pdu_header),
-      goto done);
+  got = suscan_remote_read(
+    sfd,
+    cancelfd,
+    &header,
+    sizeof(struct suscan_analyzer_remote_pdu_header),
+    timeout_ms);
+    
+  if (got != sizeof(struct suscan_analyzer_remote_pdu_header)) {
+    if (got >= 0)
+      SU_WARNING("Connection closed while waiting for PDU header\n");
+    else
+      SU_ERROR(
+        "suscan_remote_read returned %d (errno = %s)\n",
+        got,
+        strerror(errno));
+    goto done;
+  }
 
   header.size  = ntohl(header.size);
   header.magic = ntohl(header.magic);
 
-  if (header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC) {
-    SU_ERROR("Protocol error (unrecognized PDU magic)\n");
-    goto done;
+  switch (header.magic) {
+    case SUSCAN_REMOTE_PDU_HEADER_MAGIC:
+      break;
+
+    case SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC:
+      compressed = SU_TRUE;
+      break;
+
+    default:
+      SU_ERROR("Protocol error (unrecognized PDU magic)\n");
+      goto done;
   }
 
   /* Start to read */
@@ -617,14 +1015,23 @@ suscan_remote_read_pdu(
       chunksiz = SUSCAN_REMOTE_READ_BUFFER;
 
     SU_TRYCATCH(chunk = grow_buf_alloc(buffer, chunksiz), goto done);
-    SU_TRYCATCH(
-        suscan_remote_read(
-            sfd,
-            cancelfd,
-            chunk,
-            chunksiz,
-            SUSCAN_REMOTE_ANALYZER_PDU_BODY_TIMEOUT_MS) == chunksiz,
-        goto done);
+    got = suscan_remote_read(
+      sfd,
+      cancelfd,
+      chunk,
+      chunksiz,
+      SUSCAN_REMOTE_ANALYZER_PDU_BODY_TIMEOUT_MS);
+      
+    if (got != chunksiz) {
+      if (got >= 0)
+        SU_WARNING("Connection closed while waiting for PDU payload\n");
+      else
+        SU_ERROR(
+          "suscan_remote_read returned %d while reading PDU payload (errno = %s)\n",
+          got,
+          strerror(errno));
+      goto done;
+    }
 
     /*
      * No need to advance growbuf pointer. We are just incrementing
@@ -633,15 +1040,19 @@ suscan_remote_read_pdu(
     header.size -= chunksiz;
   }
 
+  if (compressed)
+    SU_TRYCATCH(suscan_remote_inflate_pdu(buffer), goto done);
+    
   ok = SU_TRUE;
 
 done:
   return ok;
 }
 
-SUBOOL
-suscan_remote_write_pdu(
+SUINLINE SUBOOL
+suscan_remote_write_pdu_internal(
     int sfd,
+    uint32_t magic,
     const grow_buf_t *buffer)
 {
   uint8_t *buffer_bytes = grow_buf_get_buffer(buffer);
@@ -650,7 +1061,7 @@ suscan_remote_write_pdu(
 
   struct suscan_analyzer_remote_pdu_header header;
 
-  header.magic = htonl(SUSCAN_REMOTE_PDU_HEADER_MAGIC);
+  header.magic = htonl(magic);
   header.size  = htonl(buffer_size);
 
   if (write(sfd, &header, sizeof(struct suscan_analyzer_remote_pdu_header))
@@ -677,6 +1088,48 @@ suscan_remote_write_pdu(
   return SU_TRUE;
 }
 
+SUINLINE SUBOOL
+suscan_remote_write_compressed_pdu(
+    int sfd,
+    const grow_buf_t *buffer)
+{
+  grow_buf_t compressed = grow_buf_INITIALIZER;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+    suscan_remote_deflate_pdu((grow_buf_t *) buffer, &compressed),
+    goto done);
+
+  SU_TRYCATCH(
+    suscan_remote_write_pdu_internal(
+      sfd, 
+      SUSCAN_REMOTE_COMPRESSED_PDU_HEADER_MAGIC, 
+      &compressed),
+    goto done);
+
+  ok = SU_TRUE;
+
+done:
+  grow_buf_finalize(&compressed);
+
+  return ok;
+}
+
+SUBOOL
+suscan_remote_write_pdu(
+    int sfd,
+    const grow_buf_t *buffer,
+    unsigned int threshold)
+{
+  if (threshold > 0 && grow_buf_get_size(buffer) > threshold)
+    return suscan_remote_write_compressed_pdu(sfd, buffer);
+  else
+    return suscan_remote_write_pdu_internal(
+      sfd, 
+      SUSCAN_REMOTE_PDU_HEADER_MAGIC, 
+      buffer);
+}
+
 /*
  * User is in charge of releasing the pointer
  */
@@ -685,36 +1138,117 @@ suscan_remote_analyzer_receive_call(
     suscan_remote_analyzer_t *self,
     int sfd,
     int cancelfd,
+    SUBOOL mc,
     int timeout_ms)
 {
-  struct suscan_analyzer_remote_call *call = NULL;
+  struct suscan_analyzer_remote_call *call = NULL, *qcall = NULL;
+  uint32_t type;
+  uint8_t *read_buf = self->peer.pdu_state.read_buffer;
+  struct sockaddr_in addr;
+  grow_buf_t buf = grow_buf_INITIALIZER;
+  int n = 2, active;
+  socklen_t len = sizeof(struct sockaddr_in);
+  ssize_t ret;
+  struct pollfd fds[3];
   SUBOOL ok = SU_FALSE;
 
-  /* Right now: use control fd only */
-  SU_TRYCATCH(
-      suscan_remote_read_pdu(
-          self->peer.control_fd,
-          self->cancel_pipe[0],
-          &self->peer.read_buffer,
-          timeout_ms),
-      goto done);
+  memset(&addr, 0, len);
 
-  call = suscan_remote_analyzer_acquire_call(
-      self,
-      SUSCAN_ANALYZER_REMOTE_NONE);
+  fds[0].fd      = cancelfd;
+  fds[0].events  = POLLIN;
+  fds[0].revents = 0;
 
-  SU_TRYCATCH(
-      suscan_analyzer_remote_call_deserialize(call, &self->peer.read_buffer),
-      goto done);
+  fds[1].fd      = sfd;
+  fds[1].events  = POLLIN;
+  fds[1].revents = 0;
+
+  if (mc && self->peer.mc_processor != NULL) {
+    fds[2].fd      = self->peer.mc_fd;
+    fds[2].events  = POLLIN;
+    fds[2].revents = 0;
+
+    ++n;
+  }
+
+  while (call == NULL) {
+    /* 
+     * Check whether there are any pending calls in the multicast
+     * call queue.
+     */
+    if (suscan_mq_poll(&self->peer.call_queue, &type, (void **) &qcall)) {
+      call = suscan_remote_analyzer_acquire_call(
+                self,
+                SUSCAN_ANALYZER_REMOTE_NONE);
+      memcpy(call, qcall, sizeof(struct suscan_analyzer_remote_call));
+      free(qcall);
+      qcall = NULL;
+      break;
+    }
+
+    /* No calls. Wait for data. */
+    SU_TRYC(active = poll(fds, n, timeout_ms));
+
+    /* Timeout */
+    if (active == 0)
+      return NULL;
+
+    /* Explicit cancellation */
+    if (fds[0].revents & POLLIN)
+      return NULL;
+
+    /* Data from the control socket */
+    if (fds[1].revents & POLLIN) {
+      SU_TRY(suscan_remote_partial_pdu_state_read(
+        &self->peer.pdu_state,
+        self->peer.hostname,
+        sfd));
+
+      /* Complete PDU */
+      if (suscan_remote_partial_pdu_state_take(&self->peer.pdu_state, &buf)) {
+          call = suscan_remote_analyzer_acquire_call(
+                self,
+                SUSCAN_ANALYZER_REMOTE_NONE);
+          SU_TRY(suscan_analyzer_remote_call_deserialize(call, &buf));
+          break;
+      }
+    }
+
+    /* Data from the multicast interface */
+    if (n > 2 && (fds[2].revents & POLLIN)) {
+      ret = recvfrom(
+        self->peer.mc_fd,
+        (void *) read_buf,
+        SUSCAN_REMOTE_READ_BUFFER,
+        0,
+        (struct sockaddr *) &addr,
+        &len);
+      
+      if (ret > 0)
+        SU_TRY(
+          suscli_multicast_processor_process_datagram(
+            self->peer.mc_processor,
+            read_buf,
+            ret));
+
+      /* Loop now */
+    }
+  }
 
   ok = SU_TRUE;
 
 done:
+  if (qcall != NULL) {
+    suscan_analyzer_remote_call_finalize(qcall);
+    free(qcall);
+  }
+
   if (!ok && call != NULL) {
       (void) suscan_remote_analyzer_release_call(self, call);
       call = NULL;
   }
 
+  grow_buf_finalize(&buf);
+  
   return call;
 }
 
@@ -735,7 +1269,10 @@ suscan_remote_analyzer_deliver_call(
   SU_TRYCATCH(suscan_remote_analyzer_release_call(self, call), goto done);
 
   SU_TRYCATCH(
-      suscan_remote_write_pdu(self->peer.control_fd, &self->peer.write_buffer),
+      suscan_remote_write_pdu(
+        self->peer.control_fd, 
+        &self->peer.write_buffer,
+        0),
       goto done);
 
   ok = SU_TRUE;
@@ -803,7 +1340,7 @@ suscan_remote_analyzer_network_connect_cancellable(
       default:
         if (fds[1].revents & POLLIN) {
           /* Cancel requested */
-          (void) read(cancelfd, &cancel_byte, 1);
+          IGNORE_RESULT(int, read(cancelfd, &cancel_byte, 1));
           ret = -1;
           errno = ECANCELED;
           goto done;
@@ -874,6 +1411,47 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
         hello.protocol_version_major,
         hello.protocol_version_minor);
     goto done;
+  } else if (hello.protocol_version_major == 0) {
+    /* These are the experimental protocols */
+    SU_WARNING(
+      "Server hello declares an experimental SuRPC protocol version (0.x)\n");
+    SU_WARNING(
+      "Protocol specification may change any time between releases without\n");
+    SU_WARNING(
+      "further notice. Make sure both client and server versions match after\n");
+    SU_WARNING(
+      "upgrading Suscan from the develop branch.\n");
+
+    if (hello.protocol_version_minor < SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION) {
+      result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION;
+      SU_ERROR(
+        "Server protocol version is too old (%d.%d). Please upgrade server.\n",
+        hello.protocol_version_major,
+        hello.protocol_version_minor);
+      goto done;
+    } else if (hello.protocol_version_minor > SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION) {
+      result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION;
+      SU_ERROR(
+        "Server protocol version is too recent (%d.%d). Please upgrade client.\n",
+        hello.protocol_version_major,
+        hello.protocol_version_minor);
+      goto done;
+    }
+  }
+  
+  if (self->peer.mc_processor != NULL) {
+    if (!(hello.flags & SUSCAN_REMOTE_FLAGS_MULTICAST)) {
+      SU_WARNING("Server does not support multicast, disabling\n");
+      suscli_multicast_processor_destroy(self->peer.mc_processor);
+      self->peer.mc_processor = NULL;
+
+      close(self->peer.mc_fd);
+      self->peer.mc_fd = -1;
+    } else {
+      SU_INFO("Remote server reports multicast support.\n");
+    }
+  } else {
+    SU_INFO("Multicast support not enabled, running in unicast mode\n");
   }
 
   SU_TRYCATCH(
@@ -895,6 +1473,9 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           self->peer.password),
       goto done);
 
+  if (self->peer.mc_processor != NULL)
+    call->client_auth.flags |= SUSCAN_REMOTE_FLAGS_MULTICAST;
+
   write_ok = suscan_remote_analyzer_deliver_call(
       self,
       self->peer.control_fd,
@@ -910,20 +1491,40 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
           self,
           self->peer.control_fd,
           self->cancel_pipe[0],
+          SU_FALSE,
           SUSCAN_REMOTE_ANALYZER_AUTH_TIMEOUT_MS),
       goto done);
 
-  if (call->type == SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED) {
-    result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_REJECTED;
+  /* Check server response */
+  if (call->type != SUSCAN_ANALYZER_REMOTE_SOURCE_INFO) {
+    switch (call->type) {
+      case SUSCAN_ANALYZER_REMOTE_AUTH_REJECTED:
+        result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_REJECTED;
+        break;
+
+      case SUSCAN_ANALYZER_REMOTE_STARTUP_ERROR:
+        result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_STARTUP_ERROR;
+        break;
+
+      default:
+        SU_WARNING(
+          "Unexpected server message type %d, incompatible versions?",
+          call->type);
+        result = SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_INCOMPATIBLE_VERSION;
+        break;
+    }
+
     goto done;
   }
 
-  SU_TRYCATCH(call->type == SUSCAN_ANALYZER_REMOTE_SOURCE_INFO, goto done);
+  SU_INFO("Authentication successful, source info received\n");
+
   SU_TRYCATCH(
       suscan_analyzer_remote_call_take_source_info(
           call,
           &self->source_info),
       goto done);
+
   SU_TRYCATCH(
       suscan_analyzer_send_source_info(self->parent, &self->source_info),
       goto done);
@@ -941,6 +1542,124 @@ done:
   suscan_analyzer_server_hello_finalize(&hello);
 
   return result;
+}
+
+SUPRIVATE SUBOOL
+suscan_remote_analyzer_on_mc_call(
+    struct suscli_multicast_processor *mc,
+    void *userdata,
+    struct suscan_analyzer_remote_call *call)
+{
+  suscan_remote_analyzer_t *self = 
+    (suscan_remote_analyzer_t *) userdata;
+  struct suscan_analyzer_remote_call *copy = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  /* New call! Queue and process later */
+  SU_ALLOCATE(copy, struct suscan_analyzer_remote_call);
+
+  memcpy(copy, call, sizeof(struct suscan_analyzer_remote_call));
+  memset(call,    0, sizeof(struct suscan_analyzer_remote_call));
+
+  SU_TRY(suscan_mq_write(&self->peer.call_queue, 1, copy));
+  copy = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (copy != NULL) {
+    suscan_analyzer_remote_call_finalize(copy);
+    free(copy);
+  }
+
+  return ok;
+}
+    
+SUBOOL
+suscan_remote_analyzer_open_multicast(
+  suscan_remote_analyzer_t *self)
+{
+  const char *iface = self->peer.mc_if;
+  struct sockaddr_in addr;
+  struct ip_mreq     group;
+  int reuse = 1;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYC(self->peer.mc_fd = socket(AF_INET, SOCK_DGRAM, 0));
+
+  SU_TRYC(
+      setsockopt(
+          self->peer.mc_fd,
+          SOL_SOCKET,
+          SO_REUSEADDR,
+          (char *) &reuse,
+          sizeof(int)));
+
+  memset(&addr, 0, sizeof(struct sockaddr_in));
+
+  addr.sin_family      = AF_INET;
+  addr.sin_port        = htons(SUSCLI_MULTICAST_PORT);
+  addr.sin_addr.s_addr = INADDR_ANY;
+
+  SU_TRYC(
+      bind(
+          self->peer.mc_fd,
+          (struct sockaddr *) &addr,
+          sizeof(struct sockaddr)));
+
+  group.imr_multiaddr.s_addr = inet_addr(SUSCLI_MULTICAST_GROUP);
+  group.imr_interface.s_addr = suscan_ifdesc_to_addr(iface);
+
+  if (ntohl(group.imr_interface.s_addr) == 0xffffffff) {
+    SU_ERROR(
+        "Invalid interface address `%s' (does not look like a valid IP address)\n",
+        iface);
+    goto done;
+  }
+
+  if ((ntohl(group.imr_interface.s_addr) & 0xf0000000) == 0xe0000000) {
+    SU_ERROR("Invalid interface address. Please note that mc_if= "
+        "expects the IP address of a configured local network interface, not a "
+        "multicast group.\n");
+    goto done;
+  }
+
+  if (setsockopt(
+          self->peer.mc_fd,
+          IPPROTO_IP,
+          IP_ADD_MEMBERSHIP,
+          (char *) &group,
+          sizeof(struct ip_mreq)) == -1) {
+    if (errno == ENODEV) {
+      SU_ERROR("Invalid interface address. Please verify that there is a "
+          "local network interface with IP `%s'\n", iface);
+    } else {
+      SU_ERROR(
+          "failed to set network interface for multicast: %s\n",
+          strerror(errno));
+    }
+
+    goto done;
+  }
+
+  /* All set to initialize a multicast processor */
+  SU_MAKE(
+    self->peer.mc_processor,
+    suscli_multicast_processor,
+    suscan_remote_analyzer_on_mc_call,
+    self);
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok) {
+    if (self->peer.mc_fd != -1)
+      close(self->peer.mc_fd);
+    
+    self->peer.mc_fd = -1;
+  }
+
+  return ok;
 }
 
 SUPRIVATE SUBOOL
@@ -971,6 +1690,13 @@ suscan_remote_analyzer_connect_to_peer(suscan_remote_analyzer_t *self)
   }
 
   self->peer.hostaddr = *((struct in_addr *) ent->h_addr_list[0]);
+
+  if (self->peer.mc_if != NULL) {
+    if (!suscan_remote_analyzer_open_multicast(self)) {
+      SU_WARNING("Failed to initialize multicast support\n");
+      SU_WARNING("Multicast features will be disabled\n");
+    }
+  }
 
   SU_TRYCATCH(
       suscan_analyzer_send_status(
@@ -1043,6 +1769,14 @@ suscan_remote_analyzer_connect_to_peer(suscan_remote_analyzer_t *self)
           "Authentication rejected (wrong user and/or password?)");
       goto done;
 
+    case SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_STARTUP_ERROR:
+      (void) suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
+          SUSCAN_ANALYZER_INIT_FAILURE,
+          "Server-side analyzer failed to start (remote device error?)");
+      goto done;
+
     case SUSCAN_REMOTE_ANALYZER_AUTH_RESULT_SUCCESS:
       break;
   }
@@ -1059,6 +1793,9 @@ suscan_remote_analyzer_connect_to_peer(suscan_remote_analyzer_t *self)
   ok = SU_TRUE;
 
 done:
+  if (!ok)
+    usleep(1000);
+
   return ok;
 }
 
@@ -1067,13 +1804,14 @@ SUPRIVATE void *
 suscan_remote_analyzer_rx_thread(void *ptr)
 {
   suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
-
+  uint64_t old_permissions = self->source_info.permissions;
   struct suscan_analyzer_remote_call *call;
 
   while ((call = suscan_remote_analyzer_receive_call(
       self,
       self->peer.control_fd,
       self->cancel_pipe[0],
+      SU_TRUE,
       -1)) != NULL) {
     switch (call->type) {
       case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
@@ -1082,6 +1820,8 @@ suscan_remote_analyzer_rx_thread(void *ptr)
                 call,
                 &self->source_info),
             goto done);
+
+        self->source_info.permissions = old_permissions;
 
         SU_TRYCATCH(
             suscan_analyzer_send_source_info(self->parent, &self->source_info),
@@ -1099,7 +1839,7 @@ suscan_remote_analyzer_rx_thread(void *ptr)
 
       case SUSCAN_ANALYZER_REMOTE_MESSAGE:
         SU_TRYCATCH(
-            suscan_analyzer_remote_call_deliver_message(call, self->parent),
+            suscan_analyzer_remote_call_deliver_message(call, self),
             goto done);
         break;
     }
@@ -1144,7 +1884,10 @@ suscan_remote_analyzer_tx_thread(void *ptr)
 
         /* We only support control messages for now */
         SU_TRYCATCH(
-            suscan_remote_write_pdu(self->peer.control_fd, msgptr),
+            suscan_remote_write_pdu(
+              self->peer.control_fd, 
+              msgptr,
+              0 /* temptatively disabled */),
             goto done);
 
         grow_buf_finalize(as_growbuf);
@@ -1281,8 +2024,14 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->parent = parent;
   new->peer.control_fd = -1;
   new->peer.data_fd    = -1;
+  new->peer.mc_fd      = -1;
   new->cancel_pipe[0]  = -1;
   new->cancel_pipe[1]  = -1;
+
+  SU_TRY_FAIL(suscan_mq_init(&new->peer.call_queue));
+  new->peer.call_queue_init = SU_TRUE;
+
+  suscan_analyzer_source_info_init(&new->source_info);
 
   val = suscan_source_config_get_param(config, "host");
   if (val == NULL) {
@@ -1317,6 +2066,11 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   }
   SU_TRYCATCH(new->peer.password = strdup(val), goto fail);
 
+  /* Optional: set multicast IF */
+  val = suscan_source_config_get_param(config, "mc_if");
+  if (val != NULL)
+    SU_TRYCATCH(new->peer.mc_if = strdup(val), goto fail);
+  
   SU_TRYCATCH(pthread_mutex_init(&new->call_mutex, NULL) == 0, goto fail);
   new->call_mutex_initialized = SU_TRUE;
 
@@ -1344,17 +2098,30 @@ SUPRIVATE void
 suscan_remote_analyzer_dtor(void *ptr)
 {
   suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+  struct suscan_analyzer_remote_call *call;
+  uint32_t type;
   char b = 1;
 
   if (self->tx_thread_init) {
     if (self->rx_thread_init) {
-      write(self->cancel_pipe[1], &b, 1);
+      IGNORE_RESULT(int, write(self->cancel_pipe[1], &b, 1));
       pthread_join(self->rx_thread, NULL);
     }
 
     suscan_mq_write(&self->pdu_queue, SUSCAN_REMOTE_HALT, NULL);
     pthread_join(self->tx_thread, NULL);
   }
+
+  /* Free all unprocessed multicast calls */
+  if (self->peer.call_queue_init) {
+    while (suscan_mq_poll(&self->peer.call_queue, &type, (void **) &call)) {
+      suscan_analyzer_remote_call_finalize(call);
+      free(call);
+    }
+  }
+
+  if (self->peer.mc_if != NULL)
+    free(self->peer.mc_if);
 
   if (self->peer.hostname != NULL)
     free(self->peer.hostname);
@@ -1370,6 +2137,14 @@ suscan_remote_analyzer_dtor(void *ptr)
 
   if (self->peer.data_fd != -1)
     close(self->peer.data_fd);
+
+  if (self->peer.mc_fd != -1)
+    close(self->peer.mc_fd);
+
+  suscan_remote_partial_pdu_state_finalize(&self->peer.pdu_state);
+
+  if (self->peer.mc_processor != NULL)
+    suscli_multicast_processor_destroy(self->peer.mc_processor);
 
   if (self->call_mutex_initialized)
     pthread_mutex_destroy(&self->call_mutex);
@@ -1664,6 +2439,24 @@ suscan_remote_analyzer_get_measured_samp_rate(const void *ptr)
   return self->source_info.measured_samp_rate;
 }
 
+SUPRIVATE void
+suscan_remote_analyzer_get_source_time(const void *ptr, struct timeval *tv)
+{
+  const suscan_remote_analyzer_t *self = (const suscan_remote_analyzer_t *) ptr;
+
+  /* In remote analyzers, the only way to query the source time is to obtain
+     the last cached source time. */
+  *tv = self->source_info.source_time;
+}
+
+SUPRIVATE SUBOOL
+suscan_remote_analyzer_seek(void *ptr, const struct timeval *tv)
+{
+  suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+
+  return suscan_analyzer_seek_async(self->parent, tv, 0);
+}
+
 SUPRIVATE struct suscan_analyzer_source_info *
 suscan_remote_analyzer_get_source_info_pointer(const void *ptr)
 {
@@ -1872,6 +2665,8 @@ suscan_remote_analyzer_get_interface(void)
     SET_CALLBACK(force_eos);
     SET_CALLBACK(is_real_time);
     SET_CALLBACK(get_samp_rate);
+    SET_CALLBACK(get_source_time);
+    SET_CALLBACK(seek);
     SET_CALLBACK(get_measured_samp_rate);
     SET_CALLBACK(get_source_info_pointer);
     SET_CALLBACK(commit_source_info);
@@ -1889,4 +2684,3 @@ suscan_remote_analyzer_get_interface(void)
 }
 
 #undef SET_CALLBACK
-

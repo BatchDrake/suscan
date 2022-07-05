@@ -19,10 +19,10 @@
 
 #include <string.h>
 #include <unistd.h>
-#include <pwd.h>
+#include <util/compat-pwd.h>
 #include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
+#include <util/compat-mman.h>
+#include <util/compat-stat.h>
 #include <fcntl.h>
 
 #define SU_LOG_DOMAIN "confdb"
@@ -33,8 +33,15 @@
 
 PTR_LIST(SUPRIVATE suscan_config_context_t, context);
 
-SUPRIVATE const char *confdb_system_path;
 SUPRIVATE const char *confdb_user_path;
+
+SUPRIVATE const char *confdb_system_path;
+SUPRIVATE const char *confdb_local_path;
+SUPRIVATE const char *confdb_tle_path;
+
+#ifndef PKGDATADIR
+#  define PKGDATADIR ""
+#endif /* PKGDATADIR */
 
 const char *
 suscan_confdb_get_system_path(void)
@@ -60,8 +67,9 @@ suscan_confdb_get_system_path(void)
   return confdb_system_path;
 }
 
+
 const char *
-suscan_confdb_get_local_path(void)
+suscan_confdb_get_user_path(void)
 {
   struct passwd *pwd;
   const char *homedir = NULL;
@@ -83,17 +91,61 @@ suscan_confdb_get_local_path(void)
     if (access(tmp, F_OK) == -1)
       SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
 
-    free(tmp);
-
-    SU_TRYCATCH(tmp = strbuild("%s/.suscan/config", homedir), goto fail);
-
-    if (access(tmp, F_OK) == -1)
-      SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
-
     confdb_user_path = tmp;
   }
 
   return confdb_user_path;
+  
+fail:
+  if (tmp != NULL)
+    free(tmp);
+
+  return NULL;
+}
+
+
+const char *
+suscan_confdb_get_local_path(void)
+{
+  const char *user_path;
+  char *tmp = NULL;
+
+  if (confdb_local_path == NULL) {
+    SU_TRYCATCH(user_path = suscan_confdb_get_user_path(), goto fail);
+    SU_TRYCATCH(tmp = strbuild("%s/config", user_path), goto fail);
+
+    if (access(tmp, F_OK) == -1)
+      SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
+
+    confdb_local_path = tmp;
+  }
+
+  return confdb_local_path;
+
+fail:
+  if (tmp != NULL)
+    free(tmp);
+
+  return NULL;
+}
+
+const char *
+suscan_confdb_get_local_tle_path(void)
+{
+  const char *user_path;
+  char *tmp = NULL;
+
+  if (confdb_tle_path == NULL) {
+    SU_TRYCATCH(user_path = suscan_confdb_get_user_path(), goto fail);
+    SU_TRYCATCH(tmp = strbuild("%s/tle", user_path), goto fail);
+
+    if (access(tmp, F_OK) == -1)
+      SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
+
+    confdb_tle_path = tmp;
+  }
+
+  return confdb_tle_path;
 
 fail:
   if (tmp != NULL)
@@ -134,7 +186,7 @@ suscan_config_context_new(const char *name)
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_config_context_t)), goto fail);
 
   SU_TRYCATCH(new->name = strdup(name), goto fail);
-  SU_TRYCATCH(new->save_file = strbuild("%s.xml", name), goto fail);
+  SU_TRYCATCH(new->save_file = strdup(name), goto fail);
   SU_TRYCATCH(new->list = suscan_object_new(SUSCAN_OBJECT_TYPE_SET), goto fail);
 
   new->save = SU_TRUE;
@@ -251,15 +303,26 @@ suscan_config_context_scan(suscan_config_context_t *context)
   void *mmap_base = (void *) -1;
   suscan_object_t *set = NULL;
   struct stat sbuf;
-
+  SUBOOL xml;
   SUBOOL ok = SU_FALSE;
 
   for (i = 0; i < context->path_count; ++i) {
+    /* Try to open as YAML */
+    xml = SU_FALSE;
     SU_TRYCATCH(
-        path = strbuild("%s/%s", context->path_list[i], context->save_file),
+        path = strbuild("%s/%s.yaml", context->path_list[i], context->save_file),
         goto done);
 
-    if (stat(path, &sbuf) != -1) {
+    if (access(path, F_OK) == -1) {
+      /* Nope, try to open as XML */
+      free(path);
+      SU_TRYCATCH(
+        path = strbuild("%s/%s.xml", context->path_list[i], context->save_file),
+        goto done);
+      xml = SU_TRUE;
+    }
+
+    if (stat(path, &sbuf) != -1 && sbuf.st_size > 0) {
       SU_TRYCATCH((fd = open(path, O_RDONLY)) != -1, goto done);
 
       SU_TRYCATCH(
@@ -275,7 +338,10 @@ suscan_config_context_scan(suscan_config_context_t *context)
       close(fd);
       fd = -1;
 
-      set = suscan_object_from_xml(path, mmap_base, sbuf.st_size);
+      if (xml)
+        set = suscan_object_from_xml(path, mmap_base, sbuf.st_size);
+      else
+        set = suscan_object_from_yaml(mmap_base, sbuf.st_size);
 
       if (set != NULL) {
         for (j = 0; j < set->object_count; ++j)
@@ -347,11 +413,11 @@ suscan_config_context_save(suscan_config_context_t *context)
   if (context->on_save != NULL)
     SU_TRYCATCH((context->on_save)(context, context->userdata), goto done);
 
-  SU_TRYCATCH(suscan_object_to_xml(context->list, &data, &size), goto done);
+  SU_TRYCATCH(suscan_object_to_yaml(context->list, &data, &size), goto done);
 
   for (i = 0; i < context->path_count; ++i) {
     SU_TRYCATCH(
-        path = strbuild("%s/%s", context->path_list[i], context->save_file),
+        path = strbuild("%s/%s.yaml", context->path_list[i], context->save_file),
         goto done);
 
     if ((fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600)) != -1) {
@@ -405,14 +471,18 @@ SUBOOL
 suscan_confdb_save_all(void)
 {
   unsigned int i;
+  SUBOOL any_ok = SU_FALSE;
 
-  for (i = 0; i < context_count; ++i)
+  for (i = 0; i < context_count; ++i) {
     if (!suscan_config_context_save(context_list[i]))
       SU_WARNING(
           "Failed to save configuration context `%s'\n",
           context_list[i]->name);
+    else
+      any_ok = SU_TRUE;
+  }
 
-  return SU_TRUE;
+  return any_ok;
 }
 
 SUBOOL

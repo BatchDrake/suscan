@@ -100,24 +100,38 @@ int
 cbor_pack_single(grow_buf_t *buffer, SUSINGLE value)
 {
   int ret;
-  int32_t as_int = cpu32_to_be(*(int32_t *) &value);
+  int32_t as_be;
+  union {
+    SUSINGLE as_single;
+    int32_t  as_integer;
+  } val;
+
+  val.as_single = value;
+  as_be = cpu32_to_be(val.as_integer);
 
   if ((ret = pack_cbor_type_byte(buffer, CMT_FLOAT, CBOR_ADDL_UINT32)))
     return ret;
 
-  return grow_buf_append(buffer, &as_int, sizeof(int32_t));
+  return grow_buf_append(buffer, &as_be, sizeof(int32_t));
 }
 
 int
 cbor_pack_double(grow_buf_t *buffer, SUDOUBLE value)
 {
   int ret;
-  int64_t as_int = cpu64_to_be(*(int64_t *) &value);
+  int64_t as_be;
+  union {
+    SUDOUBLE as_double;
+    int64_t  as_integer;
+  } val;
+
+  val.as_double = value;
+  as_be = cpu64_to_be(val.as_integer);
 
   if ((ret = pack_cbor_type_byte(buffer, CMT_FLOAT, CBOR_ADDL_UINT64)))
     return ret;
 
-  return grow_buf_append(buffer, &as_int, sizeof(int64_t));
+  return grow_buf_append(buffer, &as_be, sizeof(int64_t));
 }
 
 int
@@ -368,13 +382,15 @@ unpack_cbor_int(
     enum cbor_major_type expected_type,
     uint64_t *out)
 {
-  enum cbor_major_type type;
-  uint8_t extra;
+  enum cbor_major_type type = CMT_INVALID;
+  uint8_t extra = 0;
   int ret;
 
   ret = read_cbor_type(buffer, &type, &extra);
-  if (ret)
+  if (ret) {
+    printf("Read type failed!\n");
     return ret;
+  }
 
   if (expected_type != type)
     return -EILSEQ;
@@ -386,7 +402,7 @@ unpack_cbor_int(
 SUPRIVATE int
 unpack_cbor_float(grow_buf_t *buffer, uint8_t *extra)
 {
-  enum cbor_major_type type;
+  enum cbor_major_type type = CMT_INVALID;
   int ret;
 
   ret = read_cbor_type(buffer, &type, extra);
@@ -414,8 +430,8 @@ unpack_cbor_arraymap_start(grow_buf_t *buffer,
         enum cbor_major_type exp_type, uint8_t indef,
         uint64_t *len, SUBOOL *end_required)
 {
-  enum cbor_major_type type;
-  uint8_t extra;
+  enum cbor_major_type type = CMT_INVALID;
+  uint8_t extra = 0;
   int ret;
 
   ret = read_cbor_type(buffer, &type, &extra);
@@ -600,7 +616,7 @@ cbor_unpack_blob(grow_buf_t *buffer, void **data, size_t *size)
 
   *size = parsed_len;
   memcpy(*data, grow_buf_current_data(&tmp), parsed_len);
-
+  grow_buf_seek(&tmp, parsed_len, SEEK_CUR);
   return sync_buffers(buffer, &tmp);
 }
 
@@ -712,8 +728,8 @@ int
 cbor_unpack_double(grow_buf_t *buffer, SUDOUBLE *value)
 {
   grow_buf_t tmp;
-  int64_t as_int;
-  uint8_t extra;
+  int64_t as_int = 0;
+  uint8_t extra = 0;
   int ret;
 
   grow_buf_init_loan(

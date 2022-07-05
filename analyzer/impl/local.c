@@ -24,6 +24,9 @@
 #include "mq.h"
 #include "msg.h"
 #include "realtime.h"
+#include <confdb.h>
+#include "sgdp4/sgdp4-types.h"
+#include <src/suscan.h>
 
 SUPRIVATE struct suscan_analyzer_interface *g_local_analyzer_interface;
 
@@ -35,95 +38,6 @@ SUBOOL
 suscan_analyzer_is_local(const suscan_analyzer_t *self)
 {
   return self->iface == g_local_analyzer_interface;
-}
-
-/************************ Overridable request API ****************************/
-void
-suscan_inspector_overridable_request_destroy(
-    struct suscan_inspector_overridable_request *self)
-{
-  free(self);
-}
-
-SUPRIVATE struct suscan_inspector_overridable_request *
-suscan_inspector_overridable_request_new(suscan_inspector_t *insp)
-{
-  struct suscan_inspector_overridable_request *new = NULL;
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_inspector_overridable_request)),
-      goto done);
-
-  new->insp = insp;
-
-  return new;
-
-done:
-  if (new != NULL)
-    suscan_inspector_overridable_request_destroy(new);
-
-  return NULL;
-}
-
-struct suscan_inspector_overridable_request *
-suscan_local_analyzer_acquire_overridable(
-    suscan_local_analyzer_t *self,
-    SUHANDLE handle)
-{
-  struct suscan_inspector_overridable_request *req = NULL;
-  struct suscan_inspector_overridable_request *own_req = NULL;
-  suscan_inspector_t *insp = NULL;
-
-  /*
-   * TODO: Maybe acquire scheduler mutex?
-   */
-  SU_TRYCATCH(suscan_local_analyzer_lock_inspector_list(self), goto done);
-  SU_TRYCATCH(
-      insp = suscan_local_analyzer_get_inspector(self, handle),
-      goto done);
-  SU_TRYCATCH(insp->state == SUSCAN_ASYNC_STATE_RUNNING, goto done);
-
-  if ((req = suscan_inspector_get_userdata(insp)) == NULL) {
-    /* No userdata. Release mutex, create object and lock again. */
-    suscan_local_analyzer_unlock_inspector_list(self);
-
-    SU_TRYCATCH(
-        own_req = suscan_inspector_overridable_request_new(insp),
-        goto done);
-
-    SU_TRYCATCH(suscan_local_analyzer_lock_inspector_list(self), goto done);
-
-    /* Many things may have happened here */
-    SU_TRYCATCH(handle >= 0 && handle < self->inspector_count, goto done);
-    SU_TRYCATCH(
-        insp = suscan_local_analyzer_get_inspector(self, handle),
-        goto done);
-    SU_TRYCATCH(insp->state == SUSCAN_ASYNC_STATE_RUNNING, goto done);
-
-    req = own_req;
-    own_req = NULL;
-
-    req->next = self->insp_overridable;
-    self->insp_overridable = req;
-
-    suscan_inspector_set_userdata(insp, req);
-  }
-
-done:
-  if (own_req != NULL)
-    suscan_inspector_overridable_request_destroy(own_req);
-
-  return req;
-}
-
-SUBOOL
-suscan_local_analyzer_release_overridable(
-    suscan_local_analyzer_t *self,
-    struct suscan_inspector_overridable_request *rq)
-{
-  suscan_local_analyzer_unlock_inspector_list(self);
-
-  return SU_TRUE;
 }
 
 /************************ Source worker callback *****************************/
@@ -138,19 +52,6 @@ suscan_local_analyzer_unlock_loop(suscan_local_analyzer_t *self)
 {
   (void) pthread_mutex_unlock(&self->loop_mutex);
 }
-
-SUBOOL
-suscan_local_analyzer_lock_inspector_list(suscan_local_analyzer_t *self)
-{
-  return pthread_mutex_lock(&self->inspector_list_mutex) != -1;
-}
-
-void
-suscan_local_analyzer_unlock_inspector_list(suscan_local_analyzer_t *self)
-{
-  (void) pthread_mutex_unlock(&self->inspector_list_mutex);
-}
-
 
 /************************* Baseband filter API *******************************/
 SUPRIVATE struct suscan_analyzer_baseband_filter *
@@ -210,7 +111,6 @@ fail:
 }
 
 /************************ Local analyzer thread ******************************/
-
 SUPRIVATE void
 suscan_local_analyzer_ack_halt(suscan_local_analyzer_t *self)
 {
@@ -254,6 +154,15 @@ suscan_local_analyzer_override_throttle(
 
   self->effective_samp_rate = val;
 
+  /* XXX: Maybe protect this setting */
+  self->source_info.effective_samp_rate = self->effective_samp_rate;
+
+  SU_TRYCATCH(
+    suscan_local_analyzer_set_inspector_throttle_overridable(
+      self,
+      val / suscan_local_analyzer_get_samp_rate(self)),
+    goto done);
+    
   ok = SU_TRUE;
 
 done:
@@ -307,6 +216,39 @@ SUBOOL suscan_source_channel_wk_cb(
 
 SUBOOL suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self);
 
+SUBOOL
+suscan_local_analyzer_notify_params(suscan_local_analyzer_t *self)
+{
+  struct suscan_analyzer_params *dup = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      dup = calloc(1, sizeof (struct suscan_analyzer_params)),
+      goto done);
+
+  *dup = self->parent->params;
+
+  dup->channel_update_int = self->interval_channels;
+  dup->psd_update_int     = self->interval_psd;
+
+  SU_TRYCATCH(
+      suscan_mq_write(
+          self->parent->mq_out,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS,
+          dup),
+      goto done);
+
+  dup = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (dup != NULL)
+    free(dup);
+
+  return ok;
+}
+
 SUPRIVATE void *
 suscan_analyzer_thread(void *data)
 {
@@ -314,6 +256,7 @@ suscan_analyzer_thread(void *data)
   struct sigutils_channel_detector_params new_det_params;
   const struct suscan_analyzer_params *new_params;
   const struct suscan_analyzer_throttle_msg *throttle;
+  const struct suscan_analyzer_seek_msg *seek;
   void *private = NULL;
   uint32_t type;
   SUBOOL mutex_acquired = SU_FALSE;
@@ -362,6 +305,9 @@ suscan_analyzer_thread(void *data)
       self->parent,
       &self->source_info);
 
+  /* Notify source of the new parameters */
+  suscan_local_analyzer_notify_params(self);
+
   /* Pop all messages from queue before reading from the source */
   for (;;) {
     /* First read: blocks */
@@ -387,6 +333,13 @@ suscan_analyzer_thread(void *data)
            */
           private = NULL;
 
+          break;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
+          seek = (const struct suscan_analyzer_seek_msg *) private;
+          SU_TRYCATCH(
+            suscan_local_analyzer_slow_seek(self, &seek->position),
+            goto done);
           break;
 
         /* Forward these messages to output */
@@ -463,23 +416,37 @@ suscan_analyzer_thread(void *data)
 
             self->interval_channels = new_params->channel_update_int;
 
-
             if (sufcmp(self->interval_psd, new_params->psd_update_int, 1e-6)) {
               self->interval_psd = new_params->psd_update_int;
               self->det_num_psd = 0;
               self->last_psd = suscan_gettime_coarse();
             }
 
-            /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
+            self->parent->params.detector_params = new_det_params;
 
+            SU_TRYCATCH(suscan_local_analyzer_notify_params(self), goto done);
+
+            /* ^^^^^^^^^^^^^ Source parameters update end ^^^^^^^^^^^^^^^^^  */
             SU_TRYCATCH(
                 pthread_mutex_unlock(&self->loop_mutex) != -1,
                 goto done);
             mutex_acquired = SU_FALSE;
 
           }
-
           break;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS:
+          SU_TRYCATCH(
+              pthread_mutex_lock(&self->loop_mutex) != -1,
+              goto done);
+          mutex_acquired = SU_TRUE;
+
+          SU_TRYCATCH(suscan_local_analyzer_notify_params(self), goto done);
+
+          SU_TRYCATCH(
+              pthread_mutex_unlock(&self->loop_mutex) != -1,
+              goto done);
+          mutex_acquired = SU_FALSE;
       }
 
       if (private != NULL) {
@@ -532,160 +499,7 @@ suscan_local_analyzer_init_detector_params(
 #endif
 }
 
-/********************** Suscan analyzer public API ***************************/
-void
-suscan_local_analyzer_source_barrier(suscan_local_analyzer_t *self)
-{
-  pthread_barrier_wait(&self->barrier);
-}
-
-void
-suscan_local_analyzer_enter_sched(suscan_local_analyzer_t *self)
-{
-  pthread_mutex_lock(&self->sched_lock);
-}
-
-void
-suscan_local_analyzer_leave_sched(suscan_local_analyzer_t *self)
-{
-  pthread_mutex_unlock(&self->sched_lock);
-}
-
-su_specttuner_channel_t *
-suscan_local_analyzer_open_channel_ex(
-    suscan_local_analyzer_t *self,
-    const struct sigutils_channel *chan_info,
-    SUBOOL precise,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata)
-{
-  su_specttuner_channel_t *channel = NULL;
-  struct sigutils_specttuner_channel_params params =
-      sigutils_specttuner_channel_params_INITIALIZER;
-
-  params.f0 =
-      SU_NORM2ANG_FREQ(
-          SU_ABS2NORM_FREQ(
-              suscan_local_analyzer_get_samp_rate(self),
-              chan_info->fc - chan_info->ft));
-
-  if (params.f0 < 0)
-    params.f0 += 2 * PI;
-
-  params.bw =
-      SU_NORM2ANG_FREQ(
-          SU_ABS2NORM_FREQ(
-              suscan_local_analyzer_get_samp_rate(self),
-              chan_info->f_hi - chan_info->f_lo));
-  params.guard = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
-  params.on_data = on_data;
-  params.privdata = privdata;
-  params.precise = precise;
-
-  suscan_local_analyzer_enter_sched(self);
-
-  SU_TRYCATCH(
-      channel = su_specttuner_open_channel(self->stuner, &params),
-      goto done);
-
-done:
-  suscan_local_analyzer_leave_sched(self);
-
-  return channel;
-}
-
-su_specttuner_channel_t *
-suscan_local_analyzer_open_channel(
-    suscan_local_analyzer_t *analyzer,
-    const struct sigutils_channel *chan_info,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata)
-{
-  return suscan_local_analyzer_open_channel_ex(
-      analyzer,
-      chan_info,
-      SU_FALSE,
-      on_data,
-      privdata);
-}
-
-SUBOOL
-suscan_local_analyzer_close_channel(
-    suscan_local_analyzer_t *self,
-    su_specttuner_channel_t *channel)
-{
-  SUBOOL ok;
-
-  suscan_local_analyzer_enter_sched(self);
-
-  ok = su_specttuner_close_channel(self->stuner, channel);
-
-  suscan_local_analyzer_leave_sched(self);
-
-  return ok;
-}
-
-/*
- * There is no explicit UNBIND. Unbind happens inside
- * suscan_analyzer_on_channel_data when the inspector state
- * is different from RUNNING.
- */
-
-SUBOOL
-suscan_local_analyzer_bind_inspector_to_channel(
-    suscan_local_analyzer_t *self,
-    su_specttuner_channel_t *channel,
-    suscan_inspector_t *insp)
-{
-  struct suscan_inspector_task_info *task_info = NULL;
-  SUBOOL ok = SU_FALSE;
-
-  SU_TRYCATCH(
-      task_info = suscan_inspector_task_info_new(insp),
-      return SU_FALSE);
-
-  task_info->channel = channel;
-
-  suscan_local_analyzer_enter_sched(self);
-
-  SU_TRYCATCH(
-      suscan_inspsched_append_task_info(self->sched, task_info),
-      goto done);
-
-  /*
-   * Task info registered, binding it to the inspector. Time to bind
-   * this task to the channel, so it knows that to do when new data
-   * arrives to it.
-   */
-  channel->params.privdata = task_info;
-
-  /* Now we can say that the inspector is actually running */
-  insp->state = SUSCAN_ASYNC_STATE_RUNNING;
-
-  task_info = NULL;
-
-  ok = SU_TRUE;
-
-done:
-  suscan_local_analyzer_leave_sched(self);
-
-  if (task_info != NULL)
-    suscan_inspector_task_info_destroy(task_info);
-
-  return ok;
-}
-
-
 /*************************** Analyzer interface *******************************/
-
 SUPRIVATE SUBOOL
 suscan_local_analyzer_source_init(
     suscan_local_analyzer_t *self,
@@ -781,22 +595,37 @@ suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
   char *dup = NULL;
   SUBOOL ok = SU_FALSE;
 
-  info->source_samp_rate = suscan_source_get_samp_rate(self->source);
+  info->permissions         =  suscan_local_analyzer_is_real_time(self)
+    ? SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS
+    : SUSCAN_ANALYZER_ALL_FILE_PERMISSIONS;
+  
+  info->source_samp_rate    = suscan_source_get_samp_rate(self->source);
   info->effective_samp_rate = self->effective_samp_rate;
-  info->measured_samp_rate = self->measured_samp_rate;
-  info->frequency = suscan_source_get_freq(self->source);
+  info->measured_samp_rate  = self->measured_samp_rate;
+  
+  info->frequency           = suscan_source_get_freq(self->source);
 
   suscan_local_analyzer_get_freq_limits(
       self,
       &info->freq_min,
       &info->freq_max);
 
-  info->lnb = suscan_source_config_get_lnb_freq(config);
+  info->lnb       = suscan_source_config_get_lnb_freq(config);
   info->bandwidth = suscan_source_config_get_bandwidth(config);
   info->dc_remove = suscan_source_config_get_dc_remove(config);
   info->ppm       = suscan_source_config_get_ppm(config);
   info->iq_reverse = self->iq_rev;
   info->agc = SU_FALSE;
+
+  info->have_qth = suscan_get_qth(&info->qth);
+
+  suscan_source_get_time(self->source, &info->source_time);
+
+  info->seekable = !suscan_local_analyzer_is_real_time(self);
+  if (info->seekable) {
+    suscan_source_get_start_time(self->source, &info->source_start);
+    suscan_source_get_end_time(self->source, &info->source_end);
+  }
 
   if (ant != NULL) {
     SU_TRYCATCH(info->antenna = strdup(ant), goto done);
@@ -841,6 +670,8 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
       sigutils_specttuner_params_INITIALIZER;
   struct sigutils_channel_detector_params det_params;
   suscan_source_config_t *config;
+  pthread_mutexattr_t attr;
+  static SUBOOL insp_server_init = SU_FALSE;
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_local_analyzer_t)), goto fail);
 
@@ -871,57 +702,66 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->loop_init = SU_TRUE;
 
   /* Create source worker */
-  if ((new->source_wk = suscan_worker_new(&new->mq_in, new))
+  if ((new->source_wk = suscan_worker_new_ex(
+    "source-worker", 
+    &new->mq_in, 
+    new))
       == NULL) {
     SU_ERROR("Cannot create source worker thread\n");
     goto fail;
   }
 
   /* Create slow worker */
-  if ((new->slow_wk = suscan_worker_new(&new->mq_in, new))
+  if ((new->slow_wk = suscan_worker_new_ex(
+    "slow-worker", 
+    &new->mq_in, 
+    new))
       == NULL) {
     SU_ERROR("Cannot create slow worker thread\n");
     goto fail;
   }
 
   /* Initialize gain request mutex */
-  SU_TRYCATCH(pthread_mutex_init(&new->hotconf_mutex, NULL) != -1, goto fail);
+  SU_TRYCATCH(pthread_mutex_init(&new->hotconf_mutex, NULL) == 0, goto fail);
   new->gain_req_mutex_init = SU_TRUE;
 
   /* Create spectral tuner, with matching read size */
   st_params.window_size = parent->params.detector_params.window_size;
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
 
-  /* Create inspector scheduler and barrier */
-  SU_TRYCATCH(new->sched = suscan_inspsched_new(new), goto fail);
-
-  /*
-   * During barrier initialization, we take the number of scheduler workers
-   * plus 1 (the source worker)
+  /* 
+   * Spectral tuner mutex should be recursive in order to enable
+   * closure of channels inside the data callback 
    */
-  SU_TRYCATCH(
-      pthread_barrier_init(
-          &new->barrier,
-          NULL,
-          suscan_inspsched_get_num_workers(new->sched) + 1) == 0,
+  pthread_mutexattr_init(&attr);
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+  SU_TRYCATCH(pthread_mutex_init(&new->stuner_mutex, &attr) == 0, goto fail);
+  new->stuner_init = SU_TRUE;
+
+  /* Initialization of the inspector handling API */
+  if (suscan_inspector_factory_class_lookup("local-analyzer") == NULL)
+    SU_TRYCATCH(
+      suscan_local_analyzer_register_factory(),
       goto fail);
 
-  /*
-   * This mutex will protect the spectral tuner from concurrent access by
-   * consumer, analyzer and scheduler worker threads
-   */
-  SU_TRYCATCH(pthread_mutex_init(&new->sched_lock, NULL) == 0, goto fail);
-
-  /*
-   * This mutex will protect access to the inspector list. It will allow
-   * resolving an inspector handle without blocking an entire callback
-   */
-
   SU_TRYCATCH(
-      pthread_mutex_init(&new->inspector_list_mutex, NULL) == 0,
-      goto fail);
-  new->inspector_list_init = SU_TRUE;
+    new->insp_factory = suscan_inspector_factory_new("local-analyzer", new),
+    goto fail);
+  
+  SU_TRYCATCH(
+    suscan_inspector_request_manager_init(&new->insp_reqmgr),
+    goto fail);
 
+  if (!insp_server_init) {
+    SU_TRYCATCH(suscan_insp_server_init(), goto fail);
+    insp_server_init = SU_TRUE;
+  }
+
+  /* Initialize rbtree */
+  SU_TRYCATCH(new->insp_hash = rbtree_new(), goto fail);
+  SU_TRYCATCH(pthread_mutex_init(&new->insp_mutex, NULL) == 0, goto fail);
+  new->insp_init = SU_TRUE;
+  
   SU_TRYCATCH(suscan_source_start_capture(new->source), goto fail);
 
   new->effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
@@ -982,6 +822,10 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   /* Populate source info. */
   SU_TRYCATCH(suscan_local_analyzer_populate_source_info(new), goto fail);
 
+  /* Get ahead of the initialization. analyzer_thread
+     need this to be properly initialized. */
+  new->parent->impl = new;
+
   if (pthread_create(
       &new->thread,
       NULL,
@@ -991,9 +835,9 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
     goto fail;
   }
 
-  parent->running = SU_TRUE;
+  new->thread_running = SU_TRUE;
 
-  return new;
+return new;
 
 fail:
   if (new != NULL)
@@ -1008,13 +852,12 @@ suscan_local_analyzer_dtor(void *ptr)
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
 
   unsigned int i;
-  struct suscan_inspector_overridable_request *req;
 
   /* Prevent source from entering in timeout loops */
   if (self->source != NULL)
     suscan_source_force_eos(self->source);
 
-  if (self->parent->running) {
+  if (self->thread_running) {
     /* TODO: add a timeout here too */
     if (pthread_join(self->thread, NULL) == -1) {
       SU_ERROR("Thread failed to join, memory leak ahead\n");
@@ -1035,18 +878,8 @@ suscan_local_analyzer_dtor(void *ptr)
       return;
     }
 
-  /* Halt all inspector scheduler workers */
-  if (self->sched != NULL) {
-    if (!suscan_inspsched_destroy(self->sched)) {
-      SU_ERROR("Failed to shutdown inspector scheduler, memory leak ahead\n");
-      return;
-    }
-
-    /* FIXME: Add flag to prevent initialization errors! */
-    pthread_barrier_destroy(&self->barrier);
-
-    pthread_mutex_destroy(&self->sched_lock);
-  }
+  /* Destroy global inspector table */
+  suscan_local_analyzer_destroy_global_handles_unsafe(self);
 
   /* Free channel detector */
   if (self->detector != NULL)
@@ -1058,34 +891,31 @@ suscan_local_analyzer_dtor(void *ptr)
   if (self->loop_init)
     pthread_mutex_destroy(&self->loop_mutex);
 
-  if (self->inspector_list_init)
-    pthread_mutex_destroy(&self->inspector_list_mutex);
+  /* Deinitialize request manager */
+  suscan_inspector_request_manager_finalize(&self->insp_reqmgr);
 
-  /* Free spectral tuner */
+  /* Delete inspector hash tree */
+  if (self->insp_hash)
+    rbtree_destroy(self->insp_hash);
+
+  /* Destroy inspectors */
+  if (self->insp_factory != NULL)
+    suscan_inspector_factory_destroy(self->insp_factory);
+
+  /* 
+   * Free spectral tuner. It must be done after destroying
+   * the factory, as the local factory implementation holds
+   * pointers to specttuner channels.
+   */
+  if (self->stuner_init)
+    pthread_mutex_destroy(&self->stuner_mutex);
+  
   if (self->stuner != NULL)
     su_specttuner_destroy(self->stuner);
-
-  /* Free all pending overridable requests */
-  while (self->insp_overridable != NULL) {
-    req = self->insp_overridable->next;
-
-    suscan_inspector_overridable_request_destroy(
-        self->insp_overridable);
-
-    self->insp_overridable = req;
-  }
-
+  
   /* Free read buffer */
   if (self->read_buf != NULL)
     free(self->read_buf);
-
-  /* Remove all channel analyzers */
-  for (i = 0; i < self->inspector_count; ++i)
-    if (self->inspector_list[i] != NULL)
-      suscan_inspector_destroy(self->inspector_list[i]);
-
-  if (self->inspector_list != NULL)
-    free(self->inspector_list);
 
   /* Delete source information */
   if (self->source != NULL)
@@ -1125,6 +955,15 @@ suscan_local_analyzer_set_frequency(void *ptr, SUFREQ freq, SUFREQ lnb)
 
   return suscan_local_analyzer_slow_set_freq(self, freq, lnb);
 }
+
+SUPRIVATE SUBOOL
+suscan_local_analyzer_seek(void *ptr, const struct timeval *pos)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
+
+  return suscan_local_analyzer_slow_seek(self, pos);
+}
+
 
 SUPRIVATE SUBOOL
 suscan_local_analyzer_set_gain(void *ptr, const char *name, SUFLOAT value)
@@ -1171,8 +1010,12 @@ suscan_local_analyzer_set_iq_reverse(void *ptr, SUBOOL value)
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
 
-  self->iq_rev = value;
-
+  if (self->iq_rev != value) {
+    self->iq_rev = value;
+    self->source_info.iq_reverse = self->iq_rev;
+    return suscan_analyzer_send_source_info(self->parent, &self->source_info);
+  }
+  
   return SU_TRUE;
 }
 
@@ -1233,6 +1076,14 @@ suscan_local_analyzer_get_source_info_pointer(const void *ptr)
   const suscan_local_analyzer_t *self = (const suscan_local_analyzer_t *) ptr;
 
   return (struct suscan_analyzer_source_info *) &self->source_info;
+}
+
+SUPRIVATE void
+suscan_local_analyzer_get_source_time(const void *ptr, struct timeval *tv)
+{
+  const suscan_local_analyzer_t *self = (const suscan_local_analyzer_t *) ptr;
+
+  suscan_source_get_time(self->source, tv);
 }
 
 SUPRIVATE SUBOOL
@@ -1354,7 +1205,7 @@ suscan_local_analyzer_set_inspector_frequency(
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
 
-  return suscan_local_analyzer_set_inspector_freq_overridable(
+  return suscan_local_analyzer_set_inspector_freq_slow(
       self,
       handle,
       freq);
@@ -1368,7 +1219,7 @@ suscan_local_analyzer_set_inspector_bandwidth(
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
 
-  return suscan_local_analyzer_set_inspector_bandwidth_overridable(
+  return suscan_local_analyzer_set_inspector_bandwidth_slow(
       self,
       handle,
       bw);
@@ -1416,6 +1267,8 @@ suscan_local_analyzer_get_interface(void)
     SET_CALLBACK(force_eos);
     SET_CALLBACK(is_real_time);
     SET_CALLBACK(get_samp_rate);
+    SET_CALLBACK(get_source_time);
+    SET_CALLBACK(seek);
     SET_CALLBACK(get_measured_samp_rate);
     SET_CALLBACK(get_source_info_pointer);
     SET_CALLBACK(commit_source_info);

@@ -23,16 +23,22 @@
 #include <util.h>
 #include <sigutils/specttuner.h>
 
+#define _COMPAT_BARRIERS
+
+#include <compat.h>
 #include "worker.h"
+#include "list.h"
 
 struct suscan_inspector;
 struct suscan_inspsched;
+struct suscan_inspector_factory;
 
+/* TODO: Turn this into an object pool */
 struct suscan_inspector_task_info {
-  int index; /* Back reference to task_info list */
-  struct suscan_inspsched *sched; /* BORROWED: Scheduler owning this task_info */
-  struct suscan_inspector *inspector;  /* BORROWED: Inspector to feed */
-  const su_specttuner_channel_t *channel; /* BORROWED: Channel */
+  LINKED_LIST;
+
+  struct suscan_inspsched *sched;
+  struct suscan_inspector *inspector;
   const SUCOMPLEX *data;
   SUSCOUNT size;
 };
@@ -40,14 +46,20 @@ struct suscan_inspector_task_info {
 struct suscan_local_analyzer;
 
 struct suscan_inspsched {
-  struct suscan_local_analyzer *analyzer;
+  struct suscan_mq *ctl_mq;
 
-  /* Inspector task info */
-  PTR_LIST(struct suscan_inspector_task_info, task_info);
+  SUBOOL have_time;
+
+  pthread_mutex_t                    task_mutex;
+  SUBOOL                             task_init;
+  struct suscan_inspector_task_info *task_free_list;
+  struct suscan_inspector_task_info *task_alloc_list;
 
   /* Worker pool */
   PTR_LIST(suscan_worker_t, worker);
   unsigned int last_worker; /* Used as rotatory index */
+  pthread_barrier_t  barrier; /* Inspector barrier */
+  SUBOOL barrier_init;
 };
 
 typedef struct suscan_inspsched suscan_inspsched_t;
@@ -58,25 +70,13 @@ suscan_inspsched_get_num_workers(const suscan_inspsched_t *sched)
   return sched->worker_count;
 }
 
-SUINLINE struct suscan_local_analyzer *
-suscan_inspsched_get_analyzer(const suscan_inspsched_t *sched)
-{
-  return sched->analyzer;
-}
+struct suscan_inspector_task_info *suscan_inspsched_acquire_task_info(
+  suscan_inspsched_t *self,
+  struct suscan_inspector *insp);
 
-void suscan_inspector_task_info_destroy(
-    struct suscan_inspector_task_info *info);
-
-struct suscan_inspector_task_info *suscan_inspector_task_info_new(
-    struct suscan_inspector *inspector);
-
-SUBOOL suscan_inspsched_append_task_info(
-    suscan_inspsched_t *sched,
-    struct suscan_inspector_task_info *info);
-
-SUBOOL suscan_inspsched_remove_task_info(
-    suscan_inspsched_t *sched,
-    struct suscan_inspector_task_info *info);
+void suscan_inspsched_return_task_info(
+  suscan_inspsched_t *self,
+  struct suscan_inspector_task_info *task_info);
 
 SUBOOL suscan_inspsched_queue_task(
     suscan_inspsched_t *sched,
@@ -84,7 +84,11 @@ SUBOOL suscan_inspsched_queue_task(
 
 SUBOOL suscan_inspsched_sync(suscan_inspsched_t *sched);
 
-suscan_inspsched_t *suscan_inspsched_new(struct suscan_local_analyzer *analyzer);
+/*
+ * ctl_mq: where worker messages go (i.e. halt messages)
+ * insp_mq: where inspector result messages go (i.e. stuff forwarder to the user)
+ */
+suscan_inspsched_t *suscan_inspsched_new(struct suscan_mq *ctl_mq);
 
 SUBOOL suscan_inspsched_destroy(suscan_inspsched_t *sched);
 

@@ -35,14 +35,51 @@
 #include "inspsched.h"
 #include "serialize.h"
 
+#include <sgdp4/sgdp4-types.h>
+
 #include "mq.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-#define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.5
+#define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.1
 #define SUSCAN_ANALYZER_FS_MEASURE_INTERVAL   1.0
+
+/* Permissions */
+#define SUSCAN_ANALYZER_PERM_HALT               (1ull << 0)
+#define SUSCAN_ANALYZER_PERM_SET_FREQ           (1ull << 1)
+#define SUSCAN_ANALYZER_PERM_SET_GAIN           (1ull << 2)
+#define SUSCAN_ANALYZER_PERM_SET_ANTENNA        (1ull << 3)
+#define SUSCAN_ANALYZER_PERM_SET_BW             (1ull << 4)
+#define SUSCAN_ANALYZER_PERM_SET_PPM            (1ull << 5)
+#define SUSCAN_ANALYZER_PERM_SET_DC_REMOVE      (1ull << 6)
+#define SUSCAN_ANALYZER_PERM_SET_IQ_REVERSE     (1ull << 7)
+#define SUSCAN_ANALYZER_PERM_SET_AGC            (1ull << 8)
+#define SUSCAN_ANALYZER_PERM_OPEN_AUDIO         (1ull << 9)
+#define SUSCAN_ANALYZER_PERM_OPEN_RAW           (1ull << 10)
+#define SUSCAN_ANALYZER_PERM_OPEN_INSPECTOR     (1ull << 11)
+#define SUSCAN_ANALYZER_PERM_SET_FFT_SIZE       (1ull << 12)
+#define SUSCAN_ANALYZER_PERM_SET_FFT_FPS        (1ull << 13)
+#define SUSCAN_ANALYZER_PERM_SET_FFT_WINDOW     (1ull << 14)
+#define SUSCAN_ANALYZER_PERM_SEEK               (1ull << 15)
+#define SUSCAN_ANALYZER_PERM_THROTTLE           (1ull << 16)
+
+#define SUSCAN_ANALYZER_PERM_ALL              0xffffffffffffffffull
+
+#define SUSCAN_ANALYZER_ALL_FILE_PERMISSIONS \
+  (SUSCAN_ANALYZER_PERM_ALL &                \
+  ~(SUSCAN_ANALYZER_PERM_SET_GAIN       |    \
+    SUSCAN_ANALYZER_PERM_SET_ANTENNA    |    \
+    SUSCAN_ANALYZER_PERM_SET_BW         |    \
+    SUSCAN_ANALYZER_PERM_SET_PPM        |    \
+    SUSCAN_ANALYZER_PERM_SET_DC_REMOVE  |    \
+    SUSCAN_ANALYZER_PERM_SET_AGC))
+
+#define SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS  \
+  (SUSCAN_ANALYZER_PERM_ALL &                \
+  ~(SUSCAN_ANALYZER_PERM_SEEK |              \
+    SUSCAN_ANALYZER_PERM_THROTTLE))
 
 /* Entirely empirical */
 #define SUSCAN_ANALYZER_SLOW_RATE             44100
@@ -83,8 +120,8 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_params) {
 #define suscan_analyzer_params_INITIALIZER {                               \
   SUSCAN_ANALYZER_MODE_CHANNEL,                 /* mode */                  \
   sigutils_channel_detector_params_INITIALIZER, /* detector_params */       \
-  SU_ADDSFX(.1),                                /* channel_update_int */    \
-  SU_ADDSFX(.04),                               /* psd_update_int */        \
+  SU_ADDSFX(0.1),                               /* channel_update_int */    \
+  SU_ADDSFX(0.04),                              /* psd_update_int */        \
   0,                                            /* min_freq */              \
   0,                                            /* max_freq */              \
 }
@@ -189,6 +226,7 @@ typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
       SUSCOUNT length);
 
 SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
+  uint64_t permissions;
   SUSCOUNT source_samp_rate;
   SUSCOUNT effective_samp_rate;
   SUFLOAT  measured_samp_rate;
@@ -204,6 +242,16 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
   SUBOOL   dc_remove;
   SUBOOL   iq_reverse;
   SUBOOL   agc;
+ 
+  SUBOOL   have_qth;
+  xyz_t    qth;
+
+  struct timeval source_time;
+
+  SUBOOL         seekable;
+  struct timeval source_start;
+  struct timeval source_end;
+
   PTR_LIST(struct suscan_analyzer_gain_info, gain);
   PTR_LIST(char, antenna);
 };
@@ -254,6 +302,8 @@ struct suscan_analyzer_interface {
   SUBOOL   (*is_real_time) (const void *);
   unsigned (*get_samp_rate) (const void *);
   SUFLOAT  (*get_measured_samp_rate) (const void *);
+  void     (*get_source_time) (const void *, struct timeval *tv);
+  SUBOOL   (*seek) (void *, const struct timeval *tv);
 
   struct suscan_analyzer_source_info *(*get_source_info_pointer) (const void *);
   SUBOOL   (*commit_source_info) (void *);
@@ -281,6 +331,9 @@ struct suscan_analyzer {
   const struct suscan_analyzer_interface *iface;
   void  *impl;
 
+  SUBOOL have_impl_rt;
+  struct timeval impl_rt_delta;
+  
   SUBOOL running;
   SUBOOL halt_requested;
   SUBOOL eos;
@@ -364,8 +417,47 @@ suscan_analyzer_get_measured_samp_rate(const suscan_analyzer_t *self)
 }
 
 /*!
+ * Get the last reported signal source time
+ * \param analyzer a pointer to the analyzer object
+ * \param[out] tv timeval struct with the source time
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUINLINE void
+suscan_analyzer_get_source_time(
+    const suscan_analyzer_t *self, 
+    struct timeval *tv)
+{
+  (self->iface->get_source_time) (self->impl, tv);
+}
+
+/*!
+ * Requests setting the sample position of the signal source, 
+ * in case it is seekable (e.g a raw IQ file). 
+ * \param analyzer a pointer to the analyzer object
+ * \param tv timeval struct with the source position
+ * \return SU_TRUE if the request was delivered, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUINLINE SUBOOL
+suscan_analyzer_seek(
+    suscan_analyzer_t *self, 
+    const struct timeval *tv)
+{
+  return (self->iface->seek) (self->impl, tv);
+}
+
+
+/*!
  * Return a pointer to the current source information structure. This pointer
  * is analyzer-owned, i.e. the user must not attempt to free it after usage.
+ * 
+ * NOTE: The source_time field returned by this method must be ignored. Source
+ * time is only guaranteed to be meaningful if it was received from a message. 
+ * In order to get an updated value of the source time, refer to
+ * suscan_analyzer_get_source_time instead.
+ * 
+ * \see suscan_analyzer_get_source_time
+ * 
  * \param analyzer a pointer to the analyzer object
  * \return a pointer to the source information structure
  * \author Gonzalo José Carracedo Carballal
@@ -610,6 +702,22 @@ struct suscan_analyzer_inspector_msg *suscan_analyzer_read_inspector_msg_timeout
     const struct timeval *timeout);
 
 /*!
+ * Read messages from the output queue until a SOURCE_INFO message is found.
+ * This prevents retrieving data from the analyzer before the source has been
+ * completely initialized (this is particularly important for remote analyzers)
+ * \param analyzer a pointer to the analyzer object
+ * \param timeout pointer to the timeval struct with the read timeout. A timeout
+ * of 0.000000 seconds returns immediately if no pending messages are present.
+ * Passing a NULL pointer waits indefinitely until a message is present.
+ * \return SU_TRUE if a SOURCE_INFO message has been received in the specified
+ * period of time, SU_FALSE otherwise, or if the analyzer failed to start.
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_wait_until_ready(
+  suscan_analyzer_t *self,
+  struct timeval *timeout);
+
+/*!
  * Send a message to the analyzer object. The object is created by the usual
  * message constructors. The ownership of the message object is transferred to
  * the analyzer object if and only if the method succeeds.
@@ -719,6 +827,19 @@ SUBOOL suscan_analyzer_set_throttle_async(
     uint32_t req_id);
 
 /*!
+ * For seekable sources (e.g. file replay), sets the current read position
+ * \param analyzer pointer to the analyzer object
+ * \param pos timeval struct with the absolute position in time
+ * \param req_id arbitrary request identifier used to match responses
+ * \return SU_TRUE for success or SU_FALSE on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_seek_async(
+    suscan_analyzer_t *analyzer,
+    const struct timeval *pos,
+    uint32_t req_id);
+
+/*!
  * For channel analyzers, open a new inspector of a given class at a given
  * frequency (asynchronous).
  * \param analyzer pointer to the analyzer object
@@ -726,6 +847,7 @@ SUBOOL suscan_analyzer_set_throttle_async(
  * \param channel pointer to the channel structure describing the inspector
  * frequency and bandwidth
  * \param precise whether to use precise channel centering
+ * \param parent parent inspector (for subcarrier inspection)
  * \param req_id arbitrary request identifier used to match responses
  * \return SU_TRUE for success or SU_FALSE on failure
  * \author Gonzalo José Carracedo Carballal
@@ -735,6 +857,7 @@ SUBOOL suscan_analyzer_open_ex_async(
     const char *classname,
     const struct sigutils_channel *channel,
     SUBOOL precise,
+    SUHANDLE parent,
     uint32_t req_id);
 
 /*!
@@ -944,6 +1067,23 @@ SUBOOL suscan_analyzer_inspector_set_spectrum_async(
     uint32_t req_id);
 
 /*!
+ * For channel analyzers, configure the Doppler correction of a satellital
+ * signal by providing the orbital parameters of the source (asynchronous).
+ * \param analyzer pointer to the analyzer object
+ * \param handle inspector handle
+ * \param orbit orbit object describing the orbital parameters of the
+ * satellite, NULL to disable
+ * \param req_id arbitrary request identifier used to match responses
+ * \return SU_TRUE for success or SU_FALSE on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_inspector_set_tle_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    const orbit_t *orbit,
+    uint32_t req_id);
+
+/*!
  * For channel analyzers, if the inspector DSP chain contains an equalizer,
  * reset its internal state (asynchronous).
  * \param analyzer pointer to the analyzer object
@@ -963,6 +1103,12 @@ suscan_local_analyzer_get_interface(void);
 
 const struct suscan_analyzer_interface *
 suscan_remote_analyzer_get_interface(void);
+
+SUBOOL
+suscan_analyzer_message_has_expired(
+    suscan_analyzer_t *self,
+    void *msg,
+    uint32_t type);
 
 #ifdef __cplusplus
 }

@@ -144,11 +144,18 @@ SUBOOL suscan_inspector_fsk_params_save(
     suscan_config_t *config);
 
 /****************************** ASK config ***********************************/
+enum suscan_inspector_ask_channel {
+  SUSCAN_INSPECTOR_ASK_CHANNEL_BOTH,
+  SUSCAN_INSPECTOR_ASK_CHANNEL_I,
+  SUSCAN_INSPECTOR_ASK_CHANNEL_Q
+};
+
 struct suscan_inspector_ask_params {
   unsigned int bits_per_level;
   SUBOOL  uses_pll;
   SUFLOAT cutoff;
   SUFLOAT offset;
+  enum suscan_inspector_ask_channel channel;
 };
 
 SUBOOL suscan_config_desc_add_ask_params(suscan_config_desc_t *desc);

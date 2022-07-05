@@ -367,8 +367,22 @@ suscan_ask_inspector_feed(
     if (ask_insp->cur_params.ask.uses_pll)
       const_gain = su_pll_track(&ask_insp->pll, const_gain);
 
-    /* Put real component around the unit circle */
-    det_x = const_gain;
+    /* Select the component to be demodulated */
+    switch (ask_insp->cur_params.ask.channel) {
+      case SUSCAN_INSPECTOR_ASK_CHANNEL_I:
+        det_x = SU_C_REAL(const_gain);
+        break;
+
+      case SUSCAN_INSPECTOR_ASK_CHANNEL_Q:
+        det_x = I * SU_C_IMAG(const_gain);
+        break;
+
+      default:
+        det_x = const_gain;
+    }
+
+    /* Save for subcarrier inspection */
+    suscan_inspector_feed_sc_sample(insp, det_x);
 
     /* Add matched filter, if enabled */
     if (ask_insp->cur_params.mf.mf_conf
@@ -403,6 +417,7 @@ suscan_ask_inspector_close(void *private)
 SUPRIVATE struct suscan_inspector_interface iface = {
     .name = "ask",
     .desc = "ASK inspector",
+    .sc_factory_class = "sc-inspector",
     .open = suscan_ask_inspector_open,
     .get_config = suscan_ask_inspector_get_config,
     .parse_config = suscan_ask_inspector_parse_config,

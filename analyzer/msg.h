@@ -25,6 +25,8 @@
 
 #include "analyzer.h"
 #include "serialize.h"
+#include <sgdp4/sgdp4-types.h>
+#include "correctors/tle.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,16 +44,31 @@ extern "C" {
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES       0x9 /* Sample batch */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE      0xa /* Set throttle */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xb /* Analyzer params */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS    0xc
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK          0xd
+
+/* Invalid message. No one should even send this. */
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_INVALID       0x8000000
 
 #define SUSCAN_ANALYZER_INIT_SUCCESS               0
 #define SUSCAN_ANALYZER_INIT_PROGRESS              1
 #define SUSCAN_ANALYZER_INIT_FAILURE              -1
 
+/* 
+  Discardable messages that arrive later than this
+  should be considered as expired and therefore should
+  be discarded 
+ */
+
+#define SUSCAN_ANALYZER_EXPIRE_DELTA_MS            50
 
 /* Generic status message */
 SUSCAN_SERIALIZABLE(suscan_analyzer_status_msg) {
   int32_t code;
-  char *err_msg;
+  union {
+    char *err_msg;
+    char *message;
+  };
   const suscan_analyzer_t *sender;
 };
 
@@ -67,16 +84,27 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_throttle_msg) {
   SUSCOUNT samp_rate; /* Samp rate == 0: reset */
 };
 
+/* Throttle parameters */
+SUSCAN_SERIALIZABLE(suscan_analyzer_seek_msg) {
+  struct timeval position;
+};
+
 /* Channel spectrum message */
 SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
   int64_t fc;
   uint32_t inspector_id;
+  struct   timeval timestamp; /* Timestamp after PSD */
+  struct   timeval rt_time;   /* Real time timestamp */
+  SUBOOL   looped;
   SUFLOAT  samp_rate;
   SUFLOAT  measured_samp_rate;
   SUFLOAT  N0;
   SUSCOUNT psd_size;
   SUFLOAT *psd_data;
 };
+
+/* These messages allow partial deserialization */
+SUSCAN_PARTIAL_DESERIALIZER_PROTO(suscan_analyzer_psd_msg);
 
 /* Channel sample batch */
 SUSCAN_SERIALIZABLE(suscan_analyzer_sample_batch_msg) {
@@ -90,6 +118,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_sample_batch_msg) {
  * updates are treated separately
  */
 enum suscan_analyzer_inspector_msgkind {
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG,
@@ -106,6 +135,9 @@ enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ORBIT_REPORT,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_COUNT
 };
 
@@ -113,16 +145,31 @@ SUINLINE const char *
 suscan_analyzer_inspector_msgkind_to_string(
     enum suscan_analyzer_inspector_msgkind kind)
 {
-  const char *names[] = {
-      "OPEN", "SET_ID", "GET_CONFIG", "SET_CONFIG", "ESTIMATOR",
-      "SPECTRUM", "RESET_EQUALIZER", "CLOSE", "SET_FREQ", "SET_BANDWIDTH",
-      "SET_WATERMARK", "WRONG_HANDLE", "WRONG_OBJECT", "INVALID_ARGUMENT",
-      "WRONG_KIND", "INVALID_CHANNEL" };
+#define SUSCAN_COMP_MSGKIND(kind) \
+  case JOIN(SUSCAN_ANALYZER_INSPECTOR_MSGKIND_, kind): \
+    return STRINGIFY(kind)
 
-  if (kind < 0 || kind >= SUSCAN_ANALYZER_INSPECTOR_MSGKIND_COUNT)
-    return "UNKNOWN";
-  else
-    return names[kind];
+  switch (kind) {
+    SUSCAN_COMP_MSGKIND(OPEN);
+    SUSCAN_COMP_MSGKIND(SET_ID);
+    SUSCAN_COMP_MSGKIND(GET_CONFIG);
+    SUSCAN_COMP_MSGKIND(SET_CONFIG);
+    SUSCAN_COMP_MSGKIND(ESTIMATOR);
+    SUSCAN_COMP_MSGKIND(SPECTRUM);
+    SUSCAN_COMP_MSGKIND(RESET_EQUALIZER);
+    SUSCAN_COMP_MSGKIND(CLOSE);
+    SUSCAN_COMP_MSGKIND(SET_FREQ);
+    SUSCAN_COMP_MSGKIND(SET_BANDWIDTH);
+    SUSCAN_COMP_MSGKIND(SET_WATERMARK);
+    SUSCAN_COMP_MSGKIND(WRONG_HANDLE);
+    SUSCAN_COMP_MSGKIND(WRONG_OBJECT);
+    SUSCAN_COMP_MSGKIND(INVALID_ARGUMENT);
+    SUSCAN_COMP_MSGKIND(WRONG_KIND);
+    SUSCAN_COMP_MSGKIND(INVALID_CHANNEL);
+
+    default:
+      return "UNKNOWN";
+  }
 }
 
 SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
@@ -135,6 +182,8 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
   uint32_t req_id;       /* Per-request identifier */
   uint32_t handle;       /* Handle */
   int32_t  status;
+
+  struct timeval rt_time;
 
   union {
     struct {
@@ -165,28 +214,16 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
       SUFLOAT   N0;
     };
 
+    struct {
+      SUBOOL  tle_enable;
+      orbit_t tle_orbit;
+    };
+
+    struct suscan_orbit_report orbit_report;
+
     SUSCOUNT watermark;
   };
 };
-
-/************************ Message-generating methods *************************/
-SUBOOL suscan_inspector_sampler_loop(
-    suscan_inspector_t *insp,
-    const SUCOMPLEX *samp_buf,
-    SUSCOUNT samp_count,
-    struct suscan_mq *mq_out);
-
-SUBOOL suscan_inspector_spectrum_loop(
-    suscan_inspector_t *insp,
-    const SUCOMPLEX *samp_buf,
-    SUSCOUNT samp_count,
-    struct suscan_mq *mq_out);
-
-SUBOOL suscan_inspector_estimator_loop(
-    suscan_inspector_t *insp,
-    const SUCOMPLEX *samp_buf,
-    SUSCOUNT samp_count,
-    struct suscan_mq *mq_out);
 
 /***************************** Sender methods ********************************/
 void suscan_analyzer_status_msg_destroy(struct suscan_analyzer_status_msg *status);
@@ -210,7 +247,8 @@ SUBOOL suscan_analyzer_send_psd(
 
 SUBOOL suscan_analyzer_send_psd_from_smoothpsd(
     suscan_analyzer_t *self,
-    const su_smoothpsd_t *smoothpsd);
+    const su_smoothpsd_t *smoothpsd,
+    SUBOOL looped);
 
 SUBOOL suscan_analyzer_send_source_info(
     suscan_analyzer_t *self,
@@ -235,6 +273,9 @@ void suscan_analyzer_channel_msg_take_channels(
 void suscan_analyzer_channel_msg_destroy(struct suscan_analyzer_channel_msg *msg);
 
 /* Channel inspector commands */
+const char *suscan_analyzer_inspector_msgkind_to_str(
+    enum suscan_analyzer_inspector_msgkind kind);
+
 struct suscan_analyzer_inspector_msg *suscan_analyzer_inspector_msg_new(
     enum suscan_analyzer_inspector_msgkind kind,
     uint32_t req_id);
@@ -274,6 +315,9 @@ suscan_analyzer_msg_serialize(
     uint32_t type,
     const void *ptr,
     grow_buf_t *buffer);
+
+SUBOOL
+suscan_analyzer_msg_deserialize_partial(uint32_t *type, grow_buf_t *buffer);
 
 SUBOOL
 suscan_analyzer_msg_deserialize(

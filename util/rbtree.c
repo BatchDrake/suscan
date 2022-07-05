@@ -40,6 +40,12 @@ rbtree_new (void)
 }
 
 void
+rbtree_node_free_dtor (void *data, void *userdata)
+{
+  free(data);
+}
+
+void
 rbtree_set_dtor (rbtree_t *tree, void (*dtor) (void *, void *), void *node_dtor_data)
 {
   tree->node_dtor = dtor;
@@ -413,6 +419,24 @@ rbtree_insert_case_5 (struct rbtree_node *node)
     rbtree_node_rotate_right (grandpa);
   else
     rbtree_node_rotate_left (grandpa);
+}
+
+int
+rbtree_set (rbtree_t *self, int64_t key, void *data)
+{
+  struct rbtree_node *node;
+
+  node = rbtree_search(self, key, RB_EXACT);
+
+  if (node != NULL) {
+    if (node->data != NULL && self->node_dtor != NULL)
+      (self->node_dtor) (node->data, self->node_dtor_data);
+    node->data = data;
+
+    return 0;
+  }
+
+  return rbtree_insert(self, key, data);
 }
 
 int

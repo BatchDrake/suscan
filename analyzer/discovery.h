@@ -27,7 +27,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 #define SURPC_DISCOVERY_PROTOCOL_PORT   5555
-#define SURPC_DISCOVERY_MULTICAST_ADDR "239.255.255.250" /* Same as UPnP */
+#define SURPC_DISCOVERY_MULTICAST_ADDR "224.4.4.4"
 #define SURPC_DISCOVERY_MAX_PDU_SIZE    4096
 
 SUBOOL suscan_discovered_remote_device_walk(

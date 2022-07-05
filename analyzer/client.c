@@ -34,6 +34,8 @@
 #include "inspector/inspector.h"
 #include "mq.h"
 #include "msg.h"
+#include "sgdp4/sgdp4.h"
+#include "src/suscan.h"
 
 /**************************** Configuration methods **************************/
 SUBOOL
@@ -102,6 +104,40 @@ done:
   return ok;
 }
 
+SUBOOL
+suscan_analyzer_seek_async(
+    suscan_analyzer_t *analyzer,
+    const struct timeval *pos,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_seek_msg *seek = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      seek = malloc(sizeof(struct suscan_analyzer_throttle_msg)),
+      goto done);
+
+  seek->position = *pos;
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK,
+      seek)) {
+    SU_ERROR("Failed to send throttle command\n");
+    goto done;
+  }
+
+  seek = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (seek != NULL)
+    free(seek);
+
+  return ok;
+}
+
 /****************************** Inspector methods ****************************/
 SUBOOL
 suscan_analyzer_open_ex_async(
@@ -109,6 +145,7 @@ suscan_analyzer_open_ex_async(
     const char *class,
     const struct sigutils_channel *channel,
     SUBOOL precise,
+    SUHANDLE parent,
     uint32_t req_id)
 {
   struct suscan_analyzer_inspector_msg *req = NULL;
@@ -124,6 +161,7 @@ suscan_analyzer_open_ex_async(
 
   req->channel = *channel;
   req->precise = precise;
+  req->handle  = parent;
 
   if (!suscan_analyzer_write(
       analyzer,
@@ -156,6 +194,7 @@ suscan_analyzer_open_async(
       class,
       channel,
       SU_FALSE,
+      -1,
       req_id);
 }
 
@@ -492,6 +531,48 @@ suscan_analyzer_inspector_set_spectrum_async(
       SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
       req)) {
     SU_ERROR("Failed to send set_spectrum command\n");
+    goto done;
+  }
+
+  req = NULL;
+
+  ok = SU_TRUE;
+
+done:
+
+  if (req != NULL)
+    suscan_analyzer_inspector_msg_destroy(req);
+
+  return ok;
+}
+
+SUBOOL
+suscan_analyzer_inspector_set_tle_async(
+    suscan_analyzer_t *analyzer,
+    SUHANDLE handle,
+    const orbit_t *orbit,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_inspector_msg *req = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      req = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE,
+          req_id),
+      goto done);
+
+  req->handle = handle;
+
+  req->tle_enable = orbit != NULL;
+  if (orbit != NULL)
+    orbit_copy(&req->tle_orbit, orbit);
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+      req)) {
+    SU_ERROR("Failed to send set_tle command\n");
     goto done;
   }
 

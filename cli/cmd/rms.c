@@ -39,6 +39,8 @@
 #define SUSCLI_DEFAULT_VOLUME           12.5
 #define SUSCLI_DEFAULT_SCALE            0.5 /* In dBs */
 
+#define AUDIO_DEFAULT_SAMP_RATE 44100
+
 #define AUDIO_TONE_MIN_HZ 220
 #define AUDIO_TONE_MAX_HZ (16 * AUDIO_TONE_MIN_HZ)
 #define AUDIO_TONE_MIN_DB -70.
@@ -60,6 +62,7 @@ struct suscli_rms_params {
   suscan_source_config_t *profile;
   enum suscli_rms_mode mode;
   SUBOOL  audio;
+  int     samp_rate;
   SUFLOAT db_min;
   SUFLOAT db_max;
   SUFLOAT freq_min;
@@ -403,6 +406,14 @@ suscli_rms_params_parse(
       goto fail);
 
   SU_TRYCATCH(
+      suscli_param_read_int(
+          p,
+          "samp_rate",
+          &self->samp_rate,
+          AUDIO_DEFAULT_SAMP_RATE),
+      goto fail);
+
+  SU_TRYCATCH(
       suscli_rms_param_read_mode(
           p,
           "mode",
@@ -610,11 +621,12 @@ suscli_rms_state_init(
 
   /* User requested audio play */
   if (state->params.audio) {
-    audio_params.userdata = state;
-    audio_params.start    = suscli_rms_audio_start_cb;
-    audio_params.play     = suscli_rms_audio_play_cb;
-    audio_params.stop     = suscli_rms_audio_stop_cb;
-    audio_params.error    = suscli_rms_audio_error_cb;
+    audio_params.userdata  = state;
+    audio_params.start     = suscli_rms_audio_start_cb;
+    audio_params.play      = suscli_rms_audio_play_cb;
+    audio_params.stop      = suscli_rms_audio_stop_cb;
+    audio_params.error     = suscli_rms_audio_error_cb;
+    audio_params.samp_rate = state->params.samp_rate;
 
     SU_TRYCATCH(
         state->player = suscli_audio_player_new(&audio_params),
@@ -733,10 +745,8 @@ suscli_rms_on_data_cb(
     }
   }
 
-  if (state->halting) {
-    SU_ERROR("Stopping capture.\n");
+  if (state->halting)
     return SU_FALSE;
-  }
 
   return SU_TRUE;
 }
@@ -745,7 +755,7 @@ void
 suscli_rms_interrupt_handler(int sig)
 {
   if (g_state != NULL) {
-    fprintf(stderr, "Ctrl+C hit, stopping capture...\n");
+    SU_INFO("Ctrl+C hit, stopping capture...\n");
     suscli_rms_state_mark_halting(g_state);
     g_state = NULL;
   }

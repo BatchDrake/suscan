@@ -46,16 +46,6 @@ suscan_spectsrc_pmspect_preproc(
   return SU_TRUE;
 }
 
-SUBOOL
-suscan_spectsrc_pmspect_postproc(
-    suscan_spectsrc_t *src,
-    void *private,
-    SUCOMPLEX *buffer,
-    SUSCOUNT size)
-{
-  return SU_TRUE;
-}
-
 void
 suscan_spectsrc_pmspect_dtor(void *private)
 {
@@ -70,7 +60,6 @@ suscan_spectsrc_pmspect_register(void)
     .desc = "PM baseband spectrum",
     .ctor = suscan_spectsrc_pmspect_ctor,
     .preproc  = suscan_spectsrc_pmspect_preproc,
-    .postproc = suscan_spectsrc_pmspect_postproc,
     .dtor = suscan_spectsrc_pmspect_dtor
   };
 

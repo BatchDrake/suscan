@@ -74,7 +74,7 @@ suscli_device_print_cb(
       return SU_FALSE);
 
   printf(
-      "[%2d] %-40s %-8s %-9s %s\n",
+      "[%2u] %-40s %-8s %-9s %s\n",
       ndx,
       ellipsis,
       suscan_source_device_get_driver(dev),

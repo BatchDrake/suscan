@@ -56,6 +56,7 @@ enum cbor_major_type {
   CMT_MAP   = 5,
   CMT_TAG   = 6,
   CMT_FLOAT = 7,
+  CMT_INVALID = 8, // enum for invalid value
 };
 
 #define CBOR_ADDL_UINT8        24
@@ -113,9 +114,11 @@ cpu64_to_be_unaligned(uint64_t in, void *out)
 SUINLINE uint64_t
 cpu64_to_be(uint64_t in)
 {
-  cpu64_to_be_unaligned(in, &in);
+  uint64_t out;
 
-  return in;
+  cpu64_to_be_unaligned(in, &out);
+
+  return out;
 }
 
 SUINLINE uint32_t
@@ -143,9 +146,11 @@ cpu32_to_be_unaligned(uint32_t in, void *out)
 SUINLINE uint32_t
 cpu32_to_be(uint32_t in)
 {
-  cpu32_to_be_unaligned(in, &in);
+  uint32_t out;
 
-  return in;
+  cpu32_to_be_unaligned(in, &out);
+
+  return out;
 }
 
 SUINLINE uint16_t
@@ -169,9 +174,11 @@ cpu16_to_be_unaligned(uint16_t in, void *out)
 SUINLINE uint16_t
 cpu16_to_be(uint16_t in)
 {
-  cpu16_to_be_unaligned(in, &in);
+  uint16_t out;
 
-  return in;
+  cpu16_to_be_unaligned(in, &out);
+
+  return out;
 }
 
 SUINLINE uint8_t

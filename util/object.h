@@ -27,7 +27,9 @@
 extern "C" {
 #endif /* __cplusplus */
 
-  enum suscan_object_type {
+#define SUSCAN_YAML_PFX "tag:actinid.org,2022:suscan:"
+
+enum suscan_object_type {
   SUSCAN_OBJECT_TYPE_OBJECT,
   SUSCAN_OBJECT_TYPE_SET,
   SUSCAN_OBJECT_TYPE_FIELD,
@@ -57,12 +59,23 @@ suscan_object_t *suscan_object_from_xml(
     const void *data,
     size_t size);
 
+suscan_object_t *suscan_object_from_yaml(
+    const void *data,
+    size_t size);
+
 SUBOOL suscan_object_to_xml(
     const suscan_object_t *object,
     void **data,
     size_t *size);
 
+SUBOOL suscan_object_to_yaml(
+    const suscan_object_t *object,
+    void **data,
+    size_t *size);
+
 suscan_object_t *suscan_object_new(enum suscan_object_type type);
+
+suscan_object_t *suscan_object_copy(const suscan_object_t *object);
 
 void suscan_object_destroy(suscan_object_t *object);
 
@@ -98,6 +111,11 @@ int suscan_object_get_field_int(
     const char *name,
     int dfl);
 
+struct timeval suscan_object_get_field_tv(
+    const suscan_object_t *object,
+    const char *name,
+    const struct timeval *tv);
+
 SUBOOL suscan_object_get_field_bool(
     const suscan_object_t *object,
     const char *name,
@@ -113,6 +131,11 @@ SUFLOAT suscan_object_get_field_float(
     const char *name,
     SUFLOAT dfl);
 
+SUDOUBLE suscan_object_get_field_double(
+    const suscan_object_t *object,
+    const char *name,
+    SUDOUBLE dfl);
+
 SUBOOL suscan_object_set_field_uint(
     suscan_object_t *object,
     const char *name,
@@ -123,10 +146,20 @@ SUBOOL suscan_object_set_field_int(
     const char *name,
     int value);
 
+SUBOOL suscan_object_set_field_tv(
+    suscan_object_t *object,
+    const char *name,
+    struct timeval tv);
+
 SUBOOL suscan_object_set_field_float(
     suscan_object_t *object,
     const char *name,
     SUFLOAT value);
+
+SUBOOL suscan_object_set_field_double(
+    suscan_object_t *object,
+    const char *name,
+    SUDOUBLE value);
 
 SUBOOL suscan_object_set_field_bool(
     suscan_object_t *object,

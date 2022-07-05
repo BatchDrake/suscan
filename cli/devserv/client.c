@@ -23,25 +23,32 @@
 #include <analyzer/msg.h>
 #include <analyzer/version.h>
 #include <sigutils/log.h>
-#include <sys/poll.h>
+#include <util/compat-poll.h>
+#include <util/compat-socket.h>
 #include <sys/fcntl.h>
+#include <analyzer/impl/multicast.h>
 
 #define SUSCLI_ANALYZER_SERVER_NAME "Suscan device server - " SUSCAN_VERSION_STRING
 
 /************************** Analyzer Client API *******************************/
 suscli_analyzer_client_t *
-suscli_analyzer_client_new(int sfd)
+suscli_analyzer_client_new(int sfd, unsigned int compress_threshold)
 {
   struct sockaddr_in sin;
+  struct suscan_analyzer_params params = suscan_analyzer_params_INITIALIZER;
   socklen_t len = sizeof(struct sockaddr_in);
   suscli_analyzer_client_t *new = NULL;
+#ifdef SO_NOSIGPIPE
+  int set = 1;
+#endif /* SO_NOSIGPIPE */
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_analyzer_client_t)), goto fail);
+  SU_TRYCATCH(new->inspectors.inspector_tree = rbtree_new(), goto fail);
 
+  new->analyzer_params = params;
   new->sfd   = -1;
-
-  new->inspectors.inspector_last_free = -1;
-
+  rbtree_set_dtor(new->inspectors.inspector_tree, rbtree_node_free_dtor, NULL);
+  
   SU_TRYCATCH(
       pthread_mutex_init(&new->inspectors.inspector_mutex, NULL) == 0,
       goto fail);
@@ -68,6 +75,29 @@ suscli_analyzer_client_new(int sfd)
           ntohs(sin.sin_port)),
       goto fail);
 
+  SU_TRYCATCH(
+      suscli_analyzer_client_tx_thread_initialize(
+        &new->tx, 
+        sfd,
+        compress_threshold),
+      goto fail);
+
+  SU_MAKE_FAIL(new->req_table, rbtree);
+
+  SU_TRYZ_FAIL(pthread_mutex_init(&new->req_mutex, NULL));
+  new->req_mutex_allocd = SU_TRUE;
+
+#ifdef SO_NOSIGPIPE
+  SU_TRYCATCH(
+      setsockopt(
+          sfd,
+          SOL_SOCKET,
+          SO_NOSIGPIPE,
+          (void *) &set,
+          sizeof(int)) != -1,
+      goto fail);
+#endif /* SO_NOSIGPIPE */
+
   new->sfd = sfd;
 
   return new;
@@ -79,75 +109,197 @@ fail:
   return NULL;
 }
 
+void
+suscli_analyzer_client_enable_flags(
+  suscli_analyzer_client_t *self,
+  uint32_t flags)
+{
+  self->server_hello.flags |= flags;
+}
+
 SUBOOL
 suscli_analyzer_client_read(suscli_analyzer_client_t *self)
 {
-  size_t chunksize;
-  size_t ret;
-  SUBOOL do_close = SU_TRUE;
+  return suscan_remote_partial_pdu_state_read(
+    &self->pdu_state,
+    self->name,
+    self->sfd);
+}
+
+SUPRIVATE void
+suscli_analyzer_request_entry_destroy(
+  struct suscli_analyzer_request_entry *self)
+{
+  free(self);
+}
+
+SUPRIVATE struct suscli_analyzer_request_entry *
+suscli_analyzer_request_entry_new(void)
+{
+  struct suscli_analyzer_request_entry *new = NULL;
+
+  SU_ALLOCATE_FAIL(
+    new,
+    struct suscli_analyzer_request_entry);
+  
+  return new;
+
+fail:
+  if (new != NULL)
+    suscli_analyzer_request_entry_destroy(new);
+
+  return NULL;
+}
+
+struct suscli_analyzer_request_entry *
+suscli_analyzer_client_allocate_request_unsafe(
+  struct suscli_analyzer_client *self,
+  uint32_t client_req_id,
+  uint32_t global_req_id)
+{
+  struct suscli_analyzer_request_entry *entry = NULL;
+
+  SU_MAKE_FAIL(entry, suscli_analyzer_request_entry);
+
+  entry->client = self;
+  entry->client_req_id = client_req_id;
+  entry->global_req_id = global_req_id;
+
+  while (
+    rbtree_search_data(
+      self->req_table,
+      self->last_entry_index,
+      RB_EXACT,
+      NULL) != NULL)
+    ++self->last_entry_index;
+
+  entry->entry_index   = self->last_entry_index++;
+
+  /* Ensure it has not been registered earlier */
+  if (rbtree_search_data(
+      self->req_table,
+      entry->entry_index,
+      RB_EXACT,
+      NULL) != NULL) {
+    SU_ERROR(
+      "Inconsistency: request entry index %d should be free\n",
+      entry->entry_index);
+    goto fail;
+  }
+
+  /* Register now */
+  SU_TRYC_FAIL(
+    rbtree_set(
+      self->req_table,
+      entry->entry_index,
+      entry));
+
+  return entry;
+
+fail:
+  if (entry != NULL)
+    suscli_analyzer_request_entry_destroy(entry);
+
+  return NULL;
+}
+
+struct suscli_analyzer_request_entry *
+suscli_analyzer_client_allocate_request(
+  struct suscli_analyzer_client *self,
+  uint32_t client_req_id,
+  uint32_t global_req_id)
+{
+  struct suscli_analyzer_request_entry *result = NULL;
+  SUBOOL mutex_alloc = SU_FALSE;
+
+  SU_TRYZ(pthread_mutex_lock(&self->req_mutex));
+  mutex_alloc = SU_TRUE;
+
+  result = suscli_analyzer_client_allocate_request_unsafe(
+    self,
+    client_req_id,
+    global_req_id);
+
+done:
+  if (mutex_alloc)
+    (void) pthread_mutex_unlock(&self->req_mutex);
+
+  return result;
+}
+
+SUBOOL
+suscli_analyzer_client_dispose_request_unsafe(
+  struct suscli_analyzer_client *self,
+  struct suscli_analyzer_request_entry *entry)
+{
   SUBOOL ok = SU_FALSE;
 
-  if (!self->have_header) {
-    chunksize =
-        sizeof(struct suscan_analyzer_remote_pdu_header) - self->header_ptr;
+  /* Sanity check */
+  SU_TRY(
+    rbtree_search_data(
+      self->req_table,
+      entry->entry_index,
+      RB_EXACT,
+      NULL) == entry);
 
-    ret = read(self->sfd, self->header_bytes + self->header_ptr, chunksize);
+  /* Put a whiteout in here */
+  SU_TRYC(
+    rbtree_set(
+      self->req_table,
+      entry->entry_index,
+      NULL));
 
-    if (ret == 0) {
-      SU_INFO(
-          "%s: client left\n",
-          suscli_analyzer_client_get_name(self));
-    } else if (ret == -1) {
-      SU_INFO(
-          "%s: read error: %s\n",
-          suscli_analyzer_client_get_name(self),
-          strerror(errno));
-    } else {
-      do_close = SU_FALSE;
-    }
+  /* This is the last available index now */
+  self->last_entry_index = entry->entry_index;
 
-    if (do_close)
-      goto done;
+  /* Safe to free now */
+  suscli_analyzer_request_entry_destroy(entry);
 
-    self->header_ptr += ret;
+  ok = SU_TRUE;
 
-    if (self->header_ptr == sizeof(struct suscan_analyzer_remote_pdu_header)) {
-      /* Full header received */
-      self->header.magic = ntohl(self->header.magic);
-      self->header.size  = ntohl(self->header.size);
-      self->header_ptr   = 0;
+done:
+  return ok;
+}
 
-      if (self->header.magic != SUSCAN_REMOTE_PDU_HEADER_MAGIC) {
-        SU_ERROR("Protocol error: invalid remote PDU header magic\n");
-        goto done;
-      }
 
-      self->have_header = self->header.size != 0;
+SUBOOL
+suscli_analyzer_client_dispose_request(
+  struct suscli_analyzer_client *self,
+  struct suscli_analyzer_request_entry *entry)
+{
+  SUBOOL ok = SU_FALSE;
+  SUBOOL mutex_alloc = SU_FALSE;
 
-      grow_buf_shrink(&self->incoming_pdu);
-    }
-  } else if (!self->have_body) {
-    if ((chunksize = self->header.size) > SUSCAN_REMOTE_READ_BUFFER)
-      chunksize = SUSCAN_REMOTE_READ_BUFFER;
+  SU_TRYZ(pthread_mutex_lock(&self->req_mutex));
+  mutex_alloc = SU_TRUE;
 
-    if ((ret = read(self->sfd, self->read_buffer, chunksize)) < 1) {
-      SU_ERROR("Failed to read from socket: %s\n", strerror(errno));
-      goto done;
-    }
+  ok = suscli_analyzer_client_dispose_request_unsafe(self, entry);
 
-    SU_TRYCATCH(
-        grow_buf_append(&self->incoming_pdu, self->read_buffer, ret) != -1,
-        goto done);
+done:
+  if (mutex_alloc)
+    (void) pthread_mutex_unlock(&self->req_mutex);
 
-    self->header.size -= chunksize;
+  return ok;
+}
 
-    if (self->header.size == 0) {
-      grow_buf_seek(&self->incoming_pdu, 0, SEEK_SET);
-      self->have_body = SU_TRUE;
-    }
-  } else {
-    SU_ERROR("BUG: Current PDU not consumed yet\n");
-    goto done;
+
+SUBOOL
+suscli_analyzer_client_walk_requests_unsafe(
+  const struct suscli_analyzer_client *self,
+  SUBOOL (*func) (
+    struct suscli_analyzer_request_entry *,
+    void *userdata),
+  void *userdata)
+{
+  struct rbtree_node *this;
+  SUBOOL ok = SU_FALSE;
+
+  this = rbtree_get_first(self->req_table);
+
+  while (this != NULL) {
+    if (this->data != NULL)
+      SU_TRY((func) (this->data, userdata));
+    this = this->next;
   }
 
   ok = SU_TRUE;
@@ -156,6 +308,49 @@ done:
   return ok;
 }
 
+SUBOOL
+suscli_analyzer_client_walk_requests(
+  struct suscli_analyzer_client *self,
+  SUBOOL (*func) (
+    struct suscli_analyzer_request_entry *,
+    void *userdata),
+  void *userdata)
+{
+  SUBOOL ok = SU_FALSE;
+  SUBOOL mutex_alloc = SU_FALSE;
+
+  SU_TRYZ(pthread_mutex_lock(&self->req_mutex));
+  mutex_alloc = SU_TRUE;
+
+  ok = suscli_analyzer_client_walk_requests_unsafe(self, func, userdata);
+
+done:
+  if (mutex_alloc)
+    (void) pthread_mutex_unlock(&self->req_mutex);
+
+  return ok;
+}
+
+
+void
+suscli_analyzer_client_dispose_all_requests(
+  struct suscli_analyzer_client *self)
+{
+  struct rbtree_node *this;
+
+  this = rbtree_get_first(self->req_table);
+
+  while (this != NULL) {
+    if (this->data != NULL) {
+      suscli_analyzer_request_entry_destroy(this->data);
+      this->data = NULL;
+    }
+
+    this = this->next;
+  }
+}
+
+
 /* Elements in the freelist are negative! */
 SUHANDLE
 suscli_analyzer_client_register_inspector_handle_unsafe(
@@ -163,30 +358,39 @@ suscli_analyzer_client_register_inspector_handle_unsafe(
     SUHANDLE global_handle,
     int32_t itl_index)
 {
-  SUHANDLE ret = -1;
-  struct suscli_analyzer_client_inspector_entry *tmp = NULL;
+  SUHANDLE handle = -1;
+  struct suscli_analyzer_client_inspector_entry *new = NULL;
 
-  if (self->inspectors.inspector_last_free < 0) {
-    /* No "last free". Time to reallocate */
-    SU_TRYCATCH(
-        tmp = realloc(
-            self->inspectors.inspector_list,
-            (self->inspectors.inspector_alloc + 1) * sizeof(SUHANDLE)),
-        goto done);
-    self->inspectors.inspector_list = tmp;
-    ret = self->inspectors.inspector_alloc++;
-  } else {
-    ret = self->inspectors.inspector_last_free;
-    self->inspectors.inspector_last_free =
-        ~self->inspectors.inspector_list[ret].global_handle;
-  }
+  SU_ALLOCATE(new, struct suscli_analyzer_client_inspector_entry);
 
-  self->inspectors.inspector_list[ret].global_handle = global_handle;
-  self->inspectors.inspector_list[ret].itl_index     = itl_index;
+  new->global_handle = global_handle;
+  new->itl_index     = itl_index;
+
+  do {
+    handle = rand() ^ (rand() << 16);
+  } while (
+    handle == -1 
+    || rbtree_search_data(
+      self->inspectors.inspector_tree,
+      handle,
+      RB_EXACT,
+      NULL) != NULL);
+
+  if (rbtree_insert(
+    self->inspectors.inspector_tree,
+    handle,
+    new) == -1)
+    handle = -1;
+
   ++self->inspectors.inspector_count;
 
+  new = NULL;
+
 done:
-  return ret;
+  if (new != NULL)
+    free(new);
+
+  return handle;
 }
 
 SUHANDLE
@@ -216,37 +420,38 @@ done:
   return handle;
 }
 
-SUPRIVATE SUHANDLE
-suscli_analyzer_client_translate_handle_unsafe(
+struct suscli_analyzer_client_inspector_entry *
+suscli_analyzer_client_get_inspector_entry_unsafe(
     suscli_analyzer_client_t *self,
-    SUHANDLE local_handle)
+    SUHANDLE private_handle)
 {
-  SU_TRYCATCH(local_handle >= 0, return -1);
-  SU_TRYCATCH(local_handle < self->inspectors.inspector_alloc, return -1);
-  SU_TRYCATCH(
-      self->inspectors.inspector_list[local_handle].global_handle >= 0,
-      return -1);
-
-  return self->inspectors.inspector_list[local_handle].global_handle;
+  return rbtree_search_data(
+    self->inspectors.inspector_tree,
+    private_handle,
+    RB_EXACT,
+    NULL);
 }
 
 SUBOOL
 suscli_analyzer_client_dispose_inspector_handle_unsafe(
     suscli_analyzer_client_t *self,
-    SUHANDLE local_handle)
+    SUHANDLE private_handle)
 {
-  SU_TRYCATCH(local_handle >= 0, return SU_FALSE);
-  SU_TRYCATCH(local_handle < self->inspectors.inspector_alloc, return SU_FALSE);
+  struct rbtree_node *node = rbtree_search(
+    self->inspectors.inspector_tree,
+    private_handle,
+    RB_EXACT);
 
-  SU_TRYCATCH(self->inspectors.inspector_count > 0, return SU_FALSE);
+  if (node == NULL || node->data == NULL) {
+    SU_ERROR("Invalid private handle 0x%x\n", private_handle);
+    return SU_FALSE;
+  }
 
-  SU_TRYCATCH(
-      self->inspectors.inspector_list[local_handle].global_handle >= 0,
-      return SU_FALSE);
-
-  self->inspectors.inspector_list[local_handle].global_handle =
-      ~self->inspectors.inspector_last_free;
-  self->inspectors.inspector_last_free = local_handle;
+  if (rbtree_set(
+    self->inspectors.inspector_tree,
+    private_handle,
+    NULL) == -1)
+      return SU_FALSE;
   --self->inspectors.inspector_count;
 
   return SU_TRUE;
@@ -255,7 +460,7 @@ suscli_analyzer_client_dispose_inspector_handle_unsafe(
 SUBOOL
 suscli_analyzer_client_dispose_inspector_handle(
     suscli_analyzer_client_t *self,
-    SUHANDLE local_handle)
+    SUHANDLE private_handle)
 {
   SUBOOL ok = SU_FALSE;
   SUBOOL acquired = SU_FALSE;
@@ -267,7 +472,7 @@ suscli_analyzer_client_dispose_inspector_handle(
 
   ok = suscli_analyzer_client_dispose_inspector_handle_unsafe(
       self,
-      local_handle);
+      private_handle);
 
 done:
   if (acquired)
@@ -311,13 +516,17 @@ suscli_analyzer_client_intercept_message(
     const struct suscli_analyzer_client_interceptors *interceptors)
 {
   struct suscan_analyzer_inspector_msg *inspmsg;
+  struct suscli_analyzer_client_inspector_entry *entry;
+  struct suscan_analyzer_params *params;
   SUBOOL mutex_acquired = SU_FALSE;
   SUHANDLE handle;
   SUBOOL ok = SU_FALSE;
 
   /*
    * Some messages must be intercepted prior being delivered to
-   * the analyzer. This is the case for messages setting the inspector_id
+   * the analyzer. This is the case for messages setting the inspector_id.
+   * 
+   * Others are not allowed and must be discarded.
    */
 
   if (type == SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR) {
@@ -335,10 +544,10 @@ suscli_analyzer_client_intercept_message(
           goto done);
     } else {
       handle = inspmsg->handle;
+      entry  = suscli_analyzer_client_get_inspector_entry_unsafe(self, handle);
 
-      if ((inspmsg->handle = suscli_analyzer_client_translate_handle_unsafe(
-          self,
-          handle)) != -1) {
+      if (entry != NULL) {
+        inspmsg->handle = entry->global_handle;
         /* This local handle actually refers to something! */
         if (inspmsg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID) {
           SU_TRYCATCH(
@@ -346,14 +555,78 @@ suscli_analyzer_client_intercept_message(
                   interceptors->userdata,
                   self,
                   inspmsg,
-                  self->inspectors.inspector_list[handle].itl_index),
+                  entry->itl_index),
               goto done);
         }
       } else {
-        SU_WARNING("Could not translate handle 0x%x\n", handle);
+        SU_TRYCATCH(
+            (interceptors->inspector_wrong_handle)(
+                interceptors->userdata,
+                self,
+                inspmsg->kind,
+                handle,
+                inspmsg->req_id),
+            goto done);
+        goto done;
       }
     }
     /* ^^^^^^^^^^^^^^^^^^^^^^ Inspector mutex acquired ^^^^^^^^^^^^^^^^^^^^^ */
+  } else {
+    switch (type) {
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
+        params = (struct suscan_analyzer_params *) message;
+
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_SET_FFT_FPS))
+          params->psd_update_int = self->analyzer_params.psd_update_int;
+        
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_SET_FFT_SIZE))
+          params->detector_params.window_size 
+            = self->analyzer_params.detector_params.window_size;
+        
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_SET_FFT_WINDOW))
+          params->detector_params.window 
+            = self->analyzer_params.detector_params.window;
+        
+        /* We only adjust these parameters */
+        self->analyzer_params.detector_params.window 
+          = params->detector_params.window;
+        self->analyzer_params.detector_params.window_size 
+          = params->detector_params.window_size;
+        self->analyzer_params.psd_update_int
+          = params->psd_update_int;
+
+        /* Sanitize parameters */
+        *params = self->analyzer_params;
+        
+        break;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_THROTTLE)) {
+          SU_WARNING(
+            "%s: client not allowed to override throttle ocnfig\n",
+            suscli_analyzer_client_get_name(self));
+          goto done;
+        }
+        break;
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_SEEK)) {
+          SU_WARNING(
+            "%s: client not allowed to seek sources\n",
+            suscli_analyzer_client_get_name(self));
+          goto done;
+        }
+        break;
+    }
   }
 
   ok = SU_TRUE;
@@ -369,17 +642,16 @@ struct suscan_analyzer_remote_call *
 suscli_analyzer_client_take_call(suscli_analyzer_client_t *self)
 {
   struct suscan_analyzer_remote_call *call = NULL;
+  grow_buf_t buf = grow_buf_INITIALIZER;
+
   SUBOOL ok = SU_FALSE;
 
-  if (self->have_header && self->have_body) {
-    self->have_header = SU_FALSE;
-    self->have_body   = SU_FALSE;
+  if (suscan_remote_partial_pdu_state_take(&self->pdu_state, &buf)) {
     call = &self->incoming_call;
-
     suscan_analyzer_remote_call_finalize(call);
     suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_NONE);
 
-    if (!suscan_analyzer_remote_call_deserialize(call, &self->incoming_pdu)) {
+    if (!suscan_analyzer_remote_call_deserialize(call, &buf)) {
       SU_ERROR("Protocol error: failed to deserialize remote call\n");
       goto done;
     }
@@ -388,6 +660,8 @@ suscli_analyzer_client_take_call(suscli_analyzer_client_t *self)
   }
 
 done:
+  grow_buf_finalize(&buf);
+
   if (!ok)
     call = NULL;
 
@@ -395,41 +669,27 @@ done:
 }
 
 SUBOOL
+suscli_analyzer_client_write_buffer_zerocopy(
+    suscli_analyzer_client_t *self,
+    grow_buf_t *buffer)
+{
+  SU_TRYCATCH(
+      suscli_analyzer_client_tx_thread_push_zerocopy(&self->tx, buffer),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
 suscli_analyzer_client_write_buffer(
     suscli_analyzer_client_t *self,
     const grow_buf_t *buffer)
 {
-  struct suscan_analyzer_remote_pdu_header header;
-  const uint8_t *data;
-  size_t size, chunksize;
-  SUBOOL ok = SU_FALSE;
-
-  data = grow_buf_get_buffer(buffer);
-  size = grow_buf_get_size(buffer);
-
-  header.magic = htonl(SUSCAN_REMOTE_PDU_HEADER_MAGIC);
-  header.size  = htonl(size);
-
-  chunksize = sizeof(struct suscan_analyzer_remote_pdu_header);
-
-  SU_TRYCATCH(write(self->sfd, &header, chunksize) == chunksize, goto done);
-
-  /* Calls can be extremely big, so we better send them in small chunks */
-  while (size > 0) {
-    chunksize = size;
-    if (chunksize > SUSCAN_REMOTE_READ_BUFFER)
-      chunksize = SUSCAN_REMOTE_READ_BUFFER;
-
-    SU_TRYCATCH(write(self->sfd, data, chunksize) == chunksize, goto done);
-
-    data += chunksize;
-    size -= chunksize;
-  }
-
-  ok = SU_TRUE;
-
-done:
-  return ok;
+  SU_TRYCATCH(
+      suscli_analyzer_client_tx_thread_push(&self->tx, buffer),
+      return SU_FALSE);
+ 
+  return SU_TRUE;
 }
 
 SUBOOL
@@ -437,13 +697,15 @@ suscli_analyzer_client_shutdown(suscli_analyzer_client_t *self)
 {
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(!self->failed,   goto done);
   SU_TRYCATCH(!self->closed,   goto done);
   SU_TRYCATCH(self->sfd != -1, goto done);
 
+  suscli_analyzer_client_tx_thread_stop_soft(&self->tx);
+
   self->closed = SU_TRUE;
 
-  SU_TRYCATCH(shutdown(self->sfd, 2) == 0, goto done);
+  (void) shutdown(self->sfd, 2);
+  SU_INFO("%s: shutting down\n", suscli_analyzer_client_get_name(self));
 
   ok = SU_TRUE;
 
@@ -497,7 +759,8 @@ done:
 SUBOOL
 suscli_analyzer_client_send_source_info(
     suscli_analyzer_client_t *self,
-    const struct suscan_analyzer_source_info *info)
+    const struct suscan_analyzer_source_info *info,
+    const struct timeval *tv)
 {
   struct suscan_analyzer_remote_call *call = NULL;
   SUBOOL ok = SU_FALSE;
@@ -512,6 +775,10 @@ suscli_analyzer_client_send_source_info(
       suscan_analyzer_source_info_init_copy(&call->source_info, info),
       goto done);
 
+  /* Intersect client permissions and source permissions */
+  call->source_info.permissions &= self->user_entry->permissions;
+  call->source_info.source_time = *tv;
+  
   SU_TRYCATCH(suscli_analyzer_client_deliver_call(self, call), goto done);
 
   suscli_analyzer_client_set_has_source_info(self, SU_TRUE);
@@ -552,25 +819,61 @@ done:
   return ok;
 }
 
+SUBOOL
+suscli_analyzer_client_send_startup_error(suscli_analyzer_client_t *self)
+{
+  struct suscan_analyzer_remote_call *call = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      call = malloc(sizeof(struct suscan_analyzer_remote_call)),
+      goto done);
+
+  suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_STARTUP_ERROR);
+
+  SU_TRYCATCH(suscli_analyzer_client_deliver_call(self, call), goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (call != NULL) {
+    suscan_analyzer_remote_call_finalize(call);
+    free(call);
+  }
+
+  return ok;
+}
+
+
 void
 suscli_analyzer_client_destroy(suscli_analyzer_client_t *self)
 {
+  suscli_analyzer_client_tx_thread_finalize(&self->tx);
+
   if (self->sfd != -1 && !self->closed)
     close(self->sfd);
 
   if (self->name != NULL)
     free(self->name);
 
-  grow_buf_finalize(&self->incoming_pdu);
+  if (self->req_mutex_allocd)
+    pthread_mutex_destroy(&self->req_mutex);
+
+  suscan_remote_partial_pdu_state_finalize(&self->pdu_state);
 
   suscan_analyzer_server_hello_finalize(&self->server_hello);
   suscan_analyzer_remote_call_finalize(&self->incoming_call);
 
-  if (self->inspectors.inspector_list != NULL)
-    free(self->inspectors.inspector_list);
+  if (self->inspectors.inspector_tree != NULL)
+    rbtree_destroy(self->inspectors.inspector_tree);
 
   if (self->inspectors.inspector_mutex_initialized)
     pthread_mutex_destroy(&self->inspectors.inspector_mutex);
+
+  if (self->req_table != NULL) {
+    suscli_analyzer_client_dispose_all_requests(self);
+    rbtree_destroy(self->req_table);
+  }
 
   free(self);
 }
@@ -678,23 +981,16 @@ suscli_analyzer_client_for_each_inspector_unsafe(
         SUHANDLE global_handle),
     void *userdata)
 {
-  SUHANDLE i;
+  struct rbtree_node *this = rbtree_get_first(self->inspectors.inspector_tree);
+  struct suscli_analyzer_client_inspector_entry *entry;
 
-  SUHANDLE first_free = self->inspectors.inspector_last_free;
-
-  if (first_free > 0)
-    while (~self->inspectors.inspector_list[first_free].global_handle > 0)
-        first_free = ~self->inspectors.inspector_list[first_free].global_handle;
-
-  for (i = 0; i < self->inspectors.inspector_alloc; ++i)
-    if (i != first_free &&
-        self->inspectors.inspector_list[i].global_handle >= 0)
-      if (!(func) (
-          self,
-          userdata,
-          i,
-          self->inspectors.inspector_list[i].global_handle))
+  while (this != NULL) {
+    entry = this->data;
+    if (entry != NULL 
+      && !(func) (self, userdata, this->key, entry->global_handle))
         return SU_FALSE;
+    this = this->next;
+  }
 
   return SU_TRUE;
 }
@@ -729,56 +1025,76 @@ suscli_analyzer_client_list_alloc_itl_entry_unsafe(
     struct suscli_analyzer_client_list *self,
     suscli_analyzer_client_t *client)
 {
-  int32_t ret = -1;
-  struct suscli_analyzer_itl_entry *tmp = NULL;
+  int32_t handle = -1;
+  struct suscli_analyzer_itl_entry *new = NULL;
 
   SU_TRYCATCH(client != NULL, goto done);
+  SU_ALLOCATE(new, struct suscli_analyzer_itl_entry);
 
-  if (self->itl_last_free < 0) {
-    /* No "last free". Time to reallocate */
-    SU_TRYCATCH(
-        tmp = realloc(
-            self->itl_table,
-            (self->itl_count + 1) * sizeof(struct suscli_analyzer_itl_entry)),
-        goto done);
+  new->client = client;
 
-    self->itl_table = tmp;
-    ret = self->itl_count++;
-  } else {
-    ret = self->itl_last_free;
-    self->itl_last_free = self->itl_table[ret].next_free;
-  }
+  do {
+    handle = rand() ^ (rand() << 16);
+  } while (
+    handle == -1 
+    || rbtree_search_data(self->itl_tree, handle, RB_EXACT, NULL) != NULL);
 
-  self->itl_table[ret].client = client;
+  if (rbtree_insert(self->itl_tree, handle, new) == -1)
+    handle = -1;
+  new = NULL;
 
 done:
-  return ret;
+  if (new != NULL)
+    free(new);
+
+  return handle;
 }
 
 struct suscli_analyzer_itl_entry *
 suscli_analyzer_client_list_get_itl_entry_unsafe(
     const struct suscli_analyzer_client_list *self,
-    int32_t entry)
+    int32_t handle)
 {
-  SU_TRYCATCH(entry >= 0, return NULL);
-  SU_TRYCATCH(entry < self->itl_count, return NULL);
+  return rbtree_search_data(self->itl_tree, handle, RB_EXACT, NULL);
+}
 
-  return self->itl_table + entry;
+SUBOOL
+suscli_analyzer_client_list_set_inspector_id_unsafe(
+  const struct suscli_analyzer_client_list *self,
+  int32_t handle,
+  uint32_t inspector_id)
+{
+  struct suscli_analyzer_itl_entry *entry;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+    entry = suscli_analyzer_client_list_get_itl_entry_unsafe(
+      self,
+      handle),
+    goto done);
+
+  entry->local_inspector_id = inspector_id;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
 
 SUBOOL
 suscli_analyzer_client_list_dispose_itl_entry_unsafe(
     struct suscli_analyzer_client_list *self,
-    int32_t entry)
+    int32_t handle)
 {
-  SU_TRYCATCH(entry >= 0, return SU_FALSE);
-  SU_TRYCATCH(entry < self->itl_count, return SU_FALSE);
+  struct rbtree_node *node = NULL;
+  
+  if ((node = rbtree_search(self->itl_tree, handle, RB_EXACT)) == NULL) {
+    SU_ERROR("Invalid ITL entry handle 0x%x\n", handle);
+    return SU_FALSE;
+  }
 
-  SU_TRYCATCH(self->itl_table[entry].client != NULL, return SU_FALSE);
-
-  self->itl_table[entry].next_free = self->itl_last_free;
-  self->itl_table[entry].client = NULL;
-  self->itl_last_free = entry;
+  if (rbtree_set(self->itl_tree, handle, NULL) == -1)
+    return SU_FALSE;
 
   return SU_TRUE;
 }
@@ -787,7 +1103,8 @@ SUBOOL
 suscli_analyzer_client_list_init(
     struct suscli_analyzer_client_list *self,
     int listen_fd,
-    int cancel_fd)
+    int cancel_fd,
+    const char *ifname)
 {
   SUBOOL ok = SU_FALSE;
 
@@ -796,9 +1113,21 @@ suscli_analyzer_client_list_init(
   self->listen_fd = listen_fd;
   self->cancel_fd = cancel_fd;
 
-  self->itl_last_free = -1;
+  if (ifname != NULL) {
+    /* 
+     * Do not check for errors. We can work with a disabled multicast
+     * manager (we just fall back to unicast)
+     */
+    self->mc_manager = suscli_multicast_manager_new(
+      ifname,
+      SUSCLI_MULTICAST_PORT);
+  }
 
-  SU_TRYCATCH(self->client_tree = rbtree_new(), goto done);
+  SU_MAKE(self->client_tree, rbtree);
+  SU_MAKE(self->itl_tree,    rbtree);
+  SU_MAKE(self->req_tree,    rbtree);
+
+  rbtree_set_dtor(self->itl_tree, rbtree_node_free_dtor, NULL);
 
   SU_TRYCATCH(pthread_mutex_init(&self->client_mutex, NULL) == 0, goto done);
   self->client_mutex_initialized = SU_TRUE;
@@ -807,12 +1136,109 @@ suscli_analyzer_client_list_init(
       suscli_analyzer_client_list_update_pollfds_unsafe(self),
       goto done);
 
+
   ok = SU_TRUE;
 
 done:
   if (!ok)
     suscli_analyzer_client_list_finalize(self);
 
+  return ok;
+}
+
+uint32_t
+suscli_analyzer_client_list_alloc_global_id_unsafe(
+  struct suscli_analyzer_client_list *self)
+{
+  uint32_t randn;
+
+  do {
+    randn = rand() ^ (rand() << 16);
+  } while (rbtree_search_data(self->req_tree, randn, RB_EXACT, NULL) != NULL);
+
+  return randn;
+}
+
+uint32_t
+suscli_analyzer_client_list_alloc_global_id(
+  struct suscli_analyzer_client_list *self)
+{
+  uint32_t result;
+
+  (void) pthread_mutex_lock(&self->client_mutex);
+
+  result = suscli_analyzer_client_list_alloc_global_id_unsafe(self);
+
+  (void) pthread_mutex_unlock(&self->client_mutex);
+
+  return result;
+}
+
+struct suscli_analyzer_request_entry *
+suscli_analyzer_client_list_translate_request_unsafe(
+  const struct suscli_analyzer_client_list *self,
+  uint32_t global_id)
+{
+  return rbtree_search_data(self->req_tree, global_id, RB_EXACT, NULL);
+}
+
+SUBOOL
+suscli_analyzer_client_list_register_request_unsafe(
+  struct suscli_analyzer_client_list *self,
+  struct suscli_analyzer_request_entry *entry)
+{
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRY(
+    suscli_analyzer_client_list_translate_request_unsafe(
+      self,
+      entry->global_req_id) == NULL);
+
+  SU_TRYC(rbtree_insert(self->req_tree, entry->global_req_id, entry));
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_list_register_request(
+  struct suscli_analyzer_client_list *self,
+  struct suscli_analyzer_request_entry *entry)
+{
+  SUBOOL mutex_allocd = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYZ(pthread_mutex_lock(&self->client_mutex));
+  mutex_allocd = SU_TRUE;
+
+  ok = suscli_analyzer_client_list_register_request_unsafe(self, entry);
+
+done:
+  if (mutex_allocd)
+    (void) pthread_mutex_unlock(&self->client_mutex);
+
+  return ok;
+}
+
+SUBOOL
+suscli_analyzer_client_list_unregister_request_unsafe(
+  struct suscli_analyzer_client_list *self,
+  struct suscli_analyzer_request_entry *entry)
+{
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRY(
+    suscli_analyzer_client_list_translate_request_unsafe(
+      self,
+      entry->global_req_id) == entry);
+
+  SU_TRYC(rbtree_set(self->req_tree, entry->global_req_id, NULL));
+  
+  ok = SU_TRUE;
+
+done:
   return ok;
 }
 
@@ -877,7 +1303,7 @@ done:
 SUBOOL
 suscli_analyzer_client_list_broadcast_unsafe(
     struct suscli_analyzer_client_list *self,
-    const grow_buf_t *buffer,
+    const struct suscan_analyzer_remote_call *call,
     SUBOOL (*on_client_error) (
         suscli_analyzer_client_t *client,
         void *userdata,
@@ -885,15 +1311,30 @@ suscli_analyzer_client_list_broadcast_unsafe(
     void *userdata)
 {
   suscli_analyzer_client_t *this;
+  grow_buf_t pdu = grow_buf_INITIALIZER;
+  SUBOOL mc_enabled = self->mc_manager != NULL;
+  SUBOOL unicast;
   int error;
   SUBOOL ok = SU_FALSE;
 
-  this = self->client_head;
+  /* Step 1: If multicast is enabled, chop and send via multicast */
+  if (mc_enabled)
+    SU_TRY(suscli_multicast_manager_deliver_call(self->mc_manager, call));
 
+  /* Step 2: For non-multicast clients, make a normal PDU and send */
+  SU_TRYCATCH(
+    suscan_analyzer_remote_call_serialize(call, &pdu),
+    goto done);
+
+  this = self->client_head;  
   while (this != NULL) {
+    unicast = 
+      !(mc_enabled && suscli_analyzer_client_accepts_multicast(this));
+
     if (suscli_analyzer_client_can_write(this)
-        && suscli_analyzer_client_has_source_info(this)) {
-      if (!suscli_analyzer_client_write_buffer(this, buffer)) {
+        && suscli_analyzer_client_has_source_info(this)
+        && unicast) {
+      if (!suscli_analyzer_client_write_buffer(this, &pdu)) {
         error = errno;
         SU_WARNING(
             "%s: write failed (%s)\n",
@@ -909,6 +1350,8 @@ suscli_analyzer_client_list_broadcast_unsafe(
   ok = SU_TRUE;
 
 done:
+  grow_buf_finalize(&pdu);
+
   return ok;
 }
 
@@ -962,12 +1405,28 @@ suscli_analyzer_client_list_lookup_unsafe(
 
   client = node->data;
 
+  /* This can also happen if descriptors are reused */
+  if (client == NULL)
+    return NULL;
+
   if (client->sfd != fd) {
     SU_ERROR("client->sfd does not match fd!\n");
     return NULL;
   }
 
   return client;
+}
+
+SUPRIVATE SUBOOL
+suscli_analyzer_client_list_unreg_global_id_cb(
+  struct suscli_analyzer_request_entry *entry,
+  void *userdata)
+{
+  struct suscli_analyzer_client_list *self = userdata;
+
+  return suscli_analyzer_client_list_unregister_request_unsafe(
+    self,
+    entry);
 }
 
 SUBOOL
@@ -1005,6 +1464,12 @@ suscli_analyzer_client_list_remove_unsafe(
 
   --self->client_count;
 
+  SU_TRY(
+    suscli_analyzer_client_walk_requests_unsafe(
+      client,
+      suscli_analyzer_client_list_unreg_global_id_cb,
+      self));
+
   ok = SU_TRUE;
 
 done:
@@ -1027,14 +1492,20 @@ suscli_analyzer_client_list_finalize(struct suscli_analyzer_client_list *self)
     this = next;
   }
 
+  if (self->mc_manager != NULL)
+    suscli_multicast_manager_destroy(self->mc_manager);
+
   if (self->client_tree != NULL)
     rbtree_destroy(self->client_tree);
 
   if (self->client_pfds != NULL)
     free(self->client_pfds);
 
-  if (self->itl_table != NULL)
-    free(self->itl_table);
+  if (self->itl_tree != NULL)
+    rbtree_destroy(self->itl_tree);
 
+  if (self->req_tree != NULL)
+    rbtree_destroy(self->req_tree);
+  
   memset(self, 0, sizeof(struct suscli_analyzer_client_list));
 }

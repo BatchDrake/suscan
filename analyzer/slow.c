@@ -63,6 +63,7 @@ suscan_local_analyzer_set_gain_cb(
   SUBOOL mutex_acquired = SU_FALSE;
   PTR_LIST_LOCAL(struct suscan_analyzer_gain_info, request);
   unsigned int i, j;
+  SUBOOL updated = SU_FALSE;
 
   /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
   SU_TRYCATCH(pthread_mutex_lock(&self->hotconf_mutex) != -1, goto fail);
@@ -95,6 +96,8 @@ suscan_local_analyzer_set_gain_cb(
         self->source_info.gain_list[j]->value = request_list[i]->value;
   }
 
+  updated = SU_TRUE;
+
 fail:
   if (mutex_acquired)
     pthread_mutex_unlock(&self->hotconf_mutex);
@@ -105,6 +108,9 @@ fail:
   if (request_list != NULL)
     free(request_list);
 
+  if (updated)
+    suscan_analyzer_send_source_info(self->parent, &self->source_info);
+  
   return SU_FALSE;
 }
 
@@ -114,32 +120,36 @@ suscan_local_analyzer_set_antenna_cb(
     void *wk_private,
     void *cb_private)
 {
-  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
   SUBOOL mutex_acquired = SU_FALSE;
   char *req = NULL;
+  SUBOOL updated = SU_FALSE;
 
   /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvvvv */
-  SU_TRYCATCH(pthread_mutex_lock(&analyzer->hotconf_mutex) != -1, goto fail);
+  SU_TRYCATCH(pthread_mutex_lock(&self->hotconf_mutex) != -1, goto fail);
   mutex_acquired = SU_TRUE;
 
-  req = analyzer->antenna_req;
-  analyzer->antenna_req = NULL;
+  req = self->antenna_req;
+  self->antenna_req = NULL;
 
-  pthread_mutex_unlock(&analyzer->hotconf_mutex);
+  pthread_mutex_unlock(&self->hotconf_mutex);
   mutex_acquired = SU_FALSE;
   /* ^^^^^^^^^^^^^^^^^^ Release hotconf request mutex ^^^^^^^^^^^^^^^^^^^^^^^^^ */
 
-  suscan_source_set_antenna(analyzer->source, req);
+  suscan_source_set_antenna(self->source, req);
 
-  /* TODO: Protect with mutex, set antenna and deliver source info */
+  updated = SU_TRUE;
 
 fail:
   if (mutex_acquired)
-    pthread_mutex_unlock(&analyzer->hotconf_mutex);
+    pthread_mutex_unlock(&self->hotconf_mutex);
 
   if (req != NULL)
     free(req);
 
+  if (updated)
+    suscan_analyzer_send_source_info(self->parent, &self->source_info);
+  
   return SU_FALSE;
 }
 
@@ -273,56 +283,130 @@ suscan_local_analyzer_set_freq_cb(
   return SU_FALSE;
 }
 
-SUPRIVATE SUBOOL
+SUBOOL
 suscan_local_analyzer_set_inspector_freq_slow(
-    suscan_local_analyzer_t *analyzer,
+    suscan_local_analyzer_t *self,
     SUHANDLE handle,
     SUFREQ freq)
 {
+  struct suscan_inspector_overridable_request *req = NULL;
+  suscan_inspector_t *insp = NULL;
   SUBOOL ok = SU_FALSE;
-  struct suscan_inspector_overridable_request *req;
+
+  insp = suscan_local_analyzer_acquire_inspector(self, handle);
+  if (insp == NULL) {
+    SU_ERROR("Invalid inspector handle 0x%08x\n", handle);
+    goto done;
+  }
 
   SU_TRYCATCH(
-      req = suscan_local_analyzer_acquire_overridable(analyzer, handle),
-      goto done);
+    req = suscan_inspector_request_manager_acquire_overridable(
+      &self->insp_reqmgr,
+      insp),
+    goto done);
 
+  /* Frequency is always relative to the center freq */
   req->freq_request = SU_TRUE;
-  req->new_freq = freq;
-
-  SU_TRYCATCH(
-      suscan_local_analyzer_release_overridable(analyzer, req),
-      goto done);
+  req->new_freq     = freq;
 
   ok = SU_TRUE;
 
 done:
+  if (req != NULL)
+    suscan_inspector_request_manager_submit_overridable(
+      &self->insp_reqmgr,
+      req);
 
+  if (insp != NULL)
+    suscan_local_analyzer_return_inspector(self, insp);
+  
   return ok;
 }
 
-SUPRIVATE SUBOOL
+SUBOOL
 suscan_local_analyzer_set_inspector_bandwidth_slow(
-    suscan_local_analyzer_t *analyzer,
+    suscan_local_analyzer_t *self,
     SUHANDLE handle,
     SUFLOAT bw)
 {
+  struct suscan_inspector_overridable_request *req = NULL;
+  suscan_inspector_t *insp = NULL;
   SUBOOL ok = SU_FALSE;
-  struct suscan_inspector_overridable_request *req;
+
+  insp = suscan_local_analyzer_acquire_inspector(self, handle);
+  if (insp == NULL) {
+    SU_ERROR("Invalid inspector handle 0x%08x\n", handle);
+    goto done;
+  }
 
   SU_TRYCATCH(
-      req = suscan_local_analyzer_acquire_overridable(analyzer, handle),
-      goto done);
+    req = suscan_inspector_request_manager_acquire_overridable(
+      &self->insp_reqmgr,
+      insp),
+    goto done);
 
+  /* Frequency is always relative to the center freq */
   req->bandwidth_request = SU_TRUE;
-  req->new_bandwidth = bw;
-
-  SU_TRYCATCH(
-      suscan_local_analyzer_release_overridable(analyzer, req),
-      goto done);
+  req->new_bandwidth     = bw;
 
   ok = SU_TRUE;
 
 done:
+  if (req != NULL)
+    suscan_inspector_request_manager_submit_overridable(
+      &self->insp_reqmgr,
+      req);
+
+  if (insp != NULL)
+    suscan_local_analyzer_return_inspector(self, insp);
+  
+  return ok;
+}
+
+SUBOOL
+suscan_local_analyzer_set_inspector_throttle_slow(
+    suscan_local_analyzer_t *self,
+    SUFLOAT factor)
+{
+  suscan_inspector_t *insp = NULL;
+  struct suscan_inspector_overridable_request *req = NULL;
+
+  struct rbtree_node *node = NULL;
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(pthread_mutex_lock(&self->insp_mutex) == 0, goto done);
+  mutex_acquired = SU_TRUE;
+
+  node = rbtree_get_first(self->insp_hash);
+
+  while (node != NULL) {
+    insp = (suscan_inspector_t *) rbtree_node_data(node);
+
+    if (insp != NULL) {
+      /* Inspector found, adjust throttle */
+      SU_TRYCATCH(
+        req = suscan_inspector_request_manager_acquire_overridable(
+          &self->insp_reqmgr,
+          insp),
+        goto done);
+
+      req->throttle_request = SU_TRUE;
+      req->new_throttle     = factor;
+
+      suscan_inspector_request_manager_submit_overridable(
+        &self->insp_reqmgr,
+        req);
+    }
+
+    node = node->next;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    (void) pthread_mutex_unlock(&self->insp_mutex);
 
   return ok;
 }
@@ -352,11 +436,18 @@ suscan_local_analyzer_set_psd_params_cb(
     void *wk_private,
     void *cb_private)
 {
-  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
 
-  if (analyzer->psd_params_req) {
-    analyzer->psd_params_req = SU_FALSE;
-    (void) su_smoothpsd_set_params(analyzer->smooth_psd, &analyzer->sp_params);
+  if (self->psd_params_req) {
+    self->psd_params_req = SU_FALSE;
+
+    /* This alters detector params */
+    self->parent->params.detector_params.window_size = self->sp_params.fft_size;
+    self->parent->params.detector_params.window = self->sp_params.window;
+    self->interval_psd = 1. / self->sp_params.refresh_rate;
+
+    (void) su_smoothpsd_set_params(self->smooth_psd, &self->sp_params);
+    SU_TRYCATCH(suscan_local_analyzer_notify_params(self), return SU_FALSE);
   }
 
   return SU_FALSE;
@@ -380,6 +471,25 @@ suscan_local_analyzer_set_inspector_bandwidth_cb(
 
   return SU_FALSE;
 }
+
+SUPRIVATE SUBOOL
+suscan_local_analyzer_set_inspector_throttle_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+
+  if (analyzer->throttle_req) {
+    analyzer->throttle_req = SU_FALSE;
+    (void) suscan_local_analyzer_set_inspector_throttle_slow(
+        analyzer,
+        analyzer->throttle_req_value);
+  }
+
+  return SU_FALSE;
+}
+
 /****************************** Slow methods **********************************/
 SUBOOL
 suscan_local_analyzer_set_inspector_freq_overridable(
@@ -418,6 +528,24 @@ suscan_local_analyzer_set_inspector_bandwidth_overridable(
   return suscan_worker_push(
       self->slow_wk,
       suscan_local_analyzer_set_inspector_bandwidth_cb,
+      NULL);
+}
+
+SUBOOL
+suscan_local_analyzer_set_inspector_throttle_overridable(
+    suscan_local_analyzer_t *self,
+    SUFLOAT throttle)
+{
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  self->throttle_req = SU_TRUE;
+  self->throttle_req_value = throttle;
+
+  return suscan_worker_push(
+      self->slow_wk,
+      suscan_local_analyzer_set_inspector_throttle_cb,
       NULL);
 }
 
@@ -479,6 +607,28 @@ suscan_local_analyzer_slow_set_freq(
       self->slow_wk,
       suscan_local_analyzer_set_freq_cb,
       NULL);
+}
+
+SUBOOL
+suscan_local_analyzer_slow_seek(
+    suscan_local_analyzer_t *self,
+    const struct timeval *tv)
+{
+  uint64_t samp_rate;
+
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  /* We need to conver the timeval to position first */
+  samp_rate = suscan_source_get_base_samp_rate(self->source);
+  
+  self->seek_req_value = 
+    tv->tv_sec * samp_rate + (tv->tv_usec * samp_rate) / 1000000;
+  self->seek_req = SU_TRUE;
+
+  /* This request is to be processed by the source thread */
+  return SU_TRUE;
 }
 
 SUBOOL

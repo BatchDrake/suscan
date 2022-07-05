@@ -20,9 +20,11 @@
 #define SU_LOG_DOMAIN "cli-devserv"
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
+#include <util/compat-socket.h>
+#include <util/compat-inet.h>
+#include <util/compat-in.h>
+#include <util/compat-time.h>
+#include <util/confdb.h>
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>
 #include <analyzer/discovery.h>
@@ -33,7 +35,6 @@
 #include <cli/devserv/devserv.h>
 #include <cli/cli.h>
 #include <cli/cmds.h>
-#include <time.h>
 
 #define SUSCLI_DEVSERV_DEFAULT_PORT_BASE 28000
 SUPRIVATE SUBOOL su_log_cr = SU_TRUE;
@@ -57,6 +58,7 @@ SUPRIVATE void
 su_log_func(void *private, const struct sigutils_log_message *msg)
 {
   SUBOOL *cr = (SUBOOL *) private;
+  SUBOOL is_except;
   size_t msglen;
 
   if (*cr) {
@@ -74,22 +76,27 @@ su_log_func(void *private, const struct sigutils_log_message *msg)
 
       case SU_LOG_SEVERITY_WARNING:
         print_date();
-        printf(" - \033[1;33mwarning[%s]\033[0m: ", msg->domain);
+        printf(" - \033[1;33mwarning [%s]\033[0m: ", msg->domain);
         break;
 
       case SU_LOG_SEVERITY_ERROR:
         print_date();
-        printf(
-            " - \033[1;31merror[%s] in %s:%d\033[0m: ",
-            msg->domain,
-            msg->function,
-            msg->line);
+
+        is_except = 
+             strstr(msg->message, "exception in \"") != NULL
+          || strstr(msg->message, "failed to create instance") != NULL;
+
+        if (is_except)
+          printf("\033[1;30m   ");
+        else
+          printf(" - \033[1;31merror   [%s]\033[0;1m: ", msg->domain);
+        
         break;
 
       case SU_LOG_SEVERITY_CRITICAL:
         print_date();
         printf(
-            " - \033[1;37;41mcritical[%s] in %s:%d\033[0m: ",
+            " - \033[1;37;41mcritical[%s] in %s:%u\033[0m: ",
             msg->domain,
             msg->function,
             msg->line);
@@ -172,12 +179,13 @@ SUPRIVATE struct suscli_devserv_ctx *
 suscli_devserv_ctx_new(
     const char *iface,
     const char *mcaddr,
-    const char *user,
-    const char *password)
+    size_t compress_threshold)
 {
   struct suscli_devserv_ctx *new = NULL;
   suscan_source_config_t *cfg;
   suscli_analyzer_server_t *server = NULL;
+  struct suscli_analyzer_server_params params =
+    suscli_analyzer_server_params_INITIALIZER;
   int i;
   char loopch = 0;
   struct in_addr mc_if;
@@ -199,12 +207,12 @@ suscli_devserv_ctx_new(
           sizeof(loopch)) != -1,
       goto fail);
 
-  mc_if.s_addr = inet_addr(iface);
+  mc_if.s_addr = suscan_ifdesc_to_addr(iface);
 
   /* Not necessary, but coherent. */
   if (ntohl(mc_if.s_addr) == 0xffffffff) {
     SU_ERROR(
-        "Invalid interface address `%s' (does not look like a valid IP address)\n",
+        "Invalid network interface `%s'\n",
         iface);
     goto fail;
   }
@@ -224,8 +232,10 @@ suscli_devserv_ctx_new(
           (char *) &mc_if,
           sizeof (struct in_addr)) == -1) {
     if (errno == EADDRNOTAVAIL) {
-      SU_ERROR("Invalid interface address. Please verify that there is a "
-          "local network interface with IP `%s'\n", iface);
+      SU_ERROR(
+        "Invalid interface address. Please verify that there is a "
+        "local network interface with IP `%s'\n",
+        inet_ntoa(mc_if));
     } else {
       SU_ERROR(
           "failed to set network interface for multicast: %s\n",
@@ -241,24 +251,22 @@ suscli_devserv_ctx_new(
   new->mc_addr.sin_addr.s_addr = inet_addr(mcaddr);
   new->mc_addr.sin_port = htons(SURPC_DISCOVERY_PROTOCOL_PORT);
 
+  params.compress_threshold = compress_threshold;
+  params.ifname             = iface;
+
   /* Populate servers */
   for (i = 1; i <= suscli_get_source_count(); ++i) {
     cfg = suscli_get_source(i);
 
-    if (cfg != NULL) {
-      SU_TRYCATCH(
-          server = suscli_analyzer_server_new(
-              cfg,
-              new->port_base + i,
-              user,
-              password),
-          goto fail);
-
-      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(new->server, server) != -1, goto fail);
-
+    if (cfg != NULL && !suscan_source_config_is_remote(cfg)) {
+      params.profile = cfg;
+      params.port    = new->port_base + i;
+      SU_TRY_FAIL(server = suscli_analyzer_server_new_with_params(&params));
+      SU_TRY_FAIL(suscli_analyzer_server_add_all_users(server));
+      SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(new->server, server));
       SU_INFO(
           "  Port %d: server `%s'\n",
-          new->port_base + i,
+          params.port,
           suscan_source_config_get_label(cfg));
 
       server = NULL;
@@ -371,7 +379,7 @@ suscli_devserv_cb(const hashlist_t *params)
 {
   struct suscli_devserv_ctx *ctx = NULL;
   const char *iface, *mc;
-  const char *user, *password;
+  int threshold = 0;
 
   pthread_t thread;
   SUBOOL thread_running = SU_FALSE;
@@ -384,17 +392,45 @@ suscli_devserv_cb(const hashlist_t *params)
       goto done);
 
   SU_TRYCATCH(
-      suscli_param_read_string(params, "user", &user, "anonymous"),
-      goto done);
-
-  SU_TRYCATCH(
-      suscli_param_read_string(params, "password", &password, ""),
+      suscli_param_read_int(
+        params, 
+        "compress_threshold", 
+        &threshold, 
+        0),
       goto done);
 
   if (iface == NULL) {
     fprintf(
         stderr,
         "devserv: need to specify a multicast interface address with if=\n");
+    goto done;
+  }
+
+  SU_TRY(suscan_confdb_use("users"));
+
+  if (!suscli_devserv_load_users()) {
+    fprintf(stderr, "devserv: no default users found\n");
+    fprintf(stderr, "\033[1mPlease note that default anonymous user support has been deprecated.\n");
+    fprintf(stderr, "User lists must be defined in ~/.suscan/config/users.yaml explicitly\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "A good starting point (for testing purposes) is the following\n");
+    fprintf(stderr, "user list, containing two users: a full-access root user and\n");
+    fprintf(stderr, "a password-less view-only anonymous user. Save this list\n");
+    fprintf(stderr, "as ~/.suscan/config/users.yaml and run suscli devserv again:\033[0m\n\n");
+    fprintf(stderr, 
+      "%%TAG ! tag:actinid.org,2022:suscan:\n"
+      "---\n"
+      "- !UserEntry\n"
+      "  user: root\n"
+      "  password: '\033[1;31mSetAGoodRootPasswordHere!123\033[0m'\n"
+      "  default_access: allow\n"
+      "\n"
+      "- !UserEntry\n"
+      "  user: anonymous\n"
+      "  password:\n"
+      "  default_access: deny\n"
+      "  exceptions:\n"
+      "    - inspector.open.audio\n\n");
     goto done;
   }
 
@@ -407,9 +443,16 @@ suscli_devserv_cb(const hashlist_t *params)
       goto done);
 
   SU_INFO("Suscan device server %s\n", SUSCAN_VERSION_STRING);
+  SU_INFO(
+    "SuRPC protocol version: %d.%d\n",
+    SUSCAN_REMOTE_PROTOCOL_MAJOR_VERSION,
+    SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION);
 
   SU_TRYCATCH(
-      ctx = suscli_devserv_ctx_new(iface, mc, user, password),
+      ctx = suscli_devserv_ctx_new(
+        iface, 
+        mc, 
+        threshold),
       goto done);
 
   SU_TRYCATCH(

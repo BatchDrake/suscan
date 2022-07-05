@@ -104,11 +104,28 @@ rbtree_node_data (struct rbtree_node *node)
 }
 
 rbtree_t *rbtree_new (void);
+void rbtree_node_free_dtor (void *data, void *userdata); /* Convenience */
 void rbtree_set_dtor (rbtree_t *, void (*) (void *, void *), void *);
 void rbtree_debug (rbtree_t *, FILE *);
+int  rbtree_set (rbtree_t *self, int64_t key, void *data);
 int  rbtree_insert (rbtree_t *, int64_t, void *);
 void rbtree_clear (rbtree_t *);
 void rbtree_destroy (rbtree_t *);
 struct rbtree_node *rbtree_search (rbtree_t *, int64_t, enum rbtree_node_search_mode);
+
+static inline void *
+rbtree_search_data (
+  rbtree_t *self,
+  int64_t key,
+  enum rbtree_node_search_mode mode,
+  void *dfl)
+{
+  struct rbtree_node *node = rbtree_search(self, key, mode);
+
+  if (node == NULL)
+    return dfl;
+
+  return node->data;
+}
 
 #endif /* _UTIL_RBTREE_H */

@@ -17,7 +17,7 @@
 
 */
 
-#include <stdlib.h>
+#include <util/compat-stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
@@ -33,10 +33,10 @@
 
 /* Private device list */
 SUPRIVATE pthread_mutex_t g_device_list_mutex;
-PTR_LIST(SUPRIVATE suscan_source_device_t, device);
+PTR_LIST(SUPRIVATE suscan_source_device_t, g_device);
 
 /* Hidden gain list */
-PTR_LIST(SUPRIVATE struct suscan_source_gain_desc, hidden_gain);
+PTR_LIST(SUPRIVATE struct suscan_source_gain_desc, g_hidden_gain);
 
 /* Null device */
 SUPRIVATE suscan_source_device_t *null_device;
@@ -50,6 +50,7 @@ SUPRIVATE int    stderr_copy = -1;
 SUPRIVATE void
 suscan_source_disable_stderr(void)
 {
+#ifndef _WIN32
   int fd = -1;
 
   if (!stderr_disabled) {
@@ -69,17 +70,20 @@ fail:
       stderr_copy = -1;
     }
   }
+#endif /* _WIN32 */
 }
 
 SUPRIVATE void
 suscan_source_enable_stderr(void)
 {
+#ifndef _WIN32
   if (stderr_disabled) {
     SU_TRYCATCH(dup2(stderr_copy, STDERR_FILENO) != -1, return);
     close(stderr_copy);
     stderr_copy = -1;
     stderr_disabled = SU_FALSE;
   }
+#endif /* _WIN32 */
 }
 
 /******************************* Source devices ******************************/
@@ -125,7 +129,7 @@ suscan_source_gain_desc_new_hidden(const char *name, SUFLOAT value)
 
   SU_TRYCATCH(new = suscan_source_gain_desc_new(name, value, value), goto fail);
 
-  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(hidden_gain, new) != -1, goto fail);
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(g_hidden_gain, new) != -1, goto fail);
 
   return new;
 
@@ -177,6 +181,9 @@ suscan_source_device_destroy(suscan_source_device_t *dev)
   if (dev->desc != NULL)
     free(dev->desc);
 
+  if (dev->driver != NULL)
+    free(dev->driver);
+
   if (dev->args != NULL) {
     SoapySDRKwargs_clear(dev->args);
     free(dev->args);
@@ -204,24 +211,24 @@ suscan_source_reset_devices(void)
   SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) == 0, goto done);
   mutex_acquired = SU_TRUE;
 
-  for (i = 0; i < device_count; ++i)
-    if (device_list[i] != NULL) {
-      ++device_list[i]->epoch;
-      device_list[i]->available = SU_FALSE;
+  for (i = 0; i < g_device_count; ++i)
+    if (g_device_list[i] != NULL) {
+      ++g_device_list[i]->epoch;
+      g_device_list[i]->available = SU_FALSE;
 
-      for (j = 0; j < device_list[i]->antenna_count; ++j)
-        free(device_list[i]->antenna_list[j]);
+      for (j = 0; j < g_device_list[i]->antenna_count; ++j)
+        free(g_device_list[i]->antenna_list[j]);
 
-      device_list[i]->antenna_count = 0;
-      if (device_list[i]->antenna_list != NULL) {
-        free(device_list[i]->antenna_list);
-        device_list[i]->antenna_list = NULL;
+      g_device_list[i]->antenna_count = 0;
+      if (g_device_list[i]->antenna_list != NULL) {
+        free(g_device_list[i]->antenna_list);
+        g_device_list[i]->antenna_list = NULL;
       }
 
-      device_list[i]->samp_rate_count = 0;
-      if (device_list[i]->samp_rate_list != NULL) {
-        free(device_list[i]->samp_rate_list);
-        device_list[i]->samp_rate_list = NULL;
+      g_device_list[i]->samp_rate_count = 0;
+      if (g_device_list[i]->samp_rate_list != NULL) {
+        free(g_device_list[i]->samp_rate_list);
+        g_device_list[i]->samp_rate_list = NULL;
       }
     }
 
@@ -256,7 +263,7 @@ suscan_source_device_build_desc(const char *driver, const SoapySDRKwargs *args)
   else if (strcmp(driver, "null") == 0)
     return strdup("Dummy device");
   else if (strcmp(driver, "tcp") == 0)
-    return strbuild("%s:%s (%s)\n", host, port, label);
+    return strbuild("%s:%s (%s)", host, port, label);
   return strbuild("%s (%s)", driver, label);
 }
 
@@ -368,8 +375,8 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
           0,
           &antenna_count)) != NULL) {
     for (i = 0; i < antenna_count; ++i) {
-      SU_TRYCATCH(dup = strdup(antenna_list[i]), goto done);
-      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(dev->antenna, dup) != -1, goto done);
+      SU_TRY(dup = strdup(antenna_list[i]));
+      SU_TRY(PTR_LIST_APPEND_CHECK(dev->antenna, dup) != -1);
       dup = NULL;
     }
   }
@@ -387,14 +394,13 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
           0,
           gain_list[i]);
 
-      SU_TRYCATCH(
+      SU_TRY(
           desc = suscan_source_device_assert_gain_unsafe(
               dev,
               gain_list[i],
               range.minimum,
               range.maximum,
-              1), /* This may change in the future */
-          goto done);
+              1)); /* This may change in the future */
 
       desc->def = SoapySDRDevice_getGainElement(
           sdev,
@@ -404,25 +410,29 @@ suscan_source_device_populate_info(suscan_source_device_t *dev)
     }
 
     /* Get rates */
-    SU_TRYCATCH(
+    SU_TRY(
         samp_rate_list = SoapySDRDevice_listSampleRates(
             sdev,
             SOAPY_SDR_RX,
             0,
-            &samp_rate_count),
-        goto done);
+            &samp_rate_count));;
+
+    SU_TRY(
+      suscan_source_device_fix_rates(
+        dev,
+        &samp_rate_list,
+        &samp_rate_count));
 
     if (samp_rate_count == 0)
       goto done;
 
-    SU_TRYCATCH(
-        dev->samp_rate_list = malloc(samp_rate_count * sizeof(double)),
-        goto done);
-
+    SU_ALLOCATE_MANY(dev->samp_rate_list, samp_rate_count, double);
+    
     memcpy(
         dev->samp_rate_list,
         samp_rate_list,
         samp_rate_count * sizeof(double));
+
     dev->samp_rate_count = samp_rate_count;
     free(samp_rate_list);
     samp_rate_list = NULL;
@@ -523,12 +533,14 @@ suscan_source_device_new(const char *interface, const SoapySDRKwargs *args)
 {
   suscan_source_device_t *new = NULL;
   const char *driver;
+  char *driver_copy = NULL;
   unsigned int i;
 
   /* Not necessarily an error */
   if ((driver = SoapySDRKwargs_get((SoapySDRKwargs *) args, "driver")) == NULL)
     return NULL;
 
+  SU_TRYCATCH(driver_copy = strdup(driver), goto fail);
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_source_device_t)), goto fail);
 
   new->interface = interface;
@@ -544,12 +556,16 @@ suscan_source_device_new(const char *interface, const SoapySDRKwargs *args)
     /* DANGER DANGER DANGER */
   }
 
-  new->driver = driver;
+  new->driver = driver_copy;
   new->index = -1;
+  driver_copy = NULL;
 
   return new;
 
 fail:
+  if (driver_copy != NULL)
+    free(driver_copy);
+
   if (new != NULL)
     suscan_source_device_destroy(new);
 
@@ -579,9 +595,9 @@ suscan_source_device_walk(
   SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) == 0, goto done);
   mutex_acquired = SU_TRUE;
 
-  for (i = 0; i < device_count; ++i)
-    if (device_list[i] != NULL) {
-      dev = device_list[i];
+  for (i = 0; i < g_device_count; ++i)
+    if (g_device_list[i] != NULL) {
+      dev = g_device_list[i];
 
       SU_TRYCATCH(pthread_mutex_unlock(&g_device_list_mutex) == 0, goto done);
       mutex_acquired = SU_FALSE;
@@ -611,8 +627,8 @@ suscan_source_device_get_by_index(unsigned int index)
   SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) == 0, goto done);
   mutex_acquired = SU_TRUE;
 
-  if (index < device_count)
-    device = device_list[index];
+  if (index < g_device_count)
+    device = g_device_list[index];
 
 done:
   if (mutex_acquired)
@@ -624,7 +640,7 @@ done:
 unsigned int
 suscan_source_device_get_count(void)
 {
-  return device_count;
+  return g_device_count;
 }
 
 
@@ -638,11 +654,11 @@ suscan_source_device_find_first_sdr(void)
   SU_TRYCATCH(pthread_mutex_lock(&g_device_list_mutex) == 0, goto done);
   mutex_acquired = SU_TRUE;
 
-  for (i = 0; i < device_count; ++i)
-    if (device_list[i] != NULL && device_list[i] != null_device)
-      if (device_list[i]->available &&
-          strcmp(device_list[i]->driver, "audio") != 0) {
-        device = device_list[i];
+  for (i = 0; i < g_device_count; ++i)
+    if (g_device_list[i] != NULL && g_device_list[i] != null_device)
+      if (g_device_list[i]->available &&
+          strcmp(g_device_list[i]->driver, "audio") != 0) {
+        device = g_device_list[i];
         goto done;
       }
 
@@ -714,16 +730,16 @@ suscan_source_device_assert_index(const char *iface, const SoapySDRKwargs *args)
   if (args->size == 0)
     return null_device->index;
 
-  for (i = 0; i < device_count; ++i)
-    if (strcmp(iface, device_list[i]->interface) == 0)
-      if (suscan_source_device_soapy_args_are_equal(device_list[i]->args, args))
+  for (i = 0; i < g_device_count; ++i)
+    if (strcmp(iface, g_device_list[i]->interface) == 0)
+      if (suscan_source_device_soapy_args_are_equal(g_device_list[i]->args, args))
         goto done;
 
   i = -1;
 
   if ((dev = suscan_source_device_new(iface, args)) != NULL) {
     SU_TRYCATCH(
-        (i = dev->index = PTR_LIST_APPEND_CHECK(device, dev)) != -1,
+        (i = dev->index = PTR_LIST_APPEND_CHECK(g_device, dev)) != -1,
         goto done);
     dev = NULL;
   }
@@ -749,7 +765,7 @@ suscan_source_device_assert(const char *interface, const SoapySDRKwargs *args)
   if ((index = suscan_source_device_assert_index(interface, args)) == -1)
     goto done;
 
-  result = device_list[index];
+  result = g_device_list[index];
 
 done:
   if (mutex_acquired)
@@ -816,13 +832,18 @@ suscan_source_detect_devices(void)
   mutex_acquired = SU_TRUE;
 
   /* First device is always null */
-  for (i = 1; i < device_count; ++i) {
+  for (i = 1; i < g_device_count; ++i) {
     /*
      * Populate device info. If this fails, don't pass exception:
      * there may be a problem with this device, but not with the rest of them.
      */
-    if (!suscan_source_device_is_populated(dev))
-      SU_TRYCATCH(suscan_source_device_populate_info(dev), continue);
+    dev = g_device_list[i];
+    if (!suscan_source_device_is_populated(dev)) {
+      if (!suscan_source_device_populate_info(dev)) {
+        SU_WARNING("Referenced device `%s' is not available.\n", dev->desc);
+        continue;
+      }
+    }
   }
 
   ok = SU_TRUE;

@@ -22,7 +22,7 @@
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>
 #include <util/confdb.h>
-#include <codec/codec.h>
+#include <util/compat.h>
 #include <string.h>
 
 #include <cli/cli.h>
@@ -449,13 +449,11 @@ suscli_run_command(const char *name, const char **argv)
     fprintf(stderr, "%s: command does not exist\n", name);
     goto fail;
   }
-  SUSCLI_ASSERT_INIT(
-      SUSCLI_COMMAND_REQ_CODECS,
-      suscan_codec_class_register_builtin());
 
   SUSCLI_ASSERT_INIT(
       SUSCLI_COMMAND_REQ_SOURCES,
       suscan_init_sources()
+      && suscan_confdb_use("qth")
       && suscli_init_ui_source()
       && suscli_register_sources());
 
@@ -507,6 +505,8 @@ suscli_init(void)
 {
   SUBOOL ok = SU_FALSE;
 
+  suscli_log_init();
+  
   SU_TRYCATCH(
       suscli_command_register(
           "list",
@@ -571,6 +571,23 @@ suscli_init(void)
           SUSCLI_COMMAND_REQ_ALL,
           suscli_devserv_cb) != -1,
       goto fail);
+
+  SU_TRYCATCH(
+      suscli_command_register(
+          "tleinfo",
+          "Display information about a TLE file",
+          0,
+          suscli_tleinfo_cb) != -1,
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_command_register(
+          "snoop",
+          "Debug analyzer messages as JSON strings",
+          SUSCLI_COMMAND_REQ_ALL,
+          suscli_snoop_cb) != -1,
+      goto fail);
+
   ok = SU_TRUE;
 
 fail:

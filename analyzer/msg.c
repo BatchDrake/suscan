@@ -23,12 +23,14 @@
 #include <ctype.h>
 #include <libgen.h>
 #include <stdint.h>
+#include <util/compat-time.h>
 
 #define SU_LOG_DOMAIN "msg"
 
 #include "mq.h"
 #include "msg.h"
 #include "source.h"
+#include <sgdp4/sgdp4.h>
 
 #ifdef bool
 #  undef bool
@@ -182,6 +184,11 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
 
   SUSCAN_PACK(int,   self->fc);
   SUSCAN_PACK(uint,  self->inspector_id);
+  SUSCAN_PACK(uint,  self->timestamp.tv_sec);
+  SUSCAN_PACK(uint,  self->timestamp.tv_usec);
+  SUSCAN_PACK(uint,  self->rt_time.tv_sec);
+  SUSCAN_PACK(uint,  self->rt_time.tv_usec);
+  SUSCAN_PACK(bool,  self->looped);
   SUSCAN_PACK(float, self->samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
   SUSCAN_PACK(float, self->N0);
@@ -196,22 +203,45 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
   SUSCAN_PACK_BOILERPLATE_END;
 }
 
-SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
+SUSCAN_PARTIAL_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
 {
+  uint64_t tv_sec = 0;
+  uint32_t tv_usec = 0;
   SUSCAN_UNPACK_BOILERPLATE_START;
 
   SUSCAN_UNPACK(int64,  self->fc);
   SUSCAN_UNPACK(uint32, self->inspector_id);
+
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
+  self->timestamp.tv_sec  = tv_sec;
+  self->timestamp.tv_usec = tv_usec;
+
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
+  self->rt_time.tv_sec  = tv_sec;
+  self->rt_time.tv_usec = tv_usec;
+
+  SUSCAN_UNPACK(bool,   self->looped);
   SUSCAN_UNPACK(float,  self->samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
   SUSCAN_UNPACK(float,  self->N0);
 
-  SU_TRYCATCH(
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SU_TRY_FAIL(
+    suscan_analyzer_psd_msg_deserialize_partial(self, buffer));
+
+  SU_TRY_FAIL(
       suscan_unpack_compact_single_array(
           buffer,
           &self->psd_data,
-          &self->psd_size),
-      goto fail);
+          &self->psd_size));
 
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
@@ -247,6 +277,8 @@ suscan_analyzer_psd_msg_new_from_data(
       goto fail);
 
   memcpy(new->psd_data, psd_data, psd_size * sizeof(SUFLOAT));
+
+  gettimeofday(&new->rt_time, NULL);
 
   return new;
 
@@ -293,6 +325,8 @@ suscan_analyzer_psd_msg_new(const su_channel_detector_t *cd)
         }
     }
   }
+
+  gettimeofday(&new->rt_time, NULL);
 
   return new;
 
@@ -363,6 +397,7 @@ suscan_analyzer_inspector_msg_serialize_open(
     SU_TRYCATCH(cbor_pack_map_start(buffer, 0) == 0, goto fail);
   }
 
+  SUSCAN_PACK(uint,  self->handle);
   SUSCAN_PACK(bool,  self->precise);
   SUSCAN_PACK(uint,  self->fs);
   SUSCAN_PACK(float, self->equiv_fs);
@@ -402,6 +437,7 @@ suscan_analyzer_inspector_msg_deserialize_open(
   SU_TRYCATCH(self->config = suscan_config_new(NULL), goto fail);
   SU_TRYCATCH(suscan_config_deserialize(self->config, buffer), goto fail);
 
+  SUSCAN_UNPACK(uint32, self->handle);
   SUSCAN_UNPACK(bool,   self->precise);
   SUSCAN_UNPACK(uint32, self->fs);
   SUSCAN_UNPACK(float,  self->equiv_fs);
@@ -445,13 +481,13 @@ suscan_analyzer_inspector_msg_deserialize_open(
   SU_TRYCATCH(
       self->spectsrc_list = calloc(
           self->spectsrc_count,
-          sizeof(struct suscan_estimator_class *)),
+          sizeof(struct suscan_spectsrc_class *)),
       goto fail);
 
   for (i = 0; i < self->spectsrc_count; ++i) {
     SUSCAN_UNPACK(str, name);
     self->spectsrc_list[i] = suscan_spectsrc_class_lookup(name);
-    if (self->estimator_list[i] == NULL)
+    if (self->spectsrc_list[i] == NULL)
       SU_WARNING("Spectrum source class `%s' not found\n", name);
 
     free(name);
@@ -518,9 +554,10 @@ suscan_analyzer_inspector_msg_serialize_spectrum(
     const struct suscan_analyzer_inspector_msg *self)
 {
   SUSCAN_PACK_BOILERPLATE_START;
-  SUSCAN_PACK(uint, self->spectsrc_id);
-  SUSCAN_PACK(freq,  self->fc);
-  SUSCAN_PACK(float, self->N0);
+  SUSCAN_PACK(uint,   self->spectsrc_id);
+  SUSCAN_PACK(freq,   self->fc);
+  SUSCAN_PACK(float,  self->N0);
+  SUSCAN_PACK(uint,   self->samp_rate);
 
   SU_TRYCATCH(
       suscan_pack_compact_float_array(
@@ -539,8 +576,9 @@ suscan_analyzer_inspector_msg_deserialize_spectrum(
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
   SUSCAN_UNPACK(uint32, self->spectsrc_id);
-  SUSCAN_UNPACK(freq,  self->fc);
-  SUSCAN_UNPACK(float, self->N0);
+  SUSCAN_UNPACK(freq,   self->fc);
+  SUSCAN_UNPACK(float,  self->N0);
+  SUSCAN_UNPACK(uint64, self->samp_rate);
 
   SU_TRYCATCH(
       suscan_unpack_compact_float_array(
@@ -626,6 +664,111 @@ suscan_analyzer_inspector_msg_deserialize_set_watermark(
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_set_tle(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(bool, self->tle_enable);
+
+  if (self->tle_enable) {
+    SUSCAN_PACK(str,    self->tle_orbit.name);
+    SUSCAN_PACK(int,    self->tle_orbit.ep_year);
+    SUSCAN_PACK(double, self->tle_orbit.ep_day);
+    SUSCAN_PACK(double, self->tle_orbit.rev);
+    SUSCAN_PACK(double, self->tle_orbit.drevdt);
+    SUSCAN_PACK(double, self->tle_orbit.d2revdt2);
+    SUSCAN_PACK(double, self->tle_orbit.bstar);
+    SUSCAN_PACK(double, self->tle_orbit.eqinc);
+    SUSCAN_PACK(double, self->tle_orbit.ecc);
+    SUSCAN_PACK(double, self->tle_orbit.mnan);
+    SUSCAN_PACK(double, self->tle_orbit.argp);
+    SUSCAN_PACK(double, self->tle_orbit.ascn);
+    SUSCAN_PACK(double, self->tle_orbit.smjaxs);
+    SUSCAN_PACK(int,    self->tle_orbit.norb);
+    SUSCAN_PACK(int,    self->tle_orbit.satno);
+  }
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_set_tle(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(bool, self->tle_enable);
+
+  if (self->tle_enable) {
+    SUSCAN_UNPACK(str,    self->tle_orbit.name);
+    SUSCAN_UNPACK(int32,  self->tle_orbit.ep_year);
+    SUSCAN_UNPACK(double, self->tle_orbit.ep_day);
+    SUSCAN_UNPACK(double, self->tle_orbit.rev);
+    SUSCAN_UNPACK(double, self->tle_orbit.drevdt);
+    SUSCAN_UNPACK(double, self->tle_orbit.d2revdt2);
+    SUSCAN_UNPACK(double, self->tle_orbit.bstar);
+    SUSCAN_UNPACK(double, self->tle_orbit.eqinc);
+    SUSCAN_UNPACK(double, self->tle_orbit.ecc);
+    SUSCAN_UNPACK(double, self->tle_orbit.mnan);
+    SUSCAN_UNPACK(double, self->tle_orbit.argp);
+    SUSCAN_UNPACK(double, self->tle_orbit.ascn);
+    SUSCAN_UNPACK(double, self->tle_orbit.smjaxs);
+    SUSCAN_UNPACK(int64,  self->tle_orbit.norb);
+    SUSCAN_UNPACK(int32,  self->tle_orbit.satno);
+  }
+  
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_orbit_report(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(uint, self->orbit_report.rx_time.tv_sec);
+  SUSCAN_PACK(uint, self->orbit_report.rx_time.tv_usec);
+
+  SUSCAN_PACK(double, self->orbit_report.satpos.azimuth);
+  SUSCAN_PACK(double, self->orbit_report.satpos.elevation);
+  SUSCAN_PACK(double, self->orbit_report.satpos.distance);
+
+  SUSCAN_PACK(float, self->orbit_report.freq_corr);
+  SUSCAN_PACK(double, self->orbit_report.vlos_vel);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_orbit_report(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  uint64_t tv_sec = 0;
+  uint32_t tv_usec = 0;
+
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
+
+  self->orbit_report.rx_time.tv_sec = tv_sec;
+  self->orbit_report.rx_time.tv_usec = tv_usec;
+
+  SUSCAN_UNPACK(double, self->orbit_report.satpos.azimuth);
+  SUSCAN_UNPACK(double, self->orbit_report.satpos.elevation);
+  SUSCAN_UNPACK(double, self->orbit_report.satpos.distance);
+
+  SUSCAN_UNPACK(float, self->orbit_report.freq_corr);
+  SUSCAN_UNPACK(double, self->orbit_report.vlos_vel);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 {
   SUSCAN_PACK_BOILERPLATE_START;
@@ -635,6 +778,9 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
   SUSCAN_PACK(int, self->req_id);
   SUSCAN_PACK(int, self->handle);
   SUSCAN_PACK(int, self->status);
+
+  SUSCAN_PACK(uint, self->rt_time.tv_sec);
+  SUSCAN_PACK(uint, self->rt_time.tv_usec);
 
   switch (self->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
@@ -679,6 +825,19 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
           goto fail);
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_set_tle(buffer, self),
+          goto fail);
+      break;
+    
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ORBIT_REPORT:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_orbit_report(buffer, self),
+          goto fail);
+      break;
+    
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
@@ -688,6 +847,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION:
       /* Empty messages */
       break;
 
@@ -702,12 +862,19 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
+  uint64_t tv_sec = 0;
+  uint32_t tv_usec = 0;
 
   SUSCAN_UNPACK(uint32, self->int32_kind);
   SUSCAN_UNPACK(uint32, self->inspector_id);
   SUSCAN_UNPACK(uint32, self->req_id);
   SUSCAN_UNPACK(uint32, self->handle);
   SUSCAN_UNPACK(int32,  self->status);
+
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
+  self->rt_time.tv_sec  = tv_sec;
+  self->rt_time.tv_usec = tv_usec;
 
   switch (self->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
@@ -752,6 +919,19 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
           goto fail);
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_set_tle(buffer, self),
+          goto fail);
+      break;
+    
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ORBIT_REPORT:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_orbit_report(buffer, self),
+          goto fail);
+      break;
+    
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_RESET_EQUALIZER:
@@ -761,6 +941,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_ARGUMENT:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_WRONG_KIND:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CHANNEL:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION:
       /* Empty messages */
       break;
 
@@ -785,6 +966,8 @@ suscan_analyzer_inspector_msg_new(
   new->kind = kind;
   new->req_id = req_id;
 
+  gettimeofday(&new->rt_time, NULL);
+  
   return new;
 }
 
@@ -803,23 +986,35 @@ suscan_analyzer_inspector_msg_take_spectrum(
 void
 suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
 {
-  if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG
-      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG
-      || msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
-    if (msg->config != NULL)
-      suscan_config_destroy(msg->config);
+  switch (msg->kind) {
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN:
+      if (msg->config != NULL)
+        suscan_config_destroy(msg->config);
 
-    if (msg->estimator_list != NULL)
-      free(msg->estimator_list);
+      if (msg->estimator_list != NULL)
+        free(msg->estimator_list);
 
-    if (msg->spectsrc_list != NULL)
-      free(msg->spectsrc_list);
+      if (msg->spectsrc_list != NULL)
+        free(msg->spectsrc_list);
 
-    if (msg->class_name != NULL)
-      free(msg->class_name);
-  } else if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
-    if (msg->spectrum_data != NULL)
-      free(msg->spectrum_data);
+      if (msg->class_name != NULL)
+        free(msg->class_name);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM:
+      if (msg->spectrum_data != NULL)
+        free(msg->spectrum_data);
+      break;
+
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE:
+      if (msg->tle_enable)
+        orbit_finalize(&msg->tle_orbit);
+      break;
+
+    default:
+      ;
   }
 
   free(msg);
@@ -918,6 +1113,32 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_throttle_msg)
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
+/**************************** Seek message ************************************/
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_seek_msg)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(uint, self->position.tv_sec);
+  SUSCAN_PACK(uint, self->position.tv_usec);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_seek_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  uint64_t tv_sec = 0;
+  uint32_t tv_usec = 0;
+
+  SUSCAN_UNPACK(uint64, tv_sec);
+  SUSCAN_UNPACK(uint32, tv_usec);
+
+  self->position.tv_sec = tv_sec;
+  self->position.tv_usec = tv_usec;
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 /*********************** Generic message serialization ************************/
 SUBOOL
 suscan_analyzer_msg_serialize(
@@ -936,6 +1157,7 @@ suscan_analyzer_msg_serialize(
           goto fail);
       break;
 
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
       SU_TRYCATCH(
@@ -976,9 +1198,28 @@ suscan_analyzer_msg_serialize(
           suscan_analyzer_params_serialize(ptr, buffer),
           goto fail);
       break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
+      SU_TRYCATCH(
+          suscan_analyzer_seek_msg_serialize(ptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS:
+      break;
   }
 
   SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUBOOL
+suscan_analyzer_msg_deserialize_partial(uint32_t *type, grow_buf_t *buffer)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(uint32, *type);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
 SUBOOL
@@ -987,7 +1228,7 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
   SUSCAN_UNPACK_BOILERPLATE_START;
   void *msgptr = NULL;
 
-  SUSCAN_UNPACK(uint32, *type);
+  SU_TRY_FAIL(suscan_analyzer_msg_deserialize_partial(type, buffer));
 
   switch (*type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
@@ -999,6 +1240,7 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
           goto fail);
       break;
 
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
       SU_TRYCATCH(
@@ -1045,7 +1287,7 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
           msgptr = calloc(1, sizeof (struct suscan_analyzer_throttle_msg)),
           goto fail);
       SU_TRYCATCH(
-          suscan_analyzer_throttle_msg_serialize(msgptr, buffer),
+          suscan_analyzer_throttle_msg_deserialize(msgptr, buffer),
           goto fail);
       break;
 
@@ -1056,6 +1298,19 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
       SU_TRYCATCH(
           suscan_analyzer_params_deserialize(msgptr, buffer),
           goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
+      SU_TRYCATCH(
+          msgptr = calloc(1, sizeof (struct suscan_analyzer_seek_msg)),
+          goto fail);
+      SU_TRYCATCH(
+          suscan_analyzer_seek_msg_deserialize(msgptr, buffer),
+          goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS:
+      msgptr = "REMOTE";
       break;
 
     default:
@@ -1106,6 +1361,7 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
       suscan_analyzer_sample_batch_msg_destroy(ptr);
       break;
 
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
       free(ptr);
       break;
@@ -1214,6 +1470,9 @@ suscan_analyzer_send_source_info(
   // XXX: Protect!
   SU_TRYCATCH(suscan_analyzer_source_info_init_copy(copy, info), goto done);
 
+  /* Send source info */
+  suscan_analyzer_get_source_time(self, &copy->source_time);
+  
   SU_TRYCATCH(
       suscan_mq_write(
           self->mq_out,
@@ -1256,7 +1515,7 @@ suscan_analyzer_send_psd(
   msg->fc = suscan_analyzer_get_source_info(self)->frequency;
   msg->samp_rate = suscan_analyzer_get_source_info(self)->source_samp_rate;
   msg->measured_samp_rate = suscan_analyzer_get_measured_samp_rate(self);
-
+  suscan_analyzer_get_source_time(self, &msg->timestamp);
   msg->N0 = detector->N0;
 
   if (!suscan_mq_write(
@@ -1287,7 +1546,8 @@ done:
 SUBOOL
 suscan_analyzer_send_psd_from_smoothpsd(
     suscan_analyzer_t *self,
-    const su_smoothpsd_t *smoothpsd)
+    const su_smoothpsd_t *smoothpsd,
+    SUBOOL looped)
 {
   struct suscan_analyzer_psd_msg *msg = NULL;
   SUBOOL ok = SU_FALSE;
@@ -1308,7 +1568,8 @@ suscan_analyzer_send_psd_from_smoothpsd(
   /* In wide spectrum mode, frequency is given by curr_freq */
   msg->fc = suscan_analyzer_get_source_info(self)->frequency;
   msg->measured_samp_rate = suscan_analyzer_get_measured_samp_rate(self);
-
+  suscan_analyzer_get_source_time(self, &msg->timestamp);
+  msg->looped = looped;
   msg->N0 = 0;
 
   if (!suscan_mq_write(
@@ -1334,4 +1595,55 @@ done:
     suscan_analyzer_dispose_message(SUSCAN_ANALYZER_MESSAGE_TYPE_PSD, msg);
 
   return ok;
+}
+
+SUBOOL
+suscan_analyzer_message_has_expired(
+    suscan_analyzer_t *self,
+    void *msg,
+    uint32_t type)
+{
+  struct suscan_analyzer_psd_msg *psd_msg = msg;
+  struct suscan_analyzer_inspector_msg *insp_msg = msg;
+  SUBOOL timely_msg = SU_FALSE;
+  struct timeval rttime, now, diff;
+  struct timeval max_delta = {
+    SUSCAN_ANALYZER_EXPIRE_DELTA_MS / 1000,
+    (SUSCAN_ANALYZER_EXPIRE_DELTA_MS % 1000) * 1000};
+  SUBOOL expired = SU_FALSE;
+
+  gettimeofday(&now, NULL);
+
+  switch (type) {
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
+      rttime = psd_msg->rt_time;
+      timely_msg = SU_TRUE;
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
+      if (insp_msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM) {
+        rttime = insp_msg->rt_time;
+        timely_msg = SU_TRUE;
+      }
+      break;
+  }
+
+  if (timely_msg) {
+    if (!self->have_impl_rt) {
+      /* Dont' have implementation timestamp */
+      timersub(&now, &rttime, &self->impl_rt_delta);
+      self->have_impl_rt = SU_TRUE;
+    } else {
+      /* Calculate difference */
+      timersub(&now, &rttime, &diff);
+
+      /* Subtract the intrinsic time delta */
+      timersub(&diff, &self->impl_rt_delta, &diff);
+
+      if (timercmp(&diff, &max_delta, >))
+        expired = SU_TRUE;
+    }
+  }
+
+  return expired;
 }

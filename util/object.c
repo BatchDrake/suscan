@@ -23,6 +23,7 @@
 
 #include <sigutils/log.h>
 #include "object.h"
+#include <inttypes.h>
 
 void
 suscan_object_destroy(suscan_object_t *obj)
@@ -82,6 +83,60 @@ fail:
   return NULL;
 }
 
+suscan_object_t *
+suscan_object_copy(const suscan_object_t *object)
+{
+  suscan_object_t *new = NULL;
+  suscan_object_t *dup = NULL;
+  unsigned int i;
+
+  SU_MAKE_FAIL(new, suscan_object, object->type);
+
+  if (object->name != NULL)
+    SU_TRY_FAIL(suscan_object_set_name(new, object->name));
+
+  if (object->class_name != NULL)
+    SU_TRY_FAIL(suscan_object_set_class(new, object->class_name));
+
+  switch (object->type) {
+    case SUSCAN_OBJECT_TYPE_FIELD:
+      SU_TRY_FAIL(suscan_object_set_value(new, object->value));
+      break;
+
+    case SUSCAN_OBJECT_TYPE_OBJECT:
+      for (i = 0; i < object->field_count; ++i) {
+        if (object->field_list[i] != NULL)
+          SU_TRY_FAIL(dup = suscan_object_copy(object->field_list[i]));
+        SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(new->field, dup));
+        dup = NULL;
+      }
+    break;
+
+    case SUSCAN_OBJECT_TYPE_SET:
+      for (i = 0; i < object->object_count; ++i) {
+        if (object->object_list[i] != NULL)
+          SU_TRY_FAIL(dup = suscan_object_copy(object->field_list[i]));
+        SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(new->field, dup));
+        dup = NULL;
+      }
+      break;
+
+    default:
+      SU_ERROR("Invalid object type during deep copy (%d)\n", object->type);
+      goto fail;
+  }
+
+  return new;
+
+fail:
+  if (dup != NULL)
+    suscan_object_destroy(dup);
+
+  if (new != NULL)
+    suscan_object_destroy(new);
+
+  return NULL;
+}
 
 const char *
 suscan_object_get_class(const suscan_object_t *object)
@@ -289,6 +344,7 @@ suscan_object_get_field_value(const suscan_object_t *object, const char *name)
   return NULL;
 }
 
+
 int
 suscan_object_get_field_int(
     const suscan_object_t *object,
@@ -296,13 +352,33 @@ suscan_object_get_field_int(
     int dfl)
 {
   const char *text;
-  unsigned int got;
+  int got;
 
   if ((text = suscan_object_get_field_value(object, name)) != NULL)
     if (sscanf(text, "%i", &got) == 1)
       dfl = got;
 
   return dfl;
+}
+
+struct timeval
+suscan_object_get_field_tv(
+    const suscan_object_t *object,
+    const char *name,
+    const struct timeval *tv)
+{
+  struct timeval result = *tv;
+  const char *text;
+  uint64_t secs;
+  uint32_t usecs;
+
+  if ((text = suscan_object_get_field_value(object, name)) != NULL)
+    if (sscanf(text, "%" SCNu64 ".%06u", &secs, &usecs) == 2) {
+      result.tv_sec  = secs;
+      result.tv_usec = usecs;
+    }
+
+  return result;
 }
 
 unsigned int
@@ -321,6 +397,7 @@ suscan_object_get_field_uint(
   return dfl;
 }
 
+
 SUFLOAT
 suscan_object_get_field_float(
     const suscan_object_t *object,
@@ -332,6 +409,22 @@ suscan_object_get_field_float(
 
   if ((text = suscan_object_get_field_value(object, name)) != NULL)
     if (sscanf(text, SUFLOAT_SCANF_FMT, &got) == 1)
+      dfl = got;
+
+  return dfl;
+}
+
+SUDOUBLE
+suscan_object_get_field_double(
+    const suscan_object_t *object,
+    const char *name,
+    SUDOUBLE dfl)
+{
+  const char *text;
+  SUDOUBLE got;
+
+  if ((text = suscan_object_get_field_value(object, name)) != NULL)
+    if (sscanf(text, SUDOUBLE_SCANF_FMT, &got) == 1)
       dfl = got;
 
   return dfl;
@@ -404,6 +497,30 @@ done:
 }
 
 SUBOOL
+suscan_object_set_field_tv(
+    suscan_object_t *object,
+    const char *name,
+    struct timeval tv)
+{
+  char *as_text = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+    as_text = strbuild("%lu.%06u", tv.tv_sec, tv.tv_usec), 
+    goto done);
+
+  SU_TRYCATCH(suscan_object_set_field_value(object, name, as_text), goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (as_text != NULL)
+    free(as_text);
+
+  return ok;
+}
+
+SUBOOL
 suscan_object_set_field_float(
     suscan_object_t *object,
     const char *name,
@@ -413,7 +530,34 @@ suscan_object_set_field_float(
   char *comma = NULL;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(as_text = strbuild("%f", value), goto done);
+  SU_TRYCATCH(as_text = strbuild(SUFLOAT_PRECISION_FMT, value), goto done);
+
+  /* Thanks, GTK */
+  if ((comma = strchr(as_text, ',')) != NULL)
+    *comma = '.';
+
+  SU_TRYCATCH(suscan_object_set_field_value(object, name, as_text), goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (as_text != NULL)
+    free(as_text);
+
+  return ok;
+}
+
+SUBOOL
+suscan_object_set_field_double(
+    suscan_object_t *object,
+    const char *name,
+    SUDOUBLE value)
+{
+  char *as_text = NULL;
+  char *comma = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(as_text = strbuild(SUDOUBLE_PRECISION_FMT, value), goto done);
 
   /* Thanks, GTK */
   if ((comma = strchr(as_text, ',')) != NULL)

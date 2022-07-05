@@ -34,6 +34,10 @@ extern "C" {
 #include <util/util.h>
 #include <object.h>
 
+#if defined(_WIN32) && defined(interface)
+#  undef interface
+#endif /* interface */
+
 #define SUSCAN_SOURCE_DEFAULT_BUFSIZ 1024
 
 #define SUSCAN_SOURCE_LOCAL_INTERFACE   "local"
@@ -83,7 +87,7 @@ void suscan_source_device_info_finalize(struct suscan_source_device_info *info);
 
 struct suscan_source_device {
   const char *interface;
-  const char *driver;
+  char *driver;
   char *desc;
   SoapySDRKwargs *args;
   int index;
@@ -213,6 +217,12 @@ suscan_source_device_t *suscan_source_device_assert(
     const SoapySDRKwargs *args);
 
 /* Internal */
+SUBOOL suscan_source_device_fix_rates(
+    const suscan_source_device_t *dev,
+    double **p_samp_rate_list,
+    size_t  *p_samp_rate_count);
+
+/* Internal */
 SUBOOL suscan_source_device_populate_info(suscan_source_device_t *self);
 
 /* Internal */
@@ -243,8 +253,12 @@ enum suscan_source_format {
   SUSCAN_SOURCE_FORMAT_AUTO,
   SUSCAN_SOURCE_FORMAT_RAW_FLOAT32,
   SUSCAN_SOURCE_FORMAT_WAV,
-  SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8
+  SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8,
+  SUSCAN_SOURCE_FORMAT_RAW_SIGNED16,
+  SUSCAN_SOURCE_FORMAT_RAW_SIGNED8
 };
+
+#define SUSCAN_SOURCE_FORMAT_FALLBACK SUSCAN_SOURCE_FORMAT_RAW_FLOAT32
 
 struct suscan_source_gain_value {
   const struct suscan_source_gain_desc *desc;
@@ -263,6 +277,7 @@ SUSCAN_SERIALIZABLE(suscan_source_config) {
   SUBOOL  iq_balance;
   SUBOOL  dc_remove;
   SUFLOAT ppm;
+  struct timeval start_time;
   unsigned int samp_rate;
   unsigned int average;
 
@@ -345,6 +360,10 @@ SUBOOL suscan_source_config_get_loop(const suscan_source_config_t *config);
 void suscan_source_config_set_loop(suscan_source_config_t *config, SUBOOL loop);
 
 const char *suscan_source_config_get_path(const suscan_source_config_t *config);
+SUBOOL suscan_source_config_file_is_valid(const suscan_source_config_t *self);
+SUBOOL suscan_source_config_get_end_time(
+  const suscan_source_config_t *self,
+  struct timeval *tv);
 SUBOOL suscan_source_config_set_path(
     suscan_source_config_t *config,
     const char *path);
@@ -406,10 +425,16 @@ SUBOOL suscan_source_config_set_gain(
     SUFLOAT value);
 
 SUFLOAT suscan_source_config_get_ppm(const suscan_source_config_t *config);
-
 void suscan_source_config_set_ppm(
     suscan_source_config_t *config,
     SUFLOAT ppm);
+
+void suscan_source_config_get_start_time(
+  const suscan_source_config_t *config,
+  struct timeval *tv);
+void suscan_source_config_set_start_time(
+    suscan_source_config_t *config,
+    struct timeval tv);
 
 SUBOOL suscan_source_config_set_device(
     suscan_source_config_t *config,
@@ -452,13 +477,27 @@ void suscan_source_config_destroy(suscan_source_config_t *);
 /****************************** Source API ***********************************/
 struct suscan_source {
   suscan_source_config_t *config; /* Source may alter configuration! */
-  SUBOOL capturing;
-  SUBOOL soft_dc_correction;
-  SUBOOL soft_iq_balance;
+  SUBOOL   capturing;
+  SUBOOL   soft_dc_correction;
+  SUBOOL   soft_iq_balance;
+  SUBOOL   looped;
+  SUSCOUNT total_samples;
+  SUSCOUNT seek_request;
+
   SUSDIFF (*read) (
         struct suscan_source *source,
         SUCOMPLEX *buffer,
         SUSCOUNT max);
+  void    (*get_time) (
+        struct suscan_source *source,
+        struct timeval *tv);
+
+  SUBOOL  (*seek) (
+        struct suscan_source *source,
+        SUSCOUNT samples);
+
+  SUSDIFF (*max_size) (
+        const struct suscan_source *source);
 
   /* File sources are accessed through a soundfile handle */
   SNDFILE *sf;
@@ -514,6 +553,41 @@ SUSDIFF suscan_source_read(
     SUCOMPLEX *buffer,
     SUSCOUNT max);
 
+void suscan_source_get_time(suscan_source_t *self, struct timeval *tv);
+
+SUSCOUNT suscan_source_get_consumed_samples(const suscan_source_t *self);
+SUBOOL   suscan_source_seek(suscan_source_t *self, SUSCOUNT);
+SUSDIFF  suscan_source_get_max_size(const suscan_source_t *self);
+SUSCOUNT suscan_source_get_base_samp_rate(const suscan_source_t *self);
+void     suscan_source_get_end_time(
+  const suscan_source_t *self, 
+  struct timeval *tv);
+
+SUINLINE void 
+suscan_source_get_start_time(
+  const suscan_source_t *self,
+  struct timeval *tv)
+{
+  suscan_source_config_get_start_time(self->config, tv);
+}
+
+SUINLINE void 
+suscan_source_set_start_time(
+  suscan_source_t *self,
+  struct timeval tv)
+{
+  suscan_source_config_set_start_time(self->config, tv);
+}
+
+SUINLINE SUBOOL
+suscan_source_has_looped(suscan_source_t *self)
+{
+  SUBOOL looped = self->looped;
+  self->looped = SU_FALSE;
+
+  return looped;
+}
+
 SUINLINE enum suscan_source_type
 suscan_source_get_type(const suscan_source_t *src)
 {
@@ -560,6 +634,35 @@ suscan_source_config_set_param(
   /* DANGER */
 
   return SU_TRUE;
+}
+
+SUINLINE SUBOOL
+suscan_source_config_walk_params(
+  const suscan_source_config_t *self,
+  SUBOOL (*callback) (
+    const suscan_source_config_t *self,
+    const char *key,
+    const char *value,
+    void *userdata),
+  void *userdata)
+{
+  size_t i;
+
+  for (i = 0; i < self->soapy_args->size; ++i)
+    if (!(callback) (
+      self, 
+      self->soapy_args->keys[i], 
+      self->soapy_args->vals[i],
+      userdata))
+      return SU_FALSE;
+
+  return SU_TRUE;
+}
+
+SUINLINE void
+suscan_source_config_clear_params(suscan_source_config_t *self)
+{
+  SoapySDRKwargs_clear(self->soapy_args);
 }
 
 SUINLINE SUBOOL

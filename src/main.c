@@ -11,11 +11,10 @@
 #include <getopt.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/select.h>
+#include <util/compat-select.h>
 
 #include <confdb.h>
 #include <suscan.h>
-#include <codec/codec.h>
 #include <analyzer/version.h>
 
 SUPRIVATE struct option long_options[] = {
@@ -95,14 +94,6 @@ main(int argc, char *argv[], char *envp[])
 
   if (!suscan_sigutils_init(SUSCAN_MODE_DELAYED_LOG)) {
     fprintf(stderr, "%s: failed to initialize sigutils library\n", argv[0]);
-    goto done;
-  }
-
-  if (!suscan_codec_class_register_builtin()) {
-    fprintf(
-        stderr,
-        "%s: failed to initialize builtin codecs\n",
-        argv[0]);
     goto done;
   }
 

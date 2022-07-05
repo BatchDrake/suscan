@@ -351,6 +351,9 @@ suscan_fsk_inspector_feed(
 
     last = const_gain;
 
+    /* Save for subcarrier inspection */
+    suscan_inspector_feed_sc_sample(insp, SU_C_ARG(det_x));
+
     /* Add matched filter, if enabled */
     if (fsk_insp->cur_params.mf.mf_conf == SUSCAN_INSPECTOR_MATCHED_FILTER_MANUAL)
       det_x = su_iir_filt_feed(&fsk_insp->mf, det_x);
@@ -383,6 +386,7 @@ suscan_fsk_inspector_close(void *private)
 SUPRIVATE struct suscan_inspector_interface iface = {
     .name = "fsk",
     .desc = "FSK inspector",
+    .sc_factory_class = "sc-inspector",
     .open = suscan_fsk_inspector_open,
     .get_config = suscan_fsk_inspector_get_config,
     .parse_config = suscan_fsk_inspector_parse_config,

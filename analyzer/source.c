@@ -17,6 +17,8 @@
 
 */
 
+#define _DEFAULT_SOURCE
+
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -32,6 +34,15 @@
 #include <sigutils/taps.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <util/compat-time.h>
+
+#ifdef _WIN32
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#  if defined(interface)
+#    undef interface
+#  endif /* interface */
+#endif /* _WIN32 */
 
 #ifdef _SU_SINGLE_PRECISION
 #  define sf_read sf_read_float
@@ -47,6 +58,9 @@
 
 /* Private config list */
 PTR_LIST(SUPRIVATE suscan_source_config_t, config);
+
+SUPRIVATE const char *suscan_source_config_helper_format_to_str(
+  enum suscan_source_format type);
 
 /***************************** Source Config API *****************************/
 
@@ -310,6 +324,179 @@ suscan_source_config_get_path(const suscan_source_config_t *config)
   return config->path;
 }
 
+SUPRIVATE SNDFILE *
+suscan_source_config_open_file_raw(
+  const suscan_source_config_t *self,
+  int sf_format,
+  SF_INFO *sf_info)
+{
+  SNDFILE *sf = NULL;
+
+  memset(sf_info, 0, sizeof(SF_INFO));
+
+  sf_info->format = SF_FORMAT_RAW | sf_format | SF_ENDIAN_LITTLE;
+  sf_info->channels = 2;
+  sf_info->samplerate = self->samp_rate;
+
+  if ((sf = sf_open(
+      self->path,
+      SFM_READ,
+      sf_info)) == NULL) {
+    SU_ERROR(
+        "Failed to open %s as raw file: %s\n",
+        self->path,
+        sf_strerror(NULL));
+  }
+  
+  return sf;
+}
+
+SUPRIVATE const char *
+suscan_source_config_helper_sf_format_to_str(int format)
+{
+  SF_FORMAT_INFO info;
+  int i, count;
+
+  sf_command(NULL, SFC_GET_FORMAT_SUBTYPE_COUNT, &count, sizeof (int)) ;
+
+  for (i = 0; i < count; ++i) {
+    info.format = i;
+
+    if (sf_command(NULL, SFC_GET_FORMAT_SUBTYPE, &info, sizeof(SF_FORMAT_INFO)) == 0)
+      if (info.format == format)
+        return info.name;
+  }
+
+  return "Unknown format";
+}
+
+SUPRIVATE SNDFILE *
+suscan_source_config_sf_open(const suscan_source_config_t *self, SF_INFO *sf_info)
+{
+  SNDFILE *sf = NULL;
+  const char *p;
+  int guessed = -1;
+
+ if (self->path == NULL) {
+    SU_ERROR("Cannot open file source: path not set\n");
+    return NULL;
+  }
+
+  /* Make sure we start on a known state */
+  memset(sf_info, 0, sizeof(SF_INFO));
+
+  switch (self->format) {
+    case SUSCAN_SOURCE_FORMAT_WAV:
+    case SUSCAN_SOURCE_FORMAT_AUTO:
+      /* Autodetect: open as wav and, if failed, attempt to open as raw */
+      sf_info->format = 0;
+      if ((sf = sf_open(
+          self->path,
+          SFM_READ,
+          sf_info)) != NULL) {
+        SU_INFO(
+            "WAV file source opened, sample rate = %d\n",
+            sf_info->samplerate);
+        break;
+      } else if (self->format == SUSCAN_SOURCE_FORMAT_WAV) {
+        SU_ERROR(
+            "Failed to open %s as audio file: %s\n",
+            self->path,
+            sf_strerror(NULL));
+        return NULL;
+      } else {
+        /* Guess by extension */
+        if ((p = strrchr(self->path, '.')) != NULL) {
+          ++p;
+          if (strcasecmp(p, "cu8") == 0 || strcasecmp(p, "u8") == 0)
+            guessed = SF_FORMAT_PCM_U8;
+          else if (strcasecmp(p, "cs16") == 0 || strcasecmp(p, "s16") == 0)
+            guessed = SF_FORMAT_PCM_16;
+          else if (strcasecmp(p, "cf32") == 0 || strcasecmp(p, "raw") == 0)
+            guessed = SF_FORMAT_FLOAT;
+        }
+
+        if (guessed == -1) {
+          guessed = SUSCAN_SOURCE_FORMAT_FALLBACK;
+          SU_INFO(
+            "Unrecognized file extension (%s), assuming %s\n", 
+            p,
+            suscan_source_config_helper_sf_format_to_str(guessed));
+        } else {
+          SU_INFO(
+            "Data format detected: %s\n",
+            suscan_source_config_helper_sf_format_to_str(guessed));
+        }
+
+        sf = suscan_source_config_open_file_raw(self, guessed, sf_info);
+      }
+      break;
+
+    case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
+      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_FLOAT, sf_info);
+      break;
+
+    case SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8:
+      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_PCM_U8, sf_info);
+      break;
+
+    case SUSCAN_SOURCE_FORMAT_RAW_SIGNED16:
+      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_PCM_16, sf_info);
+      break;
+    
+    case SUSCAN_SOURCE_FORMAT_RAW_SIGNED8:
+      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_PCM_S8, sf_info);
+      break;
+  }
+
+  return sf;
+}
+
+SUBOOL
+suscan_source_config_file_is_valid(const suscan_source_config_t *self)
+{
+  SUBOOL ok = SU_FALSE;
+  SNDFILE *sf = NULL;
+  SF_INFO sf_info;
+
+  if ((sf = suscan_source_config_sf_open(self, &sf_info)) != NULL) {
+    sf_close(sf);
+    ok = SU_TRUE;
+  }
+
+  return ok;
+}
+
+SUBOOL
+suscan_source_config_get_end_time(
+  const suscan_source_config_t *self,
+  struct timeval *tv)
+{
+  SUBOOL ok = SU_FALSE;
+  SNDFILE *sf = NULL;
+  SF_INFO sf_info;
+  struct timeval start, elapsed = {0, 0};
+  SUSDIFF max_size;
+
+  if ((sf = suscan_source_config_sf_open(self, &sf_info)) != NULL) {
+    sf_close(sf);
+    suscan_source_config_get_start_time(self, &start);
+
+    max_size = sf_info.frames - 1;
+    if (max_size >= 0) {
+      elapsed.tv_sec  = max_size / self->samp_rate;
+      elapsed.tv_usec = (1000000 
+      * (max_size - elapsed.tv_sec * self->samp_rate))
+      / self->samp_rate;
+    }
+
+    timeradd(&start, &elapsed, tv);
+    ok = SU_TRUE;
+  }
+
+  return ok;
+}
+
 SUBOOL
 suscan_source_config_set_path(suscan_source_config_t *config, const char *path)
 {
@@ -558,6 +745,22 @@ void suscan_source_config_set_ppm(suscan_source_config_t *config, SUFLOAT ppm)
   config->ppm = ppm;
 }
 
+void 
+suscan_source_config_get_start_time(
+  const suscan_source_config_t *config,
+  struct timeval *tv)
+{
+  *tv = config->start_time; 
+}
+
+void 
+suscan_source_config_set_start_time(
+    suscan_source_config_t *config,
+    struct timeval tv)
+{
+  config->start_time = tv;
+}
+
 SUPRIVATE SUBOOL
 suscan_source_config_set_gains_from_device(
     suscan_source_config_t *config,
@@ -597,11 +800,12 @@ done:
   if (gain != NULL)
     suscan_source_gain_value_destroy(gain);
 
-  for (i = 0; i < gain_count; ++i)
-    suscan_source_gain_value_destroy(gain_list[i]);
+  if (gain_list != NULL) {
+    for (i = 0; i < gain_count; ++i)
+      suscan_source_gain_value_destroy(gain_list[i]);
 
-  if (gain_list != NULL)
     free(gain_list);
+  }
 
   return ok;
 }
@@ -689,6 +893,8 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
   SUSCAN_PACK(bool,  self->iq_balance);
   SUSCAN_PACK(bool,  self->dc_remove);
   SUSCAN_PACK(float, self->ppm);
+  SUSCAN_PACK(uint,  self->start_time.tv_sec);
+  SUSCAN_PACK(uint,  self->start_time.tv_usec);
   SUSCAN_PACK(uint,  self->samp_rate);
   SUSCAN_PACK(uint,  self->average);
   SUSCAN_PACK(bool,  self->loop);
@@ -755,6 +961,8 @@ suscan_source_config_deserialize_ex(
   struct suscan_source_gain_value *gain = NULL;
   suscan_source_device_t *device = NULL;
   SoapySDRKwargs args;
+  uint64_t sec = 0;
+  uint32_t usec = 0;
   char *type = NULL;
   char *iface = NULL;
 
@@ -762,9 +970,9 @@ suscan_source_config_deserialize_ex(
   char *desc = NULL;
 
   char *host = NULL;
-  uint16_t port;
+  uint16_t port = 0;
   char port_str[8];
-  unsigned int gain_count, i;
+  unsigned int gain_count = 0, i;
 
   memset(&args, 0, sizeof (SoapySDRKwargs));
   memset(&gain_desc, 0, sizeof (struct suscan_source_gain_desc));
@@ -801,6 +1009,12 @@ suscan_source_config_deserialize_ex(
   SUSCAN_UNPACK(bool,   self->iq_balance);
   SUSCAN_UNPACK(bool,   self->dc_remove);
   SUSCAN_UNPACK(float,  self->ppm);
+  SUSCAN_UNPACK(uint64, sec);
+  SUSCAN_UNPACK(uint32, usec);
+
+  self->start_time.tv_sec  = sec;
+  self->start_time.tv_usec = usec;
+
   SUSCAN_UNPACK(uint32, self->samp_rate);
   SUSCAN_UNPACK(uint32, self->average);
 
@@ -926,6 +1140,8 @@ suscan_source_config_new(
   new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
   new->loop = SU_TRUE;
   
+  gettimeofday(&new->start_time, NULL);
+
   SU_TRYCATCH(new->soapy_args = calloc(1, sizeof(SoapySDRKwargs)), goto fail);
 
   SU_TRYCATCH(suscan_source_get_null_device() != NULL, goto fail);
@@ -1031,7 +1247,8 @@ suscan_source_config_clone(const suscan_source_config_t *config)
             config->hidden_gain_list[i]->val),
         goto fail);
 
-  if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_SDR) {
+  if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_SDR 
+  || suscan_source_config_is_remote(config)) {
     for (i = 0; i < config->soapy_args->size; ++i) {
       /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
       SoapySDRKwargs_set(
@@ -1053,6 +1270,7 @@ suscan_source_config_clone(const suscan_source_config_t *config)
   new->channel = config->channel;
   new->loop = config->loop;
   new->device = config->device;
+  new->start_time = config->start_time;
 
   return new;
 
@@ -1103,6 +1321,12 @@ suscan_source_config_helper_format_to_str(enum suscan_source_format type)
     case SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8:
       return "RAW_UNSIGNED8";
 
+    case SUSCAN_SOURCE_FORMAT_RAW_SIGNED16:
+      return "RAW_SIGNED16";
+
+    case SUSCAN_SOURCE_FORMAT_RAW_SIGNED8:
+      return "RAW_SIGNED8";
+
     case SUSCAN_SOURCE_FORMAT_WAV:
       return "WAV";
   }
@@ -1122,6 +1346,10 @@ suscan_source_type_config_helper_str_to_format(const char *format)
       return SUSCAN_SOURCE_FORMAT_RAW_FLOAT32;
     else if (strcasecmp(format, "RAW_UNSIGNED8") == 0)
       return SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8;
+    else if (strcasecmp(format, "RAW_SIGNED16") == 0)
+      return SUSCAN_SOURCE_FORMAT_RAW_SIGNED16;
+    else if (strcasecmp(format, "RAW_SIGNED8") == 0)
+      return SUSCAN_SOURCE_FORMAT_RAW_SIGNED8;
     else if (strcasecmp(format, "WAV") == 0)
       return SUSCAN_SOURCE_FORMAT_WAV;
   }
@@ -1182,6 +1410,7 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   SU_CFGSAVE(bool,  iq_balance);
   SU_CFGSAVE(bool,  dc_remove);
   SU_CFGSAVE(float, ppm);
+  SU_CFGSAVE(tv,    start_time);
   SU_CFGSAVE(bool,  loop);
   SU_CFGSAVE(uint,  samp_rate);
   SU_CFGSAVE(uint,  average);
@@ -1190,7 +1419,8 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   /* Save SoapySDR kwargs */
   SU_TRYCATCH(obj = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
 
-  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR) {
+  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR
+    || suscan_source_config_is_remote(cfg)) {
     for (i = 0; i < cfg->soapy_args->size; ++i)
       SU_TRYCATCH(
           suscan_object_set_field_value(
@@ -1206,7 +1436,8 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   /* Save gains */
   SU_TRYCATCH(obj = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
 
-  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR) {
+  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR
+    || suscan_source_config_is_remote(cfg)) {
     /* Save visible gains */
     for (i = 0; i < cfg->gain_count; ++i)
       SU_TRYCATCH(
@@ -1247,10 +1478,13 @@ suscan_source_config_from_object(const suscan_object_t *object)
   suscan_source_config_t *new = NULL;
   suscan_source_device_t *device = NULL;
   suscan_object_t *obj, *entry = NULL;
+  struct timeval default_time;
   unsigned int i, count;
   SUFLOAT val;
 
   const char *tmp;
+
+  gettimeofday(&default_time, NULL);
 
 #define SU_CFGLOAD(kind, field, dfl)                            \
         JOIN(suscan_source_config_set_, field)(                 \
@@ -1294,6 +1528,7 @@ suscan_source_config_from_object(const suscan_object_t *object)
   SU_CFGLOAD(bool,  iq_balance, SU_FALSE);
   SU_CFGLOAD(bool,  dc_remove, SU_FALSE);
   SU_CFGLOAD(float, ppm, 0);
+  SU_CFGLOAD(tv,    start_time, &default_time);
   SU_CFGLOAD(bool,  loop, SU_FALSE);
   SU_CFGLOAD(uint,  samp_rate, 1.8e6);
   SU_CFGLOAD(uint,  channel, 0);
@@ -1301,7 +1536,8 @@ suscan_source_config_from_object(const suscan_object_t *object)
   SU_TRYCATCH(SU_CFGLOAD(uint, average, 1), goto fail);
 
   /* Set SDR args and gains, ONLY if this is a SDR source */
-  if (suscan_source_config_get_type(new) == SUSCAN_SOURCE_TYPE_SDR) {
+  if (suscan_source_config_get_type(new) == SUSCAN_SOURCE_TYPE_SDR
+    || suscan_source_config_is_remote(new)) {
     if ((obj = suscan_object_get_field(object, "sdr_args")) != NULL)
       if (suscan_object_get_type(obj) == SUSCAN_OBJECT_TYPE_OBJECT) {
         count = suscan_object_field_count(obj);
@@ -1491,73 +1727,16 @@ suscan_source_feed_decimator(
 #undef IF_DONE_PRODUCE_SAMPLE
 
 SUPRIVATE SUBOOL
-suscan_source_open_file_raw(suscan_source_t *source, int sf_format)
+suscan_source_open_file(suscan_source_t *self)
 {
-  source->sf_info.format = SF_FORMAT_RAW | sf_format | SF_ENDIAN_LITTLE;
-  source->sf_info.channels = 2;
-  source->sf_info.samplerate = source->config->samp_rate;
-  if ((source->sf = sf_open(
-      source->config->path,
-      SFM_READ,
-      &source->sf_info)) == NULL) {
-    source->config->samp_rate = source->sf_info.samplerate;
-    SU_ERROR(
-        "Failed to open %s as raw file: %s\n",
-        source->config->path,
-        sf_strerror(NULL));
-    return SU_FALSE;
-  }
-  return SU_TRUE;
-}
-
-SUPRIVATE SUBOOL
-suscan_source_open_file(suscan_source_t *source)
-{
-  if (source->config->path == NULL) {
-    SU_ERROR("Cannot open file source: path not set\n");
-    return SU_FALSE;
+  if ((self->sf = suscan_source_config_sf_open(
+    self->config, 
+    &self->sf_info)) != NULL) {
+    self->config->samp_rate = self->samp_rate = self->sf_info.samplerate;
+    self->iq_file   = self->sf_info.channels == 2;
   }
 
-  switch (source->config->format) {
-    case SUSCAN_SOURCE_FORMAT_WAV:
-    case SUSCAN_SOURCE_FORMAT_AUTO:
-      /* Autodetect: open as wav and, if failed, attempt to open as raw */
-      source->sf_info.format = 0;
-      if ((source->sf = sf_open(
-          source->config->path,
-          SFM_READ,
-          &source->sf_info)) != NULL) {
-        source->config->samp_rate = source->sf_info.samplerate;
-        SU_INFO(
-            "Audio file source opened, sample rate = %d\n",
-            source->config->samp_rate);
-        break;
-      } else if (source->config->format == SUSCAN_SOURCE_FORMAT_WAV) {
-        SU_ERROR(
-            "Failed to open %s as audio file: %s\n",
-            source->config->path,
-            sf_strerror(NULL));
-        return SU_FALSE;
-      } else {
-        SU_INFO("Failed to open source as audio file, falling back to raw...\n");
-      }
-      /* No, not an error. There is no break here. */
-
-    case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
-      if (!suscan_source_open_file_raw(source, SF_FORMAT_FLOAT))
-          return SU_FALSE;
-      break;
-
-    case SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8:
-      if (!suscan_source_open_file_raw(source, SF_FORMAT_PCM_U8))
-          return SU_FALSE;
-      break;
-  }
-
-  source->samp_rate = source->config->samp_rate;
-  source->iq_file = source->sf_info.channels == 2;
-
-  return SU_TRUE;
+  return self->sf != NULL;
 }
 
 SUPRIVATE SUBOOL
@@ -1608,6 +1787,7 @@ SUPRIVATE SUBOOL
 suscan_source_open_sdr(suscan_source_t *source)
 {
   unsigned int i;
+  char *antenna = NULL;
 
   if ((source->sdr = SoapySDRDevice_make(source->config->soapy_args)) == NULL) {
     SU_ERROR("Failed to open SDR device: %s\n", SoapySDRDevice_lastError());
@@ -1741,40 +1921,49 @@ suscan_source_open_sdr(suscan_source_t *source)
       SOAPY_SDR_RX,
       0);
 
+  if ((antenna = SoapySDRDevice_getAntenna(
+    source->sdr,
+    SOAPY_SDR_RX,
+    0)) != NULL) {
+    (void) suscan_source_config_set_antenna(source->config, antenna);
+    free(antenna);
+  }
+
   return SU_TRUE;
 }
 
 SUPRIVATE SUSDIFF
-suscan_source_read_file(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
+suscan_source_read_file(suscan_source_t *self, SUCOMPLEX *buf, SUSCOUNT max)
 {
   SUFLOAT *as_real;
   int got, i;
   unsigned int real_count;
 
-  if (source->force_eos)
+  if (self->force_eos)
     return 0;
 
   if (max > SUSCAN_SOURCE_DEFAULT_BUFSIZ)
     max = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
 
-  real_count = max * (source->iq_file ? 2 : 1);
+  real_count = max * (self->iq_file ? 2 : 1);
 
   as_real = (SUFLOAT *) buf;
 
-  got = sf_read(source->sf, as_real, real_count);
+  got = sf_read(self->sf, as_real, real_count);
 
-  if (got == 0 && source->config->loop) {
-    if (sf_seek(source->sf, 0, SEEK_SET) == -1) {
+  if (got == 0 && self->config->loop) {
+    if (sf_seek(self->sf, 0, SEEK_SET) == -1) {
       SU_ERROR("Failed to seek to the beginning of the stream\n");
       return 0;
     }
-
-    got = sf_read(source->sf, as_real, real_count);
+    self->looped = SU_TRUE;
+    self->total_samples = 0;
+    got = sf_read(self->sf, as_real, real_count);
   }
 
   if (got > 0) {
     /* Real data mode: iteratively cast to complex */
-    if (source->sf_info.channels == 1) {
+    if (self->sf_info.channels == 1) {
       for (i = got - 1; i >= 0; --i)
         buf[i] = as_real[i];
     } else {
@@ -1783,6 +1972,59 @@ suscan_source_read_file(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
   }
 
   return got;
+}
+
+SUPRIVATE void
+suscan_source_get_time_file(struct suscan_source *self, struct timeval *tv)
+{
+  struct timeval elapsed;
+  SUSCOUNT samp_count = self->total_samples;
+
+  elapsed.tv_sec  = samp_count / self->config->samp_rate;
+  elapsed.tv_usec = 
+    (1000000 
+      * (samp_count - elapsed.tv_sec * self->config->samp_rate))
+      / self->config->samp_rate;
+
+  timeradd(&self->config->start_time, &elapsed, tv);
+}
+
+void
+suscan_source_get_end_time(
+  const suscan_source_t *self,
+  struct timeval *tv)
+{
+  struct timeval start, elapsed = {0, 0};
+  SUSDIFF max_size;
+
+  suscan_source_get_start_time(self, &start);
+
+  max_size = suscan_source_get_max_size(self) - 1;
+  if (max_size >= 0) {
+    elapsed.tv_sec  = max_size / self->config->samp_rate;
+    elapsed.tv_usec = (1000000 
+      * (max_size - elapsed.tv_sec * self->config->samp_rate))
+      / self->config->samp_rate;
+  }
+
+  timeradd(&start, &elapsed, tv);
+}
+
+SUPRIVATE SUBOOL
+suscan_source_seek_file(struct suscan_source *self, SUSCOUNT pos)
+{
+  if (sf_seek(self->sf, pos, SEEK_SET) == -1)
+    return SU_FALSE;
+
+  self->total_samples = pos;
+
+  return SU_TRUE;
+}
+
+SUPRIVATE SUSDIFF
+suscan_source_max_size_file(const struct suscan_source *self)
+{
+  return self->sf_info.frames;
 }
 
 SUPRIVATE SUSDIFF
@@ -1826,32 +2068,82 @@ suscan_source_read_sdr(suscan_source_t *source, SUCOMPLEX *buf, SUSCOUNT max)
   return result;
 }
 
+SUPRIVATE void
+suscan_source_time_sdr(struct suscan_source *source, struct timeval *tv)
+{
+  /* TODO: Adjust sampling delay? */
+  gettimeofday(tv, NULL);
+}
+
 SUSDIFF
-suscan_source_read(suscan_source_t *source, SUCOMPLEX *buffer, SUSCOUNT max)
+suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 {
   SUSDIFF got;
   SUSCOUNT result;
-  SU_TRYCATCH(source->capturing, return SU_FALSE);
+  
+  if (!self->capturing)
+    return 0;
 
-  if (source->read == NULL) {
+  if (self->read == NULL) {
     SU_ERROR("Signal source has no read() operation\n");
     return -1;
   }
 
-  if (source->decim > 1) {
+  if (self->decim > 1) {
     if (max > SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE)
       max = SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE;
 
     do {
-      if ((got = (source->read) (source, buffer, max)) < 1)
+      if ((got = (self->read) (self, buffer, max)) < 1)
         return got;
-      result = suscan_source_feed_decimator(source, buffer, got);
+      self->total_samples += got;
+      result = suscan_source_feed_decimator(self, buffer, got);
     } while (result == 0);
 
-    memcpy(buffer, source->decim_buf, result * sizeof(SUCOMPLEX));
+    memcpy(buffer, self->decim_buf, result * sizeof(SUCOMPLEX));
+  } else {
+    result = (self->read) (self, buffer, max);
+    if (result > 0)
+      self->total_samples += result;
+  }
 
-    return result;
-  } else return (source->read) (source, buffer, max);
+  return result;
+}
+
+void 
+suscan_source_get_time(suscan_source_t *self, struct timeval *tv)
+{
+  (self->get_time) (self, tv);
+}
+
+SUSCOUNT 
+suscan_source_get_consumed_samples(const suscan_source_t *self)
+{
+  return self->total_samples;
+}
+
+SUBOOL
+suscan_source_seek(suscan_source_t *self, SUSCOUNT pos)
+{
+  if (self->seek == NULL)
+    return SU_FALSE;
+
+  return (self->seek) (self, pos);
+}
+
+SUSDIFF
+suscan_source_get_max_size(const suscan_source_t *self)
+{
+  if (self->max_size == NULL)
+    return -1;
+
+  return (self->max_size) (self);
+}
+
+SUSCOUNT 
+suscan_source_get_base_samp_rate(const suscan_source_t *self)
+{
+  return self->config->samp_rate;
 }
 
 SUBOOL
@@ -1982,14 +2274,14 @@ suscan_source_set_gain(suscan_source_t *source, const char *name, SUFLOAT val)
 SUBOOL
 suscan_source_set_antenna(suscan_source_t *source, const char *name)
 {
+  char *antenna = NULL;
+  SUBOOL ok = SU_FALSE;
+
   if (!source->capturing)
     return SU_FALSE;
 
   if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
     return SU_FALSE;
-
-  /* Update config */
-  suscan_source_config_set_antenna(source->config, name);
 
   /* Set device frequency */
   if (SoapySDRDevice_setAntenna(
@@ -2001,10 +2293,22 @@ suscan_source_set_antenna(suscan_source_t *source, const char *name)
         "Failed to set SDR antenna `%s': %s\n",
         name,
         SoapySDRDevice_lastError());
-    return SU_FALSE;
+    goto done;
   }
 
-  return SU_TRUE;
+  ok = SU_TRUE;
+
+done:
+  antenna = SoapySDRDevice_getAntenna(
+    source->sdr,
+    SOAPY_SDR_RX,
+    source->config->channel);
+  if (antenna != NULL) {
+    suscan_source_config_set_antenna(source->config, antenna);
+    free(antenna);
+  }
+
+  return ok;
 }
 
 SUBOOL
@@ -2130,7 +2434,7 @@ suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb)
     return SU_FALSE;
 
   if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
-    return SU_FALSE;
+    return SU_TRUE;
 
   /* Update config */
   suscan_source_config_set_freq(source->config, freq);
@@ -2199,12 +2503,16 @@ suscan_source_new(suscan_source_config_t *config)
   switch (new->config->type) {
     case SUSCAN_SOURCE_TYPE_FILE:
       SU_TRYCATCH(suscan_source_open_file(new), goto fail);
-      new->read = suscan_source_read_file;
+      new->read     = suscan_source_read_file;
+      new->get_time = suscan_source_get_time_file;
+      new->seek     = suscan_source_seek_file;
+      new->max_size = suscan_source_max_size_file;
       break;
 
     case SUSCAN_SOURCE_TYPE_SDR:
       SU_TRYCATCH(suscan_source_open_sdr(new), goto fail);
-      new->read = suscan_source_read_sdr;
+      new->read     = suscan_source_read_sdr;
+      new->get_time = suscan_source_time_sdr;
       break;
 
     default:
@@ -2328,6 +2636,25 @@ SUBOOL
 suscan_init_sources(void)
 {
   const char *mcif;
+
+#ifdef _WIN32
+  WORD wVersionRequested;
+  WSADATA wsaData;
+  int err;
+
+  wVersionRequested = MAKEWORD(2, 2);
+
+  err = WSAStartup(wVersionRequested, &wsaData);
+  if (err != 0) {
+    SU_ERROR(
+      "WSAStartup failed with error %d: network function will not work\n", 
+      err);
+  } else if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+    SU_ERROR(
+      "Requested version of the Winsock API (2.2) is not available\n");
+    WSACleanup();
+  }
+#endif /* _WIN32 */
 
   /* TODO: Register analyzer interfaces? */
   SU_TRYCATCH(suscan_source_device_preinit(), return SU_FALSE);

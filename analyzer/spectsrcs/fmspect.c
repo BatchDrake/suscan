@@ -54,16 +54,6 @@ suscan_spectsrc_fmspect_preproc(
   return SU_TRUE;
 }
 
-SUBOOL
-suscan_spectsrc_fmspect_postproc(
-    suscan_spectsrc_t *src,
-    void *private,
-    SUCOMPLEX *buffer,
-    SUSCOUNT size)
-{
-  return SU_TRUE;
-}
-
 void
 suscan_spectsrc_fmspect_dtor(void *private)
 {
@@ -78,7 +68,6 @@ suscan_spectsrc_fmspect_register(void)
     .desc = "FM baseband spectrum",
     .ctor = suscan_spectsrc_fmspect_ctor,
     .preproc  = suscan_spectsrc_fmspect_preproc,
-    .postproc = suscan_spectsrc_fmspect_postproc,
     .dtor = suscan_spectsrc_fmspect_dtor
   };
 

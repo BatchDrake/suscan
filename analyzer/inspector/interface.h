@@ -22,7 +22,6 @@
 
 #include <util.h>
 #include <sigutils/sigutils.h>
-#include <sigutils/specttuner.h>
 #include <cfg.h>
 
 #include "../estimator.h"
@@ -31,16 +30,17 @@
 struct suscan_inspector;
 
 struct suscan_inspector_sampling_info {
-  su_specttuner_channel_t *schan; /* Borrowed: specttuner channel */
-  SUFLOAT equiv_fs;    /* Equivalent sample rate */
-  SUFLOAT bw;          /* Bandwidth */
-  SUFLOAT f0;
+  SUFLOAT equiv_fs;        /* Equivalent sample rate */
+  SUFLOAT bw;              /* Bandwidth */
+  SUFLOAT bw_bd;           /* Bandwidth before decimation */
+  SUFLOAT f0;              /* Center frequency */
 };
 
-
 struct suscan_inspector_interface {
-  const char *name;
-  const char *desc;
+  const char *name;               /* Name of this inspector interface */
+  const char *desc;               /* Description */
+  const char *sc_factory_class;   /* Factory class (if any) */
+
   suscan_config_desc_t *cfgdesc;
 
   PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc);

@@ -75,16 +75,6 @@ suscan_spectsrc_abstimediff_preproc(
   return SU_TRUE;
 }
 
-SUBOOL
-suscan_spectsrc_timediff_postproc(
-    suscan_spectsrc_t *src,
-    void *private,
-    SUCOMPLEX *buffer,
-    SUSCOUNT size)
-{
-  return SU_TRUE;
-}
-
 void
 suscan_spectsrc_timediff_dtor(void *private)
 {
@@ -99,7 +89,6 @@ suscan_spectsrc_timediff_register(void)
     .desc = "Time derivative",
     .ctor = suscan_spectsrc_timediff_ctor,
     .preproc  = suscan_spectsrc_timediff_preproc,
-    .postproc = suscan_spectsrc_timediff_postproc,
     .dtor = suscan_spectsrc_timediff_dtor
   };
 
@@ -108,7 +97,6 @@ suscan_spectsrc_timediff_register(void)
     .desc = "Absolute value of time derivative",
     .ctor = suscan_spectsrc_timediff_ctor,
     .preproc  = suscan_spectsrc_abstimediff_preproc,
-    .postproc = suscan_spectsrc_timediff_postproc,
     .dtor = suscan_spectsrc_timediff_dtor
   };
 

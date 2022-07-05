@@ -48,7 +48,7 @@ suscan_abi_check(unsigned int abi)
   if (abi != SUSCAN_ABI_VERSION) {
     fprintf(stderr, "*** SUSCAN CRITICAL LIBRARY ERROR ***\n");
     fprintf(stderr, "Expected ABI version (v%u) is incompatible with current\n", abi);
-    fprintf(stderr, "suscan ABI version (v%u).\n\n", SUSCAN_ABI_VERSION);
+    fprintf(stderr, "suscan ABI version (v%u).\n\n", (unsigned) SUSCAN_ABI_VERSION);
 
     if (abi < SUSCAN_ABI_VERSION) {
       fprintf(stderr, "The current suscan ABI version is too new compared to\n");
