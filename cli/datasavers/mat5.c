@@ -37,8 +37,9 @@ suscli_mat5_fopen(const char *path)
   struct tm tm;
   SUBOOL ok = SU_FALSE;
 
+  time(&now);
+  
   if (path == NULL || strlen(path) == 0) {
-    time(&now);
     gmtime_r(&now, &tm);
 
     SU_TRYCATCH(
