@@ -33,14 +33,14 @@ suscli_mat5_fopen(const char *path)
   su_mat_file_t *mf = NULL;
   su_mat_matrix_t *mtx = NULL;
   char *new_path = NULL;
-  time_t now;
+  struct timeval tv;
   struct tm tm;
   SUBOOL ok = SU_FALSE;
 
-  time(&now);
-  
+  gettimeofday(&tv, NULL);
+    
   if (path == NULL || strlen(path) == 0) {
-    gmtime_r(&now, &tm);
+    gmtime_r(&tv.tv_sec, &tm);
 
     SU_TRYCATCH(
         new_path = strbuild(
@@ -55,9 +55,17 @@ suscli_mat5_fopen(const char *path)
     path = new_path;
   }
 
+  /* 
+   * The goal of storing XT0 is that it is impossible to store a full timestemp
+   * (even just the seconds) into a float32. So, instead, we attempt to convert
+   * the current timestamp to its closest roundup value, store it, and use it as
+   * a timing reference. Samples are then stored with respect to this time, which
+   * may fall either in the past or the future.
+   */
+  
   SU_TRYCATCH(mf = su_mat_file_new(), goto fail);
   SU_TRYCATCH(mtx = su_mat_file_make_matrix(mf, "XT0", 1, 1), goto fail);
-  SU_TRYCATCH(su_mat_matrix_write_col(mtx, SU_ASFLOAT(now)), goto fail);
+  SU_TRYCATCH(su_mat_matrix_write_col(mtx, SU_ASFLOAT(tv.tv_sec)), goto fail);
   SU_TRYCATCH(su_mat_file_make_streaming_matrix(mf, "X", 4, 0), goto fail);
   SU_TRYCATCH(su_mat_file_get_matrix_by_handle(mf, 0) == mtx, goto fail);
   SU_TRYCATCH(su_mat_file_dump(mf, path), goto fail);
@@ -99,7 +107,7 @@ suscli_mat5_datasaver_write_cb(
   unsigned long T0;
   int i;
 
-  T0 = (unsigned long) su_mat_matrix_get(
+  T0 = (long) su_mat_matrix_get(
       su_mat_file_get_matrix_by_handle(mf, 0), 0, 0);
 
   for (i = 0; i < length; ++i) {
