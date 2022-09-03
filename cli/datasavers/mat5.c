@@ -104,7 +104,7 @@ suscli_mat5_datasaver_write_cb(
     size_t length)
 {
   su_mat_file_t *mf = (su_mat_file_t *) state;
-  unsigned long T0;
+  long T0;
   int i;
 
   T0 = (long) su_mat_matrix_get(
@@ -114,7 +114,7 @@ suscli_mat5_datasaver_write_cb(
     SU_TRYCATCH(
         su_mat_file_stream_col(
             mf,
-            SU_ASFLOAT(samples[i].timestamp.tv_sec - T0),
+            SU_ASFLOAT((long) samples[i].timestamp.tv_sec - (long) T0),
             SU_ASFLOAT(samples[i].timestamp.tv_usec * 1e-6),
             samples[i].value,
             SU_POWER_DB_RAW(samples[i].value)),
