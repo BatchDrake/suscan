@@ -142,8 +142,8 @@ suscli_rms_audio_start_cb(suscli_audio_player_t *self, void *userdata)
   SUBOOL ok = SU_FALSE;
 
   state->samp_rate = suscli_audio_player_samp_rate(self);
-
-  su_ncqo_set_freq(
+  
+  su_ncqo_init(
       &state->afo,
       SU_ABS2NORM_FREQ(
           state->samp_rate,
