@@ -112,6 +112,7 @@ struct suscli_rms_state {
 
   SUFLOAT prev_db;
   SUFLOAT curr_db;
+  SUFLOAT curr_db_copy;
 
   SUFLOAT freq1;
   SUFLOAT freq2;
@@ -178,8 +179,8 @@ suscli_rms_audio_play_cb(
 
       /* TODO: lock */
       if (state->rms_changed) {
+        db = state->curr_db_copy;
         state->rms_changed = SU_FALSE;
-        db = state->curr_db;
 
         if (state->params.scale > 0)
             db = state->params.scale * SU_FLOOR(db / state->params.scale);
@@ -193,7 +194,7 @@ suscli_rms_audio_play_cb(
             state->samp_per_short_beep = 0;
             state->freq1 = 0;
             state->freq2 = state->params.freq_min
-                * SU_C_EXP(state->params.k * normalized);
+                * SU_EXP(state->params.k * normalized);
             freq_changed = SU_TRUE;
             break;
 
@@ -201,7 +202,7 @@ suscli_rms_audio_play_cb(
             state->samp_per_beep_cycle = state->samp_per_long_beep;
             state->freq1 = state->params.freq_min;
             state->freq2 = state->params.freq_min
-                * SU_C_EXP(state->params.k * normalized);
+                * SU_EXP(state->params.k * normalized);
             break;
 
           case SUSCLI_RMSTONE_MODE_BEEPER:
@@ -219,7 +220,7 @@ suscli_rms_audio_play_cb(
             break;
         }
 
-        state->prev_db = state->curr_db;
+        state->prev_db = db;
       }
 
       if (!state->second_cycle) {
@@ -711,6 +712,7 @@ suscli_rms_on_data_cb(
   unsigned int j;
   SUFLOAT y, tmp;
   SUFLOAT measure;
+
   struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
   struct timeval tv;
 
@@ -723,9 +725,14 @@ suscli_rms_on_data_cb(
     if (++state->update_ctr >= state->samp_per_update) {
       measure = state->sum / state->update_ctr;
       state->curr_db = SU_POWER_DB(state->sum / state->update_ctr);
-      state->c = state->sum = state->update_ctr = 0;
-      state->rms_changed = SU_TRUE;
 
+      if (!state->rms_changed) {
+        state->rms_changed = SU_TRUE;
+        state->curr_db_copy = state->curr_db;
+      }
+
+      state->c = state->sum = state->update_ctr = 0;
+      
       /* Feed datasavers */
       for (j = 0; j < state->ds_count; ++j)
         if (state->ds_list[j] != NULL)
