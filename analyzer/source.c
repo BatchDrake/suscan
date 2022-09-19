@@ -1742,10 +1742,7 @@ suscan_source_open_file(suscan_source_t *self)
 SUPRIVATE SUBOOL
 suscan_source_set_sample_rate_near(suscan_source_t *source)
 {
-  double *rates = NULL;
-  unsigned int i;
   SUFLOAT closest_rate = 0;
-  SUFLOAT dist = INFINITY;
   SUBOOL ok = SU_FALSE;
 
   /*
@@ -1754,6 +1751,11 @@ suscan_source_set_sample_rate_near(suscan_source_t *source)
    * entire list.
    */
 
+#ifdef SUSCAN_SOURCE_OLD_RATE_MATCHING
+  double *rates = NULL;
+  unsigned int i;
+  SUFLOAT dist = INFINITY;
+  
   if (source->config->device == NULL
       || source->config->device->samp_rate_count == 0) {
     closest_rate = source->config->samp_rate;
@@ -1765,6 +1767,9 @@ suscan_source_set_sample_rate_near(suscan_source_t *source)
         closest_rate = rates[i];
       }
   }
+#else
+  closest_rate = source->config->samp_rate;
+#endif
 
   if (SoapySDRDevice_setSampleRate(
       source->sdr,
