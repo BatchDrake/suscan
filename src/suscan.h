@@ -44,7 +44,8 @@ extern "C" {
 
 enum suscan_mode {
   SUSCAN_MODE_DELAYED_LOG,
-  SUSCAN_MODE_IMMEDIATE
+  SUSCAN_MODE_IMMEDIATE,
+  SUSCAN_MODE_NOLOG
 };
 
 SUBOOL suscan_channel_is_dc(const struct sigutils_channel *ch);

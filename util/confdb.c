@@ -67,7 +67,6 @@ suscan_confdb_get_system_path(void)
   return confdb_system_path;
 }
 
-
 const char *
 suscan_confdb_get_user_path(void)
 {
