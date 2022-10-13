@@ -336,7 +336,7 @@ suscan_source_config_open_file_raw(
 
   sf_info->format = SF_FORMAT_RAW | sf_format | SF_ENDIAN_LITTLE;
   sf_info->channels = 2;
-  sf_info->samplerate = self->samp_rate;
+  sf_info->samplerate = 1000; /* libsndfile became a smartass with the years */
 
   if ((sf = sf_open(
       self->path,
@@ -348,6 +348,9 @@ suscan_source_config_open_file_raw(
         sf_strerror(NULL));
   }
   
+  /* Yeah, whatever. */
+  sf_info->samplerate = self->samp_rate;
+
   return sf;
 }
 
