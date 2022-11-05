@@ -264,9 +264,18 @@ suscan_sigutils_init(enum suscan_mode mode)
   const char *userpath = NULL;
   char *wisdom_file = NULL;
   SUBOOL ok = SU_FALSE;
-
+  int n = 16;
+  
   SIGUTILS_ABI_CHECK();
 
+  if (!SU_FFTW(_init_threads)()) {
+    SU_WARNING("Failed to initialize multi-thread support for FFTW3");
+  } else {
+    SU_FFTW(_plan_with_nthreads)(n);
+  }
+
+  SU_INFO("FFTW3 threads: %d\n", n);
+  
   if (mode != SUSCAN_MODE_NOLOG) {
     if (mode == SUSCAN_MODE_DELAYED_LOG) {
       config.exclusive = SU_FALSE; /* We handle concurrency manually */

@@ -56,6 +56,10 @@ pkg_check_modules(SOAPYSDR REQUIRED SoapySDR>=0.5.0)
 pkg_check_modules(XML2     REQUIRED libxml-2.0>=2.9.0)
 pkg_check_modules(VOLK              volk>=1.0)
 
+if (NOT "fftw3f_threads" IN_LIST FFTW3_LIBRARIES)
+  set(FFTW3_LIBRARIES "${FFTW3_LIBRARIES};fftw3f_threads" CACHE STRING "" FORCE)
+endif()
+
 if (ENABLE_ALSA)
   pkg_check_modules(ALSA              alsa>=1.2)
 endif()
@@ -131,7 +135,7 @@ if(APPLE)
 endif()
 
 ########################## pkg-config description #############################
-set(SIGUTILS_PC_FILE_PATH "${PROJECT_BINARY_DIR}/suscan.pc")
+set(SU_PC_FILE_PATH "${PROJECT_BINARY_DIR}/suscan.pc")
   
 set(
   INSTALL_PKGCONFIG_DIR 
@@ -139,10 +143,10 @@ set(
   CACHE PATH "Installation directory for pkgconfig (.pc) files")
 set(SU_PC_CFLAGS "${SIGUTILS_CONFIG_CFLAGS}")
 set(SU_PC_LIBRARIES "-l${SNDFILE_LIBRARIES} -lm -l${FFTW3_LIBRARIES} -l${VOLK_LIBRARIES}")
-configure_file(suscan.pc.in "${SIGUTILS_PC_FILE_PATH}" @ONLY)
+configure_file(suscan.pc.in "${SU_PC_FILE_PATH}" @ONLY)
 
 install(
-  FILES "${SIGUTILS_PC_FILE_PATH}"
+  FILES "${SU_PC_FILE_PATH}"
   DESTINATION "${INSTALL_PKGCONFIG_DIR}")
 
 ############################ Suscan library build #############################
