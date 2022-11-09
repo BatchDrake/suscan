@@ -56,6 +56,7 @@ void suscan_channel_list_sort(
 
 char *suscan_log_get_last_messages(struct timeval since, unsigned int max);
 
+SUBOOL suscan_fft_threads_init(void);
 SUBOOL suscan_sigutils_init(enum suscan_mode mode);
 
 SUBOOL suscan_get_qth(xyz_t *geo);

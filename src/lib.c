@@ -257,6 +257,24 @@ suscan_atexit_handler(void)
 }
 
 SUBOOL
+suscan_fft_threads_init(void)
+{
+  SUBOOL ok = SU_FALSE;
+  int n = 16;
+
+  if (!SU_FFTW(_init_threads)()) {
+    SU_WARNING("Failed to initialize multi-thread support for FFTW3");
+  } else {
+    SU_FFTW(_plan_with_nthreads)(n);
+    ok = SU_TRUE;
+
+    SU_INFO("FFTW3 threads: %d\n", n);
+  }
+
+  return ok;
+}
+
+SUBOOL
 suscan_sigutils_init(enum suscan_mode mode)
 {
   struct sigutils_log_config config = sigutils_log_config_INITIALIZER;
@@ -264,18 +282,9 @@ suscan_sigutils_init(enum suscan_mode mode)
   const char *userpath = NULL;
   char *wisdom_file = NULL;
   SUBOOL ok = SU_FALSE;
-  int n = 16;
   
   SIGUTILS_ABI_CHECK();
 
-  if (!SU_FFTW(_init_threads)()) {
-    SU_WARNING("Failed to initialize multi-thread support for FFTW3");
-  } else {
-    SU_FFTW(_plan_with_nthreads)(n);
-  }
-
-  SU_INFO("FFTW3 threads: %d\n", n);
-  
   if (mode != SUSCAN_MODE_NOLOG) {
     if (mode == SUSCAN_MODE_DELAYED_LOG) {
       config.exclusive = SU_FALSE; /* We handle concurrency manually */
@@ -287,6 +296,9 @@ suscan_sigutils_init(enum suscan_mode mode)
     if (!su_lib_init_ex(config_p))
       goto done;
   }
+
+  suscan_fft_threads_init();
+  
 
   SU_TRY(userpath = suscan_confdb_get_user_path());
   SU_TRY(wisdom_file = strbuild("%s/" SUSCAN_WISDOM_FILE_NAME, userpath));
