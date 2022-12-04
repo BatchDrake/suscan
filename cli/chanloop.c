@@ -27,6 +27,25 @@
 #define SUSCAN_CHANLOOP_MSG_TIMEOUT_MS       5000
 #define SUSCAN_CHANLOOP_REQ_ID               0xc1009ll
 
+SUPRIVATE void
+suscli_frequency_format(char *obuf, size_t osize, SUFREQ freq, const char *unit)
+{
+  const char *prefixes = "kMGT";
+  char pfx = prefixes[0];
+  unsigned int i;
+
+  if (unit == NULL)
+    unit = "Hz";
+  
+  for (i = 1; SU_ABS(freq) >= 1e3 && i < 5; ++i) {
+    freq *= 1e-3;
+    pfx = prefixes[i - 1];
+  }
+
+  obuf[osize - 1] = '\0';
+  snprintf(obuf, osize - 1, "%6.3lf %c%s", freq, pfx, unit);
+}
+
 suscli_chanloop_t *
 suscli_chanloop_open(
     const struct suscli_chanloop_params *params,
@@ -40,6 +59,7 @@ suscli_chanloop_open(
   SUFREQ   bandwidth;
   SUFREQ   lofreq;
   SUBOOL   have_inspector = SU_FALSE;
+  char     freqline[64];
 
   struct sigutils_channel ch = sigutils_channel_INITIALIZER;
 
@@ -119,10 +139,34 @@ suscli_chanloop_open(
           fprintf(stderr, "  Inspector ID: 0x%08x\n", msg->inspector_id);
           fprintf(stderr, "  Request ID:   0x%08x\n", msg->req_id);
           fprintf(stderr, "  Handle:       0x%08x\n", msg->handle);
-          fprintf(stderr, "  EquivFS:      %g sps\n", msg->equiv_fs);
-          fprintf(stderr, "  Ft:           %10.0lf Hz\n",  msg->channel.ft);
-          fprintf(stderr, "  BW:           %g Hz\n",  msg->bandwidth);
-          fprintf(stderr, "  LO:           %g Hz\n",  msg->lo);
+
+          suscli_frequency_format(
+            freqline,
+            sizeof(freqline),
+            msg->equiv_fs,
+            "sps");
+          fprintf(stderr, "  EquivFS:      %s\n", freqline);
+
+          suscli_frequency_format(
+            freqline,
+            sizeof(freqline),
+            msg->channel.ft,
+            "Hz");
+          fprintf(stderr, "  Ft:           %s\n", freqline);
+
+          suscli_frequency_format(
+            freqline,
+            sizeof(freqline),
+            msg->bandwidth,
+            "Hz");
+          fprintf(stderr, "  BW:           %s\n", freqline);
+
+          suscli_frequency_format(
+            freqline,
+            sizeof(freqline),
+            msg->lo,
+            "Hz");
+          fprintf(stderr, "  LO:           %s\n", freqline);
 
           new->handle   = msg->handle;
           new->ft       = msg->channel.ft;
