@@ -190,12 +190,12 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
       }
 
       /* The 6 orbital elements: */
-      self->eqinc = SU_DEG2RAD(fields[0]); /* i */
-      self->ascn  = SU_DEG2RAD(fields[1]); /* \Omega */
-      self->ecc   = ecc * 1e-7;            /* e */
-      self->argp  = SU_DEG2RAD(fields[2]); /* \omega */
-      self->mnan  = SU_DEG2RAD(fields[3]); /* M */
-      self->rev   = fields[4]; /* n */
+      self->eqinc  = SU_DEG2RAD(fields[0]); /* i */
+      self->ascn   = SU_DEG2RAD(fields[1]); /* \Omega */
+      self->ecc    = ecc * 1e-7;            /* e */
+      self->argp   = SU_DEG2RAD(fields[2]); /* \omega */
+      self->mnan   = SU_DEG2RAD(fields[3]); /* M */
+      self->rev    = fields[4]; /* n */
       break;
   }
 
@@ -418,7 +418,7 @@ orbit_debug(const orbit_t *self)
   SU_INFO("  Mnan:     %gº\n", SU_RAD2DEG(self->mnan));
   SU_INFO("  Argp:     %gº\n", SU_RAD2DEG(self->argp));
   SU_INFO("  RAAN:     %gº\n", SU_RAD2DEG(self->ascn));
-  SU_INFO("  S. axis:  %gº\n", self->smjaxs);
+  SU_INFO("  S. axis:  %g km\n", self->smjaxs);
   SU_INFO("  Norb:     %ld\n", self->norb);
   SU_INFO("  Satno:    %d\n", self->satno);
 }

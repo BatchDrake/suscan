@@ -24,6 +24,8 @@
 #include <sigutils/log.h>
 #include <util/compat-time.h>
 
+#define MAX_REASONABLE_DISTANCE 3.8e5
+
 /*
  * This strategy was inspired by Gpredict, which provides a way to calculate
  * the start and end times of a pass.
@@ -36,17 +38,16 @@ sgdp4_prediction_update(
 {
   SUDOUBLE mins;
   xyz_t pos, vel, sat_geo;
-  kep_t kep;
 
   if (!self->init 
   || self->tv.tv_sec != tv->tv_sec 
   || self->tv.tv_usec != tv->tv_usec) {
     mins = orbit_minutes_from_timeval(&self->orbit, tv);
   
-    if (sgdp4_ctx_compute(&self->ctx, mins, SU_TRUE, &kep) == SGDP4_ERROR)
+    if (sgdp4_ctx_compute(&self->ctx, mins, SU_TRUE, &self->state) == SGDP4_ERROR)
       return SU_FALSE;
 
-    kep_get_pos_vel_teme(&kep, &pos, &vel);
+    kep_get_pos_vel_teme(&self->state, &pos, &vel);
 
     xyz_teme_to_ecef(
       &pos, 
@@ -65,6 +66,19 @@ sgdp4_prediction_update(
     xyz_ecef_to_geodetic(&self->pos_ecef, &sat_geo);
       
     self->alt = sat_geo.height;
+
+    /* 
+     * This is something that happens when the drag term is particularly 
+     * high and the TLE is too distant in the future.
+     * 
+     * The drag terms makes the approximation explode, resulting in an extremely
+     * distant orbit that does not have any meaningful interpretation.
+     *
+     * There is no clear threshold to detect an altitude as unreasonable, so
+     * we basically asume that anything beyond the Moon is absurd.
+     */
+    if (self->alt > MAX_REASONABLE_DISTANCE)
+      return SU_FALSE;
 
     /* Done */
     self->init     = SU_TRUE;
@@ -168,6 +182,47 @@ timeval_add_double(struct timeval *a, SUDOUBLE ddelta)
   }
 }
 
+/*
+ * The original algorithm for finding AOS and LOS was kind of odd, and I
+ * did not truly understand int. What I am going to do instead is the
+ * following:
+ * 
+ * Let us assume that the satellite orbit is completely circular.
+ * When the satellite rises or sets, the angle formed by the horizon and the
+ * satellite radial distance is given by:
+ *             E
+ * α = asin -------
+ *           E + h
+ * 
+ * We can approximate E + h by the semimajor axis and E by the radius of the
+ * Earth in the equator.
+ * 
+ * The angle of the satellite radial distance and the normal to the horizon
+ * is therefore given by:
+ *      π
+ * β = --- - α
+ *      2
+ * 
+ * Which is related to time required to traverse it with:
+ *      2π               Tβ
+ * β = ---- Δt ==> Δt = ----
+ *       T               2π
+ * 
+ * Now, we will use a fraction of Δt as the maximum (reasonable) time step.
+ */
+
+SUFLOAT
+sgdp4_prediction_get_max_delta_t(const sgdp4_prediction_t *self)
+{
+  SUFLOAT alpha, beta, T;
+  SUFLOAT Eh = EQRAD + self->alt;
+  alpha = SU_ASIN(EQRAD / Eh);
+  beta  = .5 * PI - alpha;
+  T     = 86400. / self->orbit.rev;
+
+  return COARSE_SEARCH_REL_STEP * T * beta / (2 * PI);
+}
+
 SUBOOL
 sgdp4_prediction_find_aos(
   sgdp4_prediction_t *self, 
@@ -175,9 +230,11 @@ sgdp4_prediction_find_aos(
   SUDOUBLE window, /* In seconds */
   struct timeval *aos)
 {
-  SUDOUBLE delta_t;
+  SUDOUBLE delta_t, prev_delta, max_delta_t;
   SUBOOL was_visible;
   struct timeval t = *tv;
+  SUDOUBLE K = 1;
+  SUSCOUNT iters = 0;
 
   sgdp4_prediction_update(self, tv);
 
@@ -195,11 +252,16 @@ sgdp4_prediction_find_aos(
 
   sgdp4_prediction_update(self, &t);
   
+  max_delta_t = sgdp4_prediction_get_max_delta_t(self);
+
   /* Coarse search of the AOS */
+  iters = 0;
   while (self->pos_azel.elevation < -0.015
     && (window <= 0 || timeval_elapsed(&t, tv) < window)) {
     delta_t = -30 * (
       SU_RAD2DEG(self->pos_azel.elevation) * (self->alt / 8400. + .46) - 2.0);
+    if (SU_ABS(delta_t) > max_delta_t)
+      delta_t = max_delta_t * (delta_t / SU_ABS(delta_t));
 
     timeval_add_double(&t, delta_t);
     sgdp4_prediction_update(self, &t);
@@ -210,16 +272,29 @@ sgdp4_prediction_find_aos(
 
   /* Fine grained search of AOS */
   while (window <= 0 || timeval_elapsed(&t, tv) < window) {
-    if (sufeq(self->pos_azel.elevation, 0, 8.7e-5)) {
+    delta_t = -.163
+        * K
+        * SU_RAD2DEG(self->pos_azel.elevation) 
+        * sqrt(self->alt);
+    
+    if (sufeq(self->pos_azel.elevation, 0, 8.7e-5) || SU_ABS(delta_t) < 1) {
       *aos = t;
       return SU_TRUE;
     }
 
-    delta_t = -.163
-        * SU_RAD2DEG(self->pos_azel.elevation) 
-        * sqrt(self->alt);
+    if (SU_ABS(delta_t) > max_delta_t)
+      delta_t = max_delta_t * (delta_t / SU_ABS(delta_t));
+    
+    if (iters > 0) {
+      /* Flipping signs? Overshoot detected. */
+      if (delta_t * prev_delta < 0)
+        K *= .5;
+    }
     timeval_add_double(&t, delta_t);
     sgdp4_prediction_update(self, &t);
+
+    prev_delta = delta_t;
+    ++iters;
   }
 
   return SU_FALSE;
@@ -233,8 +308,10 @@ sgdp4_prediction_find_los(
   struct timeval *los)
 {
   struct timeval t = *tv;
-  SUDOUBLE tmpel;
-  SUDOUBLE delta_t;
+  SUDOUBLE prev_delta;
+  SUDOUBLE delta_t, max_delta_t;
+  SUDOUBLE K = 1;
+  SUSCOUNT iters = 0;
   SUBOOL was_hidden;
 
   sgdp4_prediction_update(self, tv);
@@ -247,18 +324,21 @@ sgdp4_prediction_find_los(
   if (was_hidden) {
     if (!sgdp4_prediction_find_aos(self, tv, window, &t))
       return SU_FALSE;
-
     t.tv_sec += 90; /* 1.5 min */
   }
 
   sgdp4_prediction_update(self, &t);
 
   /* Coarse search of the LOS */
+  max_delta_t = sgdp4_prediction_get_max_delta_t(self);
   while (self->pos_azel.elevation >= -0.015
     && (window <= 0 || timeval_elapsed(&t, tv) < window)) {
     delta_t = 3.456 
         * cos(self->pos_azel.elevation - .017) 
         * sqrt(self->alt);
+    if (SU_ABS(delta_t) > max_delta_t)
+      delta_t = max_delta_t * (delta_t / SU_ABS(delta_t));
+
     timeval_add_double(&t, delta_t);
     sgdp4_prediction_update(self, &t);
   }
@@ -266,24 +346,33 @@ sgdp4_prediction_find_los(
   if (self->pos_azel.elevation >= -0.015)
     return SU_FALSE;
 
+  iters = 0;
   /* Fine grained search of LOS */
   while (window <= 0 || timeval_elapsed(&t, tv) < window) {
     delta_t = .1719 
+        * K
         * SU_RAD2DEG(self->pos_azel.elevation) 
         * sqrt(self->alt);
+    
+    if (SU_ABS(delta_t) > max_delta_t)
+      delta_t = max_delta_t * (delta_t / SU_ABS(delta_t));
+
+    if (iters > 0) {
+      /* Flipping signs? Overshoot detected. */
+      if (delta_t * prev_delta < 0)
+        K *= .5;
+    }
+
     timeval_add_double(&t, delta_t);
     sgdp4_prediction_update(self, &t);
 
-    if (sufeq(self->pos_azel.elevation, 0, 8.7e-5)) {
-      tmpel = self->pos_azel.elevation;
-      timeval_add_double(&t, -1);
-      sgdp4_prediction_update(self, &t);
-
-      if (self->pos_azel.elevation > tmpel) {
-        *los = t;
-        return SU_TRUE;
-      }
+    /* delta_t below 1 µs cannot be rendered with struct timeval */
+    if (sufeq(self->pos_azel.elevation, 0, 8.7e-5) || SU_ABS(delta_t) < 1) {
+      *los = t;
+      return SU_TRUE;
     }
+    prev_delta = delta_t;
+    ++iters;
   }
 
   return SU_FALSE;
