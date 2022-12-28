@@ -31,6 +31,7 @@ extern "C" {
 #include <util/com.h>
 
 #define SUHANDLE int32_t
+#define SUSCAN_INVALID_HANDLE_VALUE ((SUHANDLE) -1)
 
 #define SUSCAN_ANALYZER_CPU_USAGE_UPDATE_ALPHA .025
 
