@@ -359,6 +359,8 @@ suscan_inspector_sampler_loop(
     SUSCOUNT samp_count)
 {
   struct suscan_analyzer_sample_batch_msg *msg = NULL;
+  unsigned int length;
+
   SUSDIFF fed;
 
   while (samp_count > 0) {
@@ -369,7 +371,10 @@ suscan_inspector_sampler_loop(
         (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
         goto fail);
 
-    if (suscan_inspector_get_output_length(insp) > insp->sample_msg_watermark) {
+    length = suscan_inspector_get_output_length(insp);
+
+    if (length > 0 && (length >= insp->sample_msg_watermark
+        || suscan_inspector_sampler_buf_avail(insp) == 0)) {
       /* New samples produced by sampler: send to client */
       SU_TRYCATCH(
           msg = suscan_analyzer_sample_batch_msg_new(

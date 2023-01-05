@@ -433,8 +433,10 @@ suscan_audio_inspector_feed(
 
     if (su_sampler_feed(&self->sampler, &output)) {
       suscan_inspector_push_sample(insp, output * .75);
-      if (suscan_inspector_get_output_length(insp) == insp->sample_msg_watermark)
+      if (suscan_inspector_get_output_length(insp) == insp->sample_msg_watermark) {
+        ++i; /* Important! We have consumed this sample too! */
         break;
+      }
     }
   }
 
