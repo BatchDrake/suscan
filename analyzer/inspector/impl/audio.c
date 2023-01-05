@@ -300,10 +300,12 @@ suscan_audio_inspector_commit_config(void *private)
   }
 
   /* Set sampling info */
-  if (self->req_params.audio.sample_rate > 0)
-    su_sampler_set_rate(
+  if (self->req_params.audio.sample_rate > 0) {
+    su_sampler_finalize(&self->sampler);
+    su_sampler_init(
         &self->sampler,
         SU_ABS2NORM_BAUD(fs, self->req_params.audio.sample_rate));
+  }
 
   self->cur_params = self->req_params;
 }
@@ -429,8 +431,11 @@ suscan_audio_inspector_feed(
 
     output = su_iir_filt_feed(&self->filt, output);
 
-    if (su_sampler_feed(&self->sampler, &output))
+    if (su_sampler_feed(&self->sampler, &output)) {
       suscan_inspector_push_sample(insp, output * .75);
+      if (suscan_inspector_get_output_length(insp) == insp->sample_msg_watermark)
+        break;
+    }
   }
 
 
