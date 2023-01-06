@@ -48,6 +48,9 @@ struct suscan_local_analyzer;
 struct suscan_inspsched {
   struct suscan_mq *ctl_mq;
 
+  struct suscan_mq  mq_out;
+  SUBOOL            mq_out_init;
+  
   SUBOOL have_time;
 
   pthread_mutex_t                    task_mutex;

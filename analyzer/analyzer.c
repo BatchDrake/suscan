@@ -477,11 +477,25 @@ suscan_analyzer_consume_mq_until_halt(struct suscan_mq *mq)
 SUBOOL
 suscan_analyzer_halt_worker(suscan_worker_t *worker)
 {
+  /* We resue this timeout as a sane value. */
+  struct timespec ts = 
+    {
+      SUSCAN_WORKER_DESTROY_TIMEOUT_MS / 1000,
+      (SUSCAN_WORKER_DESTROY_TIMEOUT_MS * 1000000ull) % 1000000000
+    };
+
   while (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
     suscan_worker_req_halt(worker);
 
     while (!suscan_analyzer_consume_mq_until_halt(worker->mq_out))
-      suscan_mq_wait(worker->mq_out);
+      if (suscan_mq_timedwait(worker->mq_out, &ts)) {
+        if (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
+          SU_ERROR(
+            "Worker destruction took more than %d ms. Aborted.\n",
+            SUSCAN_WORKER_DESTROY_TIMEOUT_MS);
+          return SU_FALSE;
+        }
+      }
   }
 
   return suscan_worker_destroy(worker);
