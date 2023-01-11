@@ -699,7 +699,7 @@ suscan_local_analyzer_parse_inspector_msg(
   ok = SU_TRUE;
   
 done:
-  if (msg != NULL)
+  if (msg != NULL && ok)
     suscan_analyzer_inspector_msg_destroy(msg);
   
   return ok;

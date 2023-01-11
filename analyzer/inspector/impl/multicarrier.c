@@ -35,21 +35,65 @@
 #include <string.h>
 
 /************************** API implementation *******************************/
+SUPRIVATE void
+suscan_inspector_multicarrier_params_initialize(
+  struct suscan_inspector_multicarrier_params *self,
+  const struct suscan_inspector_sampling_info *sinfo)
+{
+  self->enabled = SU_TRUE;  
+}
+
+SUPRIVATE void
+suscan_inspector_multicarrier_params_finalize(
+  struct suscan_inspector_multicarrier_params *self)
+{
+}
+
 void *
 suscan_multicarrier_inspector_open(const struct suscan_inspector_sampling_info *s)
 {
-  return (void *) s;
+  struct suscan_inspector_multicarrier_params *params = NULL;
+
+  /* This inspector is special in that it only allocates space for its parameters */
+
+  SU_ALLOCATE_FAIL(params, struct suscan_inspector_multicarrier_params);
+  
+  suscan_inspector_multicarrier_params_initialize(params, s);
+
+  return params;
+
+fail:
+  if (params != NULL) {
+    suscan_inspector_multicarrier_params_finalize(params);
+    free(params);
+  }
+
+  return NULL;
 }
 
 SUBOOL
 suscan_multicarrier_inspector_get_config(void *private, suscan_config_t *config)
 {
+  struct suscan_inspector_multicarrier_params *params = 
+    (struct suscan_inspector_multicarrier_params *) private;
+  
+  SU_TRYCATCH(
+    suscan_inspector_multicarrier_params_save(params, config),
+    return SU_FALSE);
+
   return SU_TRUE;
 }
 
 SUBOOL
 suscan_multicarrier_inspector_parse_config(void *private, const suscan_config_t *config)
 {
+  struct suscan_inspector_multicarrier_params *params = 
+    (struct suscan_inspector_multicarrier_params *) private;
+
+  SU_TRYCATCH(
+    suscan_inspector_multicarrier_params_parse(params, config),
+    return SU_FALSE);
+
   return SU_TRUE;
 }
 
@@ -66,9 +110,14 @@ suscan_multicarrier_inspector_feed(
     const SUCOMPLEX *x,
     SUSCOUNT count)
 {
-  if (!suscan_inspector_feed_sc_stuner(insp, x, count)) {
-    SU_ERROR("Failed to feed samples to subcarrier\n");
-    return 0;
+  struct suscan_inspector_multicarrier_params *params = 
+    (struct suscan_inspector_multicarrier_params *) private;
+  
+  if (params->enabled) {
+    if (!suscan_inspector_feed_sc_stuner(insp, x, count)) {
+      SU_ERROR("Failed to feed samples to subcarrier\n");
+      return 0;
+    }
   }
 
   return count;
@@ -77,6 +126,11 @@ suscan_multicarrier_inspector_feed(
 void
 suscan_multicarrier_inspector_close(void *private)
 {
+  struct suscan_inspector_multicarrier_params *params = 
+    (struct suscan_inspector_multicarrier_params *) private;
+
+  suscan_inspector_multicarrier_params_finalize(params);
+  free(params);
 }
 
 SUPRIVATE struct suscan_inspector_interface iface = {
