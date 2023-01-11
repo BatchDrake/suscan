@@ -153,6 +153,10 @@ suscan_multicarrier_inspector_register(void)
           "multicarrier-params-desc-" SUSCAN_VERSION_STRING),
       return SU_FALSE);
 
+  SU_TRYCATCH(
+    suscan_config_desc_add_multicarrier_params(iface.cfgdesc),
+    return SU_FALSE);
+
   SU_TRYCATCH(suscan_config_desc_register(iface.cfgdesc), return SU_FALSE);
 
   /* Register inspector interface */
