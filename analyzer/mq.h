@@ -108,6 +108,7 @@ SUBOOL suscan_mq_poll_w_type(struct suscan_mq *mq, uint32_t type, void **privdat
 struct suscan_msg *suscan_mq_poll_msg(struct suscan_mq *mq);
 struct suscan_msg *suscan_mq_poll_msg_w_type(struct suscan_mq *mq, uint32_t type);
 SUBOOL suscan_mq_write(struct suscan_mq *mq, uint32_t type, void *privdata);
+SUBOOL suscan_mq_timedwait(struct suscan_mq *mq, const struct timespec *ts);
 void   suscan_mq_wait(struct suscan_mq *mq);
 SUBOOL suscan_mq_write_urgent(struct suscan_mq *mq, uint32_t type, void *privdata);
 SUBOOL suscan_mq_write_urgent_unsafe(struct suscan_mq *mq, uint32_t type, void *privdata);

@@ -284,6 +284,9 @@ suscan_inspsched_destroy(suscan_inspsched_t *self)
   if (self->barrier_init)
     pthread_barrier_destroy(&self->barrier);
 
+  if (self->mq_out_init)
+    suscan_mq_finalize(&self->mq_out);
+
   free(self);
 
   return SU_TRUE;
@@ -299,14 +302,17 @@ suscan_inspsched_new(struct suscan_mq *ctl_mq)
   unsigned int i, count;
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_inspsched_t)), goto fail);
-
+  
   new->ctl_mq = ctl_mq;
   
   count = suscan_inspsched_get_min_workers();
 
+  SU_TRYCATCH(suscan_mq_init(&new->mq_out), goto fail);
+  new->mq_out_init = SU_TRUE;
+
   for (i = 0; i < count; ++i) {
     SU_TRYCATCH(
-      worker = suscan_worker_new_ex("inspsched-worker", new->ctl_mq, new), 
+      worker = suscan_worker_new_ex("inspsched-worker", &new->mq_out, new), 
       goto fail);
     SU_TRYCATCH(PTR_LIST_APPEND_CHECK(new->worker, worker) != -1, goto fail);
     worker = NULL;

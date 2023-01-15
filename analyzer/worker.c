@@ -219,14 +219,23 @@ SUBOOL
 suscan_worker_halt(suscan_worker_t *worker)
 {
   uint32_t type;
-
+  struct timeval tv = 
+    {
+      SUSCAN_WORKER_DESTROY_TIMEOUT_MS / 1000,
+      (SUSCAN_WORKER_DESTROY_TIMEOUT_MS * 1000ull) % 1000000
+    };
+  
   while (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
     suscan_worker_req_halt(worker);
 
     /* This worker should not push messages */
-    suscan_mq_read(worker->mq_out, &type);
+    type = SUSCAN_WORKER_MSG_TYPE_SENTINEL;
+    suscan_mq_read_timeout(worker->mq_out, &type, &tv);
 
-    if (type != SUSCAN_WORKER_MSG_TYPE_HALT) {
+    if (type == SUSCAN_WORKER_MSG_TYPE_SENTINEL) {
+      SU_ERROR("Timeout while halting worker. Memory leak ahead.\n");
+      return SU_FALSE;
+    } else if (type != SUSCAN_WORKER_MSG_TYPE_HALT) {
       SU_ERROR("Unexpected worker message type\n");
       return SU_FALSE;
     }

@@ -31,11 +31,12 @@ extern "C" {
 #include <util/com.h>
 
 #define SUHANDLE int32_t
+#define SUSCAN_INVALID_HANDLE_VALUE ((SUHANDLE) -1)
 
 #define SUSCAN_ANALYZER_CPU_USAGE_UPDATE_ALPHA .025
 
 #define SUSCAN_INSPECTOR_TUNER_BUF_SIZE    SU_BLOCK_STREAM_BUFFER_SIZE
-#define SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE  SU_BLOCK_STREAM_BUFFER_SIZE
+#define SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE  65536
 #define SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE 8192
 
 struct suscan_inspector_factory;
@@ -327,6 +328,7 @@ SUBOOL suscan_fsk_inspector_register(void);
 SUBOOL suscan_psk_inspector_register(void);
 SUBOOL suscan_audio_inspector_register(void);
 SUBOOL suscan_raw_inspector_register(void);
+SUBOOL suscan_multicarrier_inspector_register(void);
 
 #ifdef __cplusplus
 }

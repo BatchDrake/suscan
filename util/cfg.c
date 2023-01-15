@@ -369,8 +369,10 @@ suscan_config_dup(const suscan_config_t *config)
   return new;
 
 fail:
-  if (new != NULL)
+  if (new != NULL) {
     suscan_config_destroy(new);
+    new = NULL;
+  }
 
   return new;
 }

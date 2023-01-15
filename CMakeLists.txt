@@ -227,6 +227,7 @@ set(INSPECTOR_LIB_SOURCES
   ${INSPECTORDIR}/ask.c
   ${INSPECTORDIR}/audio.c
   ${INSPECTORDIR}/fsk.c
+  ${INSPECTORDIR}/multicarrier.c
   ${INSPECTORDIR}/psk.c
   ${INSPECTORDIR}/raw.c)
 
