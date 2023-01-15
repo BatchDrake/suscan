@@ -1017,6 +1017,8 @@ suscan_config_desc_add_multicarrier_params(suscan_config_desc_t *desc)
           "mc.enabled",
           "Forward samples to subchannels"),
       return SU_FALSE);
+
+  return SU_TRUE;
 }
 
 SUBOOL
