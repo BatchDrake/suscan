@@ -66,12 +66,8 @@ suscan_raw_inspector_feed(
     const SUCOMPLEX *x,
     SUSCOUNT count)
 {
-  SUSDIFF i;
-
-  for (i = 0; i < count && suscan_inspector_sampler_buf_avail(insp) > 0; ++i)
-      suscan_inspector_push_sample(insp, x[i]);
-
-  return i;
+  /* Pass-thru */
+  return suscan_inspector_push_sample_buffer(insp, x, count);
 }
 
 void
