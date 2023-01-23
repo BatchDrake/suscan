@@ -186,6 +186,24 @@ suscan_inspector_push_sample(suscan_inspector_t *self, SUCOMPLEX samp)
 }
 
 SUINLINE SUSCOUNT
+suscan_inspector_push_sample_buffer(
+  suscan_inspector_t *self,
+  const SUCOMPLEX *x,
+  SUSCOUNT count)
+{
+  SUSCOUNT avail = suscan_inspector_sampler_buf_avail(self);
+
+  if (count > avail)
+    count = avail;
+
+  memcpy(self->sampler_buf + self->sampler_ptr, x, count * sizeof(SUCOMPLEX));
+
+  self->sampler_ptr += count;
+  
+  return count;
+}
+
+SUINLINE SUSCOUNT
 suscan_inspector_get_output_length(const suscan_inspector_t *self)
 {
   return self->sampler_ptr;
