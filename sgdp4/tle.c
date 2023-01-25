@@ -80,6 +80,7 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
   char classification, designator[16];
   char str_revol[8];
   int n;
+  char linebufcpy[SUSCAN_TLE_LINE_LEN + 1];
 
   switch (num) {
     case 0:
@@ -151,10 +152,16 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
        * This is the most critical line. It contains the orbital
        * elements that fully describe the orbit in the current epoch
        */
+
+      n = strlen(linebuf);
+      memcpy(linebufcpy, linebuf, n);
+
+      if (n >= 52 && linebufcpy[52] == ' ')
+        linebufcpy[52] = '0';
+
       n = sscanf(
         linebuf,
-        linebuf[52] != ' ' ? "%1u %05u %8lf %8lf %07u %8lf %8lf %11lf%5[0-9 ]%1u" : 
-          "%1u %05u %8lf %8lf %07u %8lf %8lf %10lf%5[0-9 ]%1u",
+        "%1u %05u %8lf %8lf %07u %8lf %8lf %11lf%5[0-9 ]%1u",
         &line,
         &catalog,
         fields + 0,
