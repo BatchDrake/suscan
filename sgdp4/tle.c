@@ -153,7 +153,8 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
        */
       n = sscanf(
         linebuf,
-        "%1u %05u %8lf %8lf %07u %8lf %8lf %11lf%5[0-9 ]%1u",
+        linebuf[52] != ' ' ? "%1u %05u %8lf %8lf %07u %8lf %8lf %11lf%5[0-9 ]%1u" : 
+          "%1u %05u %8lf %8lf %07u %8lf %8lf %10lf%5[0-9 ]%1u",
         &line,
         &catalog,
         fields + 0,
