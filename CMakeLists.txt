@@ -501,6 +501,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/cmd/profinfo.c
   ${CLIDIR}/cmd/snoop.c
   ${CLIDIR}/cmd/tleinfo.c
+  ${CLIDIR}/datasavers/csv.c
   ${CLIDIR}/datasavers/mat5.c
   ${CLIDIR}/datasavers/matlab.c
   ${CLIDIR}/datasavers/tcp.c

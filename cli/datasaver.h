@@ -71,6 +71,9 @@ void suscli_datasaver_params_init_matlab(
 void suscli_datasaver_params_init_mat5(
     struct suscli_datasaver_params *self,
     const hashlist_t *params);
+void suscli_datasaver_params_init_csv(
+    struct suscli_datasaver_params *self,
+    const hashlist_t *params);
 void suscli_datasaver_params_init_tcp(
     struct suscli_datasaver_params *self,
     const hashlist_t *params);
