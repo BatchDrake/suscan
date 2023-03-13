@@ -96,6 +96,8 @@ suscan_raw_inspector_register(void)
 
   SU_TRYCATCH(suscan_config_desc_register(iface.cfgdesc), return SU_FALSE);
 
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "psd");
+  
   /* Register inspector interface */
   SU_TRYCATCH(suscan_inspector_interface_register(&iface), return SU_FALSE);
 
