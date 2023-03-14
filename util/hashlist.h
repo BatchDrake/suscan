@@ -23,6 +23,10 @@
 #include "rbtree.h"
 #include <sigutils/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct hashlist {
   rbtree_t *rbtree;
   void *userdata;
@@ -39,5 +43,9 @@ void hashlist_set_dtor(hashlist_t *, void (*) (const char *, void *, void *));
 SUBOOL hashlist_contains(const hashlist_t *, const char *);
 void  *hashlist_get(const hashlist_t *, const char *);
 void hashlist_destroy(hashlist_t *);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _UTIL_HASHLIST_H */

@@ -26,29 +26,34 @@
 #include <util/compat-time.h>
 #include <string.h>
 
-SUPRIVATE FILE *
-suscli_matlab_fopen(const char *path)
+SUPRIVATE char *
+suscli_matlab_datasaver_fname_cb(void)
 {
-  FILE *fp = NULL;
-  char *new_path = NULL;
   time_t now;
   struct tm tm;
-  SUBOOL ok = SU_FALSE;
 
-  if (path == NULL || strlen(path) == 0) {
-    time(&now);
-    gmtime_r(&now, &tm);
+  time(&now);
+  gmtime_r(&now, &tm);
 
-    SU_TRYCATCH(
-        new_path = strbuild(
+  return strbuild(
             "capture_%04d%02d%02d_%02d%02d%02d.m",
             tm.tm_year + 1900,
             tm.tm_mon + 1,
             tm.tm_mday,
             tm.tm_hour,
             tm.tm_min,
-            tm.tm_sec),
-        goto fail);
+            tm.tm_sec);
+}
+
+SUPRIVATE FILE *
+suscli_matlab_fopen(const char *path)
+{
+  FILE *fp = NULL;
+  char *new_path = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  if (path == NULL || strlen(path) == 0) {
+    SU_TRYCATCH(new_path = suscli_matlab_datasaver_fname_cb(), goto fail);
     path = new_path;
   }
 
@@ -126,6 +131,7 @@ suscli_datasaver_params_init_matlab(
     struct suscli_datasaver_params *self,
     const hashlist_t *params) {
   self->userdata = (void *) params;
+  self->fname = suscli_matlab_datasaver_fname_cb;
   self->open  = suscli_matlab_datasaver_open_cb;
   self->write = suscli_matlab_datasaver_write_cb;
   self->close = suscli_matlab_datasaver_close_cb;
