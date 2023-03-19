@@ -81,19 +81,19 @@ jobs:
     - name: Upload lib deb artifact
       uses: actions/upload-artifact@v2
       with:
-        name: ${{github.workspace}}/suscan/libsuscan_0.3.0-1_amd64.deb
+        name: libsuscan_0.3.0-1_amd64.deb
         path: ${{github.workspace}}/suscan/libsuscan_0.3.0-1_amd64.deb
 
     - name: Upload lib dev deb artifact
       uses: actions/upload-artifact@v2
       with:
-        name: ${{github.workspace}}/suscan/libsuscan-dev_0.3.0-1_amd64.deb
+        name: libsuscan-dev_0.3.0-1_amd64.deb
         path: ${{github.workspace}}/suscan/libsuscan-dev_0.3.0-1_amd64.deb
 
     - name: Upload tools deb artifact
       uses: actions/upload-artifact@v2
       with:
-        name: ${{github.workspace}}/suscan/suscan-tools_0.3.0-1_amd64.deb
+        name: suscan-tools_0.3.0-1_amd64.deb
         path: ${{github.workspace}}/suscan/suscan-tools_0.3.0-1_amd64.deb
     
 
