@@ -76,25 +76,25 @@ jobs:
       run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
 
     - name: Make Debian packages
-      run: ./makedeb.sh 0.3.0-1
+      run: cd ${{github.workspace}}/suscan/ && ./makedeb.sh 0.3.0-1
 
     - name: Upload lib deb artifact
       uses: actions/upload-artifact@v2
       with:
-        name: libsuscan_0.3.0-1_amd64.deb
-        path: libsuscan_0.3.0-1_amd64.deb
+        name: ${{github.workspace}}/suscan/libsuscan_0.3.0-1_amd64.deb
+        path: ${{github.workspace}}/suscan/libsuscan_0.3.0-1_amd64.deb
 
     - name: Upload lib dev deb artifact
       uses: actions/upload-artifact@v2
       with:
-        name: libsuscan-dev_0.3.0-1_amd64.deb
-        path: libsuscan-dev_0.3.0-1_amd64.deb
+        name: ${{github.workspace}}/suscan/libsuscan-dev_0.3.0-1_amd64.deb
+        path: ${{github.workspace}}/suscan/libsuscan-dev_0.3.0-1_amd64.deb
 
     - name: Upload tools deb artifact
       uses: actions/upload-artifact@v2
       with:
-        name: suscan-tools_0.3.0-1_amd64.deb
-        path: suscan-tools_0.3.0-1_amd64.deb
+        name: ${{github.workspace}}/suscan/suscan-tools_0.3.0-1_amd64.deb
+        path: ${{github.workspace}}/suscan/suscan-tools_0.3.0-1_amd64.deb
     
 
   build-macos:
