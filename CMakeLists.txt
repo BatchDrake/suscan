@@ -263,8 +263,13 @@ set(CLI_LIB_HEADERS
   ${CLIDIR}/datasaver.h
   ${CLIDIR}/devserv/devserv.h)
 
-set(CLI_LIB_SOURCES 
+set(CLI_LIB_SOURCES
+  ${CLIDIR}/datasavers/csv.c
+  ${CLIDIR}/datasavers/mat5.c
+  ${CLIDIR}/datasavers/matlab.c
+  ${CLIDIR}/datasavers/tcp.c
   ${CLIDIR}/chanloop.c
+  ${CLIDIR}/parse.c
   ${CLIDIR}/datasaver.c)
   
 set(ESTIMATOR_SOURCES
@@ -501,9 +506,6 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/cmd/profinfo.c
   ${CLIDIR}/cmd/snoop.c
   ${CLIDIR}/cmd/tleinfo.c
-  ${CLIDIR}/datasavers/mat5.c
-  ${CLIDIR}/datasavers/matlab.c
-  ${CLIDIR}/datasavers/tcp.c
   ${CLIDIR}/devserv/client.c
   ${CLIDIR}/devserv/mc_manager.c
   ${CLIDIR}/devserv/server.c

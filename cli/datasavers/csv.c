@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2020 Gonzalo José Carracedo Carballal
+  Copyright (C) 2023 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -17,7 +17,7 @@
 
 */
 
-#define SU_LOG_DOMAIN "matlab-datasaver"
+#define SU_LOG_DOMAIN "csv-datasaver"
 
 #include <sigutils/log.h>
 #include <cli/datasaver.h>
@@ -27,7 +27,7 @@
 #include <string.h>
 
 SUPRIVATE char *
-suscli_matlab_datasaver_fname_cb(void)
+suscli_csv_datasaver_fname_cb(void)
 {
   time_t now;
   struct tm tm;
@@ -36,7 +36,7 @@ suscli_matlab_datasaver_fname_cb(void)
   gmtime_r(&now, &tm);
 
   return strbuild(
-            "capture_%04d%02d%02d_%02d%02d%02d.m",
+            "capture_%04d%02d%02d_%02d%02d%02d.csv",
             tm.tm_year + 1900,
             tm.tm_mon + 1,
             tm.tm_mday,
@@ -46,14 +46,15 @@ suscli_matlab_datasaver_fname_cb(void)
 }
 
 SUPRIVATE FILE *
-suscli_matlab_fopen(const char *path)
+suscli_csv_fopen(const char *path)
 {
   FILE *fp = NULL;
   char *new_path = NULL;
+  
   SUBOOL ok = SU_FALSE;
 
   if (path == NULL || strlen(path) == 0) {
-    SU_TRYCATCH(new_path = suscli_matlab_datasaver_fname_cb(), goto fail);
+    SU_TRYCATCH(new_path = suscli_csv_datasaver_fname_cb(), goto fail);
     path = new_path;
   }
 
@@ -62,7 +63,7 @@ suscli_matlab_fopen(const char *path)
     goto fail;
   }
 
-  SU_TRYCATCH(fprintf(fp, "X = [\n") > 0, goto fail);
+  SU_TRYCATCH(fprintf(fp, "timestamp_sec,timestamp_usec,value,value_db\n") > 0, goto fail);
 
   ok = SU_TRUE;
 
@@ -79,7 +80,7 @@ fail:
 }
 
 SUPRIVATE void *
-suscli_matlab_datasaver_open_cb(void *userdata)
+suscli_csv_datasaver_open_cb(void *userdata)
 {
   const char *path = NULL;
   const hashlist_t *params = (const hashlist_t *) userdata;
@@ -88,11 +89,11 @@ suscli_matlab_datasaver_open_cb(void *userdata)
       suscli_param_read_string(params, "path", &path, NULL),
       return NULL);
 
-  return suscli_matlab_fopen(path);
+  return suscli_csv_fopen(path);
 }
 
 SUPRIVATE SUBOOL
-suscli_matlab_datasaver_write_cb(
+suscli_csv_datasaver_write_cb(
     void *state,
     const struct suscli_sample *samples,
     size_t length)
@@ -104,9 +105,9 @@ suscli_matlab_datasaver_write_cb(
     SU_TRYCATCH(
         fprintf(
             fp,
-            "  %ld,%.6lf,%.9e,%g;\n",
+            "%ld,%ld,%.9e,%g\n",
             samples[i].timestamp.tv_sec,
-            samples[i].timestamp.tv_usec * 1e-6,
+            samples[i].timestamp.tv_usec,
             samples[i].value,
             SU_POWER_DB_RAW(samples[i].value)) > 0,
         return SU_FALSE);
@@ -116,23 +117,22 @@ suscli_matlab_datasaver_write_cb(
 }
 
 SUPRIVATE SUBOOL
-suscli_matlab_datasaver_close_cb(void *state)
+suscli_csv_datasaver_close_cb(void *state)
 {
   FILE *fp = (FILE *) state;
 
-  fprintf(fp, "];\n");
   fclose(fp);
 
   return SU_TRUE;
 }
 
 void
-suscli_datasaver_params_init_matlab(
+suscli_datasaver_params_init_csv(
     struct suscli_datasaver_params *self,
     const hashlist_t *params) {
   self->userdata = (void *) params;
-  self->fname = suscli_matlab_datasaver_fname_cb;
-  self->open  = suscli_matlab_datasaver_open_cb;
-  self->write = suscli_matlab_datasaver_write_cb;
-  self->close = suscli_matlab_datasaver_close_cb;
+  self->fname = suscli_csv_datasaver_fname_cb;
+  self->open  = suscli_csv_datasaver_open_cb;
+  self->write = suscli_csv_datasaver_write_cb;
+  self->close = suscli_csv_datasaver_close_cb;
 }

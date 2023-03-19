@@ -88,6 +88,10 @@ struct suscli_rms_params {
   SUBOOL mat5_enabled;
   const char *mat5_path;
 
+  /* CSV forwarder */
+  SUBOOL csv_enabled;
+  const char *csv_path;
+
   /* Precalculated terms */
   enum suscli_rms_mode mode_enum;
   SUFLOAT k;
@@ -566,6 +570,22 @@ suscli_rms_params_parse(
           NULL),
       goto fail);
 
+  SU_TRYCATCH(
+      suscli_param_read_bool(
+          p,
+          "csv",
+          &self->csv_enabled,
+          SU_FALSE),
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_param_read_string(
+          p,
+          "csv-path",
+          &self->csv_path,
+          NULL),
+      goto fail);
+
   self->k = SU_LOG(self->freq_max / self->freq_min);
 
   suscli_rms_params_debug(self);
@@ -653,6 +673,18 @@ suscli_rms_state_init(
         goto fail);
 
     suscli_datasaver_params_init_mat5(&ds_params, dshash);
+    SU_TRYCATCH(ds = suscli_datasaver_new(&ds_params), goto fail);
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(state->ds, ds) != -1, goto fail);
+    ds = NULL;
+  }
+
+  /* User requested CSV forwarder */
+  if (state->params.csv_enabled) {
+    SU_TRYCATCH(
+        hashlist_set(dshash, "path", (void *) state->params.csv_path),
+        goto fail);
+
+    suscli_datasaver_params_init_csv(&ds_params, dshash);
     SU_TRYCATCH(ds = suscli_datasaver_new(&ds_params), goto fail);
     SU_TRYCATCH(PTR_LIST_APPEND_CHECK(state->ds, ds) != -1, goto fail);
     ds = NULL;

@@ -27,31 +27,41 @@
 #include <string.h>
 #include <sigutils/matfile.h>
 
-SUPRIVATE su_mat_file_t *
-suscli_mat5_fopen(const char *path)
+SUPRIVATE char *
+suscli_mat5_datasaver_fname_cb(void)
 {
-  su_mat_file_t *mf = NULL;
-  su_mat_matrix_t *mtx = NULL;
-  char *new_path = NULL;
-  struct timeval tv;
+  time_t now;
   struct tm tm;
-  SUBOOL ok = SU_FALSE;
 
-  gettimeofday(&tv, NULL);
-    
-  if (path == NULL || strlen(path) == 0) {
-    gmtime_r(&tv.tv_sec, &tm);
+  time(&now);
+  gmtime_r(&now, &tm);
 
-    SU_TRYCATCH(
-        new_path = strbuild(
+  return strbuild(
             "capture_%04d%02d%02d_%02d%02d%02d.mat",
             tm.tm_year + 1900,
             tm.tm_mon + 1,
             tm.tm_mday,
             tm.tm_hour,
             tm.tm_min,
-            tm.tm_sec),
-        goto fail);
+            tm.tm_sec);
+}
+
+
+SUPRIVATE su_mat_file_t *
+suscli_mat5_fopen(const char *path, struct timeval *t0)
+{
+  su_mat_file_t *mf = NULL;
+  su_mat_matrix_t *mtx = NULL;
+  struct timeval tv;
+  char *new_path = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  if (path == NULL || strlen(path) == 0) {
+    if (path == NULL || strlen(path) == 0) {
+      SU_TRYCATCH(new_path = suscli_mat5_datasaver_fname_cb(), goto fail);
+      path = new_path;
+    }
+
     path = new_path;
   }
 
@@ -63,6 +73,11 @@ suscli_mat5_fopen(const char *path)
    * may fall either in the past or the future.
    */
   
+  if (t0 == NULL)
+    gettimeofday(&tv, NULL);
+  else
+    tv = *t0;
+
   SU_TRYCATCH(mf = su_mat_file_new(), goto fail);
   SU_TRYCATCH(mtx = su_mat_file_make_matrix(mf, "XT0", 1, 1), goto fail);
   SU_TRYCATCH(su_mat_matrix_write_col(mtx, SU_ASFLOAT(tv.tv_sec)), goto fail);
@@ -89,12 +104,15 @@ suscli_mat5_datasaver_open_cb(void *userdata)
 {
   const char *path = NULL;
   const hashlist_t *params = (const hashlist_t *) userdata;
+  struct timeval *tv;
 
   SU_TRYCATCH(
       suscli_param_read_string(params, "path", &path, NULL),
       return NULL);
 
-  return suscli_mat5_fopen(path);
+  tv = hashlist_get(params, "_t0");
+
+  return suscli_mat5_fopen(path, tv);
 }
 
 SUPRIVATE SUBOOL
@@ -141,6 +159,7 @@ suscli_datasaver_params_init_mat5(
     struct suscli_datasaver_params *self,
     const hashlist_t *params) {
   self->userdata = (void *) params;
+  self->fname = suscli_mat5_datasaver_fname_cb;
   self->open  = suscli_mat5_datasaver_open_cb;
   self->write = suscli_mat5_datasaver_write_cb;
   self->close = suscli_mat5_datasaver_close_cb;
