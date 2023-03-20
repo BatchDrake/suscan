@@ -1,24 +1,53 @@
 #!/bin/bash
+#
+#  Copyright (C) 2023 Ángel Ruiz Fernández
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU Lesser General Public License as
+#  published by the Free Software Foundation, version 3.
+#
+#  This program is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this program.  If not, see
+#  <http://www.gnu.org/licenses/>
+#
 
-ver=$1
+if [ "$#" != "1" ]; then
+    echo $0: Usage:
+    echo "         $0 version"
+    exit 1
+fi
 
-# libsuscan
+PKG_VERSION=$1
+PKG_ARCH=`dpkg --print-architecture`
+PKG_DEPENDS='libsigutils (>= 0.3.0-1), libxml2 (>= 2.9.10+dfsg-6.7+deb11u3), libsoapysdr0.7 (>= 0.7.2-2)'
+PKG_DEV_DEPENDS='libsigutils-dev (>= 0.3.0-1), libxml2 (>= 2.9.10+dfsg-6.7+deb11u3), libsoapysdr0.7 (>= 0.7.2-2)'
+
+BINDIR=libsuscan_${PKG_VERSION}_${PKG_ARCH}
+DEVDIR=libsuscan-dev_${PKG_VERSION}_${PKG_ARCH}
+TOOLSDIR=suscan-tools_${PKG_VERSION}_${PKG_ARCH}
+############################ Binary package ####################################
 # create structure
-mkdir libsuscan_${ver}_amd64
-cd libsuscan_${ver}_amd64
+rm -Rf $BINDIR
+mkdir $BINDIR
+cd $BINDIR
 mkdir -p usr/lib/
 mkdir -p usr/share/suscan/config/
 mkdir -p DEBIAN/
 
 # create debian thing
-rm DEBIAN/control
+rm -f DEBIAN/control
 cat <<EOF >>DEBIAN/control
 Package: libsuscan
-Version: $ver
-Section: base
+Version: $PKG_VERSION
+Section: libs
 Priority: optional
-Architecture: amd64
-Depends: libsigutils (>= 0.3.0-1), libsndfile1 (>= 1.0.31-2), libfftw3-3 (>= 3.3.8-2), libxml2 (>= 2.9.10+dfsg-6.7+deb11u3), libsoapysdr0.7 (>= 0.7.2-2)
+Architecture: $PKG_ARCH
+Depends: $PKG_DEPENDS
 Maintainer: arf20 <aruizfernandez05@gmail.com>
 Description: Channel scanner based on sigutils library
 EOF
@@ -29,16 +58,16 @@ cp ../rsrc/*.yaml usr/share/suscan/config/
 
 # set permissions
 cd ..
-chmod 755 -R libsuscan_${ver}_amd64/
+chmod 755 -R $BINDIR/
 
 # build deb
-dpkg-deb --build libsuscan_${ver}_amd64
+dpkg-deb --build $BINDIR
 
-
-# libsuscan-dev
+############################ Development package ###############################
 # create structure
-mkdir libsuscan-dev_${ver}_amd64
-cd libsuscan-dev_${ver}_amd64
+rm -Rf $DEVDIR
+mkdir $DEVDIR
+cd $DEVDIR
 mkdir -p usr/lib/pkgconfig/
 mkdir -p usr/include/suscan/analyzer/inspector/
 mkdir -p usr/include/suscan/analyzer/correctors/
@@ -49,14 +78,14 @@ mkdir -p usr/include/suscan/sgdp4/
 mkdir -p DEBIAN/
 
 # create debian thing
-rm DEBIAN/control
+rm -f DEBIAN/control
 cat <<EOF >>DEBIAN/control
 Package: libsuscan-dev
-Version: $ver
-Section: base
+Version: $PKG_VERSION
+Section: libdevel
 Priority: optional
-Architecture: amd64
-Depends: libsigutils-dev (>= 0.3.0-1), libsndfile1 (>= 1.0.31-2), libfftw3-3 (>= 3.3.8-2), libxml2 (>= 2.9.10+dfsg-6.7+deb11u3), libsoapysdr0.7 (>= 0.7.2-2)
+Architecture: $PKG_ARCH
+Depends: libsuscan (= $PKG_VERSION), $PKG_DEV_DEPENDS, pkg-config
 Maintainer: arf20 <aruizfernandez05@gmail.com>
 Description: Channel scanner based on sigutils library development files
 EOF
@@ -74,28 +103,28 @@ cp ../sgdp4/*.h usr/include/suscan/sgdp4/
 
 # set permissions
 cd ..
-chmod 755 -R libsuscan-dev_${ver}_amd64/
+chmod 755 -R $DEVDIR
 
 # build deb
-dpkg-deb --build libsuscan-dev_${ver}_amd64
+dpkg-deb --build $DEVDIR
 
-
-# suscan-tools
+############################ Tools package ###############################
 # create structure
-mkdir suscan-tools_${ver}_amd64
-cd suscan-tools_${ver}_amd64
+rm -Rf $TOOLSDIR
+mkdir $TOOLSDIR
+cd $TOOLSDIR
 mkdir -p usr/bin/
 mkdir -p DEBIAN/
 
 # create debian thing
-rm DEBIAN/control
+rm -f DEBIAN/control
 cat <<EOF >>DEBIAN/control
 Package: suscan-tools
-Version: $ver
-Section: base
+Version: $PKG_VERSION
+Section: hamradio
 Priority: optional
-Architecture: amd64
-Depends: libsuscan (>= 0.3.0-1)
+Architecture: $PKG_ARCH
+Depends: libsuscan (= $PKG_VERSION)
 Maintainer: arf20 <aruizfernandez05@gmail.com>
 Description: Channel scanner based on sigutils library tools
 EOF
@@ -106,7 +135,7 @@ cp ../build/suscli usr/bin/
 
 # set permissions
 cd ..
-chmod 755 -R suscan-tools_${ver}_amd64/
+chmod 755 -R $TOOLSDIR
 
 # build deb
-dpkg-deb --build suscan-tools_${ver}_amd64
+dpkg-deb --build $TOOLSDIR
