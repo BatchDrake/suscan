@@ -24,8 +24,8 @@ fi
 
 PKG_VERSION=$1
 PKG_ARCH=`dpkg --print-architecture`
-PKG_DEPENDS='libsigutils (>= 0.3.0-1), libxml2 (>= 2.9.10+dfsg-6.7+deb11u3), libsoapysdr0.7 (>= 0.7.2-2)'
-PKG_DEV_DEPENDS='libsigutils-dev (>= 0.3.0-1), libxml2 (>= 2.9.10+dfsg-6.7+deb11u3), libsoapysdr0.7 (>= 0.7.2-2)'
+PKG_DEPENDS='libsigutils (>= 0.3.0-1), libxml2 (>= 2.9.10+dfsg-6.7+deb11u3), libsoapysdr0.8 (>= 0.8.1-2build1)'
+PKG_DEV_DEPENDS='libsigutils-dev (>= 0.3.0-1), libxml2 (>= 2.9.10+dfsg-6.7+deb11u3), libsoapysdr0.8 (>= 0.8.1-2build1)'
 
 BINDIR=libsuscan_${PKG_VERSION}_${PKG_ARCH}
 DEVDIR=libsuscan-dev_${PKG_VERSION}_${PKG_ARCH}
