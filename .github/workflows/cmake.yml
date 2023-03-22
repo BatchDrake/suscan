@@ -70,14 +70,14 @@ jobs:
         path: suscan
 
     - name: Configure CMake (suscan)
-      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
-
-    - name: Build (suscan)
-      run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
+      run: cmake -DSUSCAN_PKGDIR="/usr" -DPKGVERSION="${{steps.vars.outputs.sha_short}}" -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
 
     - name: Get short hash
       id: vars
       run: cd ${{github.workspace}}/suscan/ && echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Build (suscan)
+      run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
 
     - name: Make Debian packages
       run: cd ${{github.workspace}}/suscan/ && ./makedeb.sh 0.3.0-${{steps.vars.outputs.sha_short}}
