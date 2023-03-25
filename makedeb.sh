@@ -16,16 +16,23 @@
 #  <http://www.gnu.org/licenses/>
 #
 
-if [ "$#" != "1" ]; then
+if [ "$#" -lt "1" ] || [ "$#" -gt "2" ]; then
     echo $0: Usage:
-    echo "         $0 version"
+    echo "         $0 version [subversion]"
     exit 1
 fi
 
-PKG_VERSION=$1
+BASE_VERSION=$1
+
+if [ "$#" == "1" ]; then
+    PKG_VERSION=$1
+else
+    PKG_VERSION=$1-$2
+fi
+
 PKG_ARCH=`dpkg --print-architecture`
-PKG_DEPENDS='libsigutils (>= '"$PKG_VERSION"'), libxml2 (>= 2.9.13+dfsg-1), libportaudio2 (>= 19.6.0-1.1), libsoapysdr0.8 (>= 0.8.1-2build1)'
-PKG_DEV_DEPENDS='libsigutils-dev (>= '"$PKG_VERSION"'), libxml2-dev (>= 2.9.13+dfsg-1), libsoapysdr-dev (>= 0.8.1-2build1)'
+PKG_DEPENDS='libsigutils (>= '"$BASE_VERSION"'), libxml2 (>= 2.9.13+dfsg-1), libportaudio2 (>= 19.6.0-1.1), libsoapysdr0.8 (>= 0.8.1-2build1)'
+PKG_DEV_DEPENDS='libsigutils-dev (>= '"$BASE_VERSION"'), libxml2-dev (>= 2.9.13+dfsg-1), libsoapysdr-dev (>= 0.8.1-2build1)'
 
 BINDIR=libsuscan_${PKG_VERSION}_${PKG_ARCH}
 DEVDIR=libsuscan-dev_${PKG_VERSION}_${PKG_ARCH}
