@@ -113,7 +113,7 @@ cd ..
 chmod 755 -R $DEVDIR
 
 # build deb
-dpkg-deb --build $DEVDIR
+dpkg-deb -Zgzip --build $DEVDIR
 
 ############################ Tools package ###############################
 # create structure
@@ -145,4 +145,4 @@ cd ..
 chmod 755 -R $TOOLSDIR
 
 # build deb
-dpkg-deb --build $TOOLSDIR
+dpkg-deb -Zgzip --build $TOOLSDIR
