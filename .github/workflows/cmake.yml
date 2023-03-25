@@ -71,7 +71,7 @@ jobs:
 
     - name: Get short hash
       id: vars
-      run: cd ${{github.workspace}}/sigutils/ && echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      run: cd ${{github.workspace}}/suscan/ && echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
     - name: Configure CMake (suscan)
       run: cmake -DSUSCAN_PKGDIR="/usr" -DPKGVERSION="${{steps.vars.outputs.sha_short}}" -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
