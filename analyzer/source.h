@@ -51,6 +51,8 @@ extern "C" {
 #define SUSCAN_SOURCE_ANTIALIAS_REL_SIZE    5
 #define SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE 512
 
+#define SUSCAN_SOURCE_DC_AVERAGING_PERIOD   10
+
 /************************** Source config API ********************************/
 struct suscan_source_gain_desc {
   int epoch;
@@ -483,6 +485,13 @@ struct suscan_source {
   SUBOOL   looped;
   SUSCOUNT total_samples;
   SUSCOUNT seek_request;
+
+  SUSCOUNT  soft_dc_train_samples;
+  SUSCOUNT  soft_dc_count;
+  SUBOOL    have_dc_offset;
+  SUFLOAT   soft_dc_alpha;
+  SUCOMPLEX dc_offset;
+  SUCOMPLEX dc_c;
 
   SUSDIFF (*read) (
         struct suscan_source *source,
