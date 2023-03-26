@@ -486,6 +486,7 @@ struct suscan_source {
   SUSCOUNT total_samples;
   SUSCOUNT seek_request;
 
+  SUBOOL    no_hardware_dc;
   SUSCOUNT  soft_dc_train_samples;
   SUSCOUNT  soft_dc_count;
   SUBOOL    have_dc_offset;

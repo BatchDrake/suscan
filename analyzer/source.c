@@ -1923,7 +1923,8 @@ suscan_source_open_sdr(suscan_source_t *self)
   } else {
     self->soft_dc_train_samples = suscan_source_get_dc_samples(self);
     self->soft_dc_correction = self->config->dc_remove;
-    
+    self->no_hardware_dc = SU_TRUE;
+
     if (self->soft_dc_train_samples == 0) {
       self->soft_dc_alpha = SU_SPLPF_ALPHA(SUSCAN_SOURCE_DC_AVERAGING_PERIOD);
       self->have_dc_offset = self->soft_dc_correction;
@@ -2304,7 +2305,8 @@ suscan_source_set_dc_remove(suscan_source_t *self, SUBOOL remove)
   if (!self->capturing)
     return SU_FALSE;
 
-  if (self->config->type == SUSCAN_SOURCE_TYPE_FILE) {
+  if (self->config->type == SUSCAN_SOURCE_TYPE_FILE
+     || self->no_hardware_dc) {
     if (remove) {
       self->soft_dc_count = 0;
       self->dc_offset = 0;
