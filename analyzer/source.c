@@ -1935,11 +1935,11 @@ suscan_source_open_sdr(suscan_source_t *self)
 
 #if SOAPY_SDR_API_VERSION < 0x00080000
   if (SoapySDRDevice_setupStream(
-      source->sdr,
-      &source->rx_stream,
+      self->sdr,
+      &self->rx_stream,
       SOAPY_SDR_RX,
       SUSCAN_SOAPY_SAMPFMT,
-      source->chan_array,
+      self->chan_array,
       1,
       NULL) != 0) {
 #else
