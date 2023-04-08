@@ -166,7 +166,7 @@ suscan_power_inspector_feed(
     ++ptr;
     
     if (ptr >= max) {
-      suscan_inspector_push_sample(insp, power / max);
+      suscan_inspector_push_sample(insp, acc / max);
       ptr = 0;
       acc = 0;
       c   = 0;
@@ -213,7 +213,7 @@ suscan_power_inspector_register(void)
       desc,
       SUSCAN_FIELD_TYPE_INTEGER,
       SU_FALSE,
-      "integrate-samples",
+      "power.integrate-samples",
       "Number of samples to integrate"));
 
   iface.cfgdesc = desc;
