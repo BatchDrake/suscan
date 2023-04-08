@@ -229,6 +229,7 @@ set(INSPECTOR_LIB_SOURCES
   ${INSPECTORDIR}/fsk.c
   ${INSPECTORDIR}/multicarrier.c
   ${INSPECTORDIR}/psk.c
+  ${INSPECTORDIR}/power.c
   ${INSPECTORDIR}/raw.c)
 
 set(CORRECTOR_HEADERS 
