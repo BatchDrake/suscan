@@ -145,8 +145,8 @@ suscan_power_inspector_feed(
 {
   struct suscan_power_inspector *self = 
     (struct suscan_power_inspector *) private;
-  SUSCOUNT i, max = self->cur_params.integrate_samples;
-  SUFLOAT acc, t, y, c, ptr, power;
+  SUSCOUNT i, max = self->cur_params.integrate_samples, ptr;
+  SUFLOAT acc, t, y, c, power;
 
   if (max == 0)
     return count;
