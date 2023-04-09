@@ -58,7 +58,7 @@ jobs:
     - name: Configure CMake (sigutils)
       run: |
         cd sigutils
-        cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
+        cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} .
         cd ..
 
     - name: Build (sigutils)
