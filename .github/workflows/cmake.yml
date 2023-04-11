@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ master ]
   pull_request:
-    branches: [ develop ]
+    branches: [ master ]
   workflow_dispatch:
     inputs:
       debug_enabled:
@@ -52,7 +52,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: BatchDrake/sigutils
-        ref: refs/heads/develop
+        ref: refs/heads/master
         path: sigutils
 
     - name: Configure CMake (sigutils)
@@ -153,7 +153,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: BatchDrake/sigutils
-        ref: refs/heads/develop
+        ref: refs/heads/master
         path: sigutils
 
     - name: Configure CMake (sigutils)
@@ -198,7 +198,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: BatchDrake/sigutils
-          ref: refs/heads/develop
+          ref: refs/heads/master
           path: sigutils
         
       - name: Configure sigutils
