@@ -204,7 +204,8 @@ suscan_sc_inspector_factory_open(
   samp_info->bw_bd    = SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(schan));
   samp_info->bw       = .5 * schan->decimation * samp_info->bw_bd;
   samp_info->f0       = SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan));
-
+  samp_info->fft_size = schan->size;
+  
   return schan;
 }
 
@@ -216,6 +217,12 @@ suscan_sc_inspector_factory_bind(
 {
   su_specttuner_channel_t *chan = (su_specttuner_channel_t *) insp_self;
 
+  /* We need to do this here. */
+  suscan_inspector_set_domain(
+    insp,
+    suscan_inspector_is_freq_domain(insp));
+
+  
   /* TODO: Assign inspector to channel and open a handle (use SU_REF) */
   chan->params.privdata = insp;
 
@@ -290,6 +297,24 @@ suscan_sc_inspector_factory_set_frequency(
   return SU_TRUE;
 }
 
+SUPRIVATE SUBOOL
+suscan_sc_inspector_factory_set_domain(
+  void *userdata, 
+  void *insp_userdata, 
+  SUBOOL is_freq)
+{
+  su_specttuner_channel_t *chan = (su_specttuner_channel_t *) insp_userdata;
+  
+  su_specttuner_channel_set_domain(
+    chan,
+    is_freq 
+    ? SU_SPECTTUNER_CHANNEL_FREQUENCY_DOMAIN
+    : SU_SPECTTUNER_CHANNEL_TIME_DOMAIN);    
+
+  return SU_TRUE;
+}
+
+
 SUPRIVATE SUFREQ
 suscan_sc_inspector_factory_get_abs_freq(
   void *userdata, 
@@ -340,6 +365,7 @@ static struct suscan_inspector_factory_class g_sc_factory = {
   .free_buf            = suscan_sc_inspector_factory_free_buf,
   .set_bandwidth       = suscan_sc_inspector_factory_set_bandwidth,
   .set_frequency       = suscan_sc_inspector_factory_set_frequency,
+  .set_domain          = suscan_sc_inspector_factory_set_domain,
   .get_abs_freq        = suscan_sc_inspector_factory_get_abs_freq,
   .set_freq_correction = suscan_sc_inspector_factory_set_freq_correction,
   .dtor                = suscan_sc_inspector_factory_dtor
@@ -728,6 +754,16 @@ suscan_inspector_set_throttle_factor(
     suscan_spectsrc_set_throttle_factor(self->spectsrc_list[i], factor);
 }
 
+void
+suscan_inspector_set_domain(suscan_inspector_t *self, SUBOOL domain)
+{
+  self->frequency_domain = domain;
+  suscan_inspector_factory_set_inspector_domain(
+    self->factory,
+    self,
+    domain);
+}
+
 SUBOOL
 suscan_inspector_get_config(
     const suscan_inspector_t *insp,
@@ -948,6 +984,7 @@ suscan_inspector_new(
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
   new->state            = SUSCAN_ASYNC_STATE_CREATED;
   new->samp_info        = *samp_info;
+  new->frequency_domain = iface->frequency_domain;
 
   /* Initialize reference counting */
   SU_TRYCATCH(SUSCAN_INIT_REFCOUNT(suscan_inspector, new), goto fail);

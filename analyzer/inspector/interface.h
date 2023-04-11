@@ -34,6 +34,7 @@ struct suscan_inspector_sampling_info {
   SUFLOAT bw;              /* Bandwidth */
   SUFLOAT bw_bd;           /* Bandwidth before decimation */
   SUFLOAT f0;              /* Center frequency */
+  SUSCOUNT fft_size;       /* Size of the FFT window. */
 };
 
 struct suscan_inspector_interface {
@@ -41,6 +42,8 @@ struct suscan_inspector_interface {
   const char *desc;               /* Description */
   const char *sc_factory_class;   /* Factory class (if any) */
 
+  SUBOOL frequency_domain;
+  
   suscan_config_desc_t *cfgdesc;
 
   PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc);
