@@ -59,6 +59,9 @@ struct suscan_inspector_factory_class {
   /* Set absolute frequency */
   SUBOOL (*set_frequency) (void *, void *, SUFREQ);
   
+  /* Set domain */
+  SUBOOL (*set_domain) (void *, void *, SUBOOL);
+
   SUFREQ (*get_abs_freq) (void *, void *);
   SUBOOL (*set_freq_correction) (void *, void *, SUFLOAT);
   
@@ -132,6 +135,18 @@ suscan_inspector_factory_set_inspector_freq(
     self->userdata,
     insp->factory_userdata,
     freq);
+}
+
+SUINLINE SUBOOL
+suscan_inspector_factory_set_inspector_domain(
+  suscan_inspector_factory_t *self,
+  suscan_inspector_t *insp,
+  SUBOOL is_freq)
+{
+  return (self->iface->set_domain) (
+    self->userdata,
+    insp->factory_userdata,
+    is_freq);
 }
 
 SUINLINE SUBOOL

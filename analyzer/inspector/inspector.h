@@ -62,6 +62,7 @@ struct suscan_inspector {
   struct suscan_mq *mq_out;     /* Non-owned */
   struct suscan_mq *mq_ctl;     /* Non-owner */
   enum suscan_aync_state state; /* Used to remove analyzer from queue */
+  SUBOOL frequency_domain;      /* Used to tell if the inspector is in the frequency domain */
 
   /* Specific inspector interface being used */
   const struct suscan_inspector_interface *iface;
@@ -74,7 +75,7 @@ struct suscan_inspector {
   pthread_mutex_t               corrector_mutex;
   SUBOOL                        corrector_init;
   suscan_frequency_corrector_t *corrector;
-  
+
   /* Spectrum and estimator state */
   SUFLOAT  interval_estimator;
   SUFLOAT  interval_spectrum;
@@ -100,12 +101,18 @@ struct suscan_inspector {
   SUCOMPLEX sampler_buf[SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE];
   SUSCOUNT  sampler_ptr;
   SUSCOUNT  sample_msg_watermark; /* Watermark. When reached, message is sent */
-
+  
   PTR_LIST(suscan_estimator_t, estimator); /* Parameter estimators */
   PTR_LIST(suscan_spectsrc_t, spectsrc); /* Spectrum source */
 };
 
 typedef struct suscan_inspector suscan_inspector_t;
+
+SUINLINE SUBOOL
+suscan_inspector_is_freq_domain(const suscan_inspector_t *self)
+{
+  return self->frequency_domain;
+}
 
 SUINLINE void
 suscan_inspector_set_handle(suscan_inspector_t *self, SUHANDLE handle)
@@ -295,6 +302,8 @@ void suscan_inspector_set_throttle_factor(
   suscan_inspector_t *insp,
   SUFLOAT factor);
 
+void suscan_inspector_set_domain(suscan_inspector_t *self, SUBOOL domain);
+
 SUBOOL suscan_inspector_notify_bandwidth(
     suscan_inspector_t *insp,
     SUFREQ new_bandwidth);
@@ -346,6 +355,7 @@ SUBOOL suscan_fsk_inspector_register(void);
 SUBOOL suscan_psk_inspector_register(void);
 SUBOOL suscan_audio_inspector_register(void);
 SUBOOL suscan_raw_inspector_register(void);
+SUBOOL suscan_power_inspector_register(void);
 SUBOOL suscan_multicarrier_inspector_register(void);
 
 #ifdef __cplusplus

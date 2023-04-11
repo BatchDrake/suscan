@@ -113,6 +113,8 @@ suscli_csv_datasaver_write_cb(
         return SU_FALSE);
   }
 
+  fflush(fp);
+  
   return SU_TRUE;
 }
 

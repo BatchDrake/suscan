@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <libgen.h>
+#include <inttypes.h>
 
 #define SU_LOG_DOMAIN "source"
 
@@ -1729,6 +1730,29 @@ suscan_source_feed_decimator(
 #undef ACCUMULATE
 #undef IF_DONE_PRODUCE_SAMPLE
 
+SUPRIVATE SUSCOUNT
+suscan_source_get_dc_samples(const suscan_source_t *self)
+{
+  SUFLOAT samp_rate = suscan_source_get_samp_rate(self);
+  const char *calc_time;
+  SUFLOAT int_time = 0;
+
+  calc_time = suscan_source_config_get_param(
+    self->config,
+    "_suscan_dc_calc_time");
+  
+  if (calc_time != NULL) {
+    if (sscanf(calc_time, "%f", &int_time) == 1) {
+      if (int_time < 0)
+        int_time = 0;
+    } else {
+      int_time = 0;
+    }
+  }
+
+  return (SUSCOUNT) (int_time * samp_rate);
+}
+
 SUPRIVATE SUBOOL
 suscan_source_open_file(suscan_source_t *self)
 {
@@ -1737,6 +1761,13 @@ suscan_source_open_file(suscan_source_t *self)
     &self->sf_info)) != NULL) {
     self->config->samp_rate = self->samp_rate = self->sf_info.samplerate;
     self->iq_file   = self->sf_info.channels == 2;
+    self->soft_dc_train_samples = suscan_source_get_dc_samples(self);
+    self->soft_dc_correction = self->config->dc_remove;
+
+    if (self->soft_dc_train_samples == 0) {
+      self->soft_dc_alpha = SU_SPLPF_ALPHA(SUSCAN_SOURCE_DC_AVERAGING_PERIOD);
+      self->have_dc_offset = self->soft_dc_correction;
+    }
   }
 
   return self->sf != NULL;
@@ -1792,44 +1823,44 @@ done:
 }
 
 SUPRIVATE SUBOOL
-suscan_source_open_sdr(suscan_source_t *source)
+suscan_source_open_sdr(suscan_source_t *self)
 {
   unsigned int i;
   char *antenna = NULL;
 
-  if ((source->sdr = SoapySDRDevice_make(source->config->soapy_args)) == NULL) {
+  if ((self->sdr = SoapySDRDevice_make(self->config->soapy_args)) == NULL) {
     SU_ERROR("Failed to open SDR device: %s\n", SoapySDRDevice_lastError());
     return SU_FALSE;
   }
 
-  if (source->config->antenna != NULL)
+  if (self->config->antenna != NULL)
     if (SoapySDRDevice_setAntenna(
-        source->sdr,
+        self->sdr,
         SOAPY_SDR_RX,
-        source->config->channel,
-        source->config->antenna) != 0) {
+        self->config->channel,
+        self->config->antenna) != 0) {
       SU_ERROR("Failed to set SDR antenna: %s\n", SoapySDRDevice_lastError());
       return SU_FALSE;
     }
 
-  for (i = 0; i < source->config->gain_count; ++i)
+  for (i = 0; i < self->config->gain_count; ++i)
     if (SoapySDRDevice_setGainElement(
-        source->sdr,
+        self->sdr,
         SOAPY_SDR_RX,
-        source->config->channel,
-        source->config->gain_list[i]->desc->name,
-        source->config->gain_list[i]->val) != 0)
+        self->config->channel,
+        self->config->gain_list[i]->desc->name,
+        self->config->gain_list[i]->val) != 0)
       SU_WARNING(
           "Failed to set gain `%s' to %gdB, ignoring silently\n",
-          source->config->gain_list[i]->desc->name,
-          source->config->gain_list[i]->val);
+          self->config->gain_list[i]->desc->name,
+          self->config->gain_list[i]->val);
 
 
   if (SoapySDRDevice_setFrequency(
-      source->sdr,
+      self->sdr,
       SOAPY_SDR_RX,
-      source->config->channel,
-      source->config->freq - source->config->lnb_freq,
+      self->config->channel,
+      self->config->freq - self->config->lnb_freq,
       NULL) != 0) {
     SU_ERROR(
         "Failed to set SDR frequency: %s\n",
@@ -1838,10 +1869,10 @@ suscan_source_open_sdr(suscan_source_t *source)
   }
 
   if (SoapySDRDevice_setBandwidth(
-      source->sdr,
+      self->sdr,
       SOAPY_SDR_RX,
-      source->config->channel,
-      source->config->bandwidth) != 0) {
+      self->config->channel,
+      self->config->bandwidth) != 0) {
     SU_ERROR(
         "Failed to set SDR IF bandwidth: %s\n",
         SoapySDRDevice_lastError());
@@ -1850,10 +1881,10 @@ suscan_source_open_sdr(suscan_source_t *source)
 
 #if SOAPY_SDR_API_VERSION >= 0x00060000
   if (SoapySDRDevice_setFrequencyCorrection(
-      source->sdr,
+      self->sdr,
       SOAPY_SDR_RX,
-      source->config->channel,
-      source->config->ppm) != 0) {
+      self->config->channel,
+      self->config->ppm) != 0) {
     SU_ERROR(
         "Failed to set SDR frequency correction: %s\n",
         SoapySDRDevice_lastError());
@@ -1866,51 +1897,58 @@ suscan_source_open_sdr(suscan_source_t *source)
       " does not support frequency correction\n");
 #endif /* SOAPY_SDR_API_VERSION >= 0x00060000 */
 
-  if (!suscan_source_set_sample_rate_near(source))
+  if (!suscan_source_set_sample_rate_near(self))
     return SU_FALSE;
 
   /*
    * IQ-balance should be performed automatically. SoapySDR does not support
    * that yet.
    */
-  source->soft_iq_balance = source->config->iq_balance;
+  self->soft_iq_balance = self->config->iq_balance;
 
   if (SoapySDRDevice_hasDCOffsetMode(
-      source->sdr,
+      self->sdr,
       SOAPY_SDR_RX,
-      source->config->channel)) {
+      self->config->channel)) {
     if (SoapySDRDevice_setDCOffsetMode(
-        source->sdr,
+        self->sdr,
         SOAPY_SDR_RX,
-        source->config->channel,
-        source->config->dc_remove) != 0) {
+        self->config->channel,
+        self->config->dc_remove) != 0) {
       SU_ERROR(
           "Failed to set DC offset correction: %s\n",
           SoapySDRDevice_lastError());
       return SU_FALSE;
     }
   } else {
-    source->soft_dc_correction = source->config->dc_remove;
+    self->soft_dc_train_samples = suscan_source_get_dc_samples(self);
+    self->soft_dc_correction = self->config->dc_remove;
+    self->no_hardware_dc = SU_TRUE;
+
+    if (self->soft_dc_train_samples == 0) {
+      self->soft_dc_alpha = SU_SPLPF_ALPHA(SUSCAN_SOURCE_DC_AVERAGING_PERIOD);
+      self->have_dc_offset = self->soft_dc_correction;
+    }
   }
 
   /* All set: open SoapySDR stream */
-  source->chan_array[0] = source->config->channel;
+  self->chan_array[0] = self->config->channel;
 
 #if SOAPY_SDR_API_VERSION < 0x00080000
   if (SoapySDRDevice_setupStream(
-      source->sdr,
-      &source->rx_stream,
+      self->sdr,
+      &self->rx_stream,
       SOAPY_SDR_RX,
       SUSCAN_SOAPY_SAMPFMT,
-      source->chan_array,
+      self->chan_array,
       1,
       NULL) != 0) {
 #else
-  if ((source->rx_stream = SoapySDRDevice_setupStream(
-      source->sdr,
+  if ((self->rx_stream = SoapySDRDevice_setupStream(
+      self->sdr,
       SOAPY_SDR_RX,
       SUSCAN_SOAPY_SAMPFMT,
-      source->chan_array,
+      self->chan_array,
       1,
       NULL)) == NULL) {
 #endif
@@ -1920,20 +1958,20 @@ suscan_source_open_sdr(suscan_source_t *source)
     return SU_FALSE;
   }
 
-  source->mtu = SoapySDRDevice_getStreamMTU(
-      source->sdr,
-      source->rx_stream);
+  self->mtu = SoapySDRDevice_getStreamMTU(
+      self->sdr,
+      self->rx_stream);
 
-  source->samp_rate = SoapySDRDevice_getSampleRate(
-      source->sdr,
+  self->samp_rate = SoapySDRDevice_getSampleRate(
+      self->sdr,
       SOAPY_SDR_RX,
       0);
 
   if ((antenna = SoapySDRDevice_getAntenna(
-    source->sdr,
+    self->sdr,
     SOAPY_SDR_RX,
     0)) != NULL) {
-    (void) suscan_source_config_set_antenna(source->config, antenna);
+    (void) suscan_source_config_set_antenna(self->config, antenna);
     free(antenna);
   }
 
@@ -2087,8 +2125,9 @@ SUSDIFF
 suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 {
   SUSDIFF got;
-  SUSCOUNT result;
-  
+  SUSCOUNT result, i;
+  SUCOMPLEX y, c, t, sum;
+
   if (!self->capturing)
     return 0;
 
@@ -2115,6 +2154,40 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
       self->total_samples += result;
   }
 
+  if (result > 0) {
+    if (self->soft_dc_correction) {
+      c   = self->dc_c;
+      sum = self->dc_offset;
+
+      for (i = 0; i < result; ++i) {
+        y = buffer[i] - c;
+        t = sum + y;
+        c = (t - sum) - y;
+        sum = t;
+      }
+
+      if (self->soft_dc_train_samples > 0) {
+        self->dc_c = c;
+        self->dc_offset = sum;
+        self->soft_dc_count += result;
+
+        if (self->soft_dc_count > self->soft_dc_train_samples) {
+          self->dc_offset /= self->soft_dc_count;
+          self->soft_dc_correction = SU_FALSE;
+          self->have_dc_offset = SU_TRUE;
+        }
+      } else {
+        SU_SPLPF_FEED(self->dc_offset, sum / result, self->soft_dc_alpha);
+      }
+    }
+    
+    if (self->have_dc_offset) {
+      for (i = 0; i < result; ++i)
+        buffer[i] -= self->dc_offset;
+    }
+  }
+
+  
   return result;
 }
 
@@ -2227,16 +2300,27 @@ suscan_source_set_agc(suscan_source_t *source, SUBOOL set)
 }
 
 SUBOOL
-suscan_source_set_dc_remove(suscan_source_t *source, SUBOOL remove)
+suscan_source_set_dc_remove(suscan_source_t *self, SUBOOL remove)
 {
-  if (!source->capturing)
+  if (!self->capturing)
     return SU_FALSE;
 
-  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
-    return SU_FALSE;
+  if (self->config->type == SUSCAN_SOURCE_TYPE_FILE
+     || self->no_hardware_dc) {
+    if (remove) {
+      self->soft_dc_count = 0;
+      self->dc_offset = 0;
+      self->dc_c = 0;
+    }
+
+    self->soft_dc_correction = remove;
+    self->have_dc_offset = remove && self->soft_dc_train_samples == 0;
+
+    return SU_TRUE;
+  }
 
   if (SoapySDRDevice_setDCOffsetMode(
-      source->sdr,
+      self->sdr,
       SOAPY_SDR_RX,
       0,
       remove ? true : false)
@@ -2244,7 +2328,7 @@ suscan_source_set_dc_remove(suscan_source_t *source, SUBOOL remove)
     SU_ERROR("Failed to set DC mode\n");
     return SU_FALSE;
   } else {
-    source->config->dc_remove = remove;
+    self->config->dc_remove = remove;
   }
 
   return SU_TRUE;
@@ -2526,6 +2610,17 @@ suscan_source_new(suscan_source_config_t *config)
     default:
       SU_ERROR("Malformed config object\n");
       goto fail;
+  }
+
+  if (new->soft_dc_correction) {
+    SU_INFO("Source does not support native DC correction, falling back to software correction\n");
+    if (new->have_dc_offset) {
+      SU_INFO("DC correction strategy: continuous\n");
+    } else {
+      SU_INFO(
+        "DC correction strategy: one-shot (%" PRIu64 " samples)\n",
+        new->soft_dc_train_samples);
+    }
   }
 
   return new;
