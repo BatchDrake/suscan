@@ -1614,11 +1614,19 @@ fail:
 void
 suscan_source_destroy(suscan_source_t *source)
 {
+  unsigned int i;
+
   if (source->sf != NULL)
     sf_close(source->sf);
 
   if (source->rx_stream != NULL)
     SoapySDRDevice_closeStream(source->sdr, source->rx_stream);
+
+  if (source->settings != NULL) {
+    for (i = 0; i < source->settings_count; ++i)
+      SoapySDRArgInfo_clear(source->settings + i);
+    free(source->settings);
+  }
 
   if (source->sdr != NULL)
     SoapySDRDevice_unmake(source->sdr);
@@ -1822,11 +1830,26 @@ done:
   return ok;
 }
 
+SUPRIVATE SoapySDRArgInfo *
+suscan_source_find_setting(const suscan_source_t *source, const char *name)
+{
+  size_t i;
+
+  for (i = 0; i < source->settings_count; ++i) {
+    if (strcmp(source->settings[i].key, name) == 0)
+      return source->settings + i;
+  }
+
+  return NULL;
+}
+
 SUPRIVATE SUBOOL
 suscan_source_open_sdr(suscan_source_t *self)
 {
   unsigned int i;
   char *antenna = NULL;
+  const char *key, *desc;
+  SoapySDRArgInfo *arg;
 
   if ((self->sdr = SoapySDRDevice_make(self->config->soapy_args)) == NULL) {
     SU_ERROR("Failed to open SDR device: %s\n", SoapySDRDevice_lastError());
@@ -1956,6 +1979,45 @@ suscan_source_open_sdr(suscan_source_t *self)
         "Failed to open RX stream on SDR device: %s\n",
         SoapySDRDevice_lastError());
     return SU_FALSE;
+  }
+
+  self->settings = SoapySDRDevice_getSettingInfo(
+    self->sdr,
+    &self->settings_count);
+  
+  if (self->settings_count != 0 && self->settings == NULL) {
+    SU_ERROR(
+        "Failed to retrieve device settings: %s\n",
+        SoapySDRDevice_lastError());
+    return SU_FALSE;
+  }
+
+  for (i = 0; i < self->config->soapy_args->size; ++i) {
+    if (strncmp(
+      self->config->soapy_args->keys[i],
+      SUSCAN_SOURCE_SETTING_PREFIX,
+      SUSCAN_SOURCE_SETTING_PFXLEN) == 0) {
+
+      key = self->config->soapy_args->keys[i] + SUSCAN_SOURCE_SETTING_PFXLEN;
+      arg = suscan_source_find_setting(self, key);
+
+      if (arg != NULL) {
+        desc = arg->description == NULL ? arg->key : arg->description;
+        SU_INFO(
+          "Device setting `%s': set to %s\n",
+          desc,
+          self->config->soapy_args->vals[i]);
+      } else {
+        SU_WARNING(
+          "Device setting `%s': not supported by device. Setting anyways.\n",
+          key);
+      }
+
+      SoapySDRDevice_writeSetting(
+        self->sdr,
+        key,
+        self->config->soapy_args->vals[i]);
+    }
   }
 
   self->mtu = SoapySDRDevice_getStreamMTU(

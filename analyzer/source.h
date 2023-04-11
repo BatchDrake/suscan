@@ -43,6 +43,9 @@ extern "C" {
 #define SUSCAN_SOURCE_LOCAL_INTERFACE   "local"
 #define SUSCAN_SOURCE_REMOTE_INTERFACE  "remote"
 
+#define SUSCAN_SOURCE_SETTING_PREFIX    "setting:"
+#define SUSCAN_SOURCE_SETTING_PFXLEN    (sizeof("setting:") - 1)
+
 #define SUSCAN_SOURCE_DEFAULT_NAME      "Default source"
 #define SUSCAN_SOURCE_DEFAULT_FREQ      433920000 /* 433 ISM */
 #define SUSCAN_SOURCE_DEFAULT_SAMP_RATE 1000000
@@ -515,8 +518,11 @@ struct suscan_source {
   SUBOOL iq_file;
 
   /* SDR sources are accessed through SoapySDR */
-  SoapySDRDevice *sdr;
-  SoapySDRStream *rx_stream;
+  SoapySDRDevice  *sdr;
+  SoapySDRStream  *rx_stream;
+  SoapySDRArgInfo *settings;
+  size_t           settings_count;
+
   size_t chan_array[1];
   SUFLOAT samp_rate; /* Actual sample rate */
   size_t mtu;
