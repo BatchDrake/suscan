@@ -106,9 +106,14 @@ SU_COLLECTOR(tcp_datasaver)
   if (self->desc != NULL)
     free(self->desc);
   
-  if (self->fd != -1)
+  if (self->fd != -1) {
+#ifdef _WIN32
+    win32_graceful_socket_close(self->fd);
+#else
     (void) shutdown(self->fd, SHUT_RDWR);
-
+#endif /* _WIN32 */
+  }
+  
   free(self);
 }
 
