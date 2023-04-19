@@ -34,7 +34,12 @@
 
 #include <string.h>
 
-#include <volk/volk.h>
+#ifdef SU_USE_VOLK
+#  include <volk/volk.h>
+#  ifdef INCLUDED_volk_32fc_x2_conjugate_dot_prod_32fc_a_H
+#    define HAVE_VOLK_ACCELERATION
+#  endif /* INCLUDED_volk_32fc_x2_conjugate_dot_prod_32fc_a_H */
+#endif /* SU_USE_VOLK */
 
 /*
  * The power inspector works by computing the energy of the received samples,
@@ -196,7 +201,7 @@ suscan_power_inspector_commit_config(void *private)
     suscan_inspector_set_domain(self->insp, self->frequency_mode);
 }
 
-#ifdef SU_USE_VOLK
+#ifdef HAVE_VOLK_ACCELERATION
 SUINLINE SUSDIFF
 suscan_power_inspector_feed_time_domain_volk(
   struct suscan_power_inspector *self,
@@ -461,7 +466,7 @@ suscan_power_inspector_feed(
   if (self->cur_params.integrate_samples == 0)
     return count;
   
-#ifdef SU_USE_VOLK
+#ifdef HAVE_VOLK_ACCELERATION
   if (self->frequency_mode)
     return suscan_power_inspector_feed_freq_domain_volk(self, x, count);
   else
