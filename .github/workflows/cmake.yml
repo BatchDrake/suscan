@@ -20,9 +20,10 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-    - name: Setup interactive shell session
-      uses: mxschmitt/action-tmate@v3
-      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
+# Removed. This does not work any longer.
+#    - name: Setup interactive shell session
+#      uses: mxschmitt/action-tmate@v3
+#      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
 
     - name: Install sndfile
       run: sudo apt-get install libsndfile1-dev
