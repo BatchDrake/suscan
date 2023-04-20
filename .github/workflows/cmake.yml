@@ -18,7 +18,7 @@ jobs:
   # Installation of dependencies is too OS-dependent now, we don't
   # miss that much by particularizing this in a per-OS basis.
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
 # Removed. This does not work any longer.
 #    - name: Setup interactive shell session
