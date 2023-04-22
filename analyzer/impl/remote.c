@@ -19,12 +19,12 @@
 
 #define SU_LOG_DOMAIN "remote-analyzer"
 
-#include <util/compat-socket.h>
-#include <util/compat-unistd.h>
-#include <util/compat-netdb.h>
-#include <util/compat-inet.h>
-#include <util/compat-fcntl.h>
-#include <util/compat-poll.h>
+#include <sigutils/util/compat-socket.h>
+#include <sigutils/util/compat-unistd.h>
+#include <sigutils/util/compat-netdb.h>
+#include <sigutils/util/compat-inet.h>
+#include <sigutils/util/compat-fcntl.h>
+#include <sigutils/util/compat-poll.h>
 
 #include "remote.h"
 #include "msg.h"

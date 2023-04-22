@@ -22,9 +22,9 @@
 #include "devserv.h"
 #include <analyzer/msg.h>
 #include <sigutils/log.h>
-#include <util/compat-poll.h>
-#include <util/compat-fcntl.h>
-#include <util/compat-socket.h>
+#include <sigutils/util/compat-poll.h>
+#include <sigutils/util/compat-fcntl.h>
+#include <sigutils/util/compat-socket.h>
 #include <analyzer/impl/multicast.h>
 
 SUPRIVATE void suscli_analyzer_server_kick_client(

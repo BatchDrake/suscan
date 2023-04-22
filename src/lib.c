@@ -22,7 +22,7 @@
 #include <sigutils/sigutils.h>
 #include <confdb.h>
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include "suscan.h"
 
 #define SUSCAN_MAX_MESSAGES 1024

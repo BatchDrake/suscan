@@ -22,7 +22,7 @@
 
 #include "sgdp4.h"
 #include <sigutils/log.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-time.h>
 
 #define MAX_REASONABLE_DISTANCE 3.8e5
 

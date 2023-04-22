@@ -20,7 +20,7 @@
 #ifndef _MSG_H
 #define _MSG_H
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include <stdint.h>
 
 #include "analyzer.h"

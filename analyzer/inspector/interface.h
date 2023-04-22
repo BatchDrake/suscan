@@ -20,7 +20,7 @@
 #ifndef _INSPECTOR_INTERFACE_H
 #define _INSPECTOR_INTERFACE_H
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include <sigutils/sigutils.h>
 #include <cfg.h>
 

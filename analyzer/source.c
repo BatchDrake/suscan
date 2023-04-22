@@ -36,7 +36,7 @@
 #include <sigutils/specttuner.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-time.h>
 
 #ifdef _WIN32
 #  include <winsock2.h>
