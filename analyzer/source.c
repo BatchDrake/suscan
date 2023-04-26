@@ -33,6 +33,7 @@
 #include "compat.h"
 #include "discovery.h"
 #include <sigutils/taps.h>
+#include <sigutils/specttuner.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <util/compat-time.h>
@@ -1634,78 +1635,140 @@ suscan_source_destroy(suscan_source_t *source)
   if (source->config != NULL)
     suscan_source_config_destroy(source->config);
 
-  if (source->antialias_alloc != NULL)
-    free(source->antialias_alloc);
+  if (source->decimator != NULL)
+    su_specttuner_destroy(source->decimator);
 
-  if (source->decim_buf != NULL)
-    free(source->decim_buf);
+  if (source->decim_spillover != NULL)
+    free(source->decim_spillover);
+
+  if (source->read_buf != NULL)
+    free(source->read_buf);
 
   free(source);
 }
 
 /*********************** Decimator configuration *****************************/
+#define _SWAP(a, b) \
+  tmp = a;          \
+  a = b;            \
+  b = tmp;
+
+SUPRIVATE SUBOOL
+suscan_source_decim_callback(
+  const struct sigutils_specttuner_channel *channel,
+   void *privdata,
+   const SUCOMPLEX *data,
+   SUSCOUNT size)
+{
+  suscan_source_t *self = privdata;
+  SUSCOUNT chunk;
+  SUSCOUNT curr_avail;
+  SUSCOUNT spillover_avail;
+  SUCOMPLEX *buftmp;
+  SUSCOUNT desired_alloc = SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE;
+  SUBOOL ok = SU_FALSE;
+  
+  while (size > 0) {
+    curr_avail = self->curr_size - self->curr_ptr;
+    spillover_avail = self->decim_spillover_alloc - self->decim_spillover_size;
+
+    /* 
+     *  Two cases here:
+     *  1. curr_avail > 0: copy to the current buffer, increment pointer 
+     *  2. curr_avail = 0: copy to spillover buffer, increment pointer 
+     *      spillover_avail > 0:  copy until done 
+     *      spillover_avail == 0: increment allocation 
+     *  In all cases, decrement size appropriately
+     */
+
+    if (curr_avail > 0) {
+      chunk = SU_MIN(curr_avail, size);
+      memcpy(self->curr_buf + self->curr_ptr, data, chunk * sizeof(SUCOMPLEX));
+      self->curr_ptr += chunk;
+    } else {
+      if (spillover_avail == 0) {
+        if (self->decim_spillover_alloc > 0)
+          desired_alloc = self->decim_spillover_alloc << 1;
+        
+        SU_TRY(
+          buftmp = realloc(
+            self->decim_spillover,
+            desired_alloc * sizeof(SUCOMPLEX)));
+
+        self->decim_spillover = buftmp;
+        self->decim_spillover_alloc = desired_alloc;
+        spillover_avail = self->decim_spillover_alloc - self->decim_spillover_size;
+      }
+
+      chunk = SU_MIN(spillover_avail, size);
+      memcpy(
+        self->decim_spillover + self->decim_spillover_size,
+        data,
+        chunk * sizeof(SUCOMPLEX));
+      self->decim_spillover_size += chunk;
+    }
+
+    size -= chunk;
+    data += chunk;
+  }
+  
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
 SUPRIVATE SUBOOL
 suscan_source_configure_decimation(
     suscan_source_t *self,
     int decim)
 {
-  int i;
-  SUFLOAT *antialias;
+  int true_decim;
+  SUBOOL ok = SU_FALSE;
+  struct sigutils_specttuner_params params = 
+    sigutils_specttuner_params_INITIALIZER;
+  su_specttuner_t *new_tuner = NULL, *tmp;
+  su_specttuner_channel_t *chan = NULL;
+  struct sigutils_specttuner_channel_params chparams =
+    sigutils_specttuner_channel_params_INITIALIZER;
 
-  /* Decim is M: Compute an antialias filter of M * SUSCAN_SOURCE_POLYPHASE_BANK_SIZE */
+  SU_TRY(decim > 0);
 
-  SU_TRYCATCH(decim > 0, return SU_FALSE);
+  true_decim = 1;
+  while (true_decim < decim)
+    true_decim <<= 1;
 
-  self->decim = decim;
-  self->decim_length = decim * SUSCAN_SOURCE_ANTIALIAS_REL_SIZE;
+  if (true_decim > 1) {
+    SU_ALLOCATE_MANY(self->read_buf, SUSCAN_SOURCE_DEFAULT_BUFSIZ, SUCOMPLEX);
 
-  /* Pointers are initialized in 0, -decim, -2 * decim, -3 * decim... */
+    params.window_size     = SUSCAN_SOURCE_DEFAULT_BUFSIZ;
+    params.early_windowing = SU_FALSE;
 
-  for (i = 0; i < SUSCAN_SOURCE_ANTIALIAS_REL_SIZE; ++i)
-    self->ptrs[i] = -i * decim;
+    SU_MAKE(new_tuner, su_specttuner, &params);
 
-  /*
-   * 1 filter:  [DECIM]
-   * 2 filters: [NULLS][DECIM][DECIM]
-   * 3 filters: [NULLS][NULLS][DECIM][DECIM][DECIM]
-   */
-  SU_TRYCATCH(
-      self->antialias_alloc = calloc(
-          2 * SUSCAN_SOURCE_ANTIALIAS_REL_SIZE - 1,
-          decim * sizeof(SUFLOAT)),
-      return SU_FALSE);
+    chparams.guard    = 1;
+    chparams.bw       = 2 * M_PI / true_decim * (1 - SUSCAN_SOURCE_DECIM_INNER_GUARD);
+    chparams.f0       = 0;
+    chparams.precise  = SU_FALSE;
+    chparams.privdata = self;
+    chparams.on_data  = suscan_source_decim_callback;
 
-  SU_TRYCATCH(
-      self->decim_buf = malloc(
-          SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE * sizeof(SUCOMPLEX)),
-      return SU_FALSE);
+    SU_TRY(chan = su_specttuner_open_channel(new_tuner, &chparams));
+    self->main_channel = chan;
+  }
 
-  antialias = self->antialias_alloc
-      + (SUSCAN_SOURCE_ANTIALIAS_REL_SIZE - 1) * decim;
-  self->antialias = antialias;
+  _SWAP(new_tuner, self->decimator);
+  self->decim = true_decim;
+  
+  ok = SU_TRUE;
 
-  /*
-   * Decim 1: Filter cutoff: 1
-   * Decim 2: Filter cutoff: .5
-   * Decim 3: Filter cutoff: .3333...
-   */
-  su_taps_brickwall_lp_init(
-      antialias,
-      1 / (SUFLOAT) decim,
-      self->decim_length);
+done:
+  if (new_tuner != NULL)
+    su_specttuner_destroy(new_tuner);
 
-  return SU_TRUE;
+  return ok;
 }
-
-#define ACCUMULATE(val) \
-  self->accums[val] += data[i] * (self->antialias[self->ptrs[val]++])
-#define IF_DONE_PRODUCE_SAMPLE(val) \
-    if (self->ptrs[val] == self->decim_length) { \
-      self->decim_buf[samples++] = self->accums[val]; \
-      self->accums[val] = self->ptrs[val] = 0; \
-      if (samples >= SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE) \
-        break; \
-    }
+#undef _SWAP
 
 SUPRIVATE SUSCOUNT
 suscan_source_feed_decimator(
@@ -1713,30 +1776,9 @@ suscan_source_feed_decimator(
     const SUCOMPLEX *data,
     SUSCOUNT len)
 {
-  SUSCOUNT samples = 0;
-  SUSCOUNT i;
-
-  /* Loop unrolling. I'm sorry. */
-
-  for (i = 0; i < len; ++i) {
-    ACCUMULATE(0);
-    ACCUMULATE(1);
-    ACCUMULATE(2);
-    ACCUMULATE(3);
-    ACCUMULATE(4);
-
-    IF_DONE_PRODUCE_SAMPLE(0)
-    else IF_DONE_PRODUCE_SAMPLE(1)
-    else IF_DONE_PRODUCE_SAMPLE(2)
-    else IF_DONE_PRODUCE_SAMPLE(3)
-    else IF_DONE_PRODUCE_SAMPLE(4)
-  }
-
-  return samples;
+  su_specttuner_feed_bulk(self->decimator, data, len);
+  return len;
 }
-
-#undef ACCUMULATE
-#undef IF_DONE_PRODUCE_SAMPLE
 
 SUPRIVATE SUSCOUNT
 suscan_source_get_dc_samples(const suscan_source_t *self)
@@ -2186,9 +2228,12 @@ suscan_source_time_sdr(struct suscan_source *source, struct timeval *tv)
 SUSDIFF
 suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 {
-  SUSDIFF got;
+  SUSDIFF got = 0;
   SUSCOUNT result, i;
+  SUSCOUNT spill_avail, chunk;
   SUCOMPLEX y, c, t, sum;
+  SUCOMPLEX *bufdec = buffer;
+  SUSCOUNT maxdec = max;
 
   if (!self->capturing)
     return 0;
@@ -2199,17 +2244,39 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
   }
 
   if (self->decim > 1) {
-    if (max > SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE)
-      max = SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE;
+    result = 0;
 
-    do {
-      if ((got = (self->read) (self, buffer, max)) < 1)
-        return got;
-      self->total_samples += got;
-      result = suscan_source_feed_decimator(self, buffer, got);
-    } while (result == 0);
+    spill_avail = self->decim_spillover_size - self->decim_spillover_ptr;
+    if (spill_avail > 0) {
+      chunk = SU_MIN(maxdec, spill_avail);
+      memcpy(
+        bufdec,
+        self->decim_spillover + self->decim_spillover_ptr,
+        chunk * sizeof(SUCOMPLEX));
+      self->decim_spillover_ptr -= chunk;
+      bufdec += chunk;
+      maxdec -= chunk;
+      result += chunk;
+    }
 
-    memcpy(buffer, self->decim_buf, result * sizeof(SUCOMPLEX));
+    if (maxdec > 0) {
+      self->decim_spillover_size = 0;
+      self->decim_spillover_ptr = 0;
+
+      self->curr_buf  = bufdec;
+      self->curr_ptr  = 0;
+      self->curr_size = maxdec;
+      do {
+        if ((got = (self->read) (
+          self,
+          self->read_buf,
+          SUSCAN_SOURCE_DEFAULT_BUFSIZ)) < 1)
+          return got;
+
+        suscan_source_feed_decimator(self, self->read_buf, got);
+      } while(self->curr_ptr == 0);
+      result += self->curr_ptr;
+    }
   } else {
     result = (self->read) (self, buffer, max);
     if (result > 0)

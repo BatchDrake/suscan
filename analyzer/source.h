@@ -55,6 +55,10 @@ extern "C" {
 #define SUSCAN_SOURCE_DECIMATOR_BUFFER_SIZE 512
 
 #define SUSCAN_SOURCE_DC_AVERAGING_PERIOD   10
+#define SUSCAN_SOURCE_DECIM_INNER_GUARD     5e-2
+
+struct sigutils_specttuner;
+struct sigutils_specttuner_channel;
 
 /************************** Source config API ********************************/
 struct suscan_source_gain_desc {
@@ -531,13 +535,19 @@ struct suscan_source {
   SUBOOL force_eos;
 
   /* Downsampling members */
-  SUFLOAT *antialias_alloc;
-  const SUFLOAT *antialias;
-  SUCOMPLEX accums[SUSCAN_SOURCE_ANTIALIAS_REL_SIZE];
-  SUCOMPLEX *decim_buf;
-  int ptrs[SUSCAN_SOURCE_ANTIALIAS_REL_SIZE];
+  struct sigutils_specttuner         *decimator;
+  struct sigutils_specttuner_channel *main_channel;
+  SUCOMPLEX *read_buf;
+  SUCOMPLEX *curr_buf;
+  SUCOMPLEX  curr_size;
+  SUSCOUNT   curr_ptr;
+
+  SUCOMPLEX *decim_spillover;
+  SUSCOUNT   decim_spillover_alloc;
+  SUSCOUNT   decim_spillover_size;
+  SUSCOUNT   decim_spillover_ptr;
+
   int decim;
-  int decim_length;
 };
 
 typedef struct suscan_source suscan_source_t;
