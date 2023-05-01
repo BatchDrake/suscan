@@ -42,6 +42,17 @@
 #endif /* SU_USE_VOLK */
 
 /*
+ * This comes from the fact that, when performing power measurements in the
+ * frequency domain, the spectrum has been filtered by a raised cosine
+ * window (also known as Hann window). This window is 1 in the center and
+ * 0 in the edges. If you estimate its power, you will see it is 0.375. Or,
+ * in faction form, 3. / 8. We compensate this effect by multiplying the result
+ * by this factor in the end, so that time and frequency power estimations
+ * are the same.
+ */
+#define SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN (8. / 3.)
+
+/*
  * The power inspector works by computing the energy of the received samples,
  * and dividing them by the number of samples. The Parseval theorem states
  * that the energy computed in the time domain must equal the energy computed
@@ -313,7 +324,9 @@ suscan_power_inspector_feed_freq_domain_volk(
       E_n = acc;
       E_t = self->beta * E_p + E + self->alpha * E_n;
 
-      suscan_inspector_push_sample(insp, E_t / self->K * (8. / 3.));
+      suscan_inspector_push_sample(
+        insp,
+        E_t / self->K * SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN);
       E_p = E_n;
       self->beta = 1 - self->alpha;
 
@@ -422,7 +435,10 @@ suscan_power_inspector_feed_freq_domain(
       /* Got next. */
       E_n = acc;
       E_t = self->beta * E_p + E + self->alpha * E_n;
-      suscan_inspector_push_sample(insp, E_t / self->K);
+      suscan_inspector_push_sample(
+        insp,
+        E_t / self->K * SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN);
+      
       self->E_p = E_n;
       self->beta = 1 - self->alpha;
 
