@@ -1749,7 +1749,7 @@ suscan_source_configure_decimation(
     chparams.guard    = 1;
     chparams.bw       = 2 * M_PI / true_decim * (1 - SUSCAN_SOURCE_DECIM_INNER_GUARD);
     chparams.f0       = 0;
-    chparams.precise  = SU_FALSE;
+    chparams.precise  = SU_TRUE;
     chparams.privdata = self;
     chparams.on_data  = suscan_source_decim_callback;
 
@@ -2559,29 +2559,62 @@ suscan_source_set_bandwidth(suscan_source_t *source, SUFLOAT bw)
   return SU_TRUE;
 }
 
+SUPRIVATE SUBOOL
+suscan_source_set_decimator_freq(suscan_source_t *self, SUFREQ freq)
+{
+  SUFREQ fdiff, fmax;
+  SUFLOAT frel;
+  SUBOOL ok = SU_FALSE;
+
+  if (self->decim > 1) {
+    fmax = (self->samp_rate - self->samp_rate / self->decim) / 2;
+    fdiff = (freq - self->config->freq);
+    if (fdiff < -fmax || fdiff > fmax) {
+      SU_ERROR("Decimator frequency out of bounds\n");
+      goto done;
+    }
+
+    frel = SU_ABS2NORM_FREQ(self->samp_rate, fdiff);
+    su_specttuner_set_channel_freq(
+      self->decimator,
+      self->main_channel,
+      SU_NORM2ANG_FREQ(frel));
+  } else {
+    return SU_TRUE;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
 SUBOOL
 suscan_source_set_freq(suscan_source_t *source, SUFREQ freq)
 {
   if (!source->capturing)
     return SU_FALSE;
 
-  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
-    return SU_FALSE;
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE) {
+    SU_TRYCATCH(
+      suscan_source_set_decimator_freq(source, freq),
+      return SU_FALSE);
+  } else {
+    /* Update config */
+    suscan_source_config_set_freq(source->config, freq);
 
-  /* Update config */
-  suscan_source_config_set_freq(source->config, freq);
-
-  /* Set device frequency */
-  if (SoapySDRDevice_setFrequency(
-      source->sdr,
-      SOAPY_SDR_RX,
-      source->config->channel,
-      source->config->freq - source->config->lnb_freq,
-      NULL) != 0) {
-    SU_ERROR(
-        "Failed to set SDR frequency: %s\n",
-        SoapySDRDevice_lastError());
-    return SU_FALSE;
+    /* Set device frequency */
+    if (SoapySDRDevice_setFrequency(
+        source->sdr,
+        SOAPY_SDR_RX,
+        source->config->channel,
+        source->config->freq - source->config->lnb_freq,
+        NULL) != 0) {
+      SU_ERROR(
+          "Failed to set SDR frequency: %s\n",
+          SoapySDRDevice_lastError());
+      return SU_FALSE;
+    }
   }
 
   return SU_TRUE;
@@ -2627,7 +2660,7 @@ suscan_source_set_lnb_freq(suscan_source_t *source, SUFREQ freq)
     return SU_FALSE;
 
   if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
-    return SU_FALSE;
+    return SU_TRUE;
 
   /* Update config */
   suscan_source_config_set_lnb_freq(source->config, freq);
@@ -2654,24 +2687,27 @@ suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb)
   if (!source->capturing)
     return SU_FALSE;
 
-  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
-    return SU_TRUE;
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE) {
+    SU_TRYCATCH(
+      suscan_source_set_decimator_freq(source, freq),
+      return SU_FALSE);
+  } else {
+    /* Update config */
+    suscan_source_config_set_freq(source->config, freq);
+    suscan_source_config_set_lnb_freq(source->config, lnb);
 
-  /* Update config */
-  suscan_source_config_set_freq(source->config, freq);
-  suscan_source_config_set_lnb_freq(source->config, lnb);
-
-  /* Set device frequency */
-  if (SoapySDRDevice_setFrequency(
-      source->sdr,
-      SOAPY_SDR_RX,
-      source->config->channel,
-      source->config->freq - source->config->lnb_freq,
-      NULL) != 0) {
-    SU_ERROR(
-        "Failed to set SDR frequency: %s\n",
-        SoapySDRDevice_lastError());
-    return SU_FALSE;
+    /* Set device frequency */
+    if (SoapySDRDevice_setFrequency(
+        source->sdr,
+        SOAPY_SDR_RX,
+        source->config->channel,
+        source->config->freq - source->config->lnb_freq,
+        NULL) != 0) {
+      SU_ERROR(
+          "Failed to set SDR frequency: %s\n",
+          SoapySDRDevice_lastError());
+      return SU_FALSE;
+    }
   }
 
   return SU_TRUE;
@@ -2680,8 +2716,22 @@ suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb)
 SUFREQ
 suscan_source_get_freq(const suscan_source_t *source)
 {
-  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE || !source->capturing)
+  SUFREQ fdiff;
+
+  if (!source->capturing)
     return suscan_source_config_get_freq(source->config);
+  
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE) {
+    if (source->decim == 1)
+      fdiff = 0;      
+    else
+      fdiff = SU_NORM2ABS_FREQ(
+        source->samp_rate,
+        SU_ANG2NORM_FREQ(
+          su_specttuner_channel_get_f0(source->main_channel)));
+
+    return fdiff + suscan_source_config_get_freq(source->config);
+  }
 
   return SoapySDRDevice_getFrequency(source->sdr, SOAPY_SDR_RX, 0)
       + suscan_source_config_get_lnb_freq(source->config);
