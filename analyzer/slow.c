@@ -621,7 +621,7 @@ suscan_local_analyzer_slow_seek(
       return SU_FALSE);
 
   /* We need to conver the timeval to position first */
-  samp_rate = suscan_source_get_base_samp_rate(self->source);
+  samp_rate = suscan_source_get_samp_rate(self->source);
   
   self->seek_req_value = 
     tv->tv_sec * samp_rate + (tv->tv_usec * samp_rate) / 1000000;

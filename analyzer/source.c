@@ -2147,8 +2147,9 @@ suscan_source_get_end_time(
 {
   struct timeval start, elapsed = {0, 0};
   SUSDIFF max_size;
-  SUFLOAT samp_rate = suscan_source_get_samp_rate(self);
+  SUFLOAT samp_rate = suscan_source_get_base_samp_rate(self);
 
+  /* For this calculation WE WANT the base samp rate. The one without decimation. */
   suscan_source_get_start_time(self, &start);
 
   max_size = suscan_source_get_max_size(self) - 1;
@@ -2165,7 +2166,7 @@ suscan_source_get_end_time(
 SUPRIVATE SUBOOL
 suscan_source_seek_file(struct suscan_source *self, SUSCOUNT pos)
 {
-  if (sf_seek(self->sf, pos, SEEK_SET) == -1)
+  if (sf_seek(self->sf, pos * self->decim, SEEK_SET) == -1)
     return SU_FALSE;
 
   self->total_samples = pos;
