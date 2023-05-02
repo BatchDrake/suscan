@@ -2129,12 +2129,13 @@ suscan_source_get_time_file(struct suscan_source *self, struct timeval *tv)
 {
   struct timeval elapsed;
   SUSCOUNT samp_count = self->total_samples;
+  SUFLOAT samp_rate = suscan_source_get_samp_rate(self);
 
-  elapsed.tv_sec  = samp_count / self->config->samp_rate;
+  elapsed.tv_sec  = samp_count / samp_rate;
   elapsed.tv_usec = 
     (1000000 
-      * (samp_count - elapsed.tv_sec * self->config->samp_rate))
-      / self->config->samp_rate;
+      * (samp_count - elapsed.tv_sec * samp_rate))
+      / samp_rate;
 
   timeradd(&self->config->start_time, &elapsed, tv);
 }
@@ -2146,15 +2147,16 @@ suscan_source_get_end_time(
 {
   struct timeval start, elapsed = {0, 0};
   SUSDIFF max_size;
+  SUFLOAT samp_rate = suscan_source_get_samp_rate(self);
 
   suscan_source_get_start_time(self, &start);
 
   max_size = suscan_source_get_max_size(self) - 1;
   if (max_size >= 0) {
-    elapsed.tv_sec  = max_size / self->config->samp_rate;
+    elapsed.tv_sec  = max_size / samp_rate;
     elapsed.tv_usec = (1000000 
-      * (max_size - elapsed.tv_sec * self->config->samp_rate))
-      / self->config->samp_rate;
+      * (max_size - elapsed.tv_sec * samp_rate))
+      / samp_rate;
   }
 
   timeradd(&start, &elapsed, tv);
@@ -2281,9 +2283,10 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
     }
   } else {
     result = (self->read) (self, buffer, max);
-    if (result > 0)
-      self->total_samples += result;
   }
+
+  if (result > 0)
+    self->total_samples += result;
 
   if (result > 0) {
     if (self->soft_dc_correction) {
