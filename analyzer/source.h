@@ -539,7 +539,7 @@ struct suscan_source {
   struct sigutils_specttuner_channel *main_channel;
   SUCOMPLEX *read_buf;
   SUCOMPLEX *curr_buf;
-  SUCOMPLEX  curr_size;
+  SUSCOUNT   curr_size;
   SUSCOUNT   curr_ptr;
 
   SUCOMPLEX *decim_spillover;

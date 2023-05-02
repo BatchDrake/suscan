@@ -1671,7 +1671,7 @@ suscan_source_decim_callback(
   while (size > 0) {
     curr_avail = self->curr_size - self->curr_ptr;
     spillover_avail = self->decim_spillover_alloc - self->decim_spillover_size;
-
+    
     /* 
      *  Two cases here:
      *  1. curr_avail > 0: copy to the current buffer, increment pointer 
@@ -2245,24 +2245,26 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 
   if (self->decim > 1) {
     result = 0;
-
     spill_avail = self->decim_spillover_size - self->decim_spillover_ptr;
+
     if (spill_avail > 0) {
       chunk = SU_MIN(maxdec, spill_avail);
       memcpy(
         bufdec,
         self->decim_spillover + self->decim_spillover_ptr,
         chunk * sizeof(SUCOMPLEX));
-      self->decim_spillover_ptr -= chunk;
+      self->decim_spillover_ptr += chunk;
       bufdec += chunk;
       maxdec -= chunk;
       result += chunk;
+
+      if (self->decim_spillover_ptr == self->decim_spillover_size) {
+        self->decim_spillover_ptr = 0;
+        self->decim_spillover_size = 0;
+      }
     }
 
     if (maxdec > 0) {
-      self->decim_spillover_size = 0;
-      self->decim_spillover_ptr = 0;
-
       self->curr_buf  = bufdec;
       self->curr_ptr  = 0;
       self->curr_size = maxdec;
