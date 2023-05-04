@@ -42,6 +42,17 @@
 #endif /* SU_USE_VOLK */
 
 /*
+ * This comes from the fact that, when performing power measurements in the
+ * frequency domain, the spectrum has been filtered by a raised cosine
+ * window (also known as Hann window). This window is 1 in the center and
+ * 0 in the edges. If you estimate its power, you will see it is 0.375. Or,
+ * in faction form, 3. / 8. We compensate this effect by multiplying the result
+ * by this factor in the end, so that time and frequency power estimations
+ * are the same.
+ */
+#define SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN (8. / 3.)
+
+/*
  * The power inspector works by computing the energy of the received samples,
  * and dividing them by the number of samples. The Parseval theorem states
  * that the energy computed in the time domain must equal the energy computed
@@ -60,14 +71,14 @@
  *     alpha = K - floor(K), we operate as follows:
  * 
  *     1. Keep a variable named E_p (init: 0) and beta (init: 0).
- *     2. Calculate K as integrate_samples / fft_size
- *     3. Calculate Kr = K - beta
- *     3. Calculate alpha = Kr - floor(Kr)
- *     4. Calculate the total energy of floor(Kr) fft buffers (E)
- *     5. Calculate the total energy of the next fft buffer (E_n)
- *     6. Compute E_t = beta * E_p + E + alpha * E_n
- *     7. Return P = E_t / K
- *     8. Save E_p = E_n
+ *     2. Calculate K as integrate_samples / fft_size                  <-- Number of full FFTs to take into account
+ *     3. Calculate Kr = K - beta                                      <-- Fraction already computed
+ *     3. Calculate alpha = Kr - floor(Kr)                             <-- Fraction of the partial (next) FFT
+ *     4. Calculate the total energy of floor(Kr) fft buffers (E)      <-- Whole FFTs, may be 0
+ *     5. Calculate the total energy of the next fft buffer (E_n)      <-- Partial (next) FFT
+ *     6. Compute E_t = beta * E_p + E + alpha * E_n                   <-- Whole part + partial next + partial previous
+ *     7. Return P = E_t / K                                           <-- Divide by the total number of FFTs
+ *     8. Save E_p = E_n                                               <-- Now this is the previous
  *     9. Save beta = 1 - alpha
  */
 struct suscan_power_inspector_params {
@@ -281,6 +292,7 @@ suscan_power_inspector_feed_freq_domain_volk(
       self->alpha = self->Kr - SU_FLOOR(self->Kr);
       max = SU_FLOOR(self->Kr) * self->samp_info.fft_size;
       max_n = max + self->samp_info.fft_size;
+      E = 0;
     }
     
     if (ptr < max) {
@@ -313,7 +325,9 @@ suscan_power_inspector_feed_freq_domain_volk(
       E_n = acc;
       E_t = self->beta * E_p + E + self->alpha * E_n;
 
-      suscan_inspector_push_sample(insp, E_t / self->K * (8. / 3.));
+      suscan_inspector_push_sample(
+        insp,
+        E_t / self->K * SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN);
       E_p = E_n;
       self->beta = 1 - self->alpha;
 
@@ -401,6 +415,7 @@ suscan_power_inspector_feed_freq_domain(
       self->alpha = self->Kr - SU_FLOOR(self->Kr);
       max = SU_FLOOR(self->Kr) * self->samp_info.fft_size;
       max_n = max + self->samp_info.fft_size;
+      E = 0;
     }
 
     power = SU_C_REAL(x[i] * SU_C_CONJ(x[i]));
@@ -415,15 +430,16 @@ suscan_power_inspector_feed_freq_domain(
     if (ptr == max) {
       /* First floor(Kr) samples: calculate E. */
       E = acc;
-
       acc = 0;
       c   = 0;
     } else if (ptr == max_n) {
       /* Got next. */
       E_n = acc;
       E_t = self->beta * E_p + E + self->alpha * E_n;
-      suscan_inspector_push_sample(insp, E_t / self->K);
-      self->E_p = E_n;
+      suscan_inspector_push_sample(
+        insp,
+        E_t / self->K * SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN);
+      E_p = E_n;
       self->beta = 1 - self->alpha;
 
       ptr = 0;

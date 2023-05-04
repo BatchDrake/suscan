@@ -1671,7 +1671,7 @@ suscan_source_decim_callback(
   while (size > 0) {
     curr_avail = self->curr_size - self->curr_ptr;
     spillover_avail = self->decim_spillover_alloc - self->decim_spillover_size;
-
+    
     /* 
      *  Two cases here:
      *  1. curr_avail > 0: copy to the current buffer, increment pointer 
@@ -1749,7 +1749,7 @@ suscan_source_configure_decimation(
     chparams.guard    = 1;
     chparams.bw       = 2 * M_PI / true_decim * (1 - SUSCAN_SOURCE_DECIM_INNER_GUARD);
     chparams.f0       = 0;
-    chparams.precise  = SU_FALSE;
+    chparams.precise  = SU_TRUE;
     chparams.privdata = self;
     chparams.on_data  = suscan_source_decim_callback;
 
@@ -2129,12 +2129,13 @@ suscan_source_get_time_file(struct suscan_source *self, struct timeval *tv)
 {
   struct timeval elapsed;
   SUSCOUNT samp_count = self->total_samples;
+  SUFLOAT samp_rate = suscan_source_get_samp_rate(self);
 
-  elapsed.tv_sec  = samp_count / self->config->samp_rate;
+  elapsed.tv_sec  = samp_count / samp_rate;
   elapsed.tv_usec = 
     (1000000 
-      * (samp_count - elapsed.tv_sec * self->config->samp_rate))
-      / self->config->samp_rate;
+      * (samp_count - elapsed.tv_sec * samp_rate))
+      / samp_rate;
 
   timeradd(&self->config->start_time, &elapsed, tv);
 }
@@ -2146,15 +2147,17 @@ suscan_source_get_end_time(
 {
   struct timeval start, elapsed = {0, 0};
   SUSDIFF max_size;
+  SUFLOAT samp_rate = suscan_source_get_base_samp_rate(self);
 
+  /* For this calculation WE WANT the base samp rate. The one without decimation. */
   suscan_source_get_start_time(self, &start);
 
   max_size = suscan_source_get_max_size(self) - 1;
   if (max_size >= 0) {
-    elapsed.tv_sec  = max_size / self->config->samp_rate;
+    elapsed.tv_sec  = max_size / samp_rate;
     elapsed.tv_usec = (1000000 
-      * (max_size - elapsed.tv_sec * self->config->samp_rate))
-      / self->config->samp_rate;
+      * (max_size - elapsed.tv_sec * samp_rate))
+      / samp_rate;
   }
 
   timeradd(&start, &elapsed, tv);
@@ -2163,7 +2166,7 @@ suscan_source_get_end_time(
 SUPRIVATE SUBOOL
 suscan_source_seek_file(struct suscan_source *self, SUSCOUNT pos)
 {
-  if (sf_seek(self->sf, pos, SEEK_SET) == -1)
+  if (sf_seek(self->sf, pos * self->decim, SEEK_SET) == -1)
     return SU_FALSE;
 
   self->total_samples = pos;
@@ -2245,24 +2248,26 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 
   if (self->decim > 1) {
     result = 0;
-
     spill_avail = self->decim_spillover_size - self->decim_spillover_ptr;
+
     if (spill_avail > 0) {
       chunk = SU_MIN(maxdec, spill_avail);
       memcpy(
         bufdec,
         self->decim_spillover + self->decim_spillover_ptr,
         chunk * sizeof(SUCOMPLEX));
-      self->decim_spillover_ptr -= chunk;
+      self->decim_spillover_ptr += chunk;
       bufdec += chunk;
       maxdec -= chunk;
       result += chunk;
+
+      if (self->decim_spillover_ptr == self->decim_spillover_size) {
+        self->decim_spillover_ptr = 0;
+        self->decim_spillover_size = 0;
+      }
     }
 
     if (maxdec > 0) {
-      self->decim_spillover_size = 0;
-      self->decim_spillover_ptr = 0;
-
       self->curr_buf  = bufdec;
       self->curr_ptr  = 0;
       self->curr_size = maxdec;
@@ -2279,9 +2284,10 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
     }
   } else {
     result = (self->read) (self, buffer, max);
-    if (result > 0)
-      self->total_samples += result;
   }
+
+  if (result > 0)
+    self->total_samples += result;
 
   if (result > 0) {
     if (self->soft_dc_correction) {
@@ -2559,29 +2565,62 @@ suscan_source_set_bandwidth(suscan_source_t *source, SUFLOAT bw)
   return SU_TRUE;
 }
 
+SUPRIVATE SUBOOL
+suscan_source_set_decimator_freq(suscan_source_t *self, SUFREQ freq)
+{
+  SUFREQ fdiff, fmax;
+  SUFLOAT frel;
+  SUBOOL ok = SU_FALSE;
+
+  if (self->decim > 1) {
+    fmax = (self->samp_rate - self->samp_rate / self->decim) / 2;
+    fdiff = (freq - self->config->freq);
+    if (fdiff < -fmax || fdiff > fmax) {
+      SU_ERROR("Decimator frequency out of bounds\n");
+      goto done;
+    }
+
+    frel = SU_ABS2NORM_FREQ(self->samp_rate, fdiff);
+    su_specttuner_set_channel_freq(
+      self->decimator,
+      self->main_channel,
+      SU_NORM2ANG_FREQ(frel));
+  } else {
+    return SU_TRUE;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
 SUBOOL
 suscan_source_set_freq(suscan_source_t *source, SUFREQ freq)
 {
   if (!source->capturing)
     return SU_FALSE;
 
-  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
-    return SU_FALSE;
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE) {
+    SU_TRYCATCH(
+      suscan_source_set_decimator_freq(source, freq),
+      return SU_FALSE);
+  } else {
+    /* Update config */
+    suscan_source_config_set_freq(source->config, freq);
 
-  /* Update config */
-  suscan_source_config_set_freq(source->config, freq);
-
-  /* Set device frequency */
-  if (SoapySDRDevice_setFrequency(
-      source->sdr,
-      SOAPY_SDR_RX,
-      source->config->channel,
-      source->config->freq - source->config->lnb_freq,
-      NULL) != 0) {
-    SU_ERROR(
-        "Failed to set SDR frequency: %s\n",
-        SoapySDRDevice_lastError());
-    return SU_FALSE;
+    /* Set device frequency */
+    if (SoapySDRDevice_setFrequency(
+        source->sdr,
+        SOAPY_SDR_RX,
+        source->config->channel,
+        source->config->freq - source->config->lnb_freq,
+        NULL) != 0) {
+      SU_ERROR(
+          "Failed to set SDR frequency: %s\n",
+          SoapySDRDevice_lastError());
+      return SU_FALSE;
+    }
   }
 
   return SU_TRUE;
@@ -2627,7 +2666,7 @@ suscan_source_set_lnb_freq(suscan_source_t *source, SUFREQ freq)
     return SU_FALSE;
 
   if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
-    return SU_FALSE;
+    return SU_TRUE;
 
   /* Update config */
   suscan_source_config_set_lnb_freq(source->config, freq);
@@ -2654,24 +2693,27 @@ suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb)
   if (!source->capturing)
     return SU_FALSE;
 
-  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE)
-    return SU_TRUE;
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE) {
+    SU_TRYCATCH(
+      suscan_source_set_decimator_freq(source, freq),
+      return SU_FALSE);
+  } else {
+    /* Update config */
+    suscan_source_config_set_freq(source->config, freq);
+    suscan_source_config_set_lnb_freq(source->config, lnb);
 
-  /* Update config */
-  suscan_source_config_set_freq(source->config, freq);
-  suscan_source_config_set_lnb_freq(source->config, lnb);
-
-  /* Set device frequency */
-  if (SoapySDRDevice_setFrequency(
-      source->sdr,
-      SOAPY_SDR_RX,
-      source->config->channel,
-      source->config->freq - source->config->lnb_freq,
-      NULL) != 0) {
-    SU_ERROR(
-        "Failed to set SDR frequency: %s\n",
-        SoapySDRDevice_lastError());
-    return SU_FALSE;
+    /* Set device frequency */
+    if (SoapySDRDevice_setFrequency(
+        source->sdr,
+        SOAPY_SDR_RX,
+        source->config->channel,
+        source->config->freq - source->config->lnb_freq,
+        NULL) != 0) {
+      SU_ERROR(
+          "Failed to set SDR frequency: %s\n",
+          SoapySDRDevice_lastError());
+      return SU_FALSE;
+    }
   }
 
   return SU_TRUE;
@@ -2680,8 +2722,22 @@ suscan_source_set_freq2(suscan_source_t *source, SUFREQ freq, SUFREQ lnb)
 SUFREQ
 suscan_source_get_freq(const suscan_source_t *source)
 {
-  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE || !source->capturing)
+  SUFREQ fdiff;
+
+  if (!source->capturing)
     return suscan_source_config_get_freq(source->config);
+  
+  if (source->config->type == SUSCAN_SOURCE_TYPE_FILE) {
+    if (source->decim == 1)
+      fdiff = 0;      
+    else
+      fdiff = SU_NORM2ABS_FREQ(
+        source->samp_rate,
+        SU_ANG2NORM_FREQ(
+          su_specttuner_channel_get_f0(source->main_channel)));
+
+    return fdiff + suscan_source_config_get_freq(source->config);
+  }
 
   return SoapySDRDevice_getFrequency(source->sdr, SOAPY_SDR_RX, 0)
       + suscan_source_config_get_lnb_freq(source->config);

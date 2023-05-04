@@ -1,63 +1,61 @@
 name: CI
 
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
-    inputs:
-      debug_enabled:
-        description: 'Build and run interactive shell'
-        required: false
-        default: false
+on: [push, pull_request, workflow_dispatch]
     
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
 
 jobs:
-  # Installation of dependencies is too OS-dependent now, we don't
-  # miss that much by particularizing this in a per-OS basis.
+  dep_target:
+    runs-on: ubuntu-latest
+    outputs:
+      target_ref: ${{ steps.dep_target.outputs.target_ref }}
+    steps:
+    - name: Determine dependencies target branch
+      id: dep_target
+      run: |
+        target_ref="develop"
+        
+        echo "Checking PR base reference..."
+        if [ ! -z "${{ github.base_ref }}" ]
+        then
+          echo "Base reference: ${{ github.base_ref }}"
+          if [ ! -z "$(echo ${{ github.base_ref }} | grep -E "^refs/.*/master$")" ]
+          then
+            echo "Reference to master found!"
+            target_ref="master"
+          fi
+        fi
+
+        echo "Checking reference..."
+        if [ ! -z "${{ github.ref }}" ]
+        then
+          echo "Reference: ${{ github.ref }}"
+          if [ ! -z "$(echo ${{ github.ref }} | grep -E "^refs/.*/master$")" ]
+          then
+            echo "Reference to master found!"
+            target_ref="master"
+          fi
+        fi
+
+        echo "Targetting '${target_ref}' branch..."
+        echo "target_ref=${target_ref}" >> $GITHUB_OUTPUT
+
   build-linux:
+    needs: dep_target
     runs-on: ubuntu-20.04
     steps:
-# Removed. This does not work any longer.
-#    - name: Setup interactive shell session
-#      uses: mxschmitt/action-tmate@v3
-#      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
-
-    - name: Install sndfile
-      run: sudo apt-get install libsndfile1-dev
-
-    - name: Install Volk
-      run: sudo apt-get install libvolk2-dev
-
-    - name: Install FFTW3
-      run: sudo apt-get install libfftw3-dev
-
-    - name: Install SoapySDR modules
-      run: sudo apt-get install soapysdr-module-all
-
-    - name: Install SoapySDR development files
-      run: sudo apt-get install libsoapysdr-dev
-
-    - name: Install libxml2
-      run: sudo apt-get install libxml2-dev
-
-    - name: Install portaudio
-      run: sudo apt-get install portaudio19-dev
+    - name: Install dependencies
+      run: sudo apt-get install libsndfile1-dev libvolk2-dev libfftw3-dev soapysdr-module-all libsoapysdr-dev libxml2-dev portaudio19-dev
 
     - name: Checkout (sigutils)
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: BatchDrake/sigutils
-        ref: ${{ github.ref }}
+        ref: ${{needs.dep_target.outputs.target_ref}}
         path: sigutils
-
-    - name: Unshallow (sigutils)
-      run: |
-        cd sigutils
-        git fetch --tags --prune --unshallow origin
-        cd ..
+        fetch-depth: 0
 
     - name: Configure CMake (sigutils)
       run: |
@@ -71,10 +69,11 @@ jobs:
     - name: Install system-wide (sigutils)
       run: sudo cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
 
-    - name: Checkout (suscan)
-      uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v3
       with:
         path: suscan
+        fetch-depth: 0
 
     - name: Get short hash
       id: vars
@@ -109,63 +108,41 @@ jobs:
     
 
   build-macos:
+    needs: dep_target
     runs-on: macos-latest
-    steps:
-    - name: Setup interactive shell session
-      uses: mxschmitt/action-tmate@v3
-      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
-      
-    - name: Install sndfile
-      run: brew install libsndfile
-
-    - name: Install Volk
-      run: brew install volk
-
-    - name: Install FFTW3
-      run: brew install fftw
-
-    - name: Adding SoapySDR taps (Pothos)
-      run: brew tap pothosware/homebrew-pothos && brew update
-
-    - name: Install SoapySDR (Pothos)
-      run: brew install pothossoapy
-
-    - name: Creating modules0.8
-      run: sudo mkdir -p /usr/local/lib/SoapySDR/modules0.8
-
-    - name: Install SDRPlay API
-      run: wget https://www.sdrplay.com/software/SDRplay_RSP_API-MacOSX-3.07.3.pkg && sudo installer -pkg SDRplay_RSP_API-MacOSX-3.07.3.pkg -target /
-
-    - name: Build and install SoapySDR module for SDRPlay
-      run: git clone https://github.com/pothosware/SoapySDRPlay3 && cd SoapySDRPlay3 && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j3 && sudo make install && cd ../../
-
-    # soapyaudio removed from due to deprecated hamlib API
-    # soapyosmo  removed because of random compilation errors
-    # soapyuhd   removed for the same reason
-    - name: Install SoapySDR modules (Pothos)
+    steps:      
+    - name: Install dependencies
       run: |
-        sudo chmod -R a+rw /usr/local/lib/SoapySDR/modules0.8
-        brew install soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyairspyhf soapyredpitaya soapyiris limesuite soapyplutosdr
-
-    - name: Install libxml2
-      run: brew install libxml2
-
-    - name: Install portaudio
-      run: brew install portaudio
+        # SDRPlay API
+        wget https://www.sdrplay.com/software/SDRplay_RSP_API-MacOSX-3.07.3.pkg
+        sudo installer -pkg SDRplay_RSP_API-MacOSX-3.07.3.pkg -target /
+        # Add custom homebrew repos
+        brew tap pothosware/homebrew-pothos
+        brew update
+        # Install deps
+        # soapyaudio removed from due to deprecated hamlib API
+        # soapyosmo  removed because of random compilation errors
+        # soapyuhd   removed for the same reason
+        brew install libsndfile volk fftw pothossoapy soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyairspyhf soapyredpitaya soapyiris limesuite soapyplutosdr libxml2 portaudio
+        # TODO: needed?
+        #sudo mkdir -p /usr/local/lib/SoapySDR/modules0.8
+        #sudo chmod -R a+rw /usr/local/lib/SoapySDR/modules0.8
+        # SoapySDRPlay3 from source
+        git clone https://github.com/pothosware/SoapySDRPlay3
+        cd SoapySDRPlay3
+        cmake -DCMAKE_BUILD_TYPE=Release -B build .
+        cmake --build build
+        sudo make install
+        cd ..
 
     - name: Checkout (sigutils)
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: BatchDrake/sigutils
-        ref: ${{ github.ref }}
+        ref: ${{needs.dep_target.outputs.target_ref}}
         path: sigutils
+        fetch-depth: 0
 
-    - name: Unshallow (sigutils)
-      run: |
-        cd sigutils
-        git fetch --tags --prune --unshallow origin
-        cd ..
-  
     - name: Configure CMake (sigutils)
       run: |
         export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
@@ -191,6 +168,7 @@ jobs:
       run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
       
   build-windows:
+    needs: dep_target
     runs-on: windows-latest
     defaults:
       run:
@@ -203,19 +181,13 @@ jobs:
           update: true
           install: git mingw-w64-x86_64-cc mingw-w64-x86_64-make mingw-w64-x86_64-cmake mingw-w64-x86_64-libsndfile mingw-w64-x86_64-fftw mingw-w64-x86_64-volk mingw-w64-x86_64-libxml2 mingw-w64-x86_64-libusb
           
-      # SigUtils
       - name: Checkout (sigutils)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: BatchDrake/sigutils
-          ref: ${{ github.ref }}
+          ref: ${{needs.dep_target.outputs.target_ref}}
           path: sigutils
-
-      - name: Unshallow (sigutils)
-        run: |
-          cd sigutils
-          git fetch --tags --prune --unshallow origin
-          cd ..
+          fetch-depth: 0
         
       - name: Configure sigutils
         run: /mingw64/bin/cmake -G"MinGW Makefiles" -B D:\\a\\suscan\\suscan\\sigutils\\build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} D:\\a\\suscan\\suscan\\sigutils

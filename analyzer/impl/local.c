@@ -570,6 +570,11 @@ suscan_local_analyzer_get_freq_limits(
     SUFREQ *min,
     SUFREQ *max)
 {
+  SUFREQ fdiff = 
+      suscan_source_get_base_samp_rate(self->source) 
+    - suscan_source_get_samp_rate(self->source);
+  SUFREQ f0;
+
   const suscan_source_config_t *config = suscan_source_get_config(self->source);
   const suscan_source_device_t *dev = suscan_source_config_get_device(config);
 
@@ -577,8 +582,9 @@ suscan_local_analyzer_get_freq_limits(
     *min = suscan_source_device_get_min_freq(dev);
     *max = suscan_source_device_get_max_freq(dev);
   } else {
-    *min = SUSCAN_LOCAL_ANALYZER_MIN_RADIO_FREQ;
-    *max = SUSCAN_LOCAL_ANALYZER_MAX_RADIO_FREQ;
+    f0   = suscan_source_config_get_freq(config);
+    *min = f0 - fdiff / 2;
+    *max = f0 + fdiff / 2;
   }
 }
 
