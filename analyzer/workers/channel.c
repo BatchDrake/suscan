@@ -83,16 +83,24 @@ suscan_local_analyzer_feed_baseband_filters(
     const SUCOMPLEX *samples,
     SUSCOUNT length)
 {
-  unsigned int i;
+  struct rbtree_node *this;
+  struct suscan_analyzer_baseband_filter *bbfilt;
 
-  for (i = 0; i < analyzer->bbfilt_count; ++i)
-    if (analyzer->bbfilt_list[i] != NULL)
-      if (!analyzer->bbfilt_list[i]->func(
-          analyzer->bbfilt_list[i]->privdata,
+  this = rbtree_get_first(analyzer->bbfilt_tree);
+
+  while (this != NULL) {
+    bbfilt = rbtree_node_data(this);
+    if (bbfilt != NULL) {
+      if (!bbfilt->func(
+          bbfilt->privdata,
           analyzer->parent,
           samples,
           length))
         return SU_FALSE;
+    }
+
+    this = rbtree_node_next(this);
+  }
 
   return SU_TRUE;
 }

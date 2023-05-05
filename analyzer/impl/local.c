@@ -78,38 +78,6 @@ suscan_analyzer_baseband_filter_destroy(
   free(filter);
 }
 
-SUBOOL
-suscan_analyzer_register_baseband_filter(
-    suscan_analyzer_t *self,
-    suscan_analyzer_baseband_filter_func_t func,
-    void *privdata)
-{
-  struct suscan_analyzer_baseband_filter *new = NULL;
-
-  SU_TRYCATCH(
-      self->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
-      goto fail);
-
-  SU_TRYCATCH(
-      new = suscan_analyzer_baseband_filter_new(func, privdata),
-      goto fail);
-
-  new->func = func;
-  new->privdata = privdata;
-
-  SU_TRYCATCH(
-      PTR_LIST_APPEND_CHECK(SULIMPL(self)->bbfilt, new) != -1,
-      goto fail);
-
-  return SU_TRUE;
-
-fail:
-  if (new != NULL)
-    suscan_analyzer_baseband_filter_destroy(new);
-
-  return SU_FALSE;
-}
-
 /************************ Local analyzer thread ******************************/
 SUPRIVATE void
 suscan_local_analyzer_ack_halt(suscan_local_analyzer_t *self)
@@ -668,6 +636,12 @@ done:
   return ok;
 }
 
+SUPRIVATE void
+suscan_local_analyzer_bbfilt_dtor(void *obj, void *userdata)
+{
+  suscan_analyzer_baseband_filter_destroy(obj);
+}
+
 void *
 suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 {
@@ -734,6 +708,10 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   /* Create spectral tuner, with matching read size */
   st_params.window_size = parent->params.detector_params.window_size;
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
+
+  /* Initialize baseband filters */
+  SU_MAKE_FAIL(new->bbfilt_tree, rbtree);
+  rbtree_set_dtor(new->bbfilt_tree, suscan_local_analyzer_bbfilt_dtor, NULL);
 
   /* 
    * Spectral tuner mutex should be recursive in order to enable
@@ -857,8 +835,6 @@ suscan_local_analyzer_dtor(void *ptr)
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
 
-  unsigned int i;
-
   /* Prevent source from entering in timeout loops */
   if (self->source != NULL)
     suscan_source_force_eos(self->source);
@@ -933,13 +909,9 @@ suscan_local_analyzer_dtor(void *ptr)
   if (self->throttle_mutex_init)
     pthread_mutex_destroy(&self->throttle_mutex);
 
-  /* Delete all baseband filters */
-  for (i = 0; i < self->bbfilt_count; ++i)
-    if (self->bbfilt_list[i] != NULL)
-      suscan_analyzer_baseband_filter_destroy(self->bbfilt_list[i]);
-
-  if (self->bbfilt_list != NULL)
-    free(self->bbfilt_list);
+  /* Delete all baseband filters (triggered by the dtor) */
+  if (self->bbfilt_tree != NULL)
+    rbtree_destroy(self->bbfilt_tree);
 
   /* Finalize source info */
   suscan_analyzer_source_info_finalize(&self->source_info);
@@ -1202,6 +1174,53 @@ done:
   return ok;
 }
 
+SUPRIVATE SUBOOL
+suscan_local_analyzer_register_baseband_filter(
+    void *ptr,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata,
+    int64_t prio)
+{
+  struct suscan_analyzer_baseband_filter *new = NULL;
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
+  SUBOOL automatic_priority = prio == SUSCAN_ANALYZER_BBFILT_PRIO_DEFAULT;
+  
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      goto fail);
+
+  SU_TRYCATCH(
+      new = suscan_analyzer_baseband_filter_new(func, privdata),
+      goto fail);
+
+  new->func = func;
+  new->privdata = privdata;
+
+  if (automatic_priority) {
+    prio = 0;
+    while (rbtree_search(self->bbfilt_tree, prio, RB_EXACT) != NULL)
+      ++prio;
+  }
+
+  if (rbtree_search(self->bbfilt_tree, prio, RB_EXACT) != NULL) {
+    SU_ERROR(
+      "A baseband filter with priority %lld has already been installed\n",
+      prio);
+    goto fail;
+  }
+
+  SU_TRYC_FAIL(rbtree_insert(self->bbfilt_tree, prio, new));
+
+  return SU_TRUE;
+
+fail:
+  if (new != NULL)
+    suscan_analyzer_baseband_filter_destroy(new);
+
+  return SU_FALSE;
+}
+
+
 /* Fast methods */
 SUPRIVATE SUBOOL
 suscan_local_analyzer_set_inspector_frequency(
@@ -1275,6 +1294,7 @@ suscan_local_analyzer_get_interface(void)
     SET_CALLBACK(get_samp_rate);
     SET_CALLBACK(get_source_time);
     SET_CALLBACK(seek);
+    SET_CALLBACK(register_baseband_filter);
     SET_CALLBACK(get_measured_samp_rate);
     SET_CALLBACK(get_source_info_pointer);
     SET_CALLBACK(commit_source_info);

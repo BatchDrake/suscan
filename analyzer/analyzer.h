@@ -64,6 +64,7 @@ extern "C" {
 #define SUSCAN_ANALYZER_PERM_SET_FFT_WINDOW     (1ull << 14)
 #define SUSCAN_ANALYZER_PERM_SEEK               (1ull << 15)
 #define SUSCAN_ANALYZER_PERM_THROTTLE           (1ull << 16)
+#define SUSCAN_ANALYZER_PERM_SET_BB_FILTER      (1ull << 17)
 
 #define SUSCAN_ANALYZER_PERM_ALL              0xffffffffffffffffull
 
@@ -79,6 +80,9 @@ extern "C" {
   (SUSCAN_ANALYZER_PERM_ALL &                \
   ~(SUSCAN_ANALYZER_PERM_SEEK |              \
     SUSCAN_ANALYZER_PERM_THROTTLE))
+
+/* Default priorities */
+#define SUSCAN_ANALYZER_BBFILT_PRIO_DEFAULT   0x7fffffffffffffffll
 
 /* Entirely empirical */
 #define SUSCAN_ANALYZER_SLOW_RATE             44100
@@ -224,6 +228,18 @@ typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
       const SUCOMPLEX *samples,
       SUSCOUNT length);
 
+/*!
+ * \brief Baseband filter description
+ *
+ * Structure holding a pointer to a function that would perform some kind
+ * of baseband processing (i.e. before channelization).
+ * \author Gonzalo José Carracedo Carballal
+ */
+struct suscan_analyzer_baseband_filter {
+  suscan_analyzer_baseband_filter_func_t func;
+  void *privdata;
+};
+
 SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
   uint64_t permissions;
   SUSCOUNT source_samp_rate;
@@ -303,7 +319,12 @@ struct suscan_analyzer_interface {
   SUFLOAT  (*get_measured_samp_rate) (const void *);
   void     (*get_source_time) (const void *, struct timeval *tv);
   SUBOOL   (*seek) (void *, const struct timeval *tv);
-
+  SUBOOL   (*register_baseband_filter) (
+    void *,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata,
+    int64_t priority);
+  
   struct suscan_analyzer_source_info *(*get_source_info_pointer) (const void *);
   SUBOOL   (*commit_source_info) (void *);
 
@@ -772,10 +793,18 @@ void suscan_analyzer_req_halt(suscan_analyzer_t *analyzer);
  */
 SUBOOL suscan_analyzer_halt_worker(suscan_worker_t *worker);
 
+/*!
+ * Inspects whether this particular instance of the analyzer object supports
+ * baseband filters.
+ * \param analyzer a pointer to the analyzer object
+ * \return SU_TRUE if the analyzer supports baseband filters, SU_FALSE otherwise.
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_supports_baseband_filtering(suscan_analyzer_t *analyzer);
 
 /*!
  * Registers a baseband filter given by a processing function and a pointer to
- * private data.
+ * private data. The baseband filter is installed with default priority.
  * \param analyzer pointer to the analyzer object
  * \param func pointer to the baseband filter function
  * \param privdata pointer to its private data
@@ -786,6 +815,24 @@ SUBOOL suscan_analyzer_register_baseband_filter(
     suscan_analyzer_t *analyzer,
     suscan_analyzer_baseband_filter_func_t func,
     void *privdata);
+
+/*!
+ * Registers a baseband filter given by a processing function, a pointer to
+ * private data, and a given priority. Smaller values for the prio means
+ * higher precedence in the evaluation of the baseband filters.
+ * \param analyzer pointer to the analyzer object
+ * \param func pointer to the baseband filter function
+ * \param privdata pointer to its private data
+ * \param prio priority index or SUSCAN_ANALYZER_BBFILT_PRIO_DEFAULT
+ * \return SU_TRUE for success or SU_FALSE on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_register_baseband_filter_with_prio(
+    suscan_analyzer_t *analyzer,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata,
+    int64_t prio);
+
 
 /************************ Client interface methods ****************************/
 /*

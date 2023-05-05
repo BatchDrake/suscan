@@ -769,6 +769,54 @@ suscan_analyzer_commit_source_info(suscan_analyzer_t *self)
   return (self->iface->commit_source_info) (self->impl);
 }
 
+SUBOOL
+suscan_analyzer_supports_baseband_filtering(suscan_analyzer_t *analyzer)
+{
+  return analyzer->iface->register_baseband_filter != NULL;
+}
+
+SUBOOL
+suscan_analyzer_register_baseband_filter_with_prio(
+    suscan_analyzer_t *self,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata,
+    int64_t prio)
+{
+  if (!suscan_analyzer_supports_baseband_filtering(self)) {
+    SU_ERROR("This type of analyzer object does not support custom baseband filtering\n");
+    return SU_FALSE;
+  }
+
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_BB_FILTER);
+
+  return (self->iface->register_baseband_filter) (
+    self->impl,
+    func,
+    privdata,
+    prio);
+}
+
+
+SUBOOL
+suscan_analyzer_register_baseband_filter(
+    suscan_analyzer_t *self,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata)
+{
+  if (!suscan_analyzer_supports_baseband_filtering(self)) {
+    SU_ERROR("This type of analyzer object does not support custom baseband filtering\n");
+    return SU_FALSE;
+  }
+
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_BB_FILTER);
+
+  return (self->iface->register_baseband_filter) (
+    self->impl,
+    func,
+    privdata,
+    SUSCAN_ANALYZER_BBFILT_PRIO_DEFAULT);
+}
+
 /* Worker-specific methods */
 SUBOOL
 suscan_analyzer_set_sweep_stratrgy(

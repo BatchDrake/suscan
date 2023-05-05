@@ -37,18 +37,6 @@ extern "C" {
 #define SULIMPL(analyzer) ((suscan_local_analyzer_t *) ((analyzer)->impl))
 #define SUSCAN_LOCAL_ANALYZER_AS_ANALYZER(local) ((local)->parent)
 
-/*!
- * \brief Baseband filter description
- *
- * Structure holding a pointer to a function that would perform some kind
- * of baseband processing (i.e. before channelization).
- * \author Gonzalo José Carracedo Carballal
- */
-struct suscan_analyzer_baseband_filter {
-  suscan_analyzer_baseband_filter_func_t func;
-  void *privdata;
-};
-
 struct suscan_local_analyzer {
   suscan_analyzer_t *parent;
   struct suscan_mq mq_in;   /* Input queue */
@@ -134,7 +122,8 @@ struct suscan_local_analyzer {
   suscan_worker_t *slow_wk; /* Worker for slow operations */
   SUCOMPLEX *read_buf;
   SUSCOUNT   read_size;
-  PTR_LIST(struct suscan_analyzer_baseband_filter, bbfilt);
+
+  rbtree_t *bbfilt_tree;
 
   /* Spectral tuner */
   su_specttuner_t    *stuner;
