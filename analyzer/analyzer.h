@@ -225,8 +225,9 @@ struct suscan_analyzer_sweep_params {
 typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
       void *privdata,
       struct suscan_analyzer *analyzer,
-      const SUCOMPLEX *samples,
-      SUSCOUNT length);
+      SUCOMPLEX *samples,
+      SUSCOUNT length,
+      SUSCOUNT consumed);
 
 /*!
  * \brief Baseband filter description
@@ -400,7 +401,6 @@ void suscan_analyzer_destroy(suscan_analyzer_t *analyzer);
 SUBOOL suscan_analyzer_is_local(const suscan_analyzer_t *self);
 
 /******************************* Inlined methods ******************************/
-
 /*!
  * Is the analyzer running on top of a real-time source?
  * \param analyzer a pointer to the analyzer object

@@ -79,23 +79,24 @@ suscan_local_analyzer_process_end(suscan_local_analyzer_t *analyzer)
 /********************* Related channel analyzer funcs ************************/
 SUPRIVATE SUBOOL
 suscan_local_analyzer_feed_baseband_filters(
-    suscan_local_analyzer_t *analyzer,
-    const SUCOMPLEX *samples,
+    suscan_local_analyzer_t *self,
+    SUCOMPLEX *samples,
     SUSCOUNT length)
 {
   struct rbtree_node *this;
   struct suscan_analyzer_baseband_filter *bbfilt;
 
-  this = rbtree_get_first(analyzer->bbfilt_tree);
+  this = rbtree_get_first(self->bbfilt_tree);
 
   while (this != NULL) {
     bbfilt = rbtree_node_data(this);
     if (bbfilt != NULL) {
       if (!bbfilt->func(
           bbfilt->privdata,
-          analyzer->parent,
+          self->parent,
           samples,
-          length))
+          length,
+          suscan_source_get_consumed_samples(self->source) - length))
         return SU_FALSE;
     }
 
@@ -524,7 +525,7 @@ suscan_local_analyzer_on_psd(
       suscan_analyzer_send_psd_from_smoothpsd(
         self->parent, 
         self->smooth_psd,
-        suscan_source_has_looped(self->source)),
+        self->has_looped),
       return SU_FALSE);
 
   return SU_TRUE;
@@ -593,6 +594,7 @@ suscan_source_channel_wk_cb(
       self->read_buf,
       read_size)) > 0) {
     suscan_local_analyzer_process_start(self);
+    self->has_looped = suscan_source_has_looped(self->source);
 
     if (self->iq_rev)
       suscan_analyzer_do_iq_rev(self->read_buf, got);

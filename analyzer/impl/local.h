@@ -55,13 +55,14 @@ struct suscan_local_analyzer {
   SUSCOUNT measured_samp_count;
   uint64_t last_measure;
   SUBOOL   iq_rev;
-
+  
   /* Periodic updates */
   struct sigutils_smoothpsd_params sp_params;
   SUFLOAT  interval_channels;
   SUFLOAT  interval_psd;
   SUSCOUNT det_count;
   SUSCOUNT det_num_psd;
+  SUBOOL   has_looped;
   
   /* This mutex shall protect hot-config requests */
   /* XXX: This is cumbersome. Create a hotconf object to handle these things */
