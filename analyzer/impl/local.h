@@ -62,7 +62,6 @@ struct suscan_local_analyzer {
   SUFLOAT  interval_psd;
   SUSCOUNT det_count;
   SUSCOUNT det_num_psd;
-  SUBOOL   has_looped;
   
   /* This mutex shall protect hot-config requests */
   /* XXX: This is cumbersome. Create a hotconf object to handle these things */

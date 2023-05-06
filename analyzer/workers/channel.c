@@ -525,7 +525,7 @@ suscan_local_analyzer_on_psd(
       suscan_analyzer_send_psd_from_smoothpsd(
         self->parent, 
         self->smooth_psd,
-        self->has_looped),
+        suscan_source_has_looped(self->source)),
       return SU_FALSE);
 
   return SU_TRUE;
@@ -594,7 +594,6 @@ suscan_source_channel_wk_cb(
       self->read_buf,
       read_size)) > 0) {
     suscan_local_analyzer_process_start(self);
-    self->has_looped = suscan_source_has_looped(self->source);
 
     if (self->iq_rev)
       suscan_analyzer_do_iq_rev(self->read_buf, got);
