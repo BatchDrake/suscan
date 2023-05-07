@@ -773,14 +773,21 @@ suscan_source_config_set_gains_from_device(
 {
   unsigned int i;
   struct suscan_source_gain_value *gain = NULL;
+  float value;
   PTR_LIST_LOCAL(struct suscan_source_gain_value, gain);
   SUBOOL ok = SU_FALSE;
 
   for (i = 0; i < dev->gain_desc_count; ++i) {
+    /* Attempt to reuse existing gains */
+    if ((gain = suscan_source_config_lookup_gain(
+      config,
+      dev->gain_desc_list[i]->name)) != NULL)
+      value = gain->val;
+    else
+      value = dev->gain_desc_list[i]->def;
+
     SU_TRYCATCH(
-        gain = suscan_source_gain_value_new(
-            dev->gain_desc_list[i],
-            dev->gain_desc_list[i]->def),
+        gain = suscan_source_gain_value_new(dev->gain_desc_list[i], value),
         goto done);
 
     SU_TRYCATCH(
