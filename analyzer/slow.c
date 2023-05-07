@@ -254,30 +254,39 @@ suscan_local_analyzer_set_freq_cb(
     void *wk_private,
     void *cb_private)
 {
-  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
+  const suscan_source_config_t *config = suscan_source_get_config(self->source);
   SUFREQ freq;
   SUFREQ lnb_freq;
+  SUFREQ diff;
 
-  if (analyzer->freq_req) {
-    freq = analyzer->freq_req_value;
-    lnb_freq = analyzer->lnb_req_value;
-    if (suscan_source_set_freq2(analyzer->source, freq, lnb_freq)) {
-      if (analyzer->parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
+  if (self->freq_req) {
+    freq = self->freq_req_value;
+    lnb_freq = self->lnb_req_value;
+    
+    if (suscan_source_set_freq2(self->source, freq, lnb_freq)) {
+      if (self->parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
         /* XXX: Use a proper frequency adjust method */
-        analyzer->detector->params.fc = freq;
+        self->detector->params.fc = freq;
+      }
+
+      if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_FILE) {
+        diff = freq - self->source_info.frequency;
+        self->source_info.freq_min += diff;
+        self->source_info.freq_max += diff;
       }
 
       /* Source info changed. Notify update */
-      analyzer->source_info.frequency = freq;
-      analyzer->source_info.lnb       = lnb_freq;
+      self->source_info.frequency = freq;
+      self->source_info.lnb       = lnb_freq;
 
       suscan_analyzer_send_source_info(
-          analyzer->parent,
-          &analyzer->source_info);
+          self->parent,
+          &self->source_info);
     }
 
-    analyzer->freq_req = (analyzer->freq_req_value != freq ||
-        analyzer->lnb_req_value != lnb_freq);
+    self->freq_req = (self->freq_req_value != freq ||
+        self->lnb_req_value != lnb_freq);
   }
 
   return SU_FALSE;
