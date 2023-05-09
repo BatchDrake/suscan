@@ -20,7 +20,7 @@
 #ifndef _INSPSCHED_H
 #define _INSPSCHED_H
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include <sigutils/specttuner.h>
 
 #define _COMPAT_BARRIERS

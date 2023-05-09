@@ -21,7 +21,7 @@
 #define _UTIL_CONFDB_H
 
 #include <sigutils/types.h>
-#include "util.h"
+#include <sigutils/util/util.h>
 #include "object.h"
 
 #ifdef __cplusplus

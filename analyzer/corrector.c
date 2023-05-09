@@ -19,7 +19,7 @@
 
 #define SU_LOG_DOMAIN "freq-corrector"
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include <sigutils/log.h>
 
 #include "corrector.h"

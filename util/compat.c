@@ -23,9 +23,9 @@
 #include <string.h>
 #include <sigutils/log.h>
 
-#include "compat-socket.h"
-#include "compat-in.h"
-#include "compat-inet.h"
+#include <sigutils/util/compat-socket.h>
+#include <sigutils/util/compat-in.h>
+#include <sigutils/util/compat-inet.h>
 #include "compat.h"
 
 /* Bundle implementations */

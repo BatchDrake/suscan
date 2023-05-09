@@ -20,11 +20,11 @@
 #ifndef _SUSCAN_CLI_DEVSERV_DEVSERV_H
 #define _SUSCAN_CLI_DEVSERV_DEVSERV_H
 
-#include <util/compat-unistd.h>
+#include <sigutils/util/compat-unistd.h>
 #include <analyzer/impl/remote.h>
 #include <util/rbtree.h>
 #include <util/hashlist.h>
-#include <util/compat-inet.h>
+#include <sigutils/util/compat-inet.h>
 
 #define SUSCLI_ANSERV_LISTEN_FD 0
 #define SUSCLI_ANSERV_CANCEL_FD 1

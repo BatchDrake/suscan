@@ -20,7 +20,7 @@
 #define SU_LOG_DOMAIN "log"
 
 #include <sigutils/log.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-time.h>
 #include <cli/cli.h>
 
 SUPRIVATE SUBOOL su_log_cr = SU_TRUE;

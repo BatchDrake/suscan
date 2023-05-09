@@ -20,8 +20,8 @@
 #define SU_LOG_DOMAIN "analyzer-server-tx"
 
 #include "devserv.h"
-#include <util/compat-poll.h>
-#include <util/compat-socket.h>
+#include <sigutils/util/compat-poll.h>
+#include <sigutils/util/compat-socket.h>
 #include <analyzer/msg.h>
 #include <sys/fcntl.h>
 #include <zlib.h>

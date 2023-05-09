@@ -31,7 +31,7 @@ extern "C" {
 #include <SoapySDR/Formats.h>
 #include <SoapySDR/Version.h>
 #include <analyzer/serialize.h>
-#include <util/util.h>
+#include <sigutils/util/util.h>
 #include <object.h>
 
 #if defined(_WIN32) && defined(interface)

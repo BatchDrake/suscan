@@ -18,9 +18,9 @@
 */
 
 #include <sys/types.h>
-#include <util/compat-socket.h>
-#include <util/compat-inet.h>
-#include <util/compat-in.h>
+#include <sigutils/util/compat-socket.h>
+#include <sigutils/util/compat-inet.h>
+#include <sigutils/util/compat-in.h>
 #include <util/compat.h>
 #include <stdio.h>
 #include <stdlib.h>

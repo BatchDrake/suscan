@@ -27,7 +27,7 @@
 
 #include <sigutils/sigutils.h>
 #include <sigutils/sampling.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-time.h>
 
 #include "factory.h"
 #include "correctors/tle.h"

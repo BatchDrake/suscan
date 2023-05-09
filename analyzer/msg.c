@@ -23,7 +23,7 @@
 #include <ctype.h>
 #include <libgen.h>
 #include <stdint.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-time.h>
 
 #define SU_LOG_DOMAIN "msg"
 

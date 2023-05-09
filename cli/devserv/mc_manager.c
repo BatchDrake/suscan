@@ -20,10 +20,10 @@
 #define SU_LOG_DOMAIN "multicast-manager"
 
 #include <analyzer/impl/multicast.h>
-#include <util/compat-poll.h>
-#include <util/compat-inet.h>
-#include <util/compat-unistd.h>
-#include <util/compat-socket.h>
+#include <sigutils/util/compat-poll.h>
+#include <sigutils/util/compat-inet.h>
+#include <sigutils/util/compat-unistd.h>
+#include <sigutils/util/compat-socket.h>
 #include <util/compat.h>
 #include <analyzer/msg.h>
 

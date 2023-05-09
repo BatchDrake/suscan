@@ -24,7 +24,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include <object.h>
 #include <sigutils/sigutils.h>
 #include <analyzer/serialize.h>
