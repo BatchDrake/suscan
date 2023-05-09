@@ -19,15 +19,15 @@
 
 #define SU_LOG_DOMAIN "tle"
 
-#include <util/compat-stdlib.h>
+#include <sigutils/util/compat-stdlib.h>
 #include "sgdp4.h"
 #include <sigutils/log.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <util/compat-stat.h>
+#include <sigutils/util/compat-stat.h>
 #include <sys/types.h>
-#include <util/compat-mman.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-mman.h>
+#include <sigutils/util/compat-time.h>
 #include <inttypes.h>
 
 

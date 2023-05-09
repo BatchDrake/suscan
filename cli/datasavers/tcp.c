@@ -22,11 +22,11 @@
 #include <sigutils/log.h>
 #include <cli/datasaver.h>
 #include <cli/cli.h>
-#include <util/compat-in.h>
-#include <util/compat-netdb.h>
-#include <util/compat-poll.h>
-#include <util/compat-fcntl.h>
-#include <util/compat-socket.h>
+#include <sigutils/util/compat-in.h>
+#include <sigutils/util/compat-netdb.h>
+#include <sigutils/util/compat-poll.h>
+#include <sigutils/util/compat-fcntl.h>
+#include <sigutils/util/compat-socket.h>
 #include <errno.h>
 #include <time.h>
 #include <string.h>

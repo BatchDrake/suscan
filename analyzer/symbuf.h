@@ -20,7 +20,7 @@
 #ifndef _SYMBUF_H
 #define _SYMBUF_H
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include <sigutils/sigutils.h>
 
 /*

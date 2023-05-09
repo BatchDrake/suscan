@@ -21,7 +21,7 @@
 #define _COMPAT_H
 
 #include <stdint.h>
-#include <util/util.h>
+#include <sigutils/util/util.h>
 #include <sigutils/types.h>
 
 #  ifdef _COMPAT_BARRIERS

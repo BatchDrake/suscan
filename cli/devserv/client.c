@@ -23,8 +23,8 @@
 #include <analyzer/msg.h>
 #include <analyzer/version.h>
 #include <sigutils/log.h>
-#include <util/compat-poll.h>
-#include <util/compat-socket.h>
+#include <sigutils/util/compat-poll.h>
+#include <sigutils/util/compat-socket.h>
 #include <sys/fcntl.h>
 #include <analyzer/impl/multicast.h>
 

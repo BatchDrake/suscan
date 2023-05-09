@@ -6,7 +6,7 @@
 #ifndef _MAIN_INCLUDE_H
 #define _MAIN_INCLUDE_H
 
-#include <util.h> /* From util: Common utility library */
+#include <sigutils/util/util.h> /* From util: Common utility library */
 
 #include <analyzer/source.h> /* Generic source API */
 #include <analyzer/mq.h>     /* Message queue object */
