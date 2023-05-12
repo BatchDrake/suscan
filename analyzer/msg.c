@@ -769,6 +769,32 @@ suscan_analyzer_inspector_msg_deserialize_orbit_report(
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_signal(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(str,    self->signal_name);
+  SUSCAN_PACK(double, self->signal_value);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_signal(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  
+  SUSCAN_UNPACK(str,    self->signal_name);
+  SUSCAN_UNPACK(double, self->signal_value);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 {
   SUSCAN_PACK_BOILERPLATE_START;
@@ -836,6 +862,11 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
           suscan_analyzer_inspector_msg_serialize_orbit_report(buffer, self),
           goto fail);
       break;
+    
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_signal(buffer, self),
+          goto fail);
     
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
@@ -931,6 +962,12 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
           goto fail);
       break;
     
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_signal(buffer, self),
+          goto fail);
+      break;
+    
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
@@ -1013,6 +1050,10 @@ suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
         orbit_finalize(&msg->tle_orbit);
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL:
+      if (msg->signal_name != NULL)
+        free(msg->signal_name);
+      
     default:
       ;
   }

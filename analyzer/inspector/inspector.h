@@ -320,6 +320,11 @@ suscan_inspector_t *suscan_inspector_new(
     struct suscan_mq *mq_ctl,
     void *userdata);
 
+SUBOOL suscan_inspector_send_signal(
+    suscan_inspector_t *self,
+    const char *name,
+    SUDOUBLE value);
+    
 SUBOOL suscan_inspector_walk_inspectors(
   suscan_inspector_t *self,
   SUBOOL (*callback) (
@@ -357,6 +362,7 @@ SUBOOL suscan_audio_inspector_register(void);
 SUBOOL suscan_raw_inspector_register(void);
 SUBOOL suscan_power_inspector_register(void);
 SUBOOL suscan_multicarrier_inspector_register(void);
+SUBOOL suscan_drift_inspector_register(void);
 
 #ifdef __cplusplus
 }

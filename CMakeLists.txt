@@ -226,6 +226,7 @@ set(INSPECTOR_LIB_SOURCES
   ${ANALYZERDIR}/inspector/params.c
   ${INSPECTORDIR}/ask.c
   ${INSPECTORDIR}/audio.c
+  ${INSPECTORDIR}/drift.c
   ${INSPECTORDIR}/fsk.c
   ${INSPECTORDIR}/multicarrier.c
   ${INSPECTORDIR}/psk.c

@@ -138,6 +138,7 @@ enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ORBIT_REPORT,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_COUNT
 };
 
@@ -166,6 +167,10 @@ suscan_analyzer_inspector_msgkind_to_string(
     SUSCAN_COMP_MSGKIND(INVALID_ARGUMENT);
     SUSCAN_COMP_MSGKIND(WRONG_KIND);
     SUSCAN_COMP_MSGKIND(INVALID_CHANNEL);
+    SUSCAN_COMP_MSGKIND(SET_TLE);
+    SUSCAN_COMP_MSGKIND(ORBIT_REPORT);
+    SUSCAN_COMP_MSGKIND(INVALID_CORRECTION);
+    SUSCAN_COMP_MSGKIND(SIGNAL);
 
     default:
       return "UNKNOWN";
@@ -219,6 +224,11 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
       orbit_t tle_orbit;
     };
 
+    struct {
+      char    *signal_name;
+      SUDOUBLE signal_value;
+    };
+    
     struct suscan_orbit_report orbit_report;
 
     SUSCOUNT watermark;

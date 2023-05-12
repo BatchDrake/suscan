@@ -465,6 +465,40 @@ fail:
 }
 
 SUBOOL
+suscan_inspector_send_signal(
+    suscan_inspector_t *self,
+    const char *name,
+    SUDOUBLE value)
+{
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRY(
+    msg = suscan_analyzer_inspector_msg_new(
+        SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL,
+        rand()));
+
+  SU_TRY(msg->signal_name = strdup(name));
+  msg->signal_value = value;
+  
+  SU_TRY(
+    suscan_mq_write(
+        self->mq_out,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+        msg));
+  
+  msg = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+  
+  return ok;
+}
+
+SUBOOL
 suscan_inspector_estimator_loop(
     suscan_inspector_t *insp,
     const SUCOMPLEX *samp_buf,
