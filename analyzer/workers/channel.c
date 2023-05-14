@@ -178,6 +178,24 @@ suscan_local_analyzer_on_channel_data(
     size);
 }
 
+SUPRIVATE void
+suscan_local_analyzer_on_new_freq(
+    const struct sigutils_specttuner_channel *channel,
+    void *userdata,
+    SUFLOAT prev_f0,
+    SUFLOAT new_f0)
+{
+  suscan_inspector_t *insp = (suscan_inspector_t *) userdata;
+
+  if (insp == NULL)
+    return;
+
+  suscan_inspector_factory_notify_freq(
+    suscan_inspector_get_factory(insp),
+    insp,
+    prev_f0 * channel->decimation,
+    new_f0 * channel->decimation);
+}
 
 /*********************** Channel opening and closing *************************/
 SUPRIVATE su_specttuner_channel_t *
@@ -185,12 +203,9 @@ suscan_local_analyzer_open_channel_ex(
     suscan_local_analyzer_t *self,
     const struct sigutils_channel *chan_info,
     SUBOOL precise,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata)
+    su_specttuner_channel_data_func_t on_data,
+    su_specttuner_channel_new_freq_func_t on_new_freq,
+    void *privdata)
 {
   SUBOOL mutex_acquired = SU_FALSE;
   su_specttuner_channel_t *channel = NULL;
@@ -211,10 +226,13 @@ suscan_local_analyzer_open_channel_ex(
           SU_ABS2NORM_FREQ(
               suscan_analyzer_get_samp_rate(self->parent),
               chan_info->f_hi - chan_info->f_lo));
+
   params.guard    = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
-  params.on_data  = on_data;
   params.privdata = privdata;
   params.precise  = precise;
+
+  params.on_data  = on_data;
+  params.on_freq_changed = on_new_freq;
 
   SU_TRYCATCH(pthread_mutex_lock(&self->stuner_mutex) == 0, goto done);
   mutex_acquired = SU_TRUE;
@@ -296,6 +314,7 @@ suscan_local_inspector_factory_open(
     channel,
     precise,
     suscan_local_analyzer_on_channel_data,
+    suscan_local_analyzer_on_new_freq,
     NULL);
 
   if (schan == NULL) {
@@ -307,12 +326,12 @@ suscan_local_inspector_factory_open(
   *inspclass = classname;
 
   /* Initialize sampling info */
-  samp_info->equiv_fs = SU_ASFLOAT(samp_rate) / schan->decimation;
-  samp_info->bw_bd    = SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(schan));
-  samp_info->bw       = .5 * schan->decimation * samp_info->bw_bd;
-  samp_info->f0       = SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan));
-  samp_info->fft_size = schan->size;
-
+  samp_info->equiv_fs   = SU_ASFLOAT(samp_rate) / schan->decimation;
+  samp_info->bw_bd      = SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(schan));
+  samp_info->bw         = .5 * schan->decimation * samp_info->bw_bd;
+  samp_info->f0         = SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan));
+  samp_info->fft_size   = schan->size;
+  samp_info->decimation = schan->decimation;
   return schan;
 }
 
@@ -344,7 +363,9 @@ suscan_local_inspector_factory_close(
   su_specttuner_channel_t *chan = (su_specttuner_channel_t *) insp_self;
   suscan_inspector_t *insp      = (suscan_inspector_t *) chan->params.privdata;
 
-  SU_DEREF(insp, specttuner);
+  /* For channels created before binding */
+  if (insp != NULL)
+    SU_DEREF(insp, specttuner);
 
   if (!suscan_local_analyzer_close_channel(self, chan))
     SU_WARNING("Failed to close channel!\n");

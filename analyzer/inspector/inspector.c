@@ -63,12 +63,9 @@ suscan_inspector_open_sc_channel_ex(
     suscan_inspector_t *self,
     const struct sigutils_channel *chan_info,
     SUBOOL precise,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata)
+    su_specttuner_channel_data_func_t on_data,
+    su_specttuner_channel_new_freq_func_t on_new_freq,
+    void *privdata)
 {
   SUBOOL mutex_acquired = SU_FALSE;
   su_specttuner_channel_t *channel = NULL;
@@ -89,10 +86,13 @@ suscan_inspector_open_sc_channel_ex(
           SU_ABS2NORM_FREQ(
               self->samp_info.equiv_fs,
               chan_info->f_hi - chan_info->f_lo));
+  
   params.guard    = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
-  params.on_data  = on_data;
   params.privdata = privdata;
   params.precise  = precise;
+
+  params.on_data  = on_data;
+  params.on_freq_changed = on_new_freq;
 
   SU_TRYCATCH(pthread_mutex_lock(&self->sc_stuner_mutex) == 0, goto done);
   mutex_acquired = SU_TRUE;
@@ -170,6 +170,25 @@ suscan_sc_inspector_on_channel_data(
     size);
 }
 
+SUPRIVATE void
+suscan_sc_inspector_on_new_freq(
+    const struct sigutils_specttuner_channel *channel,
+    void *userdata,
+    SUFLOAT prev_f0,
+    SUFLOAT new_f0)
+{
+  suscan_inspector_t *insp = (suscan_inspector_t *) userdata;
+  
+  if (insp == NULL)
+    return;
+
+  suscan_inspector_factory_notify_freq(
+    suscan_inspector_get_factory(insp),
+    insp,
+    prev_f0 * channel->decimation,
+    new_f0 * channel->decimation);
+}
+
 SUPRIVATE void *
 suscan_sc_inspector_factory_open(
   void *userdata, 
@@ -193,6 +212,7 @@ suscan_sc_inspector_factory_open(
       channel,
       precise,
       suscan_sc_inspector_on_channel_data,
+      suscan_sc_inspector_on_new_freq,
       NULL),
     return NULL);
 
@@ -203,8 +223,10 @@ suscan_sc_inspector_factory_open(
   samp_info->equiv_fs = self->samp_info.equiv_fs / schan->decimation;
   samp_info->bw_bd    = SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(schan));
   samp_info->bw       = .5 * schan->decimation * samp_info->bw_bd;
-  samp_info->f0       = SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan));
+  samp_info->f0       = 
+    SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan)) * schan->decimation;
   samp_info->fft_size = schan->size;
+  samp_info->decimation = self->samp_info.equiv_fs;
   
   return schan;
 }
@@ -238,7 +260,8 @@ suscan_sc_inspector_factory_close(
   su_specttuner_channel_t *chan = (su_specttuner_channel_t *) insp_self;
   suscan_inspector_t *insp      = (suscan_inspector_t *) chan->params.privdata;
 
-  SU_DEREF(insp, specttuner);
+  if (insp != NULL)
+    SU_DEREF(insp, specttuner);
 
   if (!suscan_inspector_open_sc_close_channel(self, chan))
     SU_WARNING("Failed to close channel!\n");
@@ -480,6 +503,7 @@ suscan_inspector_send_signal(
 
   SU_TRY(msg->signal_name = strdup(name));
   msg->signal_value = value;
+  msg->inspector_id = self->inspector_id;
   
   SU_TRY(
     suscan_mq_write(
@@ -1117,6 +1141,19 @@ suscan_inspector_feed_bulk(
   return result;
 }
 
+void
+suscan_inspector_notify_freq(
+    suscan_inspector_t *insp,
+    SUFLOAT prev_freq,
+    SUFLOAT next_freq)
+{
+  if (insp->iface->freq_changed != NULL) {
+    suscan_inspector_lock(insp);
+    (insp->iface->freq_changed) (insp->privdata, insp, prev_freq, next_freq);
+    suscan_inspector_unlock(insp);
+  }
+}
+
 SUBOOL
 suscan_init_inspectors(void)
 {
@@ -1128,6 +1165,7 @@ suscan_init_inspectors(void)
   SU_TRYCATCH(suscan_audio_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_raw_inspector_register(),   return SU_FALSE);
   SU_TRYCATCH(suscan_power_inspector_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_drift_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_multicarrier_inspector_register(),   return SU_FALSE);
 
 

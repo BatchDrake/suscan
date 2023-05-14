@@ -35,6 +35,7 @@ struct suscan_inspector_sampling_info {
   SUFLOAT bw_bd;           /* Bandwidth before decimation */
   SUFLOAT f0;              /* Center frequency */
   SUSCOUNT fft_size;       /* Size of the FFT window. */
+  unsigned decimation;     /* Decimation */
 };
 
 struct suscan_inspector_interface {
@@ -70,6 +71,13 @@ struct suscan_inspector_interface {
       const SUCOMPLEX *x,
       SUSCOUNT count);
 
+  /* Frequency was changed */
+  void (*freq_changed) (
+    void *priv,
+    struct suscan_inspector *insp,
+    SUFLOAT prev_freq,
+    SUFLOAT next_freq);
+  
   /* Close inspector */
   void (*close) (void *priv);
 };

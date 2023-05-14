@@ -352,6 +352,11 @@ SUSDIFF suscan_inspector_feed_bulk(
     const SUCOMPLEX *x,
     int count);
 
+void suscan_inspector_notify_freq(
+    suscan_inspector_t *insp,
+    SUFLOAT prev_freq,
+    SUFLOAT next_freq);
+
 SUBOOL suscan_init_inspectors(void);
 
 /* Builtin inspectors */

@@ -139,32 +139,43 @@ suscan_inpsched_task_cb(
       (struct suscan_inspector_task_info *) cb_private;
   SUBOOL ok = SU_FALSE;
 
-  /* Feed all enabled estimators */
-  SU_TRYCATCH(
-      suscan_inspector_estimator_loop(
-          task_info->inspector,
-          task_info->data,
-          task_info->size),
-      goto fail);
+  switch (task_info->type) {
+    case SUSCAN_INSPECTOR_TASK_INFO_TYPE_SAMPLES:
+      /* Feed all enabled estimators */
+      SU_TRYCATCH(
+          suscan_inspector_estimator_loop(
+              task_info->inspector,
+              task_info->samples.data,
+              task_info->samples.size),
+          goto fail);
 
-  /* Feed spectrum */
-  SU_TRYCATCH(
-      suscan_inspector_spectrum_loop(
-          task_info->inspector,
-          task_info->data,
-          task_info->size),
-      goto fail);
+      /* Feed spectrum */
+      SU_TRYCATCH(
+          suscan_inspector_spectrum_loop(
+              task_info->inspector,
+              task_info->samples.data,
+              task_info->samples.size),
+          goto fail);
 
-  /*
-   * We just process the incoming data. If we broke something,
-   * mark the inspector as halted.
-   */
-  SU_TRYCATCH(
-      suscan_inspector_sampler_loop(
-          task_info->inspector,
-          task_info->data,
-          task_info->size),
-      goto fail);
+      /*
+      * We just process the incoming data. If we broke something,
+      * mark the inspector as halted.
+      */
+      SU_TRYCATCH(
+          suscan_inspector_sampler_loop(
+              task_info->inspector,
+              task_info->samples.data,
+              task_info->samples.size),
+          goto fail);
+      break;
+
+    case SUSCAN_INSPECTOR_TASK_INFO_TYPE_NEW_FREQ:
+      suscan_inspector_notify_freq(
+        task_info->inspector,
+        task_info->new_freq.old_f0,
+        task_info->new_freq.new_f0);
+      break;
+  }
 
   ok = SU_TRUE;
 

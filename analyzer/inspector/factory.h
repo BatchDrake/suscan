@@ -198,6 +198,12 @@ SUBOOL suscan_inspector_factory_feed(
   const SUCOMPLEX *data,
   SUSCOUNT size);
 
+SUBOOL suscan_inspector_factory_notify_freq(
+  suscan_inspector_factory_t *self,
+  suscan_inspector_t *insp,
+  SUFLOAT prev_f0,
+  SUFLOAT next_f0);
+
 SUBOOL suscan_inspector_factory_force_sync(suscan_inspector_factory_t *self);
 
 SUBOOL suscan_inspector_factory_halt_inspector(

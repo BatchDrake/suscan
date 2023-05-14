@@ -33,14 +33,27 @@ struct suscan_inspector;
 struct suscan_inspsched;
 struct suscan_inspector_factory;
 
-/* TODO: Turn this into an object pool */
+enum suscan_inspector_task_info_type {
+  SUSCAN_INSPECTOR_TASK_INFO_TYPE_SAMPLES,
+  SUSCAN_INSPECTOR_TASK_INFO_TYPE_NEW_FREQ
+};
+
 struct suscan_inspector_task_info {
   LINKED_LIST;
 
   struct suscan_inspsched *sched;
   struct suscan_inspector *inspector;
-  const SUCOMPLEX *data;
-  SUSCOUNT size;
+  enum suscan_inspector_task_info_type type;
+
+  struct {
+    const SUCOMPLEX *data;
+    SUSCOUNT size;
+  } samples;
+  
+  struct {
+    SUFREQ old_f0;
+    SUFREQ new_f0;
+  } new_freq;
 };
 
 struct suscan_local_analyzer;
