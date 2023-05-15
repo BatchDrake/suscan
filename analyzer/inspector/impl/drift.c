@@ -33,7 +33,7 @@
 #include "inspector/inspector.h"
 
 #define SUSCAN_DRIFT_INSPECTOR_PLL_BW_FRAC      5e-2
-#define SUSCAN_DRIFT_INSPECTOR_AGC_SLOWNESS     .25
+#define SUSCAN_DRIFT_INSPECTOR_AGC_SLOWNESS     200
 #define SUSCAN_DRIFT_INSPECTOR_FAST_RISE_FRAC   (2 * 3.9062e-1)
 #define SUSCAN_DRIFT_INSPECTOR_FAST_FALL_FRAC   (2 * SUSCAN_DRIFT_INSPECTOR_FAST_RISE_FRAC)
 #define SUSCAN_DRIFT_INSPECTOR_SLOW_RISE_FRAC   (10 * SUSCAN_DRIFT_INSPECTOR_FAST_RISE_FRAC)
@@ -133,7 +133,7 @@ suscan_drift_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
           norm_cutoff));
 
   /* Initialize AGC */
-  tau = SUSCAN_DRIFT_INSPECTOR_AGC_SLOWNESS / norm_cutoff;
+  tau = SUSCAN_DRIFT_INSPECTOR_AGC_SLOWNESS / sinfo->equiv_fs;
   if (tau > 200)
     tau = 200;
   
@@ -257,13 +257,10 @@ suscan_drift_inspector_parse_config(void *private, const suscan_config_t *config
 void
 suscan_drift_inspector_commit_config(void *private)
 {
-  SUFLOAT fs, tau;
+  SUFLOAT fs;
   SUBOOL needs_update;
   SUFLOAT norm_cutoff;
-  struct su_agc_params agc_params = su_agc_params_INITIALIZER;
   const struct suscan_inspector_sampling_info *sinfo;
-  su_pll_t new_pll;
-  su_agc_t new_agc;
 
   struct suscan_drift_inspector *self = (struct suscan_drift_inspector *) private;
   sinfo = &self->samp_info;
@@ -275,38 +272,13 @@ suscan_drift_inspector_commit_config(void *private)
   if (self->cur_params.pll_reset) {
     self->cur_params.pll_reset = 0;
     self->pll.lock = 0;
-    su_ncqo_set_angfreq(&self->pll.ncqo, 0);
+    su_pll_set_angfreq(&self->pll, 0);
   }
 
   if (needs_update) {
     norm_cutoff = SU_ABS2NORM_FREQ(fs, self->cur_params.cutoff);
 
-    if (su_pll_init(
-      &new_pll,
-      0,
-      norm_cutoff)) {
-      su_pll_finalize(&self->pll);
-      self->pll = new_pll;
-    }
-
-    /* Initialize AGC */
-    tau = SUSCAN_DRIFT_INSPECTOR_AGC_SLOWNESS / norm_cutoff;
-    if (tau > 200)
-      tau = 200;
-    
-    agc_params.fast_rise_t = tau * SUSCAN_DRIFT_INSPECTOR_FAST_RISE_FRAC;
-    agc_params.fast_fall_t = tau * SUSCAN_DRIFT_INSPECTOR_FAST_FALL_FRAC;
-    agc_params.slow_rise_t = tau * SUSCAN_DRIFT_INSPECTOR_SLOW_RISE_FRAC;
-    agc_params.slow_fall_t = tau * SUSCAN_DRIFT_INSPECTOR_SLOW_FALL_FRAC;
-    agc_params.hang_max    = tau * SUSCAN_DRIFT_INSPECTOR_HANG_MAX_FRAC;
-
-    agc_params.delay_line_size  = tau * SUSCAN_DRIFT_INSPECTOR_DELAY_LINE_FRAC;
-    agc_params.mag_history_size = tau * SUSCAN_DRIFT_INSPECTOR_MAG_HISTORY_FRAC;
-
-    if (su_agc_init(&new_agc, &agc_params)) {
-      su_agc_finalize(&self->agc);
-      self->agc = new_agc;
-    }
+    su_pll_set_cutoff(&self->pll, norm_cutoff);
 
     /* Change feedback interval */
     self->feedback_wait = self->cur_params.feedback_interval * sinfo->equiv_fs;
@@ -383,7 +355,7 @@ suscan_drift_inspector_feed(
     y = su_pll_track(&self->pll, y);
 
     if (kpending > 0) {
-      su_ncqo_inc_angfreq(&self->pll.ncqo, kfdelta);
+      su_pll_inc_angfreq(&self->pll, kfdelta);
       --kpending;
     }
 
@@ -397,7 +369,7 @@ suscan_drift_inspector_feed(
 
       carr_freq = SU_NORM2ABS_FREQ(
           self->samp_info.equiv_fs,
-          su_ncqo_get_freq(&self->pll.ncqo));
+          su_pll_get_freq(&self->pll));
 
       suscan_inspector_push_sample(insp, carr_freq + I * curr_freq);
       feedback_counter = 0;
