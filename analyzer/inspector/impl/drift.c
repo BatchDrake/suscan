@@ -47,6 +47,9 @@ struct suscan_drift_inspector_params {
   SUFLOAT cutoff;
   SUFLOAT feedback_interval;
   SUBOOL  pll_reset;
+
+  /* These parameters are read only by the user */
+  SUSCOUNT feedback_samples;
 };
 
 struct suscan_drift_inspector {
@@ -118,6 +121,7 @@ suscan_drift_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
   suscan_drift_inspector_params_initialize(&new->cur_params, sinfo);
   
   new->feedback_wait = new->cur_params.feedback_interval * sinfo->equiv_fs;
+  new->cur_params.feedback_samples  = new->feedback_wait;
   new->cur_params.feedback_interval = new->feedback_wait / sinfo->equiv_fs;
   norm_cutoff = SU_ABS2NORM_FREQ(sinfo->equiv_fs, new->cur_params.cutoff);
 
@@ -192,6 +196,13 @@ suscan_drift_inspector_get_config(void *private, suscan_config_t *config)
       config,
       "drift.pll-reset",
       SU_FALSE),
+    return SU_FALSE);
+
+  SU_TRYCATCH(
+    suscan_config_set_integer(
+      config,
+      "drift.feedback-samples",
+      self->cur_params.feedback_samples),
     return SU_FALSE);
 
   return SU_TRUE;
@@ -299,6 +310,7 @@ suscan_drift_inspector_commit_config(void *private)
 
     /* Change feedback interval */
     self->feedback_wait = self->cur_params.feedback_interval * sinfo->equiv_fs;
+    self->cur_params.feedback_samples = self->feedback_wait;
     self->cur_params.feedback_interval = self->feedback_wait / sinfo->equiv_fs;
   }
 }
@@ -464,6 +476,14 @@ suscan_drift_inspector_register(void)
       SU_FALSE,
       "drift.pll-reset",
       "PLL reset signal"));
+
+  SU_TRY_FAIL(
+    suscan_config_desc_add_field(
+      desc,
+      SUSCAN_FIELD_TYPE_INTEGER,
+      SU_FALSE,
+      "drift.feedback-samples",
+      "Samples per Doppler update"));
 
   iface.cfgdesc = desc;
   desc = NULL;

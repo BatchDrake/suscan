@@ -236,7 +236,7 @@ done:
 }
 
 /*
- * Closure route 2: Frequency of a closing inspector was changed
+ * We do not close in here. This may be called anywhere.
  */
 SUBOOL
 suscan_inspector_factory_notify_freq(
@@ -248,18 +248,8 @@ suscan_inspector_factory_notify_freq(
   struct suscan_inspector_task_info *info = NULL;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(insp->state != SUSCAN_ASYNC_STATE_HALTED, goto done);
-
-  /* Make sure the inspector is not in HALTING state. */
-  if (insp->state == SUSCAN_ASYNC_STATE_HALTING) {
-    (void) (self->iface->close) (self->userdata, insp->factory_userdata);
-    insp->factory_userdata = NULL;
-    insp->state = SUSCAN_ASYNC_STATE_HALTED; 
-    
-    /* Yes, that's it */
-    ok = SU_TRUE;
+  if (insp->state != SUSCAN_ASYNC_STATE_RUNNING)
     goto done;
-  }
 
   /* Step 1: update frequency corrections for this inspector */
   suscan_inspector_factory_update_frequency_corrections(self, insp);
