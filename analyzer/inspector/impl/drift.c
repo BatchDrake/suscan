@@ -70,9 +70,14 @@ struct suscan_drift_inspector {
   SUFREQ     old_omega;
   SUFREQ     cur_omega;
   
+  /* This is during a frequency switch */
   SUSCOUNT   pending_fkicks;
   SUSCOUNT   num_fkicks;
   SUFLOAT    fkick;
+
+  SUFLOAT    fkick_A;
+  SUFLOAT    fkick_K;
+
   SUSCOUNT   feedback_wait;
   SUSCOUNT   feedback_counter;
 };
@@ -326,12 +331,13 @@ suscan_drift_inspector_feed(
   SUCOMPLEX y = 0;
   SUBOOL lock_state;
   SUSCOUNT kpending = 0;
-  SUFLOAT kfdelta;
+  SUFLOAT  fA, fK;
   SUSCOUNT feedback_counter;
   SUSCOUNT feedback_max;
   SUFLOAT  carr_freq;
   SUFREQ   curr_freq;
   SUFLOAT  alpha;
+  SUFLOAT  kick;
 
   struct suscan_drift_inspector *self =
       (struct suscan_drift_inspector *) private;
@@ -341,11 +347,15 @@ suscan_drift_inspector_feed(
     self->pending_fkicks = count;
     self->num_fkicks     = count;
     self->switching_freq = SU_FALSE;
+    self->fkick_A        = self->fkick * M_PI / (2 * self->num_fkicks);
+    self->fkick_K        = M_PI / self->num_fkicks;
   }
 
   kpending = self->pending_fkicks;
-  if (kpending > 0)
-    kfdelta = self->fkick;
+  if (kpending > 0) {
+    fA = self->fkick_A;
+    fK = self->fkick_K;
+  }
 
   feedback_counter = self->feedback_counter;
   feedback_max     = self->feedback_wait;
@@ -355,7 +365,8 @@ suscan_drift_inspector_feed(
     y = su_pll_track(&self->pll, y);
 
     if (kpending > 0) {
-      su_pll_inc_angfreq(&self->pll, kfdelta);
+      kick = fA * SU_SIN(fK * (kpending - self->num_fkicks));
+      su_pll_inc_angfreq(&self->pll, kick);
       --kpending;
     }
 
