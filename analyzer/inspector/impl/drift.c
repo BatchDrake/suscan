@@ -347,7 +347,7 @@ suscan_drift_inspector_feed(
     self->pending_fkicks = count;
     self->num_fkicks     = count;
     self->switching_freq = SU_FALSE;
-    self->fkick_A        = self->fkick * M_PI / (2 * self->num_fkicks);
+    self->fkick_A        = self->fkick * M_PI / 2;
     self->fkick_K        = M_PI / self->num_fkicks;
   }
 
