@@ -142,6 +142,7 @@ jobs:
         repository: BatchDrake/sigutils
         ref: ${{needs.dep_target.outputs.target_ref}}
         path: sigutils
+        submodules: recursive
         fetch-depth: 0
 
     - name: Configure CMake (sigutils)
@@ -188,6 +189,7 @@ jobs:
           repository: BatchDrake/sigutils
           ref: ${{needs.dep_target.outputs.target_ref}}
           path: sigutils
+          submodules: recursive
           fetch-depth: 0
         
       - name: Configure sigutils
