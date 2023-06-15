@@ -74,6 +74,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         path: suscan
+        submodules: recursive
         fetch-depth: 0
 
     - name: Get short hash
@@ -157,9 +158,11 @@ jobs:
       run: sudo cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
 
     - name: Checkout (suscan)
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         path: suscan
+        submodules: recursive
+        fetch-depth: 0
 
     - name: Configure CMake (suscan)
       run: |
@@ -176,7 +179,6 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v2
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -253,10 +255,16 @@ jobs:
         run: /mingw64/bin/cmake --build  D:\\a\\suscan\\suscan\\SoapyRTLSDR\\build --config ${{env.BUILD_TYPE}} --target install
         
       # suscan
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+
       - name: Configure CMake
         run: |
           export PKG_CONFIG_PATH=C:\\msys64\\mingw64\\lib\\pkgconfig\\
           /mingw64/bin/cmake -B  D:\\a\\suscan\\suscan\\build -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\
-        
+
       - name: Build
         run: /mingw64/bin/cmake --build  D:\\a\\suscan\\suscan\\build --config ${{env.BUILD_TYPE}}
