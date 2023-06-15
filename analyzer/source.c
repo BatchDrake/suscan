@@ -1622,19 +1622,14 @@ fail:
 void
 suscan_source_destroy(suscan_source_t *source)
 {
-  unsigned int i;
-
   if (source->sf != NULL)
     sf_close(source->sf);
 
   if (source->rx_stream != NULL)
     SoapySDRDevice_closeStream(source->sdr, source->rx_stream);
 
-  if (source->settings != NULL) {
-    for (i = 0; i < source->settings_count; ++i)
-      SoapySDRArgInfo_clear(source->settings + i);
-    free(source->settings);
-  }
+  if (source->settings != NULL)
+    SoapySDRArgInfoList_clear(source->settings, source->settings_count);
 
   if (source->sdr != NULL)
     SoapySDRDevice_unmake(source->sdr);
@@ -2030,6 +2025,9 @@ suscan_source_open_sdr(suscan_source_t *self)
     return SU_FALSE;
   }
 
+  if (self->settings != NULL)
+    SoapySDRArgInfoList_clear(self->settings, self->settings_count);
+    
   self->settings = SoapySDRDevice_getSettingInfo(
     self->sdr,
     &self->settings_count);

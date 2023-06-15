@@ -99,10 +99,6 @@ string(REPLACE ";" " " SIGUTILS_SPC_LDFLAGS "${SIGUTILS_LDFLAGS}")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall ${SIGUTILS_CONFIG_CFLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPKGDATADIR='\"${SUSCAN_PKGDIR}/share/suscan\"'")
-# The following hack exposes __FILENAME__ to source files as the relative
-# path of each source file.
-set(CMAKE_C_FLAGS
-"${CMAKE_C_FLAGS} -D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")
 
 #
 # If you are building suscan for your own software distribution, you may want
