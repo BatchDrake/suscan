@@ -20,6 +20,10 @@
   
 cmake_minimum_required(VERSION 3.5.1)
 
+# CMake modules search path
+file(GLOB MODULE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/*/" LIST_DIRECTORIES true)
+list(APPEND CMAKE_MODULE_PATH "${MODULE_DIRS}")
+
 set(SUSCAN_VERSION_MAJOR 0)
 set(SUSCAN_VERSION_MINOR 3)
 set(SUSCAN_VERSION_PATCH 0)
@@ -39,6 +43,7 @@ project(
   LANGUAGES C)
 
 include(FindPkgConfig)
+include(RelativeFileMacro)
 
 # Make sure CMAKE_INSTALL_LIBDIR is defined for all systems
 if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
@@ -65,7 +70,6 @@ if (ENABLE_PORTAUDIO)
 endif()
 
 # Find cppcheck (if available)
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 include(CodeAnalysis)
 
 # Source location
@@ -341,7 +345,9 @@ add_library(
   ${ANALYZER_LIB_SOURCES}
   ${VERSION_SOURCES}
   ${SRCDIR}/lib.c)
-  
+
+target_add_relative_file_macro(suscan)
+
 # Private header directories
 target_include_directories(
   suscan 

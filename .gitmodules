@@ -1,0 +1,3 @@
+[submodule "cmake/cmake-relativefilemacro"]
+	path = cmake/cmake-relativefilemacro
+	url = https://github.com/antoniovazquezblanco/cmake-relativefilemacro.git
