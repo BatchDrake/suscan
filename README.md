@@ -10,7 +10,7 @@ Suscan is a realtime DSP processing library. It provides a set of useful abstrac
 - Source API based on SoapySDR
 
 ## Getting the code
-Suscan now depends on several CMake submodules to be built. Make sure you pull them accordingly with:
+Just clone it from the GitHub repository. Make sure you pass `--recurse-submodules` to `git clone` so all required submodules are also cloned, and `-b develop` to get the latest changes from the development branch.
 
 ```
 % git clone -b develop --recurse-submodules https://github.com/BatchDrake/suscan.git
