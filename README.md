@@ -9,6 +9,13 @@ Suscan is a realtime DSP processing library. It provides a set of useful abstrac
 - Configuration file API (XML)
 - Source API based on SoapySDR
 
+## Getting the code
+Suscan now depends on several CMake submodules to be built. Make sure you pull them accordingly with:
+
+```
+% git clone -b develop --recurse-submodules https://github.com/BatchDrake/suscan.git
+```
+
 ## Building and installing Suscan
 In order to build Suscan, you will need the development files for the following packages:
 
