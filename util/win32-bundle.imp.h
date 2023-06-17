@@ -20,7 +20,7 @@
 #define SU_LOG_DOMAIN "win32-bundle"
 
 #include <sigutils/log.h>
-#include <util/util.h>
+#include <sigutils/util/util.h>
 #include <stdlib.h>
 #include <libgen.h>
 #include <SoapySDR/Version.h>
