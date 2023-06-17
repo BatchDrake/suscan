@@ -42,6 +42,20 @@ project(
   VERSION ${SUSCAN_VERSION}
   LANGUAGES C)
 
+# Check that all required submodules are there
+set(
+  GIT_CMAKE_SUBMODULES
+  cmake-relativefilemacro)
+
+foreach (submodule IN ITEMS ${GIT_CMAKE_SUBMODULES})
+  if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${submodule}/.git")
+  message( SEND_ERROR "Required CMake submodule `${submodule}' not found. This \
+  is most likely caused by an incomplete clone from the main repository. Please run:
+  $ git submodule update --init --recursive
+to clone all required submodules and run CMake again.")
+  endif()
+endforeach()
+
 include(FindPkgConfig)
 include(RelativeFileMacro)
 
