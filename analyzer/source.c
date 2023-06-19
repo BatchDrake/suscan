@@ -1910,6 +1910,12 @@ suscan_source_open_sdr(suscan_source_t *self)
       return SU_FALSE;
     }
 
+  /* Disable AGC explicitly */
+  if (SoapySDRDevice_setGainMode(self->sdr, SOAPY_SDR_RX, 0, false) != 0) {
+    SU_ERROR("Failed to disable AGC\n");
+    return SU_FALSE;
+  }
+
   for (i = 0; i < self->config->gain_count; ++i)
     if (SoapySDRDevice_setGainElement(
         self->sdr,
