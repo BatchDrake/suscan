@@ -23,10 +23,11 @@
 #include <ctype.h>
 #include <libgen.h>
 
-#define SU_LOG_DOMAIN "device"
+#define SU_LOG_DOMAIN "source-device"
 
 #include <confdb.h>
-#include "source.h"
+#include <analyzer/source/device.h>
+#include <SoapySDR/Device.h>
 #include "compat.h"
 #include <fcntl.h>
 #include <unistd.h>

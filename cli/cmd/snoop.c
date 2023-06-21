@@ -187,7 +187,7 @@ suscli_snoop_msg_debug_params(
 
 SUPRIVATE SUBOOL
 suscli_snoop_msg_debug_source_info(
-  const struct suscan_analyzer_source_info *msg)
+  const struct suscan_source_info *msg)
 {
 
   struct strlist *list = NULL;

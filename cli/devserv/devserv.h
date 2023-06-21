@@ -404,7 +404,7 @@ SUBOOL suscli_analyzer_client_write_buffer_zerocopy(
 
 SUBOOL suscli_analyzer_client_send_source_info(
     suscli_analyzer_client_t *self,
-    const struct suscan_analyzer_source_info *info,
+    const struct suscan_source_info *info,
     const struct timeval *timestamp);
 
 SUBOOL suscli_analyzer_client_send_startup_error(

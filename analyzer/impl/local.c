@@ -27,6 +27,7 @@
 #include <confdb.h>
 #include "sgdp4/sgdp4-types.h"
 #include <src/suscan.h>
+#include <analyzer/source.h>
 
 SUPRIVATE struct suscan_analyzer_interface *g_local_analyzer_interface;
 
@@ -513,11 +514,11 @@ suscan_local_analyzer_source_info_add_gain(
     struct suscan_source_gain_value *gain)
 {
   SUBOOL ok = SU_FALSE;
-  struct suscan_analyzer_gain_info *ginfo;
-  struct suscan_analyzer_source_info *info =
-      (struct suscan_analyzer_source_info *) private;
+  struct suscan_source_gain_info *ginfo;
+  struct suscan_source_info *info =
+      (struct suscan_source_info *) private;
 
-  SU_TRYCATCH(ginfo = suscan_analyzer_gain_info_new(gain), goto fail);
+  SU_TRYCATCH(ginfo = suscan_source_gain_info_new(gain), goto fail);
 
   SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->gain, ginfo) != -1, goto fail);
 
@@ -527,7 +528,7 @@ suscan_local_analyzer_source_info_add_gain(
 
 fail:
   if (ginfo != NULL)
-    suscan_analyzer_gain_info_destroy(ginfo);
+    suscan_source_gain_info_destroy(ginfo);
 
   return ok;
 }
@@ -559,7 +560,7 @@ suscan_local_analyzer_get_freq_limits(
 SUPRIVATE SUBOOL
 suscan_local_analyzer_populate_source_info(suscan_local_analyzer_t *self)
 {
-  struct suscan_analyzer_source_info *info = &self->source_info;
+  struct suscan_source_info *info = &self->source_info;
   const suscan_source_device_t *dev = NULL;
   struct suscan_source_device_info dev_info =
       suscan_source_device_info_INITIALIZER;
@@ -646,6 +647,7 @@ void *
 suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 {
   suscan_local_analyzer_t *new = NULL;
+  const struct suscan_source_info *source_info = NULL;
   struct sigutils_specttuner_params st_params =
       sigutils_specttuner_params_INITIALIZER;
   struct sigutils_channel_detector_params det_params;
@@ -756,8 +758,9 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
       ? SUSCAN_ANALYZER_SLOW_READ_SIZE
       : SUSCAN_ANALYZER_FAST_READ_SIZE;
 
-  if (new->read_size < new->source->mtu)
-    new->read_size = new->source->mtu;
+  source_info = suscan_source_get_info(new->source);
+  if (new->read_size < source_info->mtu)
+    new->read_size = source_info->mtu;
 
   if ((new->read_buf = malloc(
       new->read_size * sizeof(SUCOMPLEX))) == NULL) {
@@ -914,7 +917,7 @@ suscan_local_analyzer_dtor(void *ptr)
     rbtree_destroy(self->bbfilt_tree);
 
   /* Finalize source info */
-  suscan_analyzer_source_info_finalize(&self->source_info);
+  suscan_source_info_finalize(&self->source_info);
 
   /* Consume any pending messages */
   suscan_analyzer_consume_mq(&self->mq_in);
@@ -1048,12 +1051,12 @@ suscan_local_analyzer_get_measured_samp_rate(const void *ptr)
   return self->measured_samp_rate;
 }
 
-SUPRIVATE struct suscan_analyzer_source_info *
+SUPRIVATE struct suscan_source_info *
 suscan_local_analyzer_get_source_info_pointer(const void *ptr)
 {
   const suscan_local_analyzer_t *self = (const suscan_local_analyzer_t *) ptr;
 
-  return (struct suscan_analyzer_source_info *) &self->source_info;
+  return (struct suscan_source_info *) &self->source_info;
 }
 
 SUPRIVATE void

@@ -184,7 +184,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call) {
   uint32_t type;
 
   union {
-    struct suscan_analyzer_source_info source_info;
+    struct suscan_source_info source_info;
     struct suscan_analyzer_server_client_auth client_auth;
     struct {
       SUFREQ freq;
@@ -235,7 +235,7 @@ void suscan_analyzer_remote_call_init(
 
 SUBOOL suscan_analyzer_remote_call_take_source_info(
     struct suscan_analyzer_remote_call *self,
-    struct suscan_analyzer_source_info *info);
+    struct suscan_source_info *info);
 
 struct suscan_remote_analyzer;
 
@@ -329,7 +329,7 @@ struct suscan_remote_analyzer {
   pthread_mutex_t call_mutex;
   SUBOOL call_mutex_initialized;
   
-  struct suscan_analyzer_source_info      source_info;
+  struct suscan_source_info      source_info;
   struct suscan_analyzer_remote_call      call;
   struct suscan_remote_analyzer_peer_info peer;
   struct suscan_mq pdu_queue;

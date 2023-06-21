@@ -248,6 +248,10 @@ set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/estimator.h
   ${ANALYZERDIR}/serialize.h
   ${ANALYZERDIR}/source.h
+  ${ANALYZERDIR}/source/config.h
+  ${ANALYZERDIR}/source/device.h
+  ${ANALYZERDIR}/source/impl/file.h
+  ${ANALYZERDIR}/source/impl/soapysdr.h
   ${ANALYZERDIR}/symbuf.h
   ${ANALYZERDIR}/mq.h
   ${ANALYZERDIR}/throttle.h
@@ -293,7 +297,6 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/client.c
   ${ANALYZERDIR}/corrector.c
   ${ANALYZERDIR}/correctors/tle.c
-  ${ANALYZERDIR}/device.c
   ${ANALYZERDIR}/discovery.c
   ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/impl/local.c
@@ -309,6 +312,11 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/serialize.c
   ${ANALYZERDIR}/slow.c
   ${ANALYZERDIR}/source.c
+  ${ANALYZERDIR}/source/config.c
+  ${ANALYZERDIR}/source/device.c
+  ${ANALYZERDIR}/source/impl/file.c
+  ${ANALYZERDIR}/source/impl/soapysdr.c
+  ${ANALYZERDIR}/source/register.c
   ${ANALYZERDIR}/spectsrc.c
   ${ANALYZERDIR}/symbuf.c
   ${ANALYZERDIR}/throttle.c

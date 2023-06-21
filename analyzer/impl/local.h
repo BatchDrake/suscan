@@ -41,7 +41,7 @@ struct suscan_local_analyzer {
   suscan_analyzer_t *parent;
   struct suscan_mq mq_in;   /* Input queue */
 
-  struct suscan_analyzer_source_info source_info;
+  struct suscan_source_info source_info;
 
   /* Source members */
   suscan_source_t *source;
@@ -99,7 +99,7 @@ struct suscan_local_analyzer {
 
   /* Gain request */
   SUBOOL gain_req_mutex_init;
-  PTR_LIST(struct suscan_analyzer_gain_info, gain_request);
+  PTR_LIST(struct suscan_source_gain_info, gain_request);
 
   /* PSD request */
   SUBOOL   psd_params_req;
