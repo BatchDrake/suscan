@@ -156,7 +156,7 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
 
 #if SOAPY_SDR_API_VERSION < 0x00080000
   if (SoapySDRDevice_setupStream(
-      new->sdr,
+      self->sdr,
       &self->rx_stream,
       SOAPY_SDR_RX,
       SUSCAN_SOAPY_SAMPFMT,
