@@ -250,6 +250,7 @@ set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/source.h
   ${ANALYZERDIR}/source/config.h
   ${ANALYZERDIR}/source/device.h
+  ${ANALYZERDIR}/source/info.h
   ${ANALYZERDIR}/source/impl/file.h
   ${ANALYZERDIR}/source/impl/soapysdr.h
   ${ANALYZERDIR}/symbuf.h
@@ -314,6 +315,7 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/source.c
   ${ANALYZERDIR}/source/config.c
   ${ANALYZERDIR}/source/device.c
+  ${ANALYZERDIR}/source/info.c
   ${ANALYZERDIR}/source/impl/file.c
   ${ANALYZERDIR}/source/impl/soapysdr.c
   ${ANALYZERDIR}/source/register.c

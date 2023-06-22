@@ -47,350 +47,6 @@
 #  endif /* interface */
 #endif /* _WIN32 */
 
-/* Come on */
-#ifdef bool
-#  undef bool
-#endif
-
-/********************************** Gain info *********************************/
-void
-suscan_source_gain_info_destroy(struct suscan_source_gain_info *self)
-{
-  if (self->name != NULL)
-    free(self->name);
-
-  free(self);
-}
-
-struct suscan_source_gain_info *
-suscan_source_gain_info_dup(
-    const struct suscan_source_gain_info *old)
-{
-  struct suscan_source_gain_info *new = NULL;
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_source_gain_info)),
-      goto fail);
-
-  SU_TRYCATCH(new->name = strdup(old->name), goto fail);
-
-  new->max   = old->max;
-  new->min   = old->min;
-  new->step  = old->step;
-  new->value = old->value;
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_source_gain_info_destroy(new);
-
-  return NULL;
-}
-
-struct suscan_source_gain_info *
-suscan_source_gain_info_new(
-    const struct suscan_source_gain_value *value)
-{
-  struct suscan_source_gain_info *new = NULL;
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_source_gain_info)),
-      goto fail);
-
-  SU_TRYCATCH(new->name = strdup(value->desc->name), goto fail);
-
-  new->max   = value->desc->max;
-  new->min   = value->desc->min;
-  new->step  = value->desc->step;
-  new->value = value->val;
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_source_gain_info_destroy(new);
-
-  return NULL;
-}
-
-struct suscan_source_gain_info *
-suscan_source_gain_info_new_value_only(
-    const char *name,
-    SUFLOAT value)
-{
-  struct suscan_source_gain_info *new = NULL;
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_source_gain_info)),
-      goto fail);
-
-  SU_TRYCATCH(new->name = strdup(name), goto fail);
-
-  new->value = value;
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_source_gain_info_destroy(new);
-
-  return NULL;
-}
-
-/* Helper methods */
-SUSCAN_SERIALIZER_PROTO(suscan_source_info)
-{
-  SUSCAN_PACK_BOILERPLATE_START;
-  unsigned int i;
-
-  SUSCAN_PACK(uint,  self->permissions);
-  SUSCAN_PACK(uint,  self->mtu);
-  SUSCAN_PACK(uint,  self->source_samp_rate);
-  SUSCAN_PACK(uint,  self->effective_samp_rate);
-  SUSCAN_PACK(float, self->measured_samp_rate);
-  SUSCAN_PACK(freq,  self->frequency);
-  SUSCAN_PACK(freq,  self->freq_min);
-  SUSCAN_PACK(freq,  self->freq_max);
-  SUSCAN_PACK(freq,  self->lnb);
-  SUSCAN_PACK(float, self->bandwidth);
-  SUSCAN_PACK(float, self->ppm);
-  SUSCAN_PACK(str,   self->antenna);
-  SUSCAN_PACK(bool,  self->dc_remove);
-  SUSCAN_PACK(bool,  self->iq_reverse);
-  SUSCAN_PACK(bool,  self->agc);
-
-  SUSCAN_PACK(bool,   self->have_qth);
-  if (self->have_qth) {
-    SUSCAN_PACK(double, self->qth.lat);
-    SUSCAN_PACK(double, self->qth.lon);
-    SUSCAN_PACK(double, self->qth.height);
-  }
-
-  SUSCAN_PACK(uint, self->source_time.tv_sec);
-  SUSCAN_PACK(uint, self->source_time.tv_usec);
-
-  SUSCAN_PACK(bool, self->seekable);
-  if (self->seekable) {
-    SUSCAN_PACK(uint,  self->source_start.tv_sec);
-    SUSCAN_PACK(uint,  self->source_start.tv_usec);  
-    SUSCAN_PACK(uint, self->source_end.tv_sec);
-    SUSCAN_PACK(uint, self->source_end.tv_usec);
-  }
-
-  SU_TRYCATCH(cbor_pack_map_start(buffer, self->gain_count) == 0, goto fail);
-  for (i = 0; i < self->gain_count; ++i)
-    SU_TRYCATCH(
-        suscan_source_gain_info_serialize(self->gain_list[i], buffer),
-        goto fail);
-
-  SU_TRYCATCH(cbor_pack_map_start(buffer, self->antenna_count) == 0, goto fail);
-  for (i = 0; i < self->antenna_count; ++i)
-    SUSCAN_PACK(str, self->antenna_list[i]);
-
-  SUSCAN_PACK_BOILERPLATE_END;
-}
-
-SUSCAN_DESERIALIZER_PROTO(suscan_source_info)
-{
-  SUSCAN_UNPACK_BOILERPLATE_START;
-  SUBOOL end_required = SU_FALSE;
-  size_t i;
-  uint64_t nelem = 0;
-  uint64_t tv_sec = 0;
-  uint32_t tv_usec = 0;
-
-  SUSCAN_UNPACK(uint64, self->permissions);
-  SUSCAN_UNPACK(uint32, self->mtu);
-  SUSCAN_UNPACK(uint64, self->source_samp_rate);
-  SUSCAN_UNPACK(uint64, self->effective_samp_rate);
-  SUSCAN_UNPACK(float,  self->measured_samp_rate);
-  SUSCAN_UNPACK(freq,   self->frequency);
-  SUSCAN_UNPACK(freq,   self->freq_min);
-  SUSCAN_UNPACK(freq,   self->freq_max);
-  SUSCAN_UNPACK(freq,   self->lnb);
-  SUSCAN_UNPACK(float,  self->bandwidth);
-  SUSCAN_UNPACK(float,  self->ppm);
-  SUSCAN_UNPACK(str,    self->antenna);
-  SUSCAN_UNPACK(bool,   self->dc_remove);
-  SUSCAN_UNPACK(bool,   self->iq_reverse);
-  SUSCAN_UNPACK(bool,   self->agc);
-
-  SUSCAN_UNPACK(bool,   self->have_qth);
-  if (self->have_qth) {
-    SUSCAN_UNPACK(double, self->qth.lat);
-    SUSCAN_UNPACK(double, self->qth.lon);
-    SUSCAN_UNPACK(double, self->qth.height);
-  }
-
-  SUSCAN_UNPACK(uint64, tv_sec);
-  SUSCAN_UNPACK(uint32, tv_usec);
-  self->source_time.tv_sec  = tv_sec;
-  self->source_time.tv_usec = tv_usec;
-
-  SUSCAN_UNPACK(bool, self->seekable);
-  if (self->seekable) {
-    SUSCAN_UNPACK(uint64, tv_sec);
-    SUSCAN_UNPACK(uint32, tv_usec);  
-    self->source_start.tv_sec  = tv_sec;
-    self->source_start.tv_usec = tv_usec;
-
-    SUSCAN_UNPACK(uint64, tv_sec);
-    SUSCAN_UNPACK(uint32, tv_usec);
-    self->source_end.tv_sec  = tv_sec;
-    self->source_end.tv_usec = tv_usec;
-  }
-
-  /* Deserialize gains */
-  SU_TRYCATCH(
-      cbor_unpack_map_start(buffer, &nelem, &end_required) == 0,
-      goto fail);
-  SU_TRYCATCH(!end_required, goto fail);
-
-  self->gain_count = (unsigned int) nelem;
-
-  if (self->gain_count > 0) {
-    SU_TRYCATCH(
-        self->gain_list = calloc(
-            nelem,
-            sizeof (struct suscan_source_gain_info *)),
-        goto fail);
-
-    for (i = 0; i < self->gain_count; ++i) {
-      SU_TRYCATCH(
-          self->gain_list[i] = 
-            calloc(1, sizeof (struct suscan_source_gain_info)),
-          goto fail);
-
-      SU_TRYCATCH(
-          suscan_source_gain_info_deserialize(self->gain_list[i], buffer),
-          goto fail);
-    }
-  } else {
-    self->gain_list = NULL;
-  }
-  
-  /* Deserialize antennas */
-  SU_TRYCATCH(
-      cbor_unpack_map_start(buffer, &nelem, &end_required) == 0,
-      goto fail);
-  SU_TRYCATCH(!end_required, goto fail);
-
-  self->antenna_count = (unsigned int) nelem;
-
-  if (self->antenna_count > 0) {
-    SU_TRYCATCH(
-      self->antenna_list = calloc(nelem, sizeof (char *)), 
-      goto fail);
-
-    for (i = 0; i < self->antenna_count; ++i)
-      SUSCAN_UNPACK(str, self->antenna_list[i]);
-  } else {
-    self->antenna_list = NULL;
-  }
-
-  SUSCAN_UNPACK_BOILERPLATE_END;
-}
-
-void
-suscan_source_info_init(struct suscan_source_info *self)
-{
-  memset(self, 0, sizeof(struct suscan_source_info));
-
-  self->permissions = SUSCAN_ANALYZER_PERM_ALL;
-}
-
-SUBOOL
-suscan_source_info_init_copy(
-    struct suscan_source_info *self,
-    const struct suscan_source_info *origin)
-{
-  struct suscan_source_gain_info *gi = NULL;
-  char *dup = NULL;
-  unsigned int i;
-  SUBOOL ok = SU_FALSE;
-
-  suscan_source_info_init(self);
-
-  self->permissions         = origin->permissions;
-  self->source_samp_rate    = origin->source_samp_rate;
-  self->effective_samp_rate = origin->effective_samp_rate;
-  self->measured_samp_rate  = origin->measured_samp_rate;
-  self->frequency           = origin->frequency;
-  self->freq_min            = origin->freq_min;
-  self->freq_max            = origin->freq_max;
-  self->lnb                 = origin->lnb;
-  self->bandwidth           = origin->bandwidth;
-  self->ppm                 = origin->ppm;
-  self->source_time         = origin->source_time;
-  self->seekable            = origin->seekable;
-
-  if (self->seekable) {
-    self->source_start = origin->source_start;
-    self->source_end   = origin->source_end;
-  }
-
-  if (origin->antenna != NULL)
-    SU_TRYCATCH(self->antenna = strdup(origin->antenna), goto done);
-
-  self->dc_remove  = origin->dc_remove;
-  self->iq_reverse = origin->iq_reverse;
-  self->agc        = origin->agc;
-
-  for (i = 0; i < origin->gain_count; ++i) {
-    SU_TRYCATCH(
-        gi = suscan_source_gain_info_dup(origin->gain_list[i]),
-        goto done);
-
-    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(self->gain, gi) != -1, goto done);
-    gi = NULL;
-  }
-
-  for (i = 0; i < origin->antenna_count; ++i) {
-    SU_TRYCATCH(dup = strdup(origin->antenna_list[i]), goto done);
-    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(self->antenna, dup) != -1, goto done);
-    dup = NULL;
-  }
-
-  ok = SU_TRUE;
-
-done:
-  if (gi != NULL)
-    suscan_source_gain_info_destroy(gi);
-
-  if (dup != NULL)
-    free(dup);
-
-  if (!ok)
-    suscan_source_info_finalize(self);
-
-  return ok;
-}
-
-void
-suscan_source_info_finalize(struct suscan_source_info *self)
-{
-  unsigned int i;
-
-  if (self->antenna != NULL)
-    free(self->antenna);
-
-  for (i = 0; i < self->gain_count; ++i)
-    if (self->gain_list[i] != NULL)
-      suscan_source_gain_info_destroy(self->gain_list[i]);
-
-  if (self->gain_list != NULL)
-    free(self->gain_list);
-
-  for (i = 0; i < self->antenna_count; ++i)
-    if (self->antenna_list[i] != NULL)
-      free(self->antenna_list[i]);
-
-  if (self->antenna_list != NULL)
-    free(self->antenna_list);
-
-  memset(self, 0, sizeof(struct suscan_source_info));
-}
 
 /****************************** Source API ***********************************/
 void
@@ -576,7 +232,6 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
   SUSDIFF got = 0;
   SUSCOUNT result, i;
   SUSCOUNT spill_avail, chunk;
-  SUCOMPLEX y, c, t, sum;
   SUCOMPLEX *bufdec = buffer;
   SUSCOUNT maxdec = max;
 
@@ -615,51 +270,20 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
           SUSCAN_SOURCE_DEFAULT_BUFSIZ)) < 1)
           return got;
 
+        su_dc_corrector_correct(&self->dc_corrector, self->read_buf, got);
         suscan_source_feed_decimator(self, self->read_buf, got);
       } while(self->curr_ptr == 0);
       result += self->curr_ptr;
     }
   } else {
     result = (self->iface->read) (self->source, buffer, max);
+    if (result > 0 && self->dc_correction_enabled)
+      su_dc_corrector_correct(&self->dc_corrector, buffer, result);
   }
 
   if (result > 0)
     self->total_samples += result;
 
-  if (result > 0) {
-    if (self->soft_dc_correction) {
-      c   = self->dc_c;
-      sum = self->dc_offset;
-
-      for (i = 0; i < result; ++i) {
-        y = buffer[i] - c;
-        t = sum + y;
-        c = (t - sum) - y;
-        sum = t;
-      }
-
-      if (self->soft_dc_train_samples > 0) {
-        self->dc_c = c;
-        self->dc_offset = sum;
-        self->soft_dc_count += result;
-
-        if (self->soft_dc_count > self->soft_dc_train_samples) {
-          self->dc_offset /= self->soft_dc_count;
-          self->soft_dc_correction = SU_FALSE;
-          self->have_dc_offset = SU_TRUE;
-        }
-      } else {
-        SU_SPLPF_FEED(self->dc_offset, sum / result, self->soft_dc_alpha);
-      }
-    }
-    
-    if (self->have_dc_offset) {
-      for (i = 0; i < result; ++i)
-        buffer[i] -= self->dc_offset;
-    }
-  }
-
-  
   return result;
 }
 
@@ -782,16 +406,10 @@ suscan_source_set_dc_remove(suscan_source_t *self, SUBOOL remove)
   if (!self->capturing)
     return SU_FALSE;
 
-  if (self->use_soft_dc) {
-    if (remove) {
-      self->soft_dc_count = 0;
-      self->dc_offset = 0;
-      self->dc_c = 0;
-    }
-
-    self->soft_dc_correction = remove;
-    self->have_dc_offset = remove && self->soft_dc_train_samples == 0;
-
+  if (self->soft_dc) {
+    if (remove)
+      su_dc_corrector_reset(&self->dc_corrector);
+    self->dc_correction_enabled = remove;
     return SU_TRUE;
   } else {
     if (self->iface->set_dc_remove == NULL)
@@ -1030,6 +648,8 @@ suscan_source_config_check(const suscan_source_config_t *config)
 SUPRIVATE void
 suscan_source_adjust_permissions(suscan_source_t *self)
 {
+  SUSCOUNT dc_samples;
+
   CHECK_MISSING(set_frequency, SET_FREQ);
   CHECK_MISSING(set_gain,      SET_GAIN);
   CHECK_MISSING(set_antenna,   SET_ANTENNA);
@@ -1042,23 +662,25 @@ suscan_source_adjust_permissions(suscan_source_t *self)
 
   /* If source does not support DC remove, enable it by software */
   if (~self->info.permissions & SUSCAN_ANALYZER_PERM_SET_DC_REMOVE) {
-    self->use_soft_dc           = SU_TRUE;
-    self->soft_dc_train_samples = suscan_source_get_dc_samples(self);
-    self->soft_dc_correction    = self->config->dc_remove;
-    
-    if (self->soft_dc_train_samples == 0) {
-      self->soft_dc_alpha  = SU_SPLPF_ALPHA(SUSCAN_SOURCE_DC_AVERAGING_PERIOD);
-      self->have_dc_offset = self->soft_dc_correction;
-    }
+    self->soft_dc               = SU_TRUE;
+    self->dc_correction_enabled = self->config->dc_remove;
 
-    if (self->soft_dc_correction) {
+    dc_samples = suscan_source_get_dc_samples(self);
+    if (dc_samples > 0)
+      su_dc_corrector_init_with_training_period(&self->dc_corrector, dc_samples);
+    else
+      su_dc_corrector_init_with_alpha(
+        &self->dc_corrector,
+        SU_SPLPF_ALPHA(SUSCAN_SOURCE_DC_AVERAGING_PERIOD));
+    
+    if (self->soft_dc) {
       SU_INFO("Source does not support native DC correction, falling back to software correction\n");
-      if (self->have_dc_offset) {
+      if (dc_samples == 0) {
         SU_INFO("DC correction strategy: continuous\n");
       } else {
         SU_INFO(
           "DC correction strategy: one-shot (%" PRIu64 " samples)\n",
-          self->soft_dc_train_samples);
+          dc_samples);
       }
     }
 
