@@ -270,12 +270,6 @@ suscan_local_analyzer_set_freq_cb(
         self->detector->params.fc = freq;
       }
 
-      if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_FILE) {
-        diff = freq - self->source_info.frequency;
-        self->source_info.freq_min += diff;
-        self->source_info.freq_max += diff;
-      }
-
       /* Source info changed. Notify update */
       self->source_info.frequency = freq;
       self->source_info.lnb       = lnb_freq;

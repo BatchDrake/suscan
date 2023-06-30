@@ -96,7 +96,7 @@ struct suscan_source {
   struct suscan_source_info info;
 
   SUBOOL   capturing;
-  void    *source; /* Opaque source object */
+  void    *src_priv; /* Opaque source object */
 
   SUSCOUNT total_samples;
   SUBOOL   looped;
@@ -201,7 +201,7 @@ SUINLINE SUFLOAT
 suscan_source_get_samp_rate(const suscan_source_t *src)
 {
   if (src->capturing)
-    return (SUFLOAT) src->info.source_samp_rate / src->decim;
+    return (SUFLOAT) src->info.source_samp_rate;
   else
     return (SUFLOAT) src->config->samp_rate / src->config->average;
 }

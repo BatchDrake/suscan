@@ -54,8 +54,8 @@
 void
 suscan_source_destroy(suscan_source_t *source)
 {
-  if (source->source != NULL)
-    (source->iface->close) (source->source);
+  if (source->src_priv != NULL)
+    (source->iface->close) (source->src_priv);
   
   if (source->config != NULL)
     suscan_source_config_destroy(source->config);
@@ -267,7 +267,7 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
       self->curr_size = maxdec;
       do {
         if ((got = (self->iface->read) (
-          self->source,
+          self->src_priv,
           self->read_buf,
           SUSCAN_SOURCE_DEFAULT_BUFSIZ)) < 1)
           return got;
@@ -278,7 +278,7 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
       result += self->curr_ptr;
     }
   } else {
-    result = (self->iface->read) (self->source, buffer, max);
+    result = (self->iface->read) (self->src_priv, buffer, max);
     if (result > 0 && self->dc_correction_enabled)
       su_dc_corrector_correct(&self->dc_corrector, buffer, result);
   }
@@ -292,7 +292,7 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 void 
 suscan_source_get_time(suscan_source_t *self, struct timeval *tv)
 {
-  (self->iface->get_time) (self->source, tv);
+  (self->iface->get_time) (self->src_priv, tv);
 }
 
 SUSCOUNT 
@@ -330,7 +330,7 @@ suscan_source_seek(suscan_source_t *self, SUSCOUNT pos)
   if (self->iface->seek == NULL)
     return SU_FALSE;
 
-  return (self->iface->seek) (self->source, pos * self->decim);
+  return (self->iface->seek) (self->src_priv, pos * self->decim);
 }
 
 SUSDIFF
@@ -339,7 +339,7 @@ suscan_source_get_max_size(const suscan_source_t *self)
   if (self->iface->max_size == NULL)
     return -1;
 
-  return (self->iface->max_size) (self->source);
+  return (self->iface->max_size) (self->src_priv);
 }
 
 SUSCOUNT 
@@ -356,7 +356,7 @@ suscan_source_start_capture(suscan_source_t *source)
     return SU_TRUE;
   }
 
-  if (!(source->iface->start) (source->source)) {
+  if (!(source->iface->start) (source->src_priv)) {
     SU_ERROR("Failed to start capture\n");
     return SU_FALSE;
   }
@@ -374,7 +374,7 @@ suscan_source_stop_capture(suscan_source_t *source)
     return SU_TRUE;
   }
 
-  if (!(source->iface->cancel) (source->source)) {
+  if (!(source->iface->cancel) (source->src_priv)) {
     SU_ERROR("Failed to stop capture\n");
     return SU_FALSE;
   }
@@ -394,7 +394,7 @@ suscan_source_set_agc(suscan_source_t *self, SUBOOL set)
   if (self->iface->set_agc == NULL)
     return SU_FALSE;
 
-  if (!(self->iface->set_agc) (self->source, set)) {
+  if (!(self->iface->set_agc) (self->src_priv, set)) {
     SU_ERROR("Failed to change AGC state\n");
     return SU_FALSE;
   }
@@ -417,7 +417,7 @@ suscan_source_set_dc_remove(suscan_source_t *self, SUBOOL remove)
     if (self->iface->set_dc_remove == NULL)
       return SU_FALSE;
 
-    if (!(self->iface->set_dc_remove) (self->source, remove)) {
+    if (!(self->iface->set_dc_remove) (self->src_priv, remove)) {
       SU_ERROR("Failed to set DC remove setting\n");
       return SU_FALSE;
     }
@@ -435,7 +435,7 @@ suscan_source_set_gain(suscan_source_t *self, const char *name, SUFLOAT val)
   if (self->iface->set_gain == NULL)
     return SU_FALSE;
 
-  if (!(self->iface->set_gain)(self->source, name, val)) {
+  if (!(self->iface->set_gain)(self->src_priv, name, val)) {
     SU_ERROR("Failed to adjust source gain `%s'\n", name);
     return SU_FALSE;
   }
@@ -452,7 +452,7 @@ suscan_source_set_antenna(suscan_source_t *self, const char *name)
   if (self->iface->set_antenna == NULL)
     return SU_FALSE;
 
-  if (!(self->iface->set_antenna)(self->source, name)) {
+  if (!(self->iface->set_antenna)(self->src_priv, name)) {
     SU_ERROR("Failed to switch to antenna `%s'\n", name);
     return SU_FALSE;
   }
@@ -471,7 +471,7 @@ suscan_source_set_bandwidth(suscan_source_t *self, SUFLOAT bw)
   if (self->iface->set_bandwidth == NULL)
     return SU_FALSE;
 
-  if (!(self->iface->set_bandwidth) (self->source, bw)) {
+  if (!(self->iface->set_bandwidth) (self->src_priv, bw)) {
     SU_ERROR("Failed to set bandwidth\n");
     return SU_FALSE;
   }
@@ -490,7 +490,8 @@ suscan_source_set_decimator_freq(suscan_source_t *self, SUFREQ freq)
   SUFLOAT native_rate, decimated_rate;
   SUBOOL ok = SU_FALSE;
 
-  native_rate = self->info.source_samp_rate;
+  decimated_rate = self->info.source_samp_rate;
+  native_rate    = self->info.source_samp_rate * self->decim;
   
   if (self->decim > 1) {
     decimated_rate = native_rate / self->decim;
@@ -550,7 +551,8 @@ suscan_source_set_freq(suscan_source_t *self, SUFREQ freq)
     return SU_FALSE;
   
   /* Update config */
-  (void) suscan_source_config_set_freq(self->config, freq);
+  if (self->iface->set_frequency != NULL)
+    (void) suscan_source_config_set_freq(self->config, freq);
 
   return SU_TRUE;
 }
@@ -564,7 +566,7 @@ suscan_source_set_ppm(suscan_source_t *self, SUFLOAT ppm)
   if (self->iface->set_ppm == NULL)
     return SU_FALSE;
 
-  if (!(self->iface->set_ppm) (self->source, ppm)) {
+  if (!(self->iface->set_ppm) (self->src_priv, ppm)) {
     SU_ERROR("Failed to set PPM\n");
     return SU_FALSE;
   }
@@ -600,7 +602,9 @@ suscan_source_set_freq2(suscan_source_t *self, SUFREQ freq, SUFREQ lnb)
     return SU_FALSE;
 
   /* Update config */
-  suscan_source_config_set_freq(self->config, freq);
+  if (self->iface->set_frequency != NULL)
+    (void) suscan_source_config_set_freq(self->config, freq);
+  
   suscan_source_config_set_lnb_freq(self->config, lnb);
 
   return SU_TRUE;
@@ -693,13 +697,15 @@ suscan_source_adjust_permissions(suscan_source_t *self)
 
   /* If source does not support frequency set, maybe it does under decimation */
   if (~self->info.permissions & SUSCAN_ANALYZER_PERM_SET_FREQ) {
-    fdiff = suscan_source_get_base_samp_rate(self->source) 
-          - suscan_source_get_samp_rate(self->source);
+    fdiff = suscan_source_get_base_samp_rate(self) 
+          - suscan_source_get_samp_rate(self);
     f0   = suscan_source_config_get_freq(self->config);
+
     self->info.freq_min = f0 - fdiff / 2;
     self->info.freq_max = f0 + fdiff / 2;
 
-    self->info.permissions |= SUSCAN_ANALYZER_PERM_SET_FREQ;
+    if (self->decim > 1)
+      self->info.permissions |= SUSCAN_ANALYZER_PERM_SET_FREQ;
   }
 }
 
@@ -779,8 +785,8 @@ suscan_source_new(suscan_source_config_t *config)
   }
 
   /* Call the source constructor */
-  new->source = (new->iface->open)(new, new->config, &new->info);
-  if (new->source == NULL)
+  new->src_priv = (new->iface->open)(new, new->config, &new->info);
+  if (new->src_priv == NULL)
     goto fail;
   
   /* Done, adjust permissions */
