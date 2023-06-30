@@ -28,6 +28,8 @@
 
 #define SU_LOG_DOMAIN "source"
 
+#include "../src/suscan.h"
+
 #include "source.h"
 #include "compat.h"
 #include "discovery.h"
@@ -230,7 +232,7 @@ SUSDIFF
 suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 {
   SUSDIFF got = 0;
-  SUSCOUNT result, i;
+  SUSCOUNT result;
   SUSCOUNT spill_avail, chunk;
   SUCOMPLEX *bufdec = buffer;
   SUSCOUNT maxdec = max;
@@ -328,7 +330,7 @@ suscan_source_seek(suscan_source_t *self, SUSCOUNT pos)
   if (self->iface->seek == NULL)
     return SU_FALSE;
 
-  return (self->iface->seek) (self->source, pos);
+  return (self->iface->seek) (self->source, pos * self->decim);
 }
 
 SUSDIFF
@@ -649,6 +651,8 @@ SUPRIVATE void
 suscan_source_adjust_permissions(suscan_source_t *self)
 {
   SUSCOUNT dc_samples;
+  SUFREQ fdiff;
+  SUFREQ f0;
 
   CHECK_MISSING(set_frequency, SET_FREQ);
   CHECK_MISSING(set_gain,      SET_GAIN);
@@ -686,9 +690,66 @@ suscan_source_adjust_permissions(suscan_source_t *self)
 
     self->info.permissions |= SUSCAN_ANALYZER_PERM_SET_DC_REMOVE;
   }
+
+  /* If source does not support frequency set, maybe it does under decimation */
+  if (~self->info.permissions & SUSCAN_ANALYZER_PERM_SET_FREQ) {
+    fdiff = suscan_source_get_base_samp_rate(self->source) 
+          - suscan_source_get_samp_rate(self->source);
+    f0   = suscan_source_config_get_freq(self->config);
+    self->info.freq_min = f0 - fdiff / 2;
+    self->info.freq_max = f0 + fdiff / 2;
+
+    self->info.permissions |= SUSCAN_ANALYZER_PERM_SET_FREQ;
+  }
 }
 
 #undef CHECK_MISSING
+
+SUPRIVATE SUBOOL
+suscan_source_populate_source_info(suscan_source_t *self)
+{
+  struct suscan_source_info *info = &self->info;
+  const suscan_source_config_t *config = self->config;
+  const char *ant = suscan_source_config_get_antenna(config);
+  SUBOOL ok = SU_FALSE;
+
+  /* Adjust by decimation */
+  info->source_samp_rate    /= self->decim;
+  info->effective_samp_rate /= self->decim;
+  info->measured_samp_rate  /= self->decim;
+
+  /* Some convenience flags */
+  info->seekable = !!(info->permissions & SUSCAN_ANALYZER_PERM_SEEK);
+
+  /* Get frequency */
+  info->frequency  = suscan_source_get_freq(self);
+  info->lnb        = suscan_source_config_get_lnb_freq(config);
+  info->bandwidth  = suscan_source_config_get_bandwidth(config);
+  info->dc_remove  = suscan_source_config_get_dc_remove(config);
+  info->ppm        = suscan_source_config_get_ppm(config);
+  info->iq_reverse = SU_FALSE;
+  info->agc        = SU_FALSE;
+
+  info->have_qth   = suscan_get_qth(&info->qth);
+
+  suscan_source_get_time(self, &info->source_time);
+
+  /* Seekable source: it has an start and end time */
+  if (info->seekable) {
+    suscan_source_get_start_time(self, &info->source_start);
+    suscan_source_get_end_time(self, &info->source_end);
+  }
+
+  /* Set antenna */
+  if (info->permissions & SUSCAN_ANALYZER_PERM_SET_ANTENNA)
+    if (ant != NULL)
+      SU_TRY(info->antenna = strdup(ant));
+
+  ok = SU_TRUE;
+  
+done:
+  return ok;
+}
 
 suscan_source_t *
 suscan_source_new(suscan_source_config_t *config)
@@ -697,10 +758,10 @@ suscan_source_new(suscan_source_config_t *config)
 
   SU_TRY_FAIL(suscan_source_config_check(config));
   SU_ALLOCATE_FAIL(new, suscan_source_t);
+  
   SU_TRY_FAIL(new->config = suscan_source_config_clone(config));
 
   new->decim = 1;
-  new->config = config;
 
   if (config->average > 1)
     SU_TRYCATCH(
@@ -718,15 +779,13 @@ suscan_source_new(suscan_source_config_t *config)
   }
 
   /* Call the source constructor */
-  new->source = new->iface->open(new, config, &new->info);
+  new->source = (new->iface->open)(new, new->config, &new->info);
   if (new->source == NULL)
     goto fail;
   
   /* Done, adjust permissions */
   suscan_source_adjust_permissions(new);
-  
-  /* Some convenience flags */
-  new->info.seekable = !!(new->info.permissions & SUSCAN_ANALYZER_PERM_SEEK);
+  suscan_source_populate_source_info(new);
 
   return new;
 

@@ -37,7 +37,6 @@ struct suscan_source_file {
   SUBOOL looped;
   SUFLOAT  samp_rate;
   SUSCOUNT total_samples;
-  unsigned decim;
   SUSCOUNT seek_request;
 };
 

@@ -250,6 +250,91 @@ suscan_source_soapysdr_close(void *ptr)
   free(self);
 }
 
+SUPRIVATE SUBOOL
+suscan_source_soapysdr_source_info_add_gain(
+    void *private,
+    struct suscan_source_gain_value *gain)
+{
+  SUBOOL ok = SU_FALSE;
+  struct suscan_source_gain_info *ginfo;
+  struct suscan_source_info *info =
+      (struct suscan_source_info *) private;
+
+  SU_TRYCATCH(ginfo = suscan_source_gain_info_new(gain), goto fail);
+
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->gain, ginfo) != -1, goto fail);
+
+  ginfo = NULL;
+
+  ok = SU_TRUE;
+
+fail:
+  if (ginfo != NULL)
+    suscan_source_gain_info_destroy(ginfo);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_source_soapysdr_populate_source_info(
+  struct suscan_source_soapysdr *self,
+  struct suscan_source_info *info,
+  const suscan_source_config_t *config)
+{
+  const suscan_source_device_t *dev = suscan_source_config_get_device(config);
+  struct suscan_source_device_info dev_info =
+      suscan_source_device_info_INITIALIZER;
+  unsigned int i;
+  char *dup = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  /* Adjust permissions */
+  info->permissions         = SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS;
+  if (!self->have_dc)
+    info->permissions &= ~SUSCAN_ANALYZER_PERM_SET_DC_REMOVE;
+
+  /* Set sample rate */
+  info->source_samp_rate    = self->samp_rate;
+  info->effective_samp_rate = self->samp_rate;
+  info->measured_samp_rate  = self->samp_rate;
+  
+  /* Adjust limits */
+  info->freq_min = suscan_source_device_get_min_freq(dev);
+  info->freq_max = suscan_source_device_get_max_freq(dev);
+
+  /* Get current source time */
+  suscan_source_get_time(self->source, &info->source_time);
+  suscan_source_get_time(self->source, &info->source_start);
+
+  /* Initialize gains. This were set earlier in the config object. */
+  SU_TRYCATCH(
+      suscan_source_config_walk_gains_ex(
+          config,
+          suscan_source_soapysdr_source_info_add_gain,
+          info),
+      goto done);
+
+  /* Initialize antennas */
+  dev = suscan_source_config_get_device(config);
+  if (suscan_source_device_get_info(dev, 0, &dev_info)) {
+    for (i = 0; i < dev_info.antenna_count; ++i) {
+      SU_TRYCATCH(dup = strdup(dev_info.antenna_list[i]), goto done);
+      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->antenna, dup) != -1, goto done);
+      dup = NULL;
+    }
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (dup != NULL)
+    free(dup);
+
+  suscan_source_device_info_finalize(&dev_info);
+
+  return ok;
+}
+
 SUPRIVATE void *
 suscan_source_soapysdr_open(
   suscan_source_t *source,
@@ -265,18 +350,7 @@ suscan_source_soapysdr_open(
   SU_TRY_FAIL(suscan_source_soapysdr_init_sdr(new));
   
   /* Initialize source info */
-
-  info->permissions         = SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS;
-  
-  if (!new->have_dc)
-    info->permissions &= ~SUSCAN_ANALYZER_PERM_SET_DC_REMOVE;
-
-  info->mtu                 = new->mtu;
-  info->source_samp_rate    = new->samp_rate;
-  info->effective_samp_rate = new->samp_rate;
-  info->measured_samp_rate  = new->samp_rate;
-
-  gettimeofday(&info->source_start, NULL);
+  suscan_source_soapysdr_populate_source_info(new, info, config);
 
   return new;
 
@@ -542,7 +616,7 @@ SUPRIVATE struct suscan_source_interface g_soapysdr_source =
   /* Unser members */
   .seek          = NULL,
   .max_size      = NULL,
-  
+  .estimate_size = NULL,
 };
 
 SUBOOL

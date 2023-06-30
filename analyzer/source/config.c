@@ -19,7 +19,7 @@
 
 #define SU_LOG_DOMAIN "source-config"
 
-#include <analyzer/source/config.h>
+#include <analyzer/source.h>
 #include <confdb.h>
 #include <libgen.h>
 
@@ -541,6 +541,42 @@ suscan_source_config_get_ppm(const suscan_source_config_t *config)
 void suscan_source_config_set_ppm(suscan_source_config_t *config, SUFLOAT ppm)
 {
   config->ppm = ppm;
+}
+
+SUBOOL
+suscan_source_config_get_end_time(
+  const suscan_source_config_t *self,
+  struct timeval *tv)
+{
+  SUBOOL ok = SU_FALSE;
+  struct timeval start, elapsed = {0, 0};
+  SUSDIFF max_size;
+  const struct suscan_source_interface *iface;
+
+  iface = suscan_source_interface_lookup_by_index(self->type);
+  if (iface == NULL)
+    goto done;
+  
+  max_size = (iface->estimate_size) (self);
+  if (max_size < 0)
+    goto done;
+  
+  SU_TRY(self->average > 0);
+
+  max_size /= self->average;
+
+  elapsed.tv_sec  = max_size / self->samp_rate;
+  elapsed.tv_usec = (1000000 
+    * (max_size - elapsed.tv_sec * self->samp_rate))
+    / self->samp_rate;
+
+  suscan_source_config_get_start_time(self, &start);
+  timeradd(&start, &elapsed, tv);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
 
 void 

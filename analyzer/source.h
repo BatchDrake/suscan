@@ -68,6 +68,8 @@ struct suscan_source_interface {
     struct suscan_source_info *info);
   void     (*close) (void *);
 
+  SUSDIFF  (*estimate_size) (const suscan_source_config_t *); /* Without decimation */
+
   SUBOOL   (*start) (void *);
   SUBOOL   (*cancel) (void *);
 
@@ -84,6 +86,7 @@ struct suscan_source_interface {
   SUBOOL   (*set_ppm) (void *, SUFLOAT);
   SUBOOL   (*set_dc_remove) (void *, SUBOOL);
   SUBOOL   (*set_agc) (void *, SUBOOL);
+
   unsigned (*get_samp_rate) (void *);
 };
 

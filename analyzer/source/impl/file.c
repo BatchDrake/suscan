@@ -213,7 +213,6 @@ suscan_source_file_open(
   SU_ALLOCATE_FAIL(new, struct suscan_source_file);
 
   new->config = config;
-  new->decim  = suscan_source_get_decimation(source);
   new->sf     = suscan_source_config_sf_open(config, &new->sf_info);
   
   if (new->sf == NULL)
@@ -239,7 +238,7 @@ suscan_source_file_open(
 
   timeradd(&info->source_start, &elapsed, &info->source_end);
 
-  new->samp_rate = (SUFLOAT) info->source_samp_rate / source->decim;
+  new->samp_rate = (SUFLOAT) info->source_samp_rate;
 
   return new;
 
@@ -297,6 +296,8 @@ suscan_source_file_read(
     } else {
       got >>= 1;
     }
+
+    self->total_samples += got;
   }
 
   return got;
@@ -324,7 +325,7 @@ suscan_source_file_seek(void *userdata, SUSCOUNT pos)
 {
   struct suscan_source_file *self = (struct suscan_source_file *) userdata;
 
-  if (sf_seek(self->sf, pos * self->decim, SEEK_SET) == -1)
+  if (sf_seek(self->sf, pos, SEEK_SET) == -1)
     return SU_FALSE;
 
   self->total_samples = pos;
@@ -350,12 +351,33 @@ suscan_source_file_cancel(void *userdata)
   return SU_TRUE;
 }
 
+SUPRIVATE SUSDIFF
+suscan_source_file_estimate_size(const suscan_source_config_t *config)
+{
+  SNDFILE *sf = NULL;
+  SF_INFO sf_info;
+  SUSDIFF max_size = -1;
+
+  sf = suscan_source_config_sf_open(config, &sf_info);
+  if (sf == NULL)
+    goto done;
+    
+  max_size = sf_info.frames - 1;
+
+done:
+  if (sf != NULL)
+    sf_close(sf);
+  
+  return max_size;
+}
+
 SUPRIVATE struct suscan_source_interface g_file_source =
 {
   .name          = "file",
 
   .open          = suscan_source_file_open,
   .close         = suscan_source_file_close,
+  .estimate_size = suscan_source_file_estimate_size,
   .start         = suscan_source_file_start,
   .cancel        = suscan_source_file_cancel,
   .read          = suscan_source_file_read,

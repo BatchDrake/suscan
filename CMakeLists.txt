@@ -214,6 +214,13 @@ set(INSPECTOR_LIB_HEADERS
   ${ANALYZERDIR}/inspector/params.h
   ${ANALYZERDIR}/inspector/interface.h)
 
+set(SOURCE_LIB_HEADERS
+  ${ANALYZERDIR}/source/config.h
+  ${ANALYZERDIR}/source/device.h
+  ${ANALYZERDIR}/source/info.h
+  ${ANALYZERDIR}/source/impl/file.h
+  ${ANALYZERDIR}/source/impl/soapysdr.h)
+
 set(INSPECTOR_LIB_SOURCES
   ${ANALYZERDIR}/inspector/factory.c
   ${ANALYZERDIR}/inspector/inspector.c
@@ -248,11 +255,6 @@ set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/estimator.h
   ${ANALYZERDIR}/serialize.h
   ${ANALYZERDIR}/source.h
-  ${ANALYZERDIR}/source/config.h
-  ${ANALYZERDIR}/source/device.h
-  ${ANALYZERDIR}/source/info.h
-  ${ANALYZERDIR}/source/impl/file.h
-  ${ANALYZERDIR}/source/impl/soapysdr.h
   ${ANALYZERDIR}/symbuf.h
   ${ANALYZERDIR}/mq.h
   ${ANALYZERDIR}/throttle.h
@@ -355,7 +357,12 @@ add_library(
 # Private header directories
 target_include_directories(
   suscan 
-  PRIVATE . ${UTILDIR} ${ANALYZERDIR} ${ANALYZERDIR}/inspector ${CODECLIBDIR})
+  PRIVATE . 
+  ${UTILDIR} 
+  ${ANALYZERDIR}
+  ${ANALYZERDIR}/inspector
+  ${ANALYZERDIR}/source
+  ${CODECLIBDIR})
 
 set_property(TARGET suscan PROPERTY VERSION   ${SUSCAN_VERSION})
 set_property(TARGET suscan PROPERTY SOVERSION ${SUSCAN_ABI})
@@ -414,6 +421,10 @@ install(
 install(
   FILES ${INSPECTOR_LIB_HEADERS} 
   DESTINATION include/suscan/analyzer/inspector)
+
+install(
+  FILES ${SOURCE_LIB_HEADERS} 
+  DESTINATION include/suscan/analyzer/source)
 
 install(
   FILES ${UTIL_HEADERS} 

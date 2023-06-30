@@ -29,10 +29,12 @@
 /* SDR sources are accessed through SoapySDR */
 
 struct suscan_source_config;
+struct suscan_source;
 
 struct suscan_source_soapysdr {
   struct suscan_source_config *config;
-
+  struct suscan_source        *source;
+  
   SoapySDRDevice  *sdr;
   SoapySDRStream  *rx_stream;
   SoapySDRArgInfo *settings;
