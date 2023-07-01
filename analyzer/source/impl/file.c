@@ -374,7 +374,7 @@ done:
 SUPRIVATE struct suscan_source_interface g_file_source =
 {
   .name          = "file",
-
+  .desc          = "Regular file",
   .open          = suscan_source_file_open,
   .close         = suscan_source_file_close,
   .estimate_size = suscan_source_file_estimate_size,
@@ -398,5 +398,14 @@ SUPRIVATE struct suscan_source_interface g_file_source =
 SUBOOL
 suscan_source_register_file(void)
 {
-  return suscan_source_register(SUSCAN_SOURCE_TYPE_FILE, &g_file_source);
+  int ndx;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYC(ndx = suscan_source_register(&g_file_source));
+  SU_TRYC(ndx == SUSCAN_SOURCE_TYPE_FILE);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }

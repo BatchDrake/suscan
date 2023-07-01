@@ -34,8 +34,8 @@ extern "C" {
 #define SUSCAN_SOURCE_DEFAULT_BANDWIDTH SUSCAN_SOURCE_DEFAULT_SAMP_RATE
 
 enum suscan_source_type {
-  SUSCAN_SOURCE_TYPE_FILE,
-  SUSCAN_SOURCE_TYPE_SDR
+  SUSCAN_SOURCE_TYPE_FILE = 0,
+  SUSCAN_SOURCE_TYPE_SDR  = 1
 };
 
 enum suscan_source_format {

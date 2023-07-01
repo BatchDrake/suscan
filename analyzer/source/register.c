@@ -27,15 +27,42 @@
 
 #include <analyzer/source.h>
 
-SUPRIVATE rbtree_t *g_type_to_source_impl;
+SUPRIVATE rbtree_t   *g_type_to_source_impl;
 SUPRIVATE hashlist_t *g_name_to_source_impl;
+SUPRIVATE int         g_source_type_ndx;
 
 SUBOOL
-suscan_source_register(int ndx, const struct suscan_source_interface *iface)
+suscan_source_interface_walk(
+    SUBOOL (*function) (
+      const struct suscan_source_interface *iface,
+      void *private),
+    void *private)
+{
+  struct rbtree_node *node;
+  const struct suscan_source_interface *iface;
+  
+  /* The rbtree must be initialized */
+  if (g_type_to_source_impl == NULL)
+    return SU_FALSE;
+  
+  node = rbtree_get_first(g_type_to_source_impl);
+  
+  while (node != NULL) {
+    iface = rbtree_node_data(node);
+    if (!(function)(iface, private))
+      return SU_FALSE;
+  }
+  
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_register(const struct suscan_source_interface *iface)
 {
   struct rbtree_node *node;
   const struct suscan_source_interface *existing;
-  SUBOOL ok = SU_FALSE;
+  int ndx = g_source_type_ndx;
+  int ret = -1;
 
   node = rbtree_search(g_type_to_source_impl, ndx, RB_EXACT);
   if (node != NULL) {
@@ -61,10 +88,11 @@ suscan_source_register(int ndx, const struct suscan_source_interface *iface)
   SU_TRYC(rbtree_insert(g_type_to_source_impl, ndx, (void *) iface));
   SU_TRY(hashlist_set(g_name_to_source_impl, iface->name, (void *) iface));
 
-  ok = SU_TRUE;
+  ++g_source_type_ndx;
+  ret = ndx;
 
 done:
-  return ok;
+  return ret;
 }
 
 const struct suscan_source_interface *

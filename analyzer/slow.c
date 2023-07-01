@@ -255,10 +255,8 @@ suscan_local_analyzer_set_freq_cb(
     void *cb_private)
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
-  const suscan_source_config_t *config = suscan_source_get_config(self->source);
   SUFREQ freq;
   SUFREQ lnb_freq;
-  SUFREQ diff;
 
   if (self->freq_req) {
     freq = self->freq_req_value;

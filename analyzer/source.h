@@ -61,7 +61,8 @@ struct sigutils_specttuner_channel;
 struct suscan_source;
 struct suscan_source_interface {
   const char *name;
-  
+  const char *desc;
+
   void   *(*open) (
     struct suscan_source *source,
     suscan_source_config_t *config,
@@ -240,7 +241,7 @@ suscan_source_is_capturing(const suscan_source_t *src)
 /******************************* Source interface *****************************/
 SUBOOL suscan_source_config_register(suscan_source_config_t *config);
 
-SUBOOL suscan_source_register(int, const struct suscan_source_interface *iface);
+int suscan_source_register(const struct suscan_source_interface *iface);
 const struct suscan_source_interface *suscan_source_interface_lookup_by_index(int);
 const struct suscan_source_interface *suscan_source_interface_lookup_by_name(const char *);
 

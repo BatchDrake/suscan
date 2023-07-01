@@ -598,7 +598,7 @@ suscan_source_soapysdr_set_agc(void *userdata, SUBOOL set)
 SUPRIVATE struct suscan_source_interface g_soapysdr_source =
 {
   .name          = "soapysdr",
-
+  .desc          = "SoapySDR",
   .open          = suscan_source_soapysdr_open,
   .close         = suscan_source_soapysdr_close,
   .start         = suscan_source_soapysdr_start,
@@ -622,5 +622,14 @@ SUPRIVATE struct suscan_source_interface g_soapysdr_source =
 SUBOOL
 suscan_source_register_soapysdr(void)
 {
-  return suscan_source_register(SUSCAN_SOURCE_TYPE_SDR, &g_soapysdr_source);
+  int ndx;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYC(ndx = suscan_source_register(&g_soapysdr_source));
+  SU_TRYC(ndx == SUSCAN_SOURCE_TYPE_FILE);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
