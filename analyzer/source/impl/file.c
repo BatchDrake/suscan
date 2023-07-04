@@ -375,6 +375,8 @@ SUPRIVATE struct suscan_source_interface g_file_source =
 {
   .name          = "file",
   .desc          = "Regular file",
+  .realtime      = SU_FALSE,
+
   .open          = suscan_source_file_open,
   .close         = suscan_source_file_close,
   .estimate_size = suscan_source_file_estimate_size,

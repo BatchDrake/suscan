@@ -55,7 +55,7 @@ struct suscan_source_gain_value {
 };
 
 SUSCAN_SERIALIZABLE(suscan_source_config) {
-  enum suscan_source_type type;
+  char *type;
   enum suscan_source_format format;
   char *label; /* Label for this configuration */
 
@@ -107,15 +107,15 @@ SUBOOL suscan_source_config_set_label(
     suscan_source_config_t *config,
     const char *label);
 
-enum suscan_source_type suscan_source_config_get_type(
+const char *suscan_source_config_get_type(
     const suscan_source_config_t *config);
 
 enum suscan_source_format suscan_source_config_get_format(
     const suscan_source_config_t *config);
 
-void suscan_source_config_set_type_format(
+SUBOOL suscan_source_config_set_type_format(
     suscan_source_config_t *config,
-    enum suscan_source_type type,
+    const char *type,
     enum suscan_source_format format);
 
 SUFREQ suscan_source_config_get_freq(const suscan_source_config_t *config);
@@ -306,7 +306,7 @@ SUBOOL suscan_source_config_set_sdr_args(
 
 suscan_source_config_t *suscan_source_config_new_default(void);
 suscan_source_config_t *suscan_source_config_new(
-    enum suscan_source_type type,
+    const char *type,
     enum suscan_source_format format);
 
 suscan_source_config_t *suscan_source_config_clone(

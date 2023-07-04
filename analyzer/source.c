@@ -775,12 +775,10 @@ suscan_source_new(suscan_source_config_t *config)
         goto fail);
 
   /* Search by index */
-  new->iface = suscan_source_interface_lookup_by_index(config->type);
+  new->iface = suscan_source_interface_lookup_by_name(config->type);
 
   if (new->iface == NULL) {
-    SU_ERROR(
-      "Unknown source type passed to config (index = %d)\n",
-      config->type);
+    SU_ERROR("Unknown source type `%s' passed to config\n", config->type);
     goto fail;
   }
 

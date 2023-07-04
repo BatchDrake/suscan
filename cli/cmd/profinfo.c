@@ -68,8 +68,8 @@ suscli_profinfo_cb(const hashlist_t *params)
       "Decimation:  %u\n",
       suscan_source_config_get_average(profile));
 
-  if (suscan_source_config_get_type(profile) == SUSCAN_SOURCE_TYPE_SDR) {
-    printf("Type:        real-time\n");
+  if (strcmp(suscan_source_config_get_type(profile), "file") != 0) {
+    printf("Type:        %s\n", suscan_source_config_get_type(profile));
     printf(
         "Device:      %s\n",
           dev == NULL
