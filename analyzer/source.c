@@ -435,7 +435,7 @@ suscan_source_set_gain(suscan_source_t *self, const char *name, SUFLOAT val)
   if (self->iface->set_gain == NULL)
     return SU_FALSE;
 
-  if (!(self->iface->set_gain)(self->src_priv, name, val)) {
+  if (!(self->iface->set_gain) (self->src_priv, name, val)) {
     SU_ERROR("Failed to adjust source gain `%s'\n", name);
     return SU_FALSE;
   }
@@ -452,7 +452,7 @@ suscan_source_set_antenna(suscan_source_t *self, const char *name)
   if (self->iface->set_antenna == NULL)
     return SU_FALSE;
 
-  if (!(self->iface->set_antenna)(self->src_priv, name)) {
+  if (!(self->iface->set_antenna) (self->src_priv, name)) {
     SU_ERROR("Failed to switch to antenna `%s'\n", name);
     return SU_FALSE;
   }
@@ -529,7 +529,7 @@ SUBOOL suscan_source_set_freq2_internal(
     /* No native way to change the frequency: perform decimated spectrum navigation */
     SU_TRY(suscan_source_set_decimator_freq(self, freq));
   } else {
-    if (!(self->iface->set_frequency)(self, freq - lnb)) {
+    if (!(self->iface->set_frequency) (self->src_priv, freq - lnb)) {
       SU_ERROR("Failed to set frequency\n");
       goto done;
     }
@@ -783,7 +783,7 @@ suscan_source_new(suscan_source_config_t *config)
   }
 
   /* Call the source constructor */
-  new->src_priv = (new->iface->open)(new, new->config, &new->info);
+  new->src_priv = (new->iface->open) (new, new->config, &new->info);
   if (new->src_priv == NULL)
     goto fail;
   
