@@ -303,8 +303,8 @@ suscan_source_soapysdr_populate_source_info(
   info->freq_max = suscan_source_device_get_max_freq(dev);
 
   /* Get current source time */
-  suscan_source_get_time(self->source, &info->source_time);
-  suscan_source_get_time(self->source, &info->source_start);
+  gettimeofday(&info->source_time, NULL);
+  gettimeofday(&info->source_start, NULL);
 
   /* Initialize gains. This were set earlier in the config object. */
   SU_TRYCATCH(
