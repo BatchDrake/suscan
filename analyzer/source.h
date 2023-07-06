@@ -62,6 +62,7 @@ struct suscan_source;
 struct suscan_source_interface {
   const char *name;
   const char *desc;
+  SUBOOL      realtime; /* True if no throttling is needed */
 
   void   *(*open) (
     struct suscan_source *source,
@@ -192,7 +193,13 @@ suscan_source_has_looped(suscan_source_t *self)
   return looped;
 }
 
-SUINLINE enum suscan_source_type
+SUINLINE SUBOOL
+suscan_source_is_real_time(const suscan_source_t *self)
+{
+  return self->iface->realtime;
+}
+
+SUINLINE const char *
 suscan_source_get_type(const suscan_source_t *src)
 {
   return src->config->type;

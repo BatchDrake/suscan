@@ -180,7 +180,7 @@ suscan_source_config_set_label(
   return SU_TRUE;
 }
 
-enum suscan_source_type
+const char *
 suscan_source_config_get_type(const suscan_source_config_t *config)
 {
   return config->type;
@@ -192,14 +192,26 @@ suscan_source_config_get_format(const suscan_source_config_t *config)
   return config->format;
 }
 
-void
+SUBOOL
 suscan_source_config_set_type_format(
     suscan_source_config_t *config,
-    enum suscan_source_type type,
+    const char *type,
     enum suscan_source_format format)
 {
-  config->type = type;
+  char *dup;
+  
+  SU_TRY_FAIL(dup = strdup(type));
+
+  if (config->type != NULL)
+    free(config->type);
+  
+  config->type   = dup;
   config->format = format;
+
+  return SU_TRUE;
+
+fail:
+  return SU_FALSE;
 }
 
 const char *
@@ -553,7 +565,7 @@ suscan_source_config_get_end_time(
   SUSDIFF max_size;
   const struct suscan_source_interface *iface;
 
-  iface = suscan_source_interface_lookup_by_index(self->type);
+  iface = suscan_source_interface_lookup_by_name(self->type);
   if (iface == NULL)
     goto done;
   
@@ -712,22 +724,9 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
 
   SUSCAN_PACK(str, self->label);
   SUSCAN_PACK(str, self->interface);
-
-  switch (self->type) {
-    case SUSCAN_SOURCE_TYPE_FILE:
-      SUSCAN_PACK(str, "file");
-      break;
-
-    case SUSCAN_SOURCE_TYPE_SDR:
-      SUSCAN_PACK(str, "sdr");
-      break;
-
-    default:
-      SUSCAN_PACK(str, "unknown");
-  }
+  SUSCAN_PACK(str, self->type);
 
   /* We don't set source format, or anything related to the sender system */
-
   SUSCAN_PACK(freq,  self->freq);
   SUSCAN_PACK(freq,  self->lnb_freq);
   SUSCAN_PACK(float, self->bandwidth);
@@ -744,6 +743,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
   SUSCAN_PACK(uint,  self->channel);
 
   if (self->device == NULL) {
+    SUSCAN_PACK(str, "<no file>");
     SUSCAN_PACK(str, "");
     SUSCAN_PACK(str, "");
     SUSCAN_PACK(str, "");
@@ -758,13 +758,9 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
     if (sscanf(port_str, "%hu", &port) != 1)
       port = 0;
 
-    if (self->type == SUSCAN_SOURCE_TYPE_FILE) {
-      SU_TRYCATCH(dup = strdup(self->path), goto fail);
-      SUSCAN_PACK(str, basename(dup));
-    } else {
-      SUSCAN_PACK(str,  suscan_source_device_get_desc(self->device));
-    }
-
+    SU_TRYCATCH(dup = strdup(self->path), goto fail);
+    SUSCAN_PACK(str,  basename(dup));
+    SUSCAN_PACK(str,  suscan_source_device_get_desc(self->device));
     SUSCAN_PACK(str,  suscan_source_device_get_driver(self->device));
     SUSCAN_PACK(str,  host);
     SUSCAN_PACK(uint, port);
@@ -833,17 +829,7 @@ suscan_source_config_deserialize_ex(
     goto fail;
   }
 
-  SUSCAN_UNPACK(str, type);
-
-  if (strcmp(type, "file") == 0) {
-    self->type = SUSCAN_SOURCE_TYPE_FILE;
-  } else if (strcmp(type, "sdr") == 0) {
-    self->type = SUSCAN_SOURCE_TYPE_SDR;
-  } else {
-    SU_ERROR("Invalid source type `%s'\n", type);
-    goto fail;
-  }
-
+  SUSCAN_UNPACK(str,    self->type);
   SUSCAN_UNPACK(freq,   self->freq);
   SUSCAN_UNPACK(freq,   self->lnb_freq);
   SUSCAN_UNPACK(float,  self->bandwidth);
@@ -864,6 +850,7 @@ suscan_source_config_deserialize_ex(
   SUSCAN_UNPACK(str,    self->antenna);
   SUSCAN_UNPACK(uint32, self->channel);
 
+  SUSCAN_UNPACK(str,    self->path);
   SUSCAN_UNPACK(str,    desc);
   SUSCAN_UNPACK(str,    driver);
   SUSCAN_UNPACK(str,    host);
@@ -967,14 +954,15 @@ SUSCAN_DESERIALIZER_PROTO(suscan_source_config)
 
 suscan_source_config_t *
 suscan_source_config_new(
-    enum suscan_source_type type,
+    const char *type,
     enum suscan_source_format format)
 {
   suscan_source_config_t *new = NULL;
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscan_source_config_t)), goto fail);
 
-  new->type = type;
+  SU_TRY_FAIL(new->type = strdup(type));
+
   new->format = format;
   new->average = 1;
   new->dc_remove = SU_TRUE;
@@ -1008,9 +996,7 @@ suscan_source_config_new_default(void)
   suscan_source_config_t *new = NULL;
 
   SU_TRYCATCH(
-        new = suscan_source_config_new(
-            SUSCAN_SOURCE_TYPE_SDR,
-            SUSCAN_SOURCE_FORMAT_AUTO),
+        new = suscan_source_config_new("soapysdr", SUSCAN_SOURCE_FORMAT_AUTO),
         goto fail);
 
   SU_TRYCATCH(
@@ -1088,16 +1074,13 @@ suscan_source_config_clone(const suscan_source_config_t *config)
             config->hidden_gain_list[i]->val),
         goto fail);
 
-  if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_SDR 
-  || suscan_source_config_is_remote(config)) {
-    for (i = 0; i < config->soapy_args->size; ++i) {
-      /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
-      SoapySDRKwargs_set(
-          new->soapy_args,
-          config->soapy_args->keys[i],
-          config->soapy_args->vals[i]);
-      /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
-    }
+  for (i = 0; i < config->soapy_args->size; ++i) {
+    /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
+    SoapySDRKwargs_set(
+        new->soapy_args,
+        config->soapy_args->keys[i],
+        config->soapy_args->vals[i]);
+    /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
   }
 
   new->freq = config->freq;
@@ -1120,33 +1103,6 @@ fail:
     suscan_source_config_destroy(new);
 
   return NULL;
-}
-
-SUPRIVATE const char *
-suscan_source_config_helper_type_to_str(enum suscan_source_type type)
-{
-  switch (type) {
-    case SUSCAN_SOURCE_TYPE_FILE:
-      return "FILE";
-
-    case SUSCAN_SOURCE_TYPE_SDR:
-      return "SDR";
-  }
-
-  return NULL;
-}
-
-SUPRIVATE enum suscan_source_type
-suscan_source_type_config_helper_str_to_type(const char *type)
-{
-  if (type != NULL) {
-    if (strcasecmp(type, "FILE") == 0)
-      return SUSCAN_SOURCE_TYPE_FILE;
-    else if (strcasecmp(type, "SDR") == 0)
-      return SUSCAN_SOURCE_TYPE_SDR;
-  }
-
-  return SUSCAN_SOURCE_TYPE_SDR;
 }
 
 SUPRIVATE const char *
@@ -1216,21 +1172,12 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
         goto fail)
 
   SU_TRYCATCH(new = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
-
   SU_TRYCATCH(suscan_object_set_class(new, "source_config"), goto fail);
-
+  SU_TRYCATCH(suscan_object_set_field_value(new, "type", cfg->type), goto fail);
   SU_TRYCATCH(
-      tmp = suscan_source_config_helper_type_to_str(cfg->type),
-      goto fail);
-
-  SU_TRYCATCH(suscan_object_set_field_value(new, "type", tmp), goto fail);
-
-  if (cfg->type == SUSCAN_SOURCE_TYPE_FILE) {
-    SU_TRYCATCH(
-          tmp = suscan_source_config_helper_format_to_str(cfg->format),
-          goto fail);
-    SU_TRYCATCH(suscan_object_set_field_value(new, "format", tmp), goto fail);
-  }
+        tmp = suscan_source_config_helper_format_to_str(cfg->format),
+        goto fail);
+  SU_TRYCATCH(suscan_object_set_field_value(new, "format", tmp), goto fail);
 
   if (cfg->label != NULL)
     SU_CFGSAVE(value, label);
@@ -1260,16 +1207,13 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   /* Save SoapySDR kwargs */
   SU_TRYCATCH(obj = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
 
-  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR
-    || suscan_source_config_is_remote(cfg)) {
-    for (i = 0; i < cfg->soapy_args->size; ++i)
-      SU_TRYCATCH(
-          suscan_object_set_field_value(
-              obj,
-              cfg->soapy_args->keys[i],
-              cfg->soapy_args->vals[i]),
-          goto fail);
-  }
+  for (i = 0; i < cfg->soapy_args->size; ++i)
+    SU_TRYCATCH(
+        suscan_object_set_field_value(
+            obj,
+            cfg->soapy_args->keys[i],
+            cfg->soapy_args->vals[i]),
+        goto fail);
 
   SU_TRYCATCH(suscan_object_set_field(new, "sdr_args", obj), goto fail);
   obj = NULL;
@@ -1277,26 +1221,23 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   /* Save gains */
   SU_TRYCATCH(obj = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
 
-  if (suscan_source_config_get_type(cfg) == SUSCAN_SOURCE_TYPE_SDR
-    || suscan_source_config_is_remote(cfg)) {
-    /* Save visible gains */
-    for (i = 0; i < cfg->gain_count; ++i)
-      SU_TRYCATCH(
-          suscan_object_set_field_float(
-              obj,
-              cfg->gain_list[i]->desc->name,
-              cfg->gain_list[i]->val),
-          goto fail);
+  /* Save visible gains */
+  for (i = 0; i < cfg->gain_count; ++i)
+    SU_TRYCATCH(
+        suscan_object_set_field_float(
+            obj,
+            cfg->gain_list[i]->desc->name,
+            cfg->gain_list[i]->val),
+        goto fail);
 
-    /* Save hidden gains */
-    for (i = 0; i < cfg->hidden_gain_count; ++i)
-      SU_TRYCATCH(
-          suscan_object_set_field_float(
-              obj,
-              cfg->hidden_gain_list[i]->desc->name,
-              cfg->hidden_gain_list[i]->val),
-          goto fail);
-  }
+  /* Save hidden gains */
+  for (i = 0; i < cfg->hidden_gain_count; ++i)
+    SU_TRYCATCH(
+        suscan_object_set_field_float(
+            obj,
+            cfg->hidden_gain_list[i]->desc->name,
+            cfg->hidden_gain_list[i]->val),
+        goto fail);
 
   SU_TRYCATCH(suscan_object_set_field(new, "gains", obj), goto fail);
   obj = NULL;
@@ -1337,8 +1278,7 @@ suscan_source_config_from_object(const suscan_object_t *object)
 
   SU_TRYCATCH(
       new = suscan_source_config_new(
-          suscan_source_type_config_helper_str_to_type(
-              suscan_object_get_field_value(object, "type")),
+          suscan_object_get_field_value(object, "type"),
           suscan_source_type_config_helper_str_to_format(
               suscan_object_get_field_value(object, "format"))),
       goto fail);
@@ -1376,66 +1316,64 @@ suscan_source_config_from_object(const suscan_object_t *object)
 
   SU_TRYCATCH(SU_CFGLOAD(uint, average, 1), goto fail);
 
-  /* Set SDR args and gains, ONLY if this is a SDR source */
-  if (suscan_source_config_get_type(new) == SUSCAN_SOURCE_TYPE_SDR
-    || suscan_source_config_is_remote(new)) {
-    if ((obj = suscan_object_get_field(object, "sdr_args")) != NULL)
-      if (suscan_object_get_type(obj) == SUSCAN_OBJECT_TYPE_OBJECT) {
-        count = suscan_object_field_count(obj);
-        for (i = 0; i < count; ++i) {
-          if ((entry = suscan_object_get_field_by_index(obj, i)) != NULL
-              && suscan_object_get_type(entry) == SUSCAN_OBJECT_TYPE_FIELD) {
-            /* ------------------- DANGER DANGER DANGER ------------------- */
-            SoapySDRKwargs_set(
-                new->soapy_args,
-                suscan_object_get_name(entry),
-                suscan_object_get_value(entry));
-            /* ----------- HOW DO I EVEN KNOW IF THIS WORKED? ------------- */
-          }
+  if ((obj = suscan_object_get_field(object, "sdr_args")) != NULL) {
+    if (suscan_object_get_type(obj) == SUSCAN_OBJECT_TYPE_OBJECT) {
+      count = suscan_object_field_count(obj);
+      for (i = 0; i < count; ++i) {
+        if ((entry = suscan_object_get_field_by_index(obj, i)) != NULL
+            && suscan_object_get_type(entry) == SUSCAN_OBJECT_TYPE_FIELD) {
+          /* ------------------- DANGER DANGER DANGER ------------------- */
+          SoapySDRKwargs_set(
+              new->soapy_args,
+              suscan_object_get_name(entry),
+              suscan_object_get_value(entry));
+          /* ----------- HOW DO I EVEN KNOW IF THIS WORKED? ------------- */
         }
-
-        /* New device added. Assert it. */
-        SU_TRYCATCH(
-            new->device = device = suscan_source_device_assert(
-                new->interface,
-                new->soapy_args),
-            goto fail);
-
-        /* This step is not critical, but we must try it anyways */
-        if (!suscan_source_device_is_populated(device))
-          (void) suscan_source_device_populate_info(device);
       }
 
-    /* Retrieve gains */
-    if ((obj = suscan_object_get_field(object, "gains")) != NULL)
-      if (suscan_object_get_type(obj) == SUSCAN_OBJECT_TYPE_OBJECT) {
-        count = suscan_object_field_count(obj);
-        for (i = 0; i < count; ++i) {
-          if ((entry = suscan_object_get_field_by_index(obj, i)) != NULL
-              && suscan_object_get_type(entry) == SUSCAN_OBJECT_TYPE_FIELD) {
-            if (sscanf(suscan_object_get_value(entry), "%g", &val) == 1)
-              SU_TRYCATCH(
-                  suscan_source_config_set_gain(
-                      new,
-                      suscan_object_get_name(entry),
-                      val),
-                  SU_WARNING(
-                      "Profile-declared gain `%s' invalid\n",
-                      suscan_object_get_name(entry)));
-          }
+      /* New device added. Assert it. */
+      SU_TRYCATCH(
+          new->device = device = suscan_source_device_assert(
+              new->interface,
+              new->soapy_args),
+          goto fail);
+
+      /* This step is not critical, but we must try it anyways */
+      if (!suscan_source_device_is_populated(device))
+        (void) suscan_source_device_populate_info(device);
+    }
+  }
+
+  /* Retrieve gains */
+  if ((obj = suscan_object_get_field(object, "gains")) != NULL) {
+    if (suscan_object_get_type(obj) == SUSCAN_OBJECT_TYPE_OBJECT) {
+      count = suscan_object_field_count(obj);
+      for (i = 0; i < count; ++i) {
+        if ((entry = suscan_object_get_field_by_index(obj, i)) != NULL
+            && suscan_object_get_type(entry) == SUSCAN_OBJECT_TYPE_FIELD) {
+          if (sscanf(suscan_object_get_value(entry), "%g", &val) == 1)
+            SU_TRYCATCH(
+                suscan_source_config_set_gain(
+                    new,
+                    suscan_object_get_name(entry),
+                    val),
+                SU_WARNING(
+                    "Profile-declared gain `%s' invalid\n",
+                    suscan_object_get_name(entry)));
         }
-
-        /* New device added. Assert it. */
-        SU_TRYCATCH(
-            new->device = device = suscan_source_device_assert(
-                new->interface,
-                new->soapy_args),
-            goto fail);
-
-        /* This step is not critical, but we must try it anyways */
-        if (!suscan_source_device_is_populated(device))
-          (void) suscan_source_device_populate_info(device);
       }
+
+      /* New device added. Assert it. */
+      SU_TRYCATCH(
+          new->device = device = suscan_source_device_assert(
+              new->interface,
+              new->soapy_args),
+          goto fail);
+
+      /* This step is not critical, but we must try it anyways */
+      if (!suscan_source_device_is_populated(device))
+        (void) suscan_source_device_populate_info(device);
+    }
   }
 
   return new;

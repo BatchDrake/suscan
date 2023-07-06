@@ -599,6 +599,8 @@ SUPRIVATE struct suscan_source_interface g_soapysdr_source =
 {
   .name          = "soapysdr",
   .desc          = "SoapySDR",
+  .realtime      = SU_TRUE,
+  
   .open          = suscan_source_soapysdr_open,
   .close         = suscan_source_soapysdr_close,
   .start         = suscan_source_soapysdr_start,

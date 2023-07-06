@@ -898,7 +898,7 @@ suscan_local_analyzer_force_eos(void *ptr)
 SUBOOL
 suscan_local_analyzer_is_real_time_ex(const suscan_local_analyzer_t *self)
 {
-  return suscan_source_get_type(self->source) == SUSCAN_SOURCE_TYPE_SDR;
+  return suscan_source_is_real_time(self->source);
 }
 
 SUPRIVATE SUBOOL
