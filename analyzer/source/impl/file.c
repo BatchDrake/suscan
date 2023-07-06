@@ -374,7 +374,7 @@ done:
 SUPRIVATE struct suscan_source_interface g_file_source =
 {
   .name          = "file",
-  .desc          = "Regular file",
+  .desc          = NULL,
   .realtime      = SU_FALSE,
 
   .open          = suscan_source_file_open,
@@ -402,7 +402,12 @@ suscan_source_register_file(void)
 {
   int ndx;
   SUBOOL ok = SU_FALSE;
+  static char *desc;
 
+  SU_TRY(desc = strbuild("Capture file (%s)", sf_version_string()));
+
+  g_file_source.desc = desc;
+  
   SU_TRYC(ndx = suscan_source_register(&g_file_source));
   SU_TRYC(ndx == SUSCAN_SOURCE_TYPE_FILE);
 

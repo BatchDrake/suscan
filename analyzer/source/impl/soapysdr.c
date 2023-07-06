@@ -598,7 +598,7 @@ suscan_source_soapysdr_set_agc(void *userdata, SUBOOL set)
 SUPRIVATE struct suscan_source_interface g_soapysdr_source =
 {
   .name          = "soapysdr",
-  .desc          = "SoapySDR",
+  .desc          = "SoapySDR (ABI " SOAPY_SDR_ABI_VERSION ")",
   .realtime      = SU_TRUE,
   
   .open          = suscan_source_soapysdr_open,
