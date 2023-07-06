@@ -1260,6 +1260,7 @@ suscan_source_config_from_object(const suscan_object_t *object)
   suscan_source_config_t *new = NULL;
   suscan_source_device_t *device = NULL;
   suscan_object_t *obj, *entry = NULL;
+  const char *type = NULL;
   struct timeval default_time;
   unsigned int i, count;
   SUFLOAT val;
@@ -1276,9 +1277,18 @@ suscan_source_config_from_object(const suscan_object_t *object)
             STRINGIFY(field),                                   \
             dfl))
 
+  /* Fix type field */
+  type = suscan_object_get_field_value(object, "type");
+  if (type == NULL)
+    type = "soapysdr";
+  if (strcmp(type, "FILE") == 0)
+    type = "file";
+  else if (strcmp(type, "SDR") == 0)
+    type = "soapysdr";
+  
   SU_TRYCATCH(
       new = suscan_source_config_new(
-          suscan_object_get_field_value(object, "type"),
+          type,
           suscan_source_type_config_helper_str_to_format(
               suscan_object_get_field_value(object, "format"))),
       goto fail);
