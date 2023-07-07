@@ -339,7 +339,7 @@ done:
     free(dup);
 
   if (!ok)
-    suscan_source_info_finalize(self);
+  suscan_source_info_finalize(self);
 
   return ok;
 }

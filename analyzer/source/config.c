@@ -569,6 +569,9 @@ suscan_source_config_get_end_time(
   if (iface == NULL)
     goto done;
   
+  if (iface->estimate_size == NULL)
+    goto done;
+  
   max_size = (iface->estimate_size) (self);
   if (max_size < 0)
     goto done;
@@ -742,12 +745,18 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
   SUSCAN_PACK(str,   self->antenna);
   SUSCAN_PACK(uint,  self->channel);
 
-  if (self->device == NULL) {
+  if (self->path == NULL) {
     SUSCAN_PACK(str, "<no file>");
+  } else {
+    SU_TRYCATCH(dup = strdup(self->path), goto fail);
+    SUSCAN_PACK(str,  basename(dup));
+  }
+
+  if (self->device == NULL) {
     SUSCAN_PACK(str, "");
     SUSCAN_PACK(str, "");
     SUSCAN_PACK(str, "");
-    SUSCAN_PACK(str, "0");
+    SUSCAN_PACK(uint, 0);
   } else {
     if ((host = SoapySDRKwargs_get(self->soapy_args, "host")) == NULL)
       host = "";
@@ -758,8 +767,6 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
     if (sscanf(port_str, "%hu", &port) != 1)
       port = 0;
 
-    SU_TRYCATCH(dup = strdup(self->path), goto fail);
-    SUSCAN_PACK(str,  basename(dup));
     SUSCAN_PACK(str,  suscan_source_device_get_desc(self->device));
     SUSCAN_PACK(str,  suscan_source_device_get_driver(self->device));
     SUSCAN_PACK(str,  host);

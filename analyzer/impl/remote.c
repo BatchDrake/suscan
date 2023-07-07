@@ -1518,13 +1518,12 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
   }
 
   SU_INFO("Authentication successful, source info received\n");
-
   SU_TRYCATCH(
       suscan_analyzer_remote_call_take_source_info(
           call,
           &self->source_info),
       goto done);
-
+  
   SU_TRYCATCH(
       suscan_analyzer_send_source_info(self->parent, &self->source_info),
       goto done);
@@ -1822,7 +1821,7 @@ suscan_remote_analyzer_rx_thread(void *ptr)
             goto done);
 
         self->source_info.permissions = old_permissions;
-
+        
         SU_TRYCATCH(
             suscan_analyzer_send_source_info(self->parent, &self->source_info),
             goto done);
@@ -2032,6 +2031,7 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->peer.call_queue_init = SU_TRUE;
 
   suscan_source_info_init(&new->source_info);
+  new->source_info.permissions = 0; /* No permissions until we receive them */
 
   val = suscan_source_config_get_param(config, "host");
   if (val == NULL) {

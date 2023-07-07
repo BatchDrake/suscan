@@ -289,7 +289,7 @@ suscan_source_soapysdr_populate_source_info(
   SUBOOL ok = SU_FALSE;
 
   /* Adjust permissions */
-  info->permissions         = SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS;
+  info->permissions = SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS;
   if (!self->have_dc)
     info->permissions &= ~SUSCAN_ANALYZER_PERM_SET_DC_REMOVE;
 
