@@ -153,6 +153,10 @@ SUBOOL suscan_source_config_file_is_valid(const suscan_source_config_t *self);
 SUBOOL suscan_source_config_get_end_time(
   const suscan_source_config_t *self,
   struct timeval *tv);
+SUBOOL suscan_source_config_get_freq_limits(
+    const suscan_source_config_t *self,
+    SUFREQ *min,
+    SUFREQ *max);
 SUBOOL suscan_source_config_set_path(
     suscan_source_config_t *config,
     const char *path);

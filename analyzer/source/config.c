@@ -594,6 +594,28 @@ done:
   return ok;
 }
 
+SUBOOL
+suscan_source_config_get_freq_limits(
+    const suscan_source_config_t *self,
+    SUFREQ *min,
+    SUFREQ *max)
+{
+  const struct suscan_source_interface *iface;
+  SUBOOL ok = SU_FALSE;
+
+  iface = suscan_source_interface_lookup_by_name(self->type);
+  if (iface == NULL)
+    goto done;
+  
+  if (iface->get_freq_limits == NULL)
+    goto done;
+  
+  ok = (iface->get_freq_limits) (self, min, max);
+
+done:
+  return ok;
+}
+
 void 
 suscan_source_config_get_start_time(
   const suscan_source_config_t *config,

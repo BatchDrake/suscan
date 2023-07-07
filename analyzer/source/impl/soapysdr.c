@@ -595,27 +595,53 @@ suscan_source_soapysdr_set_agc(void *userdata, SUBOOL set)
   return SU_TRUE;
 }
 
+SUPRIVATE SUBOOL
+suscan_source_soapysdr_get_freq_limits(
+  const suscan_source_config_t *self,
+  SUFREQ *min,
+  SUFREQ *max)
+{
+  struct suscan_source_device_info info = suscan_source_device_info_INITIALIZER;
+  SUBOOL ok = SU_FALSE;
+
+  if (self->device == NULL)
+    goto done;
+
+  SU_TRY(suscan_source_device_get_info(self->device, self->channel, &info));
+
+  *min = info.freq_min;
+  *max = info.freq_max;
+
+  ok = SU_TRUE;
+
+done:
+  suscan_source_device_info_finalize(&info);
+
+  return ok;
+}
+
 SUPRIVATE struct suscan_source_interface g_soapysdr_source =
 {
-  .name          = "soapysdr",
-  .desc          = "SoapySDR (ABI " SOAPY_SDR_ABI_VERSION ")",
-  .realtime      = SU_TRUE,
+  .name            = "soapysdr",
+  .desc            = "SoapySDR (ABI " SOAPY_SDR_ABI_VERSION ")",
+  .realtime        = SU_TRUE,
   
-  .open          = suscan_source_soapysdr_open,
-  .close         = suscan_source_soapysdr_close,
-  .start         = suscan_source_soapysdr_start,
-  .cancel        = suscan_source_soapysdr_cancel,
-  .read          = suscan_source_soapysdr_read,
-  .set_frequency = suscan_source_soapysdr_set_frequency,
-  .set_gain      = suscan_source_soapysdr_set_gain,
-  .set_antenna   = suscan_source_soapysdr_set_antenna,
-  .set_bandwidth = suscan_source_soapysdr_set_bandwidth,
-  .set_ppm       = suscan_source_soapysdr_set_ppm,
-  .set_dc_remove = suscan_source_soapysdr_set_dc_remove,
-  .set_agc       = suscan_source_soapysdr_set_agc,
-  .get_time      = suscan_source_soapysdr_get_time,
+  .open            = suscan_source_soapysdr_open,
+  .close           = suscan_source_soapysdr_close,
+  .start           = suscan_source_soapysdr_start,
+  .cancel          = suscan_source_soapysdr_cancel,
+  .read            = suscan_source_soapysdr_read,
+  .set_frequency   = suscan_source_soapysdr_set_frequency,
+  .set_gain        = suscan_source_soapysdr_set_gain,
+  .set_antenna     = suscan_source_soapysdr_set_antenna,
+  .set_bandwidth   = suscan_source_soapysdr_set_bandwidth,
+  .set_ppm         = suscan_source_soapysdr_set_ppm,
+  .set_dc_remove   = suscan_source_soapysdr_set_dc_remove,
+  .set_agc         = suscan_source_soapysdr_set_agc,
+  .get_time        = suscan_source_soapysdr_get_time,
+  .get_freq_limits = suscan_source_soapysdr_get_freq_limits,
 
-  /* Unser members */
+  /* Unset members */
   .seek          = NULL,
   .max_size      = NULL,
   .estimate_size = NULL,

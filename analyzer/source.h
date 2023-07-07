@@ -71,6 +71,7 @@ struct suscan_source_interface {
   void     (*close) (void *);
 
   SUSDIFF  (*estimate_size) (const suscan_source_config_t *); /* Without decimation */
+  SUBOOL   (*get_freq_limits) (const suscan_source_config_t *, SUFREQ *, SUFREQ *);
 
   SUBOOL   (*start) (void *);
   SUBOOL   (*cancel) (void *);

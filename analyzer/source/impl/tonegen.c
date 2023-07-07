@@ -98,6 +98,8 @@ suscan_source_tonegen_open(
   if (noise != NULL  && sscanf(noise, "%g", &val) == 1)
     new->noise_amplitude  = SU_MAG_RAW(val);
 
+  new->noise_amplitude *= SU_SQRT(new->samp_rate);
+
   /* Initialize source info */
   suscan_source_tonegen_populate_source_info(new, info, config);
 
@@ -220,28 +222,30 @@ suscan_source_tonegen_set_agc(void *userdata, SUBOOL set)
 
 SUPRIVATE struct suscan_source_interface g_tonegen_source =
 {
-  .name          = "tonegen",
-  .desc          = "Tone generator with AWGN",
-  .realtime      = SU_TRUE,
+  .name            = "tonegen",
+  .desc            = "Tone generator with AWGN",
+  .realtime        = SU_TRUE,
   
-  .open          = suscan_source_tonegen_open,
-  .close         = suscan_source_tonegen_close,
-  .start         = suscan_source_tonegen_start,
-  .cancel        = suscan_source_tonegen_cancel,
-  .read          = suscan_source_tonegen_read,
-  .set_frequency = suscan_source_tonegen_set_frequency,
-  .set_gain      = suscan_source_tonegen_set_gain,
-  .set_antenna   = suscan_source_tonegen_set_antenna,
-  .set_bandwidth = suscan_source_tonegen_set_bandwidth,
-  .set_ppm       = suscan_source_tonegen_set_ppm,
-  .set_dc_remove = suscan_source_tonegen_set_dc_remove,
-  .set_agc       = suscan_source_tonegen_set_agc,
-  .get_time      = suscan_source_tonegen_get_time,
+  .open            = suscan_source_tonegen_open,
+  .close           = suscan_source_tonegen_close,
+  .start           = suscan_source_tonegen_start,
+  .cancel          = suscan_source_tonegen_cancel,
+  .read            = suscan_source_tonegen_read,
+  .set_frequency   = suscan_source_tonegen_set_frequency,
+  .set_gain        = suscan_source_tonegen_set_gain,
+  .set_antenna     = suscan_source_tonegen_set_antenna,
+  .set_bandwidth   = suscan_source_tonegen_set_bandwidth,
+  .set_ppm         = suscan_source_tonegen_set_ppm,
+  .set_dc_remove   = suscan_source_tonegen_set_dc_remove,
+  .set_agc         = suscan_source_tonegen_set_agc,
+  .get_time        = suscan_source_tonegen_get_time,
 
   /* Unser members */
-  .seek          = NULL,
-  .max_size      = NULL,
-  .estimate_size = NULL,
+  .seek            = NULL,
+  .max_size        = NULL,
+  .estimate_size   = NULL,
+  .get_freq_limits = NULL,
+
 };
 
 SUBOOL

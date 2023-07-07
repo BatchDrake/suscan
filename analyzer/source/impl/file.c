@@ -373,28 +373,29 @@ done:
 
 SUPRIVATE struct suscan_source_interface g_file_source =
 {
-  .name          = "file",
-  .desc          = NULL,
-  .realtime      = SU_FALSE,
+  .name            = "file",
+  .desc            = NULL,
+  .realtime        = SU_FALSE,
 
-  .open          = suscan_source_file_open,
-  .close         = suscan_source_file_close,
-  .estimate_size = suscan_source_file_estimate_size,
-  .start         = suscan_source_file_start,
-  .cancel        = suscan_source_file_cancel,
-  .read          = suscan_source_file_read,
-  .seek          = suscan_source_file_seek,
-  .max_size      = suscan_source_file_max_size,
-  .get_time      = suscan_source_file_get_time,
+  .open            = suscan_source_file_open,
+  .close           = suscan_source_file_close,
+  .estimate_size   = suscan_source_file_estimate_size,
+  .start           = suscan_source_file_start,
+  .cancel          = suscan_source_file_cancel,
+  .read            = suscan_source_file_read,
+  .seek            = suscan_source_file_seek,
+  .max_size        = suscan_source_file_max_size,
+  .get_time        = suscan_source_file_get_time,
 
-  /* Unser members */
-  .set_frequency = NULL,
-  .set_gain      = NULL,
-  .set_antenna   = NULL,
-  .set_bandwidth = NULL,
-  .set_ppm       = NULL,
-  .set_dc_remove = NULL,
-  .set_agc       = NULL,
+  /* Unset members */
+  .set_frequency   = NULL,
+  .set_gain        = NULL,
+  .set_antenna     = NULL,
+  .set_bandwidth   = NULL,
+  .set_ppm         = NULL,
+  .set_dc_remove   = NULL,
+  .set_agc         = NULL,
+  .get_freq_limits = NULL,
 };
 
 SUBOOL
