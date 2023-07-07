@@ -257,6 +257,7 @@ SUBOOL suscan_source_detect_devices(void);
 /* Internal */
 SUBOOL suscan_source_register_file(void);
 SUBOOL suscan_source_register_soapysdr(void);
+SUBOOL suscan_source_register_tonegen(void);
 
 SUBOOL suscan_source_init_source_types(void);
 SUBOOL suscan_init_sources(void);

@@ -123,6 +123,7 @@ suscan_source_init_source_types(void)
 
   SU_TRY(suscan_source_register_file());
   SU_TRY(suscan_source_register_soapysdr());
+  SU_TRY(suscan_source_register_tonegen());
 
   ok = SU_TRUE;
 

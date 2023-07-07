@@ -219,7 +219,8 @@ set(SOURCE_LIB_HEADERS
   ${ANALYZERDIR}/source/device.h
   ${ANALYZERDIR}/source/info.h
   ${ANALYZERDIR}/source/impl/file.h
-  ${ANALYZERDIR}/source/impl/soapysdr.h)
+  ${ANALYZERDIR}/source/impl/soapysdr.h
+  ${ANALYZERDIR}/source/impl/tonegen.h)
 
 set(INSPECTOR_LIB_SOURCES
   ${ANALYZERDIR}/inspector/factory.c
@@ -320,6 +321,7 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/source/info.c
   ${ANALYZERDIR}/source/impl/file.c
   ${ANALYZERDIR}/source/impl/soapysdr.c
+  ${ANALYZERDIR}/source/impl/tonegen.c
   ${ANALYZERDIR}/source/register.c
   ${ANALYZERDIR}/spectsrc.c
   ${ANALYZERDIR}/symbuf.c
