@@ -232,6 +232,14 @@ set(INSPECTOR_LIB_HEADERS
   ${ANALYZERDIR}/inspector/params.h
   ${ANALYZERDIR}/inspector/interface.h)
 
+set(SOURCE_LIB_HEADERS
+  ${ANALYZERDIR}/source/config.h
+  ${ANALYZERDIR}/source/device.h
+  ${ANALYZERDIR}/source/info.h
+  ${ANALYZERDIR}/source/impl/file.h
+  ${ANALYZERDIR}/source/impl/soapysdr.h
+  ${ANALYZERDIR}/source/impl/tonegen.h)
+
 set(INSPECTOR_LIB_SOURCES
   ${ANALYZERDIR}/inspector/factory.c
   ${ANALYZERDIR}/inspector/inspector.c
@@ -311,7 +319,6 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/client.c
   ${ANALYZERDIR}/corrector.c
   ${ANALYZERDIR}/correctors/tle.c
-  ${ANALYZERDIR}/device.c
   ${ANALYZERDIR}/discovery.c
   ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/impl/local.c
@@ -327,6 +334,13 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/serialize.c
   ${ANALYZERDIR}/slow.c
   ${ANALYZERDIR}/source.c
+  ${ANALYZERDIR}/source/config.c
+  ${ANALYZERDIR}/source/device.c
+  ${ANALYZERDIR}/source/info.c
+  ${ANALYZERDIR}/source/impl/file.c
+  ${ANALYZERDIR}/source/impl/soapysdr.c
+  ${ANALYZERDIR}/source/impl/tonegen.c
+  ${ANALYZERDIR}/source/register.c
   ${ANALYZERDIR}/spectsrc.c
   ${ANALYZERDIR}/symbuf.c
   ${ANALYZERDIR}/throttle.c
@@ -365,7 +379,12 @@ target_add_relative_file_macro(suscan)
 # Private header directories
 target_include_directories(
   suscan 
-  PRIVATE . ${UTILDIR} ${ANALYZERDIR} ${ANALYZERDIR}/inspector ${CODECLIBDIR})
+  PRIVATE . 
+  ${UTILDIR} 
+  ${ANALYZERDIR}
+  ${ANALYZERDIR}/inspector
+  ${ANALYZERDIR}/source
+  ${CODECLIBDIR})
 
 set_property(TARGET suscan PROPERTY VERSION   ${SUSCAN_VERSION})
 set_property(TARGET suscan PROPERTY SOVERSION ${SUSCAN_ABI})
@@ -424,6 +443,10 @@ install(
 install(
   FILES ${INSPECTOR_LIB_HEADERS} 
   DESTINATION include/suscan/analyzer/inspector)
+
+install(
+  FILES ${SOURCE_LIB_HEADERS} 
+  DESTINATION include/suscan/analyzer/source)
 
 install(
   FILES ${UTIL_HEADERS} 

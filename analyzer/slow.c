@@ -40,7 +40,7 @@ suscan_local_analyzer_destroy_slow_worker_data(suscan_local_analyzer_t *self)
 
   /* Delete all pending gain requessts */
   for (i = 0; i < self->gain_request_count; ++i)
-    suscan_analyzer_gain_info_destroy(self->gain_request_list[i]);
+    suscan_source_gain_info_destroy(self->gain_request_list[i]);
 
   if (self->gain_request_list != NULL)
     free(self->gain_request_list);
@@ -61,7 +61,7 @@ suscan_local_analyzer_set_gain_cb(
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
   SUBOOL mutex_acquired = SU_FALSE;
-  PTR_LIST_LOCAL(struct suscan_analyzer_gain_info, request);
+  PTR_LIST_LOCAL(struct suscan_source_gain_info, request);
   unsigned int i, j;
   SUBOOL updated = SU_FALSE;
 
@@ -103,7 +103,7 @@ fail:
     pthread_mutex_unlock(&self->hotconf_mutex);
 
   for (i = 0; i < request_count; ++i)
-    suscan_analyzer_gain_info_destroy(request_list[i]);
+    suscan_source_gain_info_destroy(request_list[i]);
 
   if (request_list != NULL)
     free(request_list);
@@ -255,10 +255,8 @@ suscan_local_analyzer_set_freq_cb(
     void *cb_private)
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
-  const suscan_source_config_t *config = suscan_source_get_config(self->source);
   SUFREQ freq;
   SUFREQ lnb_freq;
-  SUFREQ diff;
 
   if (self->freq_req) {
     freq = self->freq_req_value;
@@ -268,12 +266,6 @@ suscan_local_analyzer_set_freq_cb(
       if (self->parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
         /* XXX: Use a proper frequency adjust method */
         self->detector->params.fc = freq;
-      }
-
-      if (suscan_source_config_get_type(config) == SUSCAN_SOURCE_TYPE_FILE) {
-        diff = freq - self->source_info.frequency;
-        self->source_info.freq_min += diff;
-        self->source_info.freq_max += diff;
       }
 
       /* Source info changed. Notify update */
@@ -735,11 +727,11 @@ suscan_local_analyzer_slow_set_gain(
     const char *name,
     SUFLOAT value)
 {
-  struct suscan_analyzer_gain_info *req = NULL;
+  struct suscan_source_gain_info *req = NULL;
   SUBOOL mutex_acquired = SU_FALSE;
 
   SU_TRYCATCH(
-      req = suscan_analyzer_gain_info_new_value_only(name, value),
+      req = suscan_source_gain_info_new_value_only(name, value),
       goto fail);
 
   /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvv */
@@ -767,7 +759,7 @@ fail:
     pthread_mutex_unlock(&analyzer->hotconf_mutex);
 
   if (req != NULL)
-    suscan_analyzer_gain_info_destroy(req);
+    suscan_source_gain_info_destroy(req);
 
   return SU_FALSE;
 }

@@ -1194,7 +1194,7 @@ suscan_analyzer_msg_serialize(
   switch (type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
       SU_TRYCATCH(
-          suscan_analyzer_source_info_serialize(ptr, buffer),
+          suscan_source_info_serialize(ptr, buffer),
           goto fail);
       break;
 
@@ -1274,10 +1274,10 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
   switch (*type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
       SU_TRYCATCH(
-          msgptr = calloc(1, sizeof (struct suscan_analyzer_source_info)),
+          msgptr = calloc(1, sizeof (struct suscan_source_info)),
           goto fail);
       SU_TRYCATCH(
-          suscan_analyzer_source_info_deserialize(msgptr, buffer),
+          suscan_source_info_deserialize(msgptr, buffer),
           goto fail);
       break;
 
@@ -1375,7 +1375,7 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
 {
   switch (type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
-      suscan_analyzer_source_info_finalize(ptr);
+      suscan_source_info_finalize(ptr);
       free(ptr);
       break;
 
@@ -1499,17 +1499,17 @@ done:
 SUBOOL
 suscan_analyzer_send_source_info(
     suscan_analyzer_t *self,
-    const struct suscan_analyzer_source_info *info)
+    const struct suscan_source_info *info)
 {
-  struct suscan_analyzer_source_info *copy = NULL;
+  struct suscan_source_info *copy = NULL;
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(
-      copy = calloc(1, sizeof(struct suscan_analyzer_source_info)),
+      copy = calloc(1, sizeof(struct suscan_source_info)),
       goto done);
 
   // XXX: Protect!
-  SU_TRYCATCH(suscan_analyzer_source_info_init_copy(copy, info), goto done);
+  SU_TRYCATCH(suscan_source_info_init_copy(copy, info), goto done);
 
   /* Send source info */
   suscan_analyzer_get_source_time(self, &copy->source_time);
@@ -1527,7 +1527,7 @@ suscan_analyzer_send_source_info(
 
 done:
   if (copy != NULL) {
-    suscan_analyzer_source_info_finalize(copy);
+    suscan_source_info_finalize(copy);
     free(copy);
   }
 

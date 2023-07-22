@@ -759,7 +759,7 @@ done:
 SUBOOL
 suscli_analyzer_client_send_source_info(
     suscli_analyzer_client_t *self,
-    const struct suscan_analyzer_source_info *info,
+    const struct suscan_source_info *info,
     const struct timeval *tv)
 {
   struct suscan_analyzer_remote_call *call = NULL;
@@ -772,7 +772,7 @@ suscli_analyzer_client_send_source_info(
   suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_SOURCE_INFO);
 
   SU_TRYCATCH(
-      suscan_analyzer_source_info_init_copy(&call->source_info, info),
+      suscan_source_info_init_copy(&call->source_info, info),
       goto done);
 
   /* Intersect client permissions and source permissions */
