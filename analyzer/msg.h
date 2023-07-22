@@ -262,7 +262,7 @@ SUBOOL suscan_analyzer_send_psd_from_smoothpsd(
 
 SUBOOL suscan_analyzer_send_source_info(
     suscan_analyzer_t *self,
-    const struct suscan_analyzer_source_info *info);
+    const struct suscan_source_info *info);
 
 /***************** Message constructors and destructors **********************/
 /* Status message */
