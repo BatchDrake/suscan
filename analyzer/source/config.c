@@ -550,10 +550,39 @@ suscan_source_config_get_ppm(const suscan_source_config_t *config)
   return config->ppm;
 }
 
-void suscan_source_config_set_ppm(suscan_source_config_t *config, SUFLOAT ppm)
+void
+suscan_source_config_set_ppm(suscan_source_config_t *config, SUFLOAT ppm)
 {
   config->ppm = ppm;
 }
+
+SUBOOL
+suscan_source_config_is_real_time(const suscan_source_config_t *self)
+{
+  const struct suscan_source_interface *iface;
+
+  iface = suscan_source_interface_lookup_by_name(self->type);
+  if (iface == NULL)
+    return SU_FALSE;
+  
+  if (iface->is_real_time != NULL)
+    return (iface->is_real_time) (self);
+
+  return iface->realtime;
+}
+
+SUBOOL
+suscan_source_config_is_seekable(const suscan_source_config_t *self)
+{
+  const struct suscan_source_interface *iface;
+
+  iface = suscan_source_interface_lookup_by_name(self->type);
+  if (iface == NULL)
+    return SU_FALSE;
+  
+  return iface->seek != NULL;
+}
+
 
 SUBOOL
 suscan_source_config_get_end_time(

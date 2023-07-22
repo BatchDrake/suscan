@@ -238,6 +238,7 @@ set(SOURCE_LIB_HEADERS
   ${ANALYZERDIR}/source/info.h
   ${ANALYZERDIR}/source/impl/file.h
   ${ANALYZERDIR}/source/impl/soapysdr.h
+  ${ANALYZERDIR}/source/impl/stdin.h
   ${ANALYZERDIR}/source/impl/tonegen.h)
 
 set(INSPECTOR_LIB_SOURCES
@@ -339,6 +340,7 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/source/info.c
   ${ANALYZERDIR}/source/impl/file.c
   ${ANALYZERDIR}/source/impl/soapysdr.c
+  ${ANALYZERDIR}/source/impl/stdin.c
   ${ANALYZERDIR}/source/impl/tonegen.c
   ${ANALYZERDIR}/source/register.c
   ${ANALYZERDIR}/spectsrc.c

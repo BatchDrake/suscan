@@ -44,9 +44,10 @@ suscan_source_tonegen_populate_source_info(
 {
   SUBOOL ok = SU_FALSE;
 
+  info->realtime    = SU_TRUE;
+
   /* Adjust permissions */
   info->permissions = SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS;
-  
   info->permissions &= ~SUSCAN_ANALYZER_PERM_SET_DC_REMOVE;
 
   /* Set sample rate */
@@ -245,7 +246,7 @@ SUPRIVATE struct suscan_source_interface g_tonegen_source =
   .max_size        = NULL,
   .estimate_size   = NULL,
   .get_freq_limits = NULL,
-
+  .is_real_time    = NULL,
 };
 
 SUBOOL

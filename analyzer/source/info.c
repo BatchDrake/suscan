@@ -123,6 +123,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_info)
 
   SUSCAN_PACK(uint,  self->permissions);
   SUSCAN_PACK(uint,  self->mtu);
+  SUSCAN_PACK(bool,  self->realtime);
   SUSCAN_PACK(uint,  self->source_samp_rate);
   SUSCAN_PACK(uint,  self->effective_samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
@@ -179,6 +180,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_source_info)
 
   SUSCAN_UNPACK(uint64, self->permissions);
   SUSCAN_UNPACK(uint32, self->mtu);
+  SUSCAN_UNPACK(bool,  self->realtime);
   SUSCAN_UNPACK(uint64, self->source_samp_rate);
   SUSCAN_UNPACK(uint64, self->effective_samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
