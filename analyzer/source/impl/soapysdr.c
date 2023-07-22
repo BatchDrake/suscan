@@ -288,6 +288,8 @@ suscan_source_soapysdr_populate_source_info(
   char *dup = NULL;
   SUBOOL ok = SU_FALSE;
 
+  info->realtime    = SU_TRUE;
+  
   /* Adjust permissions */
   info->permissions = SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS;
   if (!self->have_dc)
@@ -644,6 +646,7 @@ SUPRIVATE struct suscan_source_interface g_soapysdr_source =
   /* Unset members */
   .seek          = NULL,
   .max_size      = NULL,
+  .is_real_time  = NULL,
   .estimate_size = NULL,
 };
 

@@ -150,6 +150,8 @@ void suscan_source_config_set_loop(suscan_source_config_t *config, SUBOOL loop);
 
 const char *suscan_source_config_get_path(const suscan_source_config_t *config);
 SUBOOL suscan_source_config_file_is_valid(const suscan_source_config_t *self);
+SUBOOL suscan_source_config_is_real_time(const suscan_source_config_t *self);
+SUBOOL suscan_source_config_is_seekable(const suscan_source_config_t *self);
 SUBOOL suscan_source_config_get_end_time(
   const suscan_source_config_t *self,
   struct timeval *tv);

@@ -71,6 +71,7 @@ struct suscan_source_interface {
   void     (*close) (void *);
 
   SUSDIFF  (*estimate_size) (const suscan_source_config_t *); /* Without decimation */
+  SUBOOL   (*is_real_time) (const suscan_source_config_t *);
   SUBOOL   (*get_freq_limits) (const suscan_source_config_t *, SUFREQ *, SUFREQ *);
 
   SUBOOL   (*start) (void *);
@@ -197,8 +198,21 @@ suscan_source_has_looped(suscan_source_t *self)
 SUINLINE SUBOOL
 suscan_source_is_real_time(const suscan_source_t *self)
 {
-  return self->iface->realtime;
+  if (self->capturing)
+    return self->info.realtime;
+  else
+    return suscan_source_config_is_real_time(self->config);
 }
+
+SUINLINE SUBOOL
+suscan_source_is_seekable(const suscan_source_t *self)
+{
+  if (self->capturing)
+    return self->info.permissions & SUSCAN_ANALYZER_PERM_SEEK;
+  else
+    return suscan_source_config_is_seekable(self->config);
+}
+
 
 SUINLINE const char *
 suscan_source_get_type(const suscan_source_t *src)
@@ -259,6 +273,7 @@ SUBOOL suscan_source_detect_devices(void);
 SUBOOL suscan_source_register_file(void);
 SUBOOL suscan_source_register_soapysdr(void);
 SUBOOL suscan_source_register_tonegen(void);
+SUBOOL suscan_source_register_stdin(void);
 
 SUBOOL suscan_source_init_source_types(void);
 SUBOOL suscan_init_sources(void);

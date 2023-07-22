@@ -76,6 +76,8 @@ struct suscan_field *suscan_config_desc_lookup_field(
     const suscan_config_desc_t *source,
     const char *name);
 
+SUBOOL suscan_config_str_to_bool(const char *str, SUBOOL dfl);
+
 SUBOOL suscan_config_desc_has_prefix(
     const suscan_config_desc_t *desc,
     const char *pfx);

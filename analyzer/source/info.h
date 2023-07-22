@@ -113,9 +113,9 @@ void suscan_source_gain_info_destroy(struct suscan_source_gain_info *self);
 
 SUSCAN_SERIALIZABLE(suscan_source_info) {
   uint64_t permissions;
-
   uint32_t mtu;
 
+  SUBOOL   realtime;
   SUSCOUNT source_samp_rate;
   SUSCOUNT effective_samp_rate;
   SUFLOAT  measured_samp_rate;

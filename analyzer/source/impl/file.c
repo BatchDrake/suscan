@@ -225,6 +225,7 @@ suscan_source_file_open(
   info->permissions         = SUSCAN_ANALYZER_ALL_FILE_PERMISSIONS;
   info->permissions        &= ~SUSCAN_ANALYZER_PERM_SET_DC_REMOVE;
 
+  info->realtime            = SU_FALSE;
   info->source_samp_rate    = new->sf_info.samplerate;
   info->effective_samp_rate = new->sf_info.samplerate;
   info->measured_samp_rate  = new->sf_info.samplerate;
@@ -388,6 +389,7 @@ SUPRIVATE struct suscan_source_interface g_file_source =
   .get_time        = suscan_source_file_get_time,
 
   /* Unset members */
+  .is_real_time    = NULL,
   .set_frequency   = NULL,
   .set_gain        = NULL,
   .set_antenna     = NULL,

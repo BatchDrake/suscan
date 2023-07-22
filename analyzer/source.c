@@ -668,6 +668,12 @@ suscan_source_adjust_permissions(suscan_source_t *self)
   CHECK_MISSING(seek,          SEEK);
   CHECK_MISSING(max_size,      SEEK);
 
+  /* If source is realtime, seeking and throttling are disabled */
+  if (self->info.realtime) {
+    self->info.permissions &= ~SUSCAN_ANALYZER_PERM_SEEK;
+    self->info.permissions &= ~SUSCAN_ANALYZER_PERM_THROTTLE;
+  }
+
   /* If source does not support DC remove, enable it by software */
   if (~self->info.permissions & SUSCAN_ANALYZER_PERM_SET_DC_REMOVE) {
     self->soft_dc               = SU_TRUE;
