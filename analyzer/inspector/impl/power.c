@@ -93,6 +93,7 @@ struct suscan_power_inspector {
   suscan_inspector_t *insp;
 
   SUBOOL   frequency_mode;
+  SUBOOL   stable;
 
   /* For time and frequency domains */
   SUFLOAT  pwr_kahan_acc;
@@ -482,17 +483,22 @@ suscan_power_inspector_feed(
   if (self->cur_params.integrate_samples == 0)
     return count;
   
+  if (self->stable) {
 #ifdef HAVE_VOLK_ACCELERATION
-  if (self->frequency_mode)
-    return suscan_power_inspector_feed_freq_domain_volk(self, x, count);
-  else
-    return suscan_power_inspector_feed_time_domain_volk(self, x, count);
+    if (self->frequency_mode)
+      return suscan_power_inspector_feed_freq_domain_volk(self, x, count);
+    else
+      return suscan_power_inspector_feed_time_domain_volk(self, x, count);
 #else
-  if (self->frequency_mode)
-    return suscan_power_inspector_feed_freq_domain(self, x, count);
-  else
-    return suscan_power_inspector_feed_time_domain(self, x, count);
+    if (self->frequency_mode)
+      return suscan_power_inspector_feed_freq_domain(self, x, count);
+    else
+      return suscan_power_inspector_feed_time_domain(self, x, count);
 #endif
+  } else {
+    self->stable = SU_TRUE;
+    return count;
+  }
 }
 
 void
