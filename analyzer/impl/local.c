@@ -735,7 +735,7 @@ suscan_local_analyzer_dtor(void *ptr)
     }
 
   /* Stop capture source, now that workers using it have stopped */
-  if (suscan_source_is_capturing(self->source))
+  if (self->source != NULL && suscan_source_is_capturing(self->source))
     suscan_source_stop_capture(self->source);
 
   /* Destroy global inspector table */
