@@ -505,6 +505,12 @@ suscan_analyzer_set_hop_range(suscan_analyzer_t *self, SUFREQ min, SUFREQ max)
 }
 
 SUBOOL
+suscan_analyzer_set_rel_bandwidth(suscan_analyzer_t *self, SUFLOAT rel_bw)
+{
+  return (self->iface->set_rel_bandwidth) (self->impl, rel_bw);
+}
+
+SUBOOL
 suscan_analyzer_set_buffering_size(suscan_analyzer_t *self, SUSCOUNT size)
 {
   return (self->iface->set_buffering_size) (self->impl, size);

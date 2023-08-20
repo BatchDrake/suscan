@@ -919,6 +919,14 @@ suscli_analyzer_server_deliver_call(
           goto done);
       break;
 
+    case SUSCAN_ANALYZER_REMOTE_SET_REL_BANDWIDTH:
+      SU_TRYCATCH(
+          suscan_analyzer_set_rel_bandwidth(
+              self->analyzer,
+              call->rel_bw),
+          goto done);
+      break;
+
     case SUSCAN_ANALYZER_REMOTE_SET_BUFFERING_SIZE:
       SU_TRYCATCH(
           suscan_analyzer_set_buffering_size(

@@ -48,7 +48,7 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
   SUFREQ fs = suscan_analyzer_get_samp_rate(self->parent);
   SUFREQ part_bw = self->current_sweep_params.partitioning
       == SUSCAN_ANALYZER_SPECTRUM_PARTITIONING_DISCRETE
-      ? fs / 2
+      ? fs * self->current_sweep_params.rel_bw
       : 1;
   SUFREQ bw =
         self->current_sweep_params.max_freq
@@ -80,9 +80,9 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
       case SUSCAN_ANALYZER_SWEEP_STRATEGY_PROGRESSIVE:
         /*
          * Progressive strategy: traverse the spectrum monotonically,
-         * in fixed steps of fs / 2
+         * in fixed steps of fs * rel_bw
          */
-        next = (fs / 2) * self->part_ndx++
+        next = fs * self->current_sweep_params.rel_bw * self->part_ndx++
           + self->current_sweep_params.min_freq;
         if (next > self->current_sweep_params.max_freq) {
           next = self->current_sweep_params.min_freq;
