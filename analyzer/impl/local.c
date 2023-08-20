@@ -434,9 +434,6 @@ done:
   if (private != NULL)
     suscan_analyzer_dispose_message(type, private);
 
-  if (suscan_source_is_capturing(self->source))
-    suscan_source_stop_capture(self->source);
-
   if (!halt_acked)
     suscan_local_analyzer_wait_for_halt(self);
 
@@ -736,6 +733,10 @@ suscan_local_analyzer_dtor(void *ptr)
       SU_ERROR("Slow worker destruction failed, memory leak ahead\n");
       return;
     }
+
+  /* Stop capture source, now that workers using it have stopped */
+  if (self->source != NULL && suscan_source_is_capturing(self->source))
+    suscan_source_stop_capture(self->source);
 
   /* Destroy global inspector table */
   suscan_local_analyzer_destroy_global_handles_unsafe(self);

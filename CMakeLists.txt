@@ -356,7 +356,8 @@ link_directories(
   ${FFTW3_LIBRARY_DIRS}
   ${SOAPYSDR_LIBRARY_DIRS}
   ${SIGUTILS_LIBRARY_DIRS}
-  ${XML2_LIBRARY_DIRS})
+  ${XML2_LIBRARY_DIRS}
+  ${VOLK_LIBRARY_DIRS})
  
 add_library(
   suscan SHARED
@@ -435,7 +436,6 @@ target_link_libraries(suscan ${CMAKE_THREAD_LIBS_INIT})
 if(VOLK_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_VOLK=1")
   target_include_directories(suscan SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
-  link_directories(${VOLK_LIBRARY_DIRS})
 endif()
 
 install(
