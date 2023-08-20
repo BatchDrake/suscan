@@ -78,15 +78,25 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
         break;
 
       case SUSCAN_ANALYZER_SWEEP_STRATEGY_PROGRESSIVE:
-        /*
-         * Progressive strategy: traverse the spectrum monotonically,
-         * in fixed steps of fs * rel_bw
-         */
-        next = fs * self->current_sweep_params.rel_bw * self->part_ndx++
-          + self->current_sweep_params.min_freq;
-        if (next > self->current_sweep_params.max_freq) {
-          next = self->current_sweep_params.min_freq;
-          self->part_ndx = 1;
+        /* Progressive strategy: traverse the spectrum monotonically */
+        if (self->current_sweep_params.partitioning ==
+            SUSCAN_ANALYZER_SPECTRUM_PARTITIONING_DISCRETE) {
+          /* Discrete: advance in fixed steps of fs * rel_bw */
+          next = part_bw * self->part_ndx++
+            + self->current_sweep_params.min_freq;
+          if (next > self->current_sweep_params.max_freq) {
+            next = self->current_sweep_params.min_freq;
+            self->part_ndx = 1;
+          }
+        } else {
+          /* Continuous: advance monotonically in randomized steps */
+          SUFLOAT step_size = fs * self->current_sweep_params.rel_bw;
+          SUFLOAT freq_jiggle = SU_FLOOR(step_size * rnd * 0.2);
+          next = self->curr_freq + step_size - freq_jiggle;
+          if (next > self->current_sweep_params.max_freq) {
+            next = self->current_sweep_params.min_freq + step_size * 0.5
+                - freq_jiggle;
+          }
         }
         break;
     }
