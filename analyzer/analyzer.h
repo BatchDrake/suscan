@@ -132,6 +132,7 @@ struct suscan_analyzer_sweep_params {
 
   SUFREQ min_freq;
   SUFREQ max_freq;
+  SUFLOAT rel_bw;
   SUSCOUNT fft_min_samples; /* Minimum number of FFT frames before updating */
 };
 
@@ -193,6 +194,7 @@ struct suscan_analyzer_interface {
   SUBOOL   (*set_sweep_strategy) (void *, enum suscan_analyzer_sweep_strategy);
   SUBOOL   (*set_spectrum_partitioning) (void *, enum suscan_analyzer_spectrum_partitioning);
   SUBOOL   (*set_hop_range) (void *, SUFREQ, SUFREQ);
+  SUBOOL   (*set_rel_bandwidth) (void *, SUFLOAT);
   SUBOOL   (*set_buffering_size) (void *, SUSCOUNT);
 
   /* Fast methods */
@@ -398,6 +400,18 @@ SUBOOL suscan_analyzer_set_hop_range(
     suscan_analyzer_t *self,
     SUFREQ min,
     SUFREQ max);
+
+/*!
+ * In wideband analyzers, set the the frequency step interval as a
+ * fraction of the sample rate.
+ * \param self a pointer to the analyzer object
+ * \param rel_bw fraction of the sample rate to advance per hop
+ * \return SU_TRUE for success or SU_FALSE on failure
+ * \author Sultan Qasim Khan
+ */
+SUBOOL suscan_analyzer_set_rel_bandwidth(
+    suscan_analyzer_t *self,
+    SUFLOAT rel_bw);
 
 /*!
  * In wideband analyzers, set the sweep strategy.
