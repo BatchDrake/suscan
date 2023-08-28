@@ -668,6 +668,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
             SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
     new->current_sweep_params.max_freq = parent->params.max_freq;
     new->current_sweep_params.min_freq = parent->params.min_freq;
+    new->current_sweep_params.rel_bw = 0.5;
   } else {
     SU_TRYCATCH(
         suscan_local_analyzer_init_channel_worker(new),
@@ -1028,6 +1029,31 @@ done:
 }
 
 SUPRIVATE SUBOOL
+suscan_local_analyzer_set_rel_bandwidth(void *ptr, SUFLOAT rel_bw)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM,
+      goto done);
+
+  SU_TRYCATCH(rel_bw >= 0.001, goto done);
+
+  self->pending_sweep_params =
+      self->sweep_params_requested
+        ? self->pending_sweep_params
+        : self->current_sweep_params;
+  self->pending_sweep_params.rel_bw = rel_bw;
+  self->sweep_params_requested = SU_TRUE;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUPRIVATE SUBOOL
 suscan_local_analyzer_set_buffering_size(
     void *ptr,
     SUSCOUNT size)
@@ -1178,6 +1204,7 @@ suscan_local_analyzer_get_interface(void)
     SET_CALLBACK(set_sweep_strategy);
     SET_CALLBACK(set_spectrum_partitioning);
     SET_CALLBACK(set_hop_range);
+    SET_CALLBACK(set_rel_bandwidth);
     SET_CALLBACK(set_buffering_size);
     SET_CALLBACK(set_inspector_frequency);
     SET_CALLBACK(set_inspector_bandwidth);
