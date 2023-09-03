@@ -112,30 +112,33 @@ jobs:
   build-macos:
     needs: dep_target
     runs-on: macos-latest
-    steps:      
+    steps:
     - name: Install dependencies
       run: |
-        # SDRPlay API
-        wget https://www.sdrplay.com/software/SDRplay_RSP_API-MacOSX-3.07.3.pkg
-        sudo installer -pkg SDRplay_RSP_API-MacOSX-3.07.3.pkg -target /
         # Add custom homebrew repos
         brew tap pothosware/homebrew-pothos
         brew update
         # Install deps
         # soapyaudio removed from due to deprecated hamlib API
         # soapyosmo  removed because of random compilation errors
-        # soapyuhd   removed for the same reason
-        brew install libsndfile volk fftw pothossoapy soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyairspyhf soapyredpitaya soapyiris limesuite soapyplutosdr libxml2 portaudio
+        # soapyairspyhf  removed because of random compilation errors
+        brew install libsndfile volk fftw soapysdr libxml2 portaudio
+        brew install soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyredpitaya soapyiris limesuite soapyplutosdr
+        brew install --head soapyuhd
         # TODO: needed?
         #sudo mkdir -p /usr/local/lib/SoapySDR/modules0.8
         #sudo chmod -R a+rw /usr/local/lib/SoapySDR/modules0.8
+        # SDRPlay API
+        wget https://www.sdrplay.com/software/SDRplay_RSP_API-MacOSX-3.07.3.pkg
+        sudo installer -pkg SDRplay_RSP_API-MacOSX-3.07.3.pkg -target /
         # SoapySDRPlay3 from source
         git clone https://github.com/pothosware/SoapySDRPlay3
         cd SoapySDRPlay3
         cmake -DCMAKE_BUILD_TYPE=Release -B build .
         cmake --build build
+        cd build
         sudo make install
-        cd ..
+        cd ../..
 
     - name: Checkout (sigutils)
       uses: actions/checkout@v3
@@ -171,7 +174,7 @@ jobs:
 
     - name: Build (suscan)
       run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
-      
+
   build-windows:
     needs: dep_target
     runs-on: windows-latest
