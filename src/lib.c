@@ -264,7 +264,7 @@ suscan_sigutils_init(enum suscan_mode mode)
   const char *userpath = NULL;
   char *wisdom_file = NULL;
   SUBOOL ok = SU_FALSE;
-  
+
   SIGUTILS_ABI_CHECK();
 
   switch (mode) {
@@ -308,7 +308,7 @@ suscan_sigutils_init(enum suscan_mode mode)
 done:
   if (wisdom_file != NULL)
     free(wisdom_file);
-  
+
   return ok;
 }
 
