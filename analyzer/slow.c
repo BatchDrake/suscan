@@ -136,7 +136,13 @@ suscan_local_analyzer_set_antenna_cb(
   mutex_acquired = SU_FALSE;
   /* ^^^^^^^^^^^^^^^^^^ Release hotconf request mutex ^^^^^^^^^^^^^^^^^^^^^^^^^ */
 
-  suscan_source_set_antenna(self->source, req);
+  SU_TRY_FAIL(suscan_source_set_antenna(self->source, req));
+  
+  if (self->source_info.antenna != NULL)
+    free(self->source_info.antenna);
+  
+  self->source_info.antenna = req;
+  req = NULL;
 
   updated = SU_TRUE;
 
