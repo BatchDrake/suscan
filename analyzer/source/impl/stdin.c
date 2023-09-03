@@ -21,8 +21,8 @@
 #include <analyzer/source.h>
 #include <util/hashlist.h>
 #include <util/cfg.h>
-#include <sys/time.h>
-#include <poll.h>
+#include <sigutils/util/compat-time.h>
+#include <sigutils/util/compat-unistd.h>
 
 #define STDIN_DATA_CONVERTER_FUNC(format)               \
   JOIN(suscan_source_read_, format)
