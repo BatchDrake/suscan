@@ -30,6 +30,7 @@
 #include <analyzer/source/device.h>
 #include <analyzer/source/config.h>
 #include <analyzer/source/info.h>
+#include <sigutils/util/compat-time.h>
 #include <sigutils/util/util.h>
 #include <sigutils/dc_corrector.h>
 

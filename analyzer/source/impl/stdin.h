@@ -22,7 +22,7 @@
 
 #include <stdio.h>
 #include <sigutils/types.h>
-#include <sys/poll.h>
+#include <sigutils/util/compat-poll.h>
 
 /* File sources are accessed through a soundfile handle */
 
