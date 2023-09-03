@@ -91,23 +91,22 @@ jobs:
       run: cd ${{github.workspace}}/suscan/ && ./makedeb.sh 0.3.0 ${{steps.vars.outputs.sha_short}}
 
     - name: Upload lib deb artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: libsuscan_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
         path: ${{github.workspace}}/suscan/libsuscan_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
 
     - name: Upload lib dev deb artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: libsuscan-dev_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
         path: ${{github.workspace}}/suscan/libsuscan-dev_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
 
     - name: Upload tools deb artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: suscan-tools_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
         path: ${{github.workspace}}/suscan/suscan-tools_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
-    
 
   build-macos:
     needs: dep_target
