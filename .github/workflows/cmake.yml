@@ -207,7 +207,7 @@ jobs:
         
       # SoapySDR
       - name: Checkout (soapysdr)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: pothosware/SoapySDR
           ref: refs/heads/master
@@ -224,7 +224,7 @@ jobs:
         
       # BatchDrake's fixed rtl-sdr
       - name: Checkout (rtl-sdr-blog)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: BatchDrake/rtl-sdr-blog
           ref: refs/heads/feature/xfer-completion
@@ -241,7 +241,7 @@ jobs:
         
       # SoapyRTLSDR
       - name: Checkout (soapyrtlsdr)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: pothosware/SoapyRTLSDR
           ref: refs/heads/master
