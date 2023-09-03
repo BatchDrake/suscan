@@ -267,17 +267,17 @@ suscan_sigutils_init(enum suscan_mode mode)
 
   SIGUTILS_ABI_CHECK();
 
-  if (mode != SUSCAN_MODE_NOLOG) {
-    if (mode == SUSCAN_MODE_DELAYED_LOG) {
-      config.exclusive = SU_FALSE; /* We handle concurrency manually */
-      config.log_func = suscan_log_func;
+  if (mode == SUSCAN_MODE_DELAYED_LOG) {
+    config.exclusive = SU_FALSE; /* We handle concurrency manually */
+    config.log_func = suscan_log_func;
 
-      config_p = &config;
-    }
-
-    if (!su_lib_init_ex(config_p))
-      goto done;
+    config_p = &config;
+  } else if (mode == SUSCAN_MODE_NOLOG) {
+    config_p = &config;
   }
+
+  if (!su_lib_init_ex(config_p))
+    goto done;
 
   SU_TRY(userpath = suscan_confdb_get_user_path());
   SU_TRY(wisdom_file = strbuild("%s/" SUSCAN_WISDOM_FILE_NAME, userpath));
@@ -293,7 +293,7 @@ suscan_sigutils_init(enum suscan_mode mode)
 done:
   if (wisdom_file != NULL)
     free(wisdom_file);
-  
+
   return ok;
 }
 
