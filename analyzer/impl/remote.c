@@ -445,6 +445,10 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
       SUSCAN_PACK(freq, self->hop_range.max);
       break;
 
+    case SUSCAN_ANALYZER_REMOTE_SET_REL_BANDWIDTH:
+      SUSCAN_PACK(float, self->rel_bw);
+      break;
+
     case SUSCAN_ANALYZER_REMOTE_SET_BUFFERING_SIZE:
       SUSCAN_PACK(uint, self->buffering_size);
       break;
@@ -556,6 +560,12 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
       SUSCAN_UNPACK(freq, self->hop_range.max);
 
       SU_TRYCATCH(self->hop_range.min < self->hop_range.max, goto fail);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_REL_BANDWIDTH:
+      SUSCAN_UNPACK(float, self->rel_bw);
+
+      SU_TRYCATCH(self->rel_bw >= 0.001, goto fail);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_BUFFERING_SIZE:
@@ -2562,6 +2572,34 @@ done:
 }
 
 SUPRIVATE SUBOOL
+suscan_remote_analyzer_set_rel_bandwidth(void *ptr, SUFLOAT rel_bw)
+{
+  suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+  struct suscan_analyzer_remote_call *call = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      call = suscan_remote_analyzer_acquire_call(
+          self,
+          SUSCAN_ANALYZER_REMOTE_SET_REL_BANDWIDTH),
+      goto done);
+
+  call->rel_bw = rel_bw;
+
+  SU_TRYCATCH(
+      suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
+      goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (call != NULL)
+    suscan_remote_analyzer_release_call(self, call);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
 suscan_remote_analyzer_set_buffering_size(void *ptr, SUSCOUNT size)
 {
   suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
@@ -2673,6 +2711,7 @@ suscan_remote_analyzer_get_interface(void)
     SET_CALLBACK(set_sweep_strategy);
     SET_CALLBACK(set_spectrum_partitioning);
     SET_CALLBACK(set_hop_range);
+    SET_CALLBACK(set_rel_bandwidth);
     SET_CALLBACK(set_buffering_size);
     SET_CALLBACK(write);
     SET_CALLBACK(req_halt);

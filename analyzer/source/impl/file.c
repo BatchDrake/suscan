@@ -19,7 +19,7 @@
 
 #include "file.h"
 #include <analyzer/source.h>
-#include <sys/time.h>
+#include <sigutils/util/compat-time.h>
 
 #ifdef _SU_SINGLE_PRECISION
 #  define sf_read sf_read_float

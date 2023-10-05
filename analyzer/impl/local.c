@@ -434,9 +434,6 @@ done:
   if (private != NULL)
     suscan_analyzer_dispose_message(type, private);
 
-  if (suscan_source_is_capturing(self->source))
-    suscan_source_stop_capture(self->source);
-
   if (!halt_acked)
     suscan_local_analyzer_wait_for_halt(self);
 
@@ -578,8 +575,18 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   SU_TRYCATCH(pthread_mutex_init(&new->hotconf_mutex, NULL) == 0, goto fail);
   new->gain_req_mutex_init = SU_TRUE;
 
-  /* Create spectral tuner, with matching read size */
-  st_params.window_size = parent->params.detector_params.window_size;
+  /* Create spectral tuner, with suitable read size */
+  new->effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
+  if (new->effective_samp_rate >= 10000000)
+    st_params.window_size = 131072;
+  else if (new->effective_samp_rate >= 5000000)
+    st_params.window_size = 65536;
+  else if (new->effective_samp_rate >= 1600000)
+    st_params.window_size = 16384;
+  else if (new->effective_samp_rate >= 250000)
+    st_params.window_size = 4096;
+  else
+    st_params.window_size = 2048;
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
 
   /* Initialize baseband filters */
@@ -620,8 +627,6 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->insp_init = SU_TRUE;
   
   SU_TRYCATCH(suscan_source_start_capture(new->source), goto fail);
-
-  new->effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
 
   /* Allocate read buffer */
   new->read_size =
@@ -671,6 +676,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
             SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
     new->current_sweep_params.max_freq = parent->params.max_freq;
     new->current_sweep_params.min_freq = parent->params.min_freq;
+    new->current_sweep_params.rel_bw = 0.5;
   } else {
     SU_TRYCATCH(
         suscan_local_analyzer_init_channel_worker(new),
@@ -736,6 +742,10 @@ suscan_local_analyzer_dtor(void *ptr)
       SU_ERROR("Slow worker destruction failed, memory leak ahead\n");
       return;
     }
+
+  /* Stop capture source, now that workers using it have stopped */
+  if (self->source != NULL && suscan_source_is_capturing(self->source))
+    suscan_source_stop_capture(self->source);
 
   /* Destroy global inspector table */
   suscan_local_analyzer_destroy_global_handles_unsafe(self);
@@ -1027,6 +1037,31 @@ done:
 }
 
 SUPRIVATE SUBOOL
+suscan_local_analyzer_set_rel_bandwidth(void *ptr, SUFLOAT rel_bw)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM,
+      goto done);
+
+  SU_TRYCATCH(rel_bw >= 0.001, goto done);
+
+  self->pending_sweep_params =
+      self->sweep_params_requested
+        ? self->pending_sweep_params
+        : self->current_sweep_params;
+  self->pending_sweep_params.rel_bw = rel_bw;
+  self->sweep_params_requested = SU_TRUE;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUPRIVATE SUBOOL
 suscan_local_analyzer_set_buffering_size(
     void *ptr,
     SUSCOUNT size)
@@ -1177,6 +1212,7 @@ suscan_local_analyzer_get_interface(void)
     SET_CALLBACK(set_sweep_strategy);
     SET_CALLBACK(set_spectrum_partitioning);
     SET_CALLBACK(set_hop_range);
+    SET_CALLBACK(set_rel_bandwidth);
     SET_CALLBACK(set_buffering_size);
     SET_CALLBACK(set_inspector_frequency);
     SET_CALLBACK(set_inspector_bandwidth);

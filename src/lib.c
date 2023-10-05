@@ -267,17 +267,32 @@ suscan_sigutils_init(enum suscan_mode mode)
 
   SIGUTILS_ABI_CHECK();
 
-  if (mode != SUSCAN_MODE_NOLOG) {
-    if (mode == SUSCAN_MODE_DELAYED_LOG) {
+  switch (mode) {
+    case SUSCAN_MODE_NOLOG:
+      config_p = NULL; /* Disable logging. Will configure it later. */
+      break;
+
+    case SUSCAN_MODE_DELAYED_LOG:
       config.exclusive = SU_FALSE; /* We handle concurrency manually */
       config.log_func = suscan_log_func;
-
       config_p = &config;
-    }
+      break;
 
+    case SUSCAN_MODE_IMMEDIATE:
+      break;
+  }
+
+  if (mode == SUSCAN_MODE_IMMEDIATE) {
+    /* Initialize Sigutils with the default logging facilites */
+    if (!su_lib_init())
+      goto done;
+  } else {
+    /* Initialize Sigutils with custom logging */
     if (!su_lib_init_ex(config_p))
       goto done;
   }
+  
+
 
   SU_TRY(userpath = suscan_confdb_get_user_path());
   SU_TRY(wisdom_file = strbuild("%s/" SUSCAN_WISDOM_FILE_NAME, userpath));
@@ -293,7 +308,7 @@ suscan_sigutils_init(enum suscan_mode mode)
 done:
   if (wisdom_file != NULL)
     free(wisdom_file);
-  
+
   return ok;
 }
 
