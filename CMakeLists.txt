@@ -58,6 +58,7 @@ endforeach()
 
 include(FindPkgConfig)
 include(RelativeFileMacro)
+include(GNUInstallDirs)
 
 # Make sure CMAKE_INSTALL_LIBDIR is defined for all systems
 if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
@@ -395,6 +396,8 @@ set_property(TARGET suscan PROPERTY SOVERSION ${SUSCAN_ABI})
 set_property(TARGET suscan PROPERTY COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 set_property(TARGET suscan PROPERTY LINK_FLAGS    "${SIGUTILS_SPC_LDFLAGS}")
 
+set_property(TARGET suscan PROPERTY EXPORT_NAME suscan)
+
 # Required dependencies
 if(APPLE)
   # Required to retrieve bundle path
@@ -410,6 +413,11 @@ if(WIN32)
     target_link_libraries(suscan regex)
   endif()
 endif()
+
+target_include_directories(suscan INTERFACE
+        $<INSTALL_INTERFACE:include>/${CMAKE_PROJECT_NAME}
+        $<INSTALL_INTERFACE:include>/${CMAKE_PROJECT_NAME}/util
+        )
 
 target_link_libraries(suscan m ${SIGUTILS_LIBRARIES})
 
@@ -437,6 +445,24 @@ if(VOLK_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_VOLK=1")
   target_include_directories(suscan SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
 endif()
+
+# export module
+set(TARGETS_EXPORT_NAME "${PROJECT_NAME}Targets")
+set(INSTALL_EXPORTS_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
+set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR})
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+        ${CMAKE_SOURCE_DIR}/cmake/suscanConfig.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/suscanConfig.cmake
+        INSTALL_DESTINATION ${INSTALL_EXPORTS_DIR}
+        PATH_VARS INCLUDE_INSTALL_DIR)
+
+write_basic_package_version_file(
+        ${CMAKE_BINARY_DIR}/suscanConfigVersion.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
 
 install(
   FILES ${ANALYZER_LIB_HEADERS} 
@@ -482,7 +508,17 @@ install(
   FILES src/suscan.h
   DESTINATION include/suscan)
 
-install(TARGETS suscan DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/suscanConfig.cmake
+        ${CMAKE_BINARY_DIR}/suscanConfigVersion.cmake
+        DESTINATION ${INSTALL_EXPORTS_DIR})
+
+install(EXPORT suscan-export
+        FILE suscanTargets.cmake
+        NAMESPACE suscan::
+        DESTINATION ${INSTALL_EXPORTS_DIR})
+
+install(TARGETS suscan EXPORT suscan-export DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 ########################### Suscan test executable ############################
 set(SUSCAN_HEADERS ${SRCDIR}/suscan.h)
