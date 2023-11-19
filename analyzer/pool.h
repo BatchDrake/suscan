@@ -22,13 +22,18 @@
 
 #include <sigutils/types.h>
 #include <sigutils/defs.h>
+#include <pthread.h>
 
 #include "mq.h"
 
-struct sigutils_sample_buffer_pool;
+#define SUSCAN_POOL_MQ_TYPE_BUFFER  0
+#define SUSCAN_POOL_MQ_TYPE_HALT   -1
 
-struct sigutils_sample_buffer {
-  struct sigutils_sample_buffer_pool *parent;
+struct suscan_sample_buffer_pool;
+
+struct suscan_sample_buffer {
+  struct suscan_sample_buffer_pool *parent;
+
   int        rindex; /* Reverse index in the buffer table */
   SUBOOL     circular;
   SUBOOL     acquired;
@@ -37,27 +42,56 @@ struct sigutils_sample_buffer {
   SUSCOUNT   size;
 };
 
-typedef struct sigutils_sample_buffer su_sample_buffer_t;
+typedef struct suscan_sample_buffer suscan_sample_buffer_t;
 
-struct sigutils_sample_buffer_pool_params {
-  SUBOOL vm_circularity;
+SU_INSTANCER(suscan_sample_buffer, struct suscan_sample_buffer_pool *);
+SU_COLLECTOR(suscan_sample_buffer);
+
+struct suscan_sample_buffer_pool_params {
+  SUBOOL   vm_circularity;
+  SUSCOUNT alloc_size;
+  SUSCOUNT max_buffers;
 };
 
-struct sigutils_sample_buffer_pool {
-  PTR_LIST(su_sample_buffer_t, buffer);
+#define suscan_sample_buffer_pool_params_INITIALIZER       \
+{                                                          \
+  SU_FALSE,                                                \
+  512, /* alloc_size = 512 * 2 * sizeof(float32) = 4096 */ \
+  16,                                                      \
+}
 
-  
+/*
+ * The buffer pool relies on a message queue to keep 
+ * clients waiting for available buffers. This occurs when
+ * buffer_count == max_buffers and all free buffers have been
+ * allocated. In this situation, acquire hangs and try_acquire
+ * returns NULL.
+ * 
+ */
+struct suscan_sample_buffer_pool {
+  struct suscan_sample_buffer_pool_params params;
+
+  PTR_LIST(suscan_sample_buffer_t, buffer);
+  struct suscan_mq free_mq;
+  pthread_mutex_t  mutex;
+  SUBOOL           mutex_init;
+  SUBOOL           free_mq_init;
 };
 
-typedef struct sigutils_sample_buffer_pool su_sample_buffer_pool_t;
+typedef struct suscan_sample_buffer_pool suscan_sample_buffer_pool_t;
 
-SU_CONSTRUCTOR(su_sample_buffer_pool);
-SU_DESTRUCTOR(su_sample_buffer_pool);
+SU_CONSTRUCTOR(
+  suscan_sample_buffer_pool,
+  const struct suscan_sample_buffer_pool_params *);
+SU_DESTRUCTOR(suscan_sample_buffer_pool);
 
-SU_INSTANCER(su_sample_buffer_pool);
-SU_COLLECTOR(su_sample_buffer_pool);
+SU_INSTANCER(
+  suscan_sample_buffer_pool,
+  const struct suscan_sample_buffer_pool_params *);
+SU_COLLECTOR(suscan_sample_buffer_pool);
 
-SU_METHOD(su_sample_buffer_pool, su_sample_buffer_t *, acquire);
-SU_METHOD(su_sample_buffer_pool, su_sample_buffer_t *, give);
+SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, acquire);
+SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, try_acquire);
+SU_METHOD(suscan_sample_buffer_pool, SUBOOL, give, suscan_sample_buffer_t *);
 
 #endif /* _SUSCAN_POOL */
