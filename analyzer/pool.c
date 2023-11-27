@@ -20,6 +20,7 @@
 
 #include <sigutils/log.h>
 #include <sys/mman.h>
+#include <string.h>
 
 #include "pool.h"
 

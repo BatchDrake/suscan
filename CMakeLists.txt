@@ -333,6 +333,7 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/kludges.c
   ${ANALYZERDIR}/mq.c
   ${ANALYZERDIR}/msg.c
+  ${ANALYZERDIR}/pool.c
   ${ANALYZERDIR}/serialize.c
   ${ANALYZERDIR}/slow.c
   ${ANALYZERDIR}/source.c

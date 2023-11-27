@@ -27,6 +27,7 @@
 #include <SoapySDR/Formats.h>
 #include <SoapySDR/Version.h>
 #include <analyzer/serialize.h>
+#include <analyzer/pool.h>
 #include <analyzer/source/device.h>
 #include <analyzer/source/config.h>
 #include <analyzer/source/info.h>
@@ -144,6 +145,12 @@ SUSDIFF suscan_source_read(
     suscan_source_t *source,
     SUCOMPLEX *buffer,
     SUSCOUNT max);
+
+suscan_sample_buffer_t *suscan_source_read_buffer(
+  suscan_source_t *source,
+  suscan_sample_buffer_pool_t *pool,
+  SUSDIFF *got);
+
 SUSDIFF  suscan_source_get_max_size(const suscan_source_t *self);
 
 void   suscan_source_get_time(suscan_source_t *self, struct timeval *tv);

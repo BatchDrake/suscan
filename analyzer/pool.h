@@ -44,6 +44,18 @@ struct suscan_sample_buffer {
 
 typedef struct suscan_sample_buffer suscan_sample_buffer_t;
 
+SUINLINE
+SU_GETTER(suscan_sample_buffer, SUCOMPLEX *, data)
+{
+  return self->data;
+}
+
+SUINLINE
+SU_GETTER(suscan_sample_buffer, SUSCOUNT, size)
+{
+  return self->size;
+}
+
 SU_INSTANCER(suscan_sample_buffer, struct suscan_sample_buffer_pool *);
 SU_COLLECTOR(suscan_sample_buffer);
 

@@ -289,6 +289,58 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
   return result;
 }
 
+suscan_sample_buffer_t *
+suscan_source_read_buffer(
+  suscan_source_t *self,
+  suscan_sample_buffer_pool_t *pool,
+  SUSDIFF *got)
+{
+  suscan_sample_buffer_t *buffer = NULL;
+  SUSCOUNT size, amount;
+  SUSDIFF p = -1, read;
+  SUCOMPLEX *data;
+  SUBOOL ok = SU_FALSE;
+
+  // Acquire buffer
+  SU_TRY(buffer = suscan_sample_buffer_pool_acquire(pool));
+
+  // Read until done
+  p = 0;
+
+  data = suscan_sample_buffer_data(buffer);
+  size = suscan_sample_buffer_size(buffer);
+
+  while (p < size) {
+    amount = size - p;
+    read = suscan_source_read(self, data + p, amount);
+
+    // Check for errors
+    if (read == 0)
+      goto done;
+
+    if (read < 0) {
+      p = read;
+      goto done;
+    }
+
+    p += read;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  *got = p;
+  
+  if (!ok) {
+    if (buffer != NULL) {
+      suscan_sample_buffer_pool_give(pool, buffer);
+      buffer = NULL;
+    }
+  }
+
+  return buffer;
+}
+
 void 
 suscan_source_get_time(suscan_source_t *self, struct timeval *tv)
 {
