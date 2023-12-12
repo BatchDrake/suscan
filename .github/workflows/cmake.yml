@@ -123,6 +123,7 @@ jobs:
         # soapyairspyhf  removed because of random compilation errors
         brew install libsndfile volk fftw soapysdr libxml2 portaudio
         python3 -Im pip install setuptools
+        sudo rm /usr/local/bin/2to3*
         brew install soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyredpitaya soapyiris limesuite soapyplutosdr
         brew install --head soapyuhd
         # TODO: needed?
