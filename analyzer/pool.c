@@ -31,11 +31,15 @@ SU_INSTANCER(suscan_sample_buffer, suscan_sample_buffer_pool_t *parent)
 
   SU_ALLOCATE_FAIL(self, suscan_sample_buffer_t);
 
-  self->parent   = parent;
-  self->rindex   = -1;
-  self->circular = parent->params.vm_circularity;
-  self->acquired = SU_FALSE;
-  self->size     = parent->params.alloc_size;
+  self->parent    = parent;
+  self->refcnt    = 0;
+  self->rindex    = -1;
+  self->circular  = parent->params.vm_circularity;
+  self->acquired  = SU_FALSE;
+  self->size      = parent->params.alloc_size;
+
+  SU_TRYZ_FAIL(pthread_mutex_init(&self->mutex, NULL));
+  self->mutex_init = SU_TRUE;
 
   SU_ALLOCATE_MANY_FAIL(self->data, self->size, SUCOMPLEX);
 
@@ -54,7 +58,17 @@ SU_COLLECTOR(suscan_sample_buffer)
   if (self->data != NULL)
     free(self->data);
 
+  if (self->mutex_init)
+    pthread_mutex_destroy(&self->mutex);
+  
   free(self);
+}
+
+SU_METHOD(suscan_sample_buffer, void, inc_ref)
+{
+  pthread_mutex_lock(&self->mutex);
+  ++self->refcnt;
+  pthread_mutex_unlock(&self->mutex);
 }
 
 /***************** Construct the suscan sample buffer pool ********************/
@@ -140,7 +154,12 @@ SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, acquire)
       return NULL;
     }
 
+    ++ret->refcnt;
     ret->acquired = SU_TRUE;
+    
+    pthread_mutex_lock(&self->mutex);
+    --self->free_num;
+    pthread_mutex_unlock(&self->mutex);
 
   } else {
     /* Room for new buffers. Perform a try_acquire. */
@@ -164,6 +183,10 @@ SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, try_acquire)
       SU_WARNING("acquire() aborted due to non-buffer entry\n");
       goto fail;
     }
+
+    pthread_mutex_lock(&self->mutex);
+    --self->free_num;
+    pthread_mutex_unlock(&self->mutex);
   } else {
     /* No free elements, allocate and return */
     SU_MAKE_FAIL(tmp, suscan_sample_buffer, self);
@@ -173,6 +196,7 @@ SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, try_acquire)
   }
 
   ret->acquired = SU_TRUE;
+  ++ret->refcnt;
 
   return ret;
 
@@ -186,7 +210,7 @@ fail:
 SU_METHOD(suscan_sample_buffer_pool, SUBOOL, give, suscan_sample_buffer_t *buf)
 {
   SUBOOL ok = SU_FALSE;
-
+  SUBOOL delete;
   if (!buf->acquired) {
     SU_ERROR("BUG: Sample buffer is not acquired\n");
     goto done;
@@ -207,9 +231,18 @@ SU_METHOD(suscan_sample_buffer_pool, SUBOOL, give, suscan_sample_buffer_t *buf)
     goto done;
   }
 
-  buf->acquired = SU_FALSE;
+  SU_TRY(pthread_mutex_lock(&buf->mutex));
+  delete = --buf->refcnt == 0;
+  pthread_mutex_unlock(&buf->mutex);
 
-  SU_TRY(suscan_mq_write(&self->free_mq, SUSCAN_POOL_MQ_TYPE_BUFFER, buf));
+  if (delete) {
+    buf->acquired = SU_FALSE;
+    pthread_mutex_lock(&self->mutex);
+    ++self->free_num;
+    pthread_mutex_unlock(&self->mutex);
+    
+    SU_TRY(suscan_mq_write(&self->free_mq, SUSCAN_POOL_MQ_TYPE_BUFFER, buf));
+  }
 
   ok = SU_TRUE;
 

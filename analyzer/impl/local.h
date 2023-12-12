@@ -24,6 +24,7 @@
 #include <sigutils/smoothpsd.h>
 #include <analyzer/inspector/factory.h>
 #include <analyzer/inspector/overridable.h>
+#include <analyzer/pool.h>
 
 #include <rbtree.h>
 
@@ -116,8 +117,10 @@ struct suscan_local_analyzer {
   uint64_t last_channels;
 
   /* Source worker objects */
+  suscan_sample_buffer_pool_t *bufpool; /* Sample buffer pool */
   su_channel_detector_t *detector; /* Channel detector */
   su_smoothpsd_t  *smooth_psd;
+  suscan_worker_t *psd_worker;
   suscan_worker_t *source_wk; /* Used by one source only */
   suscan_worker_t *slow_wk; /* Worker for slow operations */
   SUCOMPLEX *read_buf;

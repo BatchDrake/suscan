@@ -518,6 +518,9 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   const struct suscan_source_info *source_info = NULL;
   struct sigutils_specttuner_params st_params =
       sigutils_specttuner_params_INITIALIZER;
+  struct suscan_sample_buffer_pool_params bp_params = 
+    suscan_sample_buffer_pool_params_INITIALIZER;
+  
   struct sigutils_channel_detector_params det_params;
   suscan_source_config_t *config;
   pthread_mutexattr_t attr;
@@ -532,6 +535,12 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   /* Create input message queue */
   if (!suscan_mq_init(&new->mq_in)) {
     SU_ERROR("Cannot allocate input MQ\n");
+    goto fail;
+  }
+
+  /* Initialize buffer pools */
+  if ((new->bufpool = suscan_sample_buffer_pool_new(&bp_params)) == NULL) {
+    SU_ERROR("Cannot create sample buffer pool\n");
     goto fail;
   }
 
@@ -754,6 +763,15 @@ suscan_local_analyzer_dtor(void *ptr)
   if (self->detector != NULL)
     su_channel_detector_destroy(self->detector);
 
+  if (self->psd_worker != NULL) {
+    if (!suscan_worker_destroy(self->psd_worker)) {
+      SU_ERROR("Failed to destroy slow worker.\n");
+
+      /* Mark smoothPSD object as released */
+      self->smooth_psd = NULL;
+    }
+  }
+
   if (self->smooth_psd != NULL)
     su_smoothpsd_destroy(self->smooth_psd);
 
@@ -806,6 +824,14 @@ suscan_local_analyzer_dtor(void *ptr)
   /* Consume any pending messages */
   suscan_analyzer_consume_mq(&self->mq_in);
 
+  /* Finalize buffers (if possible) */
+  if (self->bufpool != NULL) {
+    if (!suscan_sample_buffer_pool_released(self->bufpool))
+      SU_WARNING("Buffer pool has unreleased buffers. Memory leak ahead.\n");
+    else
+      suscan_sample_buffer_pool_destroy(self->bufpool);
+  }
+  
   /* Finalize queue */
   suscan_mq_finalize(&self->mq_in);
 

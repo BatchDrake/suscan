@@ -33,7 +33,10 @@ struct suscan_sample_buffer_pool;
 
 struct suscan_sample_buffer {
   struct suscan_sample_buffer_pool *parent;
-
+  pthread_mutex_t mutex;
+  SUBOOL          mutex_init;
+  SUSCOUNT        refcnt;
+  
   int        rindex; /* Reverse index in the buffer table */
   SUBOOL     circular;
   SUBOOL     acquired;
@@ -57,6 +60,7 @@ SU_GETTER(suscan_sample_buffer, SUSCOUNT, size)
 }
 
 SU_INSTANCER(suscan_sample_buffer, struct suscan_sample_buffer_pool *);
+SU_METHOD(suscan_sample_buffer, void, inc_ref);
 SU_COLLECTOR(suscan_sample_buffer);
 
 struct suscan_sample_buffer_pool_params {
@@ -84,6 +88,7 @@ struct suscan_sample_buffer_pool {
   struct suscan_sample_buffer_pool_params params;
 
   PTR_LIST(suscan_sample_buffer_t, buffer);
+  unsigned         free_num;
   struct suscan_mq free_mq;
   pthread_mutex_t  mutex;
   SUBOOL           mutex_init;
@@ -105,5 +110,13 @@ SU_COLLECTOR(suscan_sample_buffer_pool);
 SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, acquire);
 SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, try_acquire);
 SU_METHOD(suscan_sample_buffer_pool, SUBOOL, give, suscan_sample_buffer_t *);
+
+SUINLINE SU_GETTER(
+  suscan_sample_buffer_pool,
+  SUBOOL,
+  released)
+{
+  return self->free_num == self->buffer_count;
+}
 
 #endif /* _SUSCAN_POOL */

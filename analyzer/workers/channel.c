@@ -557,6 +557,8 @@ suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self)
 {
   struct sigutils_smoothpsd_params sp_params =
       sigutils_smoothpsd_params_INITIALIZER;
+  SUBOOL ok = SU_FALSE;
+
   /* Create smooth PSD */
   sp_params.fft_size     = self->parent->params.detector_params.window_size;
   sp_params.samp_rate    = self->effective_samp_rate;
@@ -564,14 +566,23 @@ suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self)
 
   self->sp_params = sp_params;
 
-  SU_TRYCATCH(
-      self->smooth_psd = su_smoothpsd_new(
-          &sp_params,
-          suscan_local_analyzer_on_psd,
-          self),
-      return SU_FALSE);
+  SU_MAKE(
+    self->smooth_psd,
+    su_smoothpsd,
+    &sp_params,
+    suscan_local_analyzer_on_psd,
+    self);
+    
+  SU_TRY(
+    self->psd_worker = suscan_worker_new_ex(
+      "psd-worker",
+      &self->mq_in,
+      self));
 
-  return SU_TRUE;
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
 
 SUBOOL
@@ -581,6 +592,8 @@ suscan_source_channel_wk_cb(
     void *cb_private)
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
+  suscan_sample_buffer_t *buffer = NULL;
+
   SUSDIFF got;
   SUSCOUNT read_size;
   SUBOOL mutex_acquired = SU_FALSE;
@@ -603,17 +616,25 @@ suscan_source_channel_wk_cb(
     SU_TRYCATCH(
         pthread_mutex_unlock(&self->throttle_mutex) != -1,
         goto done);
+
+    if (read_size < self->bufpool->params.alloc_size)
+      goto done;
   }
 
   SU_TRYCATCH(suscan_local_analyzer_parse_overridable(self), goto done);
 
+  buffer = suscan_sample_buffer_pool_acquire(self->bufpool);
+  if (buffer == NULL) {
+    SU_ERROR("Failed to acquire read buffer\n");
+    goto done;
+  }
+
   /* Ready to read */
   suscan_local_analyzer_read_start(self);
 
-  if ((got = suscan_source_read(
-      self->source,
-      self->read_buf,
-      read_size)) > 0) {
+  buffer = suscan_source_read_buffer(self->source, self->bufpool, &got);
+
+  if (buffer != NULL) {
     suscan_local_analyzer_process_start(self);
 
     if (self->iq_rev)
@@ -718,6 +739,9 @@ done:
   if (mutex_acquired)
     (void) suscan_local_analyzer_unlock_loop(self);
 
+  if (buffer != NULL)
+    suscan_sample_buffer_pool_give(self->bufpool, buffer);
+  
   return restart;
 }
 
