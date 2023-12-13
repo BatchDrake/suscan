@@ -76,8 +76,21 @@ SU_CONSTRUCTOR(suscan_sample_buffer_pool,
 {
   SUBOOL ok = SU_FALSE;
 
+  if (params->alloc_size == 0) {
+    SU_ERROR("Buffer allocation size cannot be zero!\n");
+    goto done;
+  }
+
+  if (params->max_buffers == 0) {
+    SU_ERROR("At least one buffer is mandatory\n");
+    goto done;
+  }
+
   memset(self, 0, sizeof (suscan_sample_buffer_pool_t));
 
+  self->params   = *params;
+  self->free_num = params->max_buffers;
+  
   SU_CONSTRUCT(suscan_mq, &self->free_mq);
   self->free_mq_init = SU_TRUE;
 
@@ -119,7 +132,7 @@ SU_INSTANCER(
 {
   suscan_sample_buffer_pool_t *new = NULL;
 
-  SU_ALLOCATE_FAIL(new, suscan_sample_buffer_t);
+  SU_ALLOCATE_FAIL(new, suscan_sample_buffer_pool_t);
 
   SU_CONSTRUCT_FAIL(suscan_sample_buffer_pool, new, params);
 
@@ -156,9 +169,9 @@ SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, acquire)
     ++ret->refcnt;
     ret->acquired = SU_TRUE;
     
-    pthread_mutex_lock(&self->mutex);
+    SU_TRYCATCH(pthread_mutex_lock(&self->mutex) == 0, return NULL);
     --self->free_num;
-    pthread_mutex_unlock(&self->mutex);
+    SU_TRYCATCH(pthread_mutex_unlock(&self->mutex) == 0, return NULL);
 
   } else {
     /* Room for new buffers. Perform a try_acquire. */
@@ -182,10 +195,6 @@ SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, try_acquire)
       SU_WARNING("acquire() aborted due to non-buffer entry\n");
       goto fail;
     }
-
-    pthread_mutex_lock(&self->mutex);
-    --self->free_num;
-    pthread_mutex_unlock(&self->mutex);
   } else {
     /* No free elements, allocate and return */
     SU_MAKE_FAIL(tmp, suscan_sample_buffer, self);
@@ -193,6 +202,10 @@ SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, try_acquire)
     tmp->rindex = rindex;
     ret = tmp;
   }
+
+  SU_TRYZ_FAIL(pthread_mutex_lock(&self->mutex));
+  --self->free_num;
+  SU_TRYZ_FAIL(pthread_mutex_unlock(&self->mutex));
 
   ret->acquired = SU_TRUE;
   ++ret->refcnt;
@@ -230,15 +243,15 @@ SU_METHOD(suscan_sample_buffer_pool, SUBOOL, give, suscan_sample_buffer_t *buf)
     goto done;
   }
 
-  SU_TRY(pthread_mutex_lock(&buf->mutex));
+  SU_TRYZ(pthread_mutex_lock(&buf->mutex));
   delete = --buf->refcnt == 0;
-  pthread_mutex_unlock(&buf->mutex);
+  SU_TRYZ(pthread_mutex_unlock(&buf->mutex));
 
   if (delete) {
     buf->acquired = SU_FALSE;
-    pthread_mutex_lock(&self->mutex);
+    SU_TRYZ(pthread_mutex_lock(&self->mutex));
     ++self->free_num;
-    pthread_mutex_unlock(&self->mutex);
+    SU_TRYZ(pthread_mutex_unlock(&self->mutex));
     
     SU_TRY(suscan_mq_write(&self->free_mq, SUSCAN_POOL_MQ_TYPE_BUFFER, buf));
   }

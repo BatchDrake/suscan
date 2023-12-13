@@ -586,6 +586,25 @@ done:
 }
 
 SUBOOL
+suscan_psd_worker_cb(
+  struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_local_analyzer_t *self  = (suscan_local_analyzer_t *) wk_private;
+  suscan_sample_buffer_t *buffer = (suscan_sample_buffer_t *)  cb_private;
+  SUCOMPLEX *samples = suscan_sample_buffer_data(buffer);
+  SUSCOUNT size = suscan_sample_buffer_size(buffer);
+
+  SU_TRY(su_smoothpsd_feed(self->smooth_psd, samples, size));
+
+done:
+  suscan_sample_buffer_pool_give(self->bufpool, buffer);
+
+  return SU_FALSE;
+}
+
+SUBOOL
 suscan_source_channel_wk_cb(
     struct suscan_mq *mq_out,
     void *wk_private,
@@ -593,41 +612,28 @@ suscan_source_channel_wk_cb(
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
   suscan_sample_buffer_t *buffer = NULL;
-
+  SUCOMPLEX *samples;
   SUSDIFF got;
   SUSCOUNT read_size;
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
   SUFLOAT seconds;
 
-  SU_TRYCATCH(suscan_local_analyzer_lock_loop(self), goto done);
+  SU_TRY(suscan_local_analyzer_lock_loop(self));
   mutex_acquired = SU_TRUE;
 
   /* With non-real time sources, use throttle to control CPU usage */
   if (suscan_local_analyzer_is_real_time_ex(self)) {
     read_size = self->read_size;
   } else {
-    SU_TRYCATCH(
-        pthread_mutex_lock(&self->throttle_mutex) != -1,
-        goto done);
+    SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
     read_size = suscan_throttle_get_portion(
         &self->throttle,
         self->read_size);
-    SU_TRYCATCH(
-        pthread_mutex_unlock(&self->throttle_mutex) != -1,
-        goto done);
-
-    if (read_size < self->bufpool->params.alloc_size)
-      goto done;
+    SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
   }
 
-  SU_TRYCATCH(suscan_local_analyzer_parse_overridable(self), goto done);
-
-  buffer = suscan_sample_buffer_pool_acquire(self->bufpool);
-  if (buffer == NULL) {
-    SU_ERROR("Failed to acquire read buffer\n");
-    goto done;
-  }
+  SU_TRY(suscan_local_analyzer_parse_overridable(self));
 
   /* Ready to read */
   suscan_local_analyzer_read_start(self);
@@ -637,29 +643,33 @@ suscan_source_channel_wk_cb(
   if (buffer != NULL) {
     suscan_local_analyzer_process_start(self);
 
+    samples = suscan_sample_buffer_data(buffer);
+
     if (self->iq_rev)
-      suscan_analyzer_do_iq_rev(self->read_buf, got);
+      suscan_analyzer_do_iq_rev(samples, got);
 
     if (!suscan_local_analyzer_is_real_time_ex(self)) {
-      SU_TRYCATCH(
-          pthread_mutex_lock(&self->throttle_mutex) != -1,
-          goto done);
+      SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
       suscan_throttle_advance(&self->throttle, got);
-      SU_TRYCATCH(
-          pthread_mutex_unlock(&self->throttle_mutex) != -1,
-          goto done);
+      SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
     }
 
-    SU_TRYCATCH(
+    SU_TRY(
         suscan_local_analyzer_feed_baseband_filters(
             self,
-            self->read_buf,
-            got),
-        goto done);
+            samples,
+            got));
 
-    SU_TRYCATCH(
-        su_smoothpsd_feed(self->smooth_psd, self->read_buf, got),
-        goto done);
+    /* 
+     * We deliver the calculation of the PSD FFT to a different worker.
+     * Additionally. We only feed the PSD worker if we are sure that the
+     * next allocation of a buffer is not going to sleep.
+     */
+
+    if (suscan_sample_buffer_pool_free_num(self->bufpool) > 0) {
+      suscan_sample_buffer_inc_ref(buffer);
+      SU_TRY(suscan_worker_push(self->psd_worker, suscan_psd_worker_cb, buffer));
+    }
 
     if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {
       seconds = (self->read_start - self->last_measure) * 1e-9;
@@ -678,9 +688,7 @@ suscan_source_channel_wk_cb(
     }
 
     /* Feed inspectors! */
-    SU_TRYCATCH(
-        suscan_local_analyzer_feed_inspectors(self, self->read_buf, got),
-        goto done);
+    SU_TRY(suscan_local_analyzer_feed_inspectors(self, samples, got));
 
   } else {
     self->parent->eos = SU_TRUE; /* TODO: Use force_eos? */
@@ -741,7 +749,7 @@ done:
 
   if (buffer != NULL)
     suscan_sample_buffer_pool_give(self->bufpool, buffer);
-  
+
   return restart;
 }
 

@@ -764,8 +764,8 @@ suscan_local_analyzer_dtor(void *ptr)
     su_channel_detector_destroy(self->detector);
 
   if (self->psd_worker != NULL) {
-    if (!suscan_worker_destroy(self->psd_worker)) {
-      SU_ERROR("Failed to destroy slow worker.\n");
+    if (!suscan_analyzer_halt_worker(self->psd_worker)) {
+      SU_ERROR("Failed to destroy PSD worker.\n");
 
       /* Mark smoothPSD object as released */
       self->smooth_psd = NULL;
@@ -824,13 +824,9 @@ suscan_local_analyzer_dtor(void *ptr)
   /* Consume any pending messages */
   suscan_analyzer_consume_mq(&self->mq_in);
 
-  /* Finalize buffers (if possible) */
-  if (self->bufpool != NULL) {
-    if (!suscan_sample_buffer_pool_released(self->bufpool))
-      SU_WARNING("Buffer pool has unreleased buffers. Memory leak ahead.\n");
-    else
-      suscan_sample_buffer_pool_destroy(self->bufpool);
-  }
+  /* Finalize buffers */
+  if (self->bufpool != NULL)
+    suscan_sample_buffer_pool_destroy(self->bufpool);
   
   /* Finalize queue */
   suscan_mq_finalize(&self->mq_in);
