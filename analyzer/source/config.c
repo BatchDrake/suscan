@@ -724,6 +724,9 @@ suscan_source_config_set_device(
 {
   unsigned int i;
 
+  if (config->device == dev && config->interface == dev->interface)
+    return SU_TRUE; /* nothing to do */
+
   /*
    * TODO: Once this API is fixed, allocate new soapy_args and replace
    * the old ones.

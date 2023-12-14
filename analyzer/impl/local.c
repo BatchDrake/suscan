@@ -575,8 +575,18 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   SU_TRYCATCH(pthread_mutex_init(&new->hotconf_mutex, NULL) == 0, goto fail);
   new->gain_req_mutex_init = SU_TRUE;
 
-  /* Create spectral tuner, with matching read size */
-  st_params.window_size = parent->params.detector_params.window_size;
+  /* Create spectral tuner, with suitable read size */
+  new->effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
+  if (new->effective_samp_rate >= 10000000)
+    st_params.window_size = 131072;
+  else if (new->effective_samp_rate >= 5000000)
+    st_params.window_size = 65536;
+  else if (new->effective_samp_rate >= 1600000)
+    st_params.window_size = 16384;
+  else if (new->effective_samp_rate >= 250000)
+    st_params.window_size = 4096;
+  else
+    st_params.window_size = 2048;
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
 
   /* Initialize baseband filters */
@@ -617,8 +627,6 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->insp_init = SU_TRUE;
   
   SU_TRYCATCH(suscan_source_start_capture(new->source), goto fail);
-
-  new->effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
 
   /* Allocate read buffer */
   new->read_size =

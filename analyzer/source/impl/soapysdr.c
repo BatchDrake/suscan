@@ -96,6 +96,15 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
     goto done;
   }
 
+  if (SoapySDRDevice_setSampleRate(
+      self->sdr,
+      SOAPY_SDR_RX,
+      config->channel,
+      config->samp_rate) != 0) {
+    SU_ERROR("Failed to set sample rate: %s\n", SoapySDRDevice_lastError());
+    goto done;
+  }
+
   if (SoapySDRDevice_setBandwidth(
       self->sdr,
       SOAPY_SDR_RX,
@@ -122,15 +131,6 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
       SOAPY_SDR_ABI_VERSION
       " does not support frequency correction\n");
 #endif /* SOAPY_SDR_API_VERSION >= 0x00060000 */
-
-  if (SoapySDRDevice_setSampleRate(
-      self->sdr,
-      SOAPY_SDR_RX,
-      config->channel,
-      config->samp_rate) != 0) {
-    SU_ERROR("Failed to set sample rate: %s\n", SoapySDRDevice_lastError());
-    goto done;
-  }
 
   /* TODO: Implement IQ balance*/
   self->have_dc = SoapySDRDevice_hasDCOffsetMode(
