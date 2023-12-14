@@ -272,7 +272,8 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
           SUSCAN_SOURCE_DEFAULT_BUFSIZ)) < 1)
           return got;
 
-        su_dc_corrector_correct(&self->dc_corrector, self->read_buf, got);
+        if (self->dc_correction_enabled)
+          su_dc_corrector_correct(&self->dc_corrector, self->read_buf, got);
         suscan_source_feed_decimator(self, self->read_buf, got);
       } while(self->curr_ptr == 0);
       result += self->curr_ptr;
