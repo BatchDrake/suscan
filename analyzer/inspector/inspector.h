@@ -63,7 +63,7 @@ struct suscan_inspector {
   struct suscan_mq *mq_ctl;     /* Non-owner */
   enum suscan_aync_state state; /* Used to remove analyzer from queue */
   SUBOOL frequency_domain;      /* Used to tell if the inspector is in the frequency domain */
-
+  
   /* Specific inspector interface being used */
   const struct suscan_inspector_interface *iface;
   void *privdata;

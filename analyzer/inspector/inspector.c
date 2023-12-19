@@ -458,6 +458,57 @@ fail:
   return SU_FALSE;
 }
 
+SUPRIVATE SUBOOL
+suscan_inspector_send_freq_domain_psd(
+    void *userdata,
+    const SUCOMPLEX *x,
+    SUSCOUNT size)
+{
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  suscan_inspector_t *insp = (suscan_inspector_t *) userdata;
+  SUSCOUNT i;
+  SUBOOL ok = SU_FALSE;
+  SUFLOAT K;
+
+  SU_TRYCATCH(
+      msg = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM,
+          rand()),
+      goto done);
+
+  K = (8. / 3.) / insp->samp_info.fft_size;
+
+  msg->inspector_id  = insp->inspector_id;
+  msg->spectsrc_id   = insp->spectsrc_index;
+  msg->samp_rate     = insp->samp_info.equiv_fs;
+  msg->spectrum_size = size;
+
+  SU_TRYCATCH(
+      msg->spectrum_data = malloc(size * sizeof(SUFLOAT)),
+      goto done);
+
+  for (i = 0; i < size; ++i)
+    msg->spectrum_data[i] = K * SU_C_REAL(x[i] * SU_C_CONJ(x[i]));
+
+  /* Provide a more accurate real timestamp */
+  gettimeofday(&msg->rt_time, NULL);
+  SU_TRYCATCH(
+      suscan_mq_write(
+          insp->mq_out,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+          msg),
+      goto done);
+
+  msg = NULL; /* We don't own this anymore */
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+
+  return ok;
+}
 
 SUBOOL
 suscan_inspector_spectrum_loop(
@@ -471,13 +522,27 @@ suscan_inspector_spectrum_loop(
   if (insp->spectsrc_index > 0) {
     src = insp->spectsrc_list[insp->spectsrc_index - 1];
 
-    while (samp_count > 0) {
-      fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
+    if (suscan_inspector_is_freq_domain(insp)) {
+      uint64_t interval = insp->interval_spectrum * 1e9;
+      uint64_t now = suscan_gettime();
+      if (now - insp->last_spectrum > interval) {
+        insp->last_spectrum = now;
 
-      SU_TRYCATCH(fed >= 0, goto fail);
+        SU_TRY_FAIL(
+          suscan_inspector_send_freq_domain_psd(
+            insp,
+            samp_buf,
+            samp_count));
+      }
+    } else {
+      while (samp_count > 0) {
+        fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
 
-      samp_buf   += fed;
-      samp_count -= fed;
+        SU_TRY_FAIL(fed >= 0);
+
+        samp_buf   += fed;
+        samp_count -= fed;
+      }
     }
   }
 
