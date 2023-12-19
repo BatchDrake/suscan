@@ -614,7 +614,6 @@ suscan_source_channel_wk_cb(
   suscan_sample_buffer_t *buffer = NULL;
   SUCOMPLEX *samples;
   SUSDIFF got;
-  SUSCOUNT read_size;
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL restart = SU_FALSE;
   SUFLOAT seconds;
@@ -623,13 +622,9 @@ suscan_source_channel_wk_cb(
   mutex_acquired = SU_TRUE;
 
   /* With non-real time sources, use throttle to control CPU usage */
-  if (suscan_local_analyzer_is_real_time_ex(self)) {
-    read_size = self->read_size;
-  } else {
+  if (!suscan_local_analyzer_is_real_time_ex(self)) {
     SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
-    read_size = suscan_throttle_get_portion(
-        &self->throttle,
-        self->read_size);
+    suscan_throttle_get_portion(&self->throttle, self->read_size);
     SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
   }
 
