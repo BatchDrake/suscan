@@ -19,6 +19,10 @@
 
 #define _COMPAT_BARRIERS
 
+#if defined(__linux__)
+#  define _GNU_SOURCE 
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 #include <sigutils/log.h>
@@ -126,3 +130,26 @@ suscan_ifdesc_to_addr(const char *ifdesc)
 
   return htonl(0xffffffff);
 }
+
+/******************** VM circularity implementation ***************************/
+#if defined(__linux__)
+#  include "linux-vm-circbuf.imp.h"
+#else
+SUBOOL
+suscan_vm_circbuf_allowed(SUSCOUNT size)
+{
+  return SU_FALSE;
+}
+
+SUCOMPLEX *
+suscan_vm_circbuf_new(void **state, SUSCOUNT size)
+{
+  return NULL;
+}
+
+void
+suscan_vm_circbuf_destroy(void *state)
+{
+  /* Do nothing */
+}
+#endif

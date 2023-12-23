@@ -109,10 +109,11 @@ suscan_local_analyzer_feed_baseband_filters(
 SUPRIVATE SUBOOL
 suscan_local_analyzer_feed_inspectors(
     suscan_local_analyzer_t *self,
-    const SUCOMPLEX *data,
-    SUSCOUNT size)
+    suscan_sample_buffer_t *buffer)
 {
   SUSDIFF got;
+  SUCOMPLEX *data = suscan_sample_buffer_data(buffer);
+  SUSCOUNT size = suscan_sample_buffer_size(buffer);
   SUBOOL ok = SU_TRUE;
 
   /*
@@ -123,37 +124,57 @@ suscan_local_analyzer_feed_inspectors(
   if (su_specttuner_get_channel_count(self->stuner) == 0)
     return SU_TRUE;
 
-  /* This must be performed in a serialized way */
-  while (size > 0) {
-
-    /*
-     * Must be protected from access by the analyzer thread: right now,
-     * only the source worker can access the tuner.
-     */
+  if (self->circularity) {
     if (pthread_mutex_lock(&self->stuner_mutex) != 0)
       return SU_FALSE;
 
-    got = su_specttuner_feed_bulk_single(self->stuner, data, size);
-
+    ok = su_specttuner_trigger(
+      self->stuner,
+      suscan_sample_buffer_userdata(buffer));
+    
     if (su_specttuner_new_data(self->stuner)) {
-      /*
-       * New data has been queued to the existing inspectors. We must
-       * ensure that all of them are done by issuing a barrier at the end
-       * of the worker queue.
-       */
-
-      suscan_inspector_factory_force_sync(self->insp_factory);
-
-      su_specttuner_ack_data(self->stuner);
-    }
+        /*
+        * New data has been queued to the existing inspectors. We must
+        * ensure that all of them are done by issuing a barrier at the end
+        * of the worker queue.
+        */
+        suscan_inspector_factory_force_sync(self->insp_factory);
+        su_specttuner_ack_data(self->stuner);
+      }
 
     (void) pthread_mutex_unlock(&self->stuner_mutex);
+  } else {
+      /* This must be performed in a serialized way */
+    while (size > 0) {
+      /*
+      * Must be protected from access by the analyzer thread: right now,
+      * only the source worker can access the tuner.
+      */
+      if (pthread_mutex_lock(&self->stuner_mutex) != 0)
+        return SU_FALSE;
 
-    if (got == -1)
-      ok = SU_FALSE;
+      got = su_specttuner_feed_bulk_single(self->stuner, data, size);
 
-    data += got;
-    size -= got;
+      if (su_specttuner_new_data(self->stuner)) {
+        /*
+        * New data has been queued to the existing inspectors. We must
+        * ensure that all of them are done by issuing a barrier at the end
+        * of the worker queue.
+        */
+
+        suscan_inspector_factory_force_sync(self->insp_factory);
+
+        su_specttuner_ack_data(self->stuner);
+      }
+
+      (void) pthread_mutex_unlock(&self->stuner_mutex);
+
+      if (got == -1)
+        ok = SU_FALSE;
+
+      data += got;
+      size -= got;
+    }
   }
 
   return ok;
@@ -561,7 +582,7 @@ suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self)
 
   /* Create smooth PSD */
   sp_params.fft_size     = self->parent->params.detector_params.window_size;
-  sp_params.samp_rate    = self->effective_samp_rate;
+  sp_params.samp_rate    = self->source_info.effective_samp_rate;
   sp_params.refresh_rate = 1. / self->interval_psd;
 
   self->sp_params = sp_params;
@@ -596,12 +617,78 @@ suscan_psd_worker_cb(
   SUCOMPLEX *samples = suscan_sample_buffer_data(buffer);
   SUSCOUNT size = suscan_sample_buffer_size(buffer);
 
+  if (self->circularity)
+    size >>= 1;
+  
   SU_TRY(su_smoothpsd_feed(self->smooth_psd, samples, size));
 
 done:
-  suscan_sample_buffer_pool_give(self->bufpool, buffer);
+  if (!suscan_sample_buffer_pool_give(self->bufpool, buffer))
+    SU_ERROR("Failed to give buffer!\n");
 
   return SU_FALSE;
+}
+
+
+/* 
+ * If we rely on circularity, we alternate between the EVEN and ODD states:
+ *
+ * 1111111122222222|1111111122222222 FFT [EVEN] <-- Write to 1/2, buf in 0
+ * 3333333322222222|3333333322222222 FFT [ODD]  <-- Write to 0,   buf in 1/2
+ * 3333333344444444|3333333344444444 FFT [EVEN] <-- Write to 1/2  buf in 0
+ * 5555555544444444|5555555544444444 FFT [ODD]  <-- Write to 0    buf in 1/2
+ * 5555555566666666|5555555566666666 FFT [EVEN] <-- Write to 1/2  buf in 0 
+ * 
+ * The EVEN state is characterized by the lack of a previous buffer.
+ */
+
+SUPRIVATE suscan_sample_buffer_t *
+suscan_local_analyzer_read_circ(suscan_local_analyzer_t *self, SUSDIFF *got)
+{
+  suscan_sample_buffer_t *buffer = NULL;
+  su_specttuner_plan_t *plan = NULL;
+  SUSCOUNT offset = 0, read_size;
+  SUBOOL ok = SU_FALSE;
+
+  buffer = self->circbuf;
+
+  if (buffer == NULL) {
+    SU_TRY(buffer = suscan_sample_buffer_pool_acquire(self->bufpool));
+  
+    /* Make sure this buffer has a plan */
+    plan = suscan_sample_buffer_userdata(buffer);
+    if (plan == NULL) {
+      SU_TRY(
+        plan = su_specttuner_make_plan(
+          self->stuner,
+          suscan_sample_buffer_data(buffer)));
+      suscan_sample_buffer_set_userdata(buffer, plan);
+    }
+
+    self->circbuf = buffer;
+  }
+
+  read_size = suscan_sample_buffer_size(buffer) >> 1;
+
+  offset = self->circ_state ? read_size : 0;
+  self->circ_state = !self->circ_state;
+
+  suscan_sample_buffer_set_offset(buffer, offset);
+
+  SU_TRY(suscan_source_fill_buffer(self->source, buffer, read_size, got));
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok) {
+    if (buffer != NULL) {
+      if (!suscan_sample_buffer_pool_give(self->bufpool, buffer))
+        SU_ERROR("Failed to give buffer!\n");
+      buffer = NULL;
+    }
+  }
+
+  return buffer;
 }
 
 SUBOOL
@@ -611,7 +698,7 @@ suscan_source_channel_wk_cb(
     void *cb_private)
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
-  suscan_sample_buffer_t *buffer = NULL;
+  suscan_sample_buffer_t *buffer = NULL, *dup;
   SUCOMPLEX *samples;
   SUSDIFF got;
   SUBOOL mutex_acquired = SU_FALSE;
@@ -621,20 +708,16 @@ suscan_source_channel_wk_cb(
   SU_TRY(suscan_local_analyzer_lock_loop(self));
   mutex_acquired = SU_TRUE;
 
-  /* With non-real time sources, use throttle to control CPU usage */
-  if (!suscan_local_analyzer_is_real_time_ex(self)) {
-    SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
-    suscan_throttle_get_portion(&self->throttle, self->read_size);
-    SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
-  }
-
   SU_TRY(suscan_local_analyzer_parse_overridable(self));
 
   /* Ready to read */
   suscan_local_analyzer_read_start(self);
 
-  buffer = suscan_source_read_buffer(self->source, self->bufpool, &got);
-
+  if (self->circularity)
+    buffer = suscan_local_analyzer_read_circ(self, &got);
+  else
+    buffer = suscan_source_read_buffer(self->source, self->bufpool, &got);
+  
   if (buffer != NULL) {
     suscan_local_analyzer_process_start(self);
 
@@ -643,27 +726,34 @@ suscan_source_channel_wk_cb(
     if (self->iq_rev)
       suscan_analyzer_do_iq_rev(samples, got);
 
-    if (!suscan_local_analyzer_is_real_time_ex(self)) {
-      SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
-      suscan_throttle_advance(&self->throttle, got);
-      SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
-    }
-
     SU_TRY(
         suscan_local_analyzer_feed_baseband_filters(
             self,
             samples,
             got));
 
-    /* 
-     * We deliver the calculation of the PSD FFT to a different worker.
-     * Additionally. We only feed the PSD worker if we are sure that the
-     * next allocation of a buffer is not going to sleep.
-     */
-
-    if (suscan_sample_buffer_pool_free_num(self->bufpool) > 0) {
-      suscan_sample_buffer_inc_ref(buffer);
-      SU_TRY(suscan_worker_push(self->psd_worker, suscan_psd_worker_cb, buffer));
+    if (self->circularity) {
+      /*
+       * CIRCULARITY: Buffer is being reused and must be duplicated
+       *
+       * This duplicate is contingent and we don't want it to block.
+       */
+      
+      dup = suscan_sample_buffer_pool_try_dup(self->bufpool, buffer);
+      if (dup != NULL)
+        SU_TRY(suscan_worker_push(self->psd_worker, suscan_psd_worker_cb, dup));
+    } else { 
+      /*
+       * NO CIRCULARITY: Increment reference and deliver to worker.
+       * 
+       * We deliver the calculation of the PSD FFT to a different worker.
+       * Additionally. We only feed the PSD worker if we are sure that the
+       * next allocation of a buffer is not going to sleep.
+       */
+      if (suscan_sample_buffer_pool_free_num(self->bufpool) > 0) {
+        suscan_sample_buffer_inc_ref(buffer);
+        SU_TRY(suscan_worker_push(self->psd_worker, suscan_psd_worker_cb, buffer));
+      }
     }
 
     if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {
@@ -683,7 +773,7 @@ suscan_source_channel_wk_cb(
     }
 
     /* Feed inspectors! */
-    SU_TRY(suscan_local_analyzer_feed_inspectors(self, samples, got));
+    SU_TRY(suscan_local_analyzer_feed_inspectors(self, buffer));
 
   } else {
     self->parent->eos = SU_TRUE; /* TODO: Use force_eos? */
@@ -742,8 +832,9 @@ done:
   if (mutex_acquired)
     (void) suscan_local_analyzer_unlock_loop(self);
 
-  if (buffer != NULL)
-    suscan_sample_buffer_pool_give(self->bufpool, buffer);
+  if (!self->circularity && buffer != NULL)
+    if (!suscan_sample_buffer_pool_give(self->bufpool, buffer))
+      SU_ERROR("Failed to give buffer!\n");
 
   return restart;
 }

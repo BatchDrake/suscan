@@ -111,35 +111,21 @@ suscan_local_analyzer_override_throttle(
     suscan_local_analyzer_t *self,
     SUSCOUNT val)
 {
-  SUBOOL mutex_acquired = SU_FALSE;
-  SUBOOL ok = SU_FALSE;
+  if (!suscan_source_override_throttle(self->source, val)) {
+    SU_ERROR("Failed to adjust source's effective rate\n");
+    return SU_FALSE;
+  }
 
-  SU_TRYCATCH(
-      pthread_mutex_lock(&self->throttle_mutex) != -1,
-      goto done);
-  mutex_acquired = SU_TRUE;
+  self->source_info.effective_samp_rate = val;
 
-  suscan_throttle_init(&self->throttle, val);
-
-  self->effective_samp_rate = val;
-
-  /* XXX: Maybe protect this setting */
-  self->source_info.effective_samp_rate = self->effective_samp_rate;
-
+  /* Propagate throttling to inspectors */
   SU_TRYCATCH(
     suscan_local_analyzer_set_inspector_throttle_overridable(
       self,
       val / suscan_local_analyzer_get_samp_rate(self)),
-    goto done);
-    
-  ok = SU_TRUE;
-
-done:
-
-  if (mutex_acquired)
-    pthread_mutex_unlock(&self->throttle_mutex);
-
-  return ok;
+    return SU_FALSE);
+  
+  return SU_TRUE;
 }
 
 SUPRIVATE SUBOOL
@@ -332,7 +318,7 @@ suscan_analyzer_thread(void *data)
             SU_TRYCATCH(
                 suscan_local_analyzer_set_psd_samp_rate_overridable(
                     self,
-                    self->effective_samp_rate),
+                    self->source_info.effective_samp_rate),
                 goto done);
           } else {
             SU_TRYCATCH(
@@ -473,17 +459,6 @@ suscan_local_analyzer_source_init(
 {
   SU_TRYCATCH(self->source = suscan_source_new(config), goto fail);
 
-  /* For non-realtime sources (i.e. file sources), enable throttling */
-  if (!suscan_local_analyzer_is_real_time(self)) {
-    /* Create throttle mutex */
-      (void) pthread_mutex_init(&self->throttle_mutex, NULL); /* Always succeeds */
-      self->throttle_mutex_init = SU_TRUE;
-
-    suscan_throttle_init(
-        &self->throttle,
-        suscan_local_analyzer_get_samp_rate(self));
-  }
-
   return SU_TRUE;
 
 fail:
@@ -538,17 +513,14 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
     goto fail;
   }
 
-  /* Initialize buffer pools */
-  if ((new->bufpool = suscan_sample_buffer_pool_new(&bp_params)) == NULL) {
-    SU_ERROR("Cannot create sample buffer pool\n");
-    goto fail;
-  }
-
   /* Initialize source */
   if (!suscan_local_analyzer_source_init(new, config)) {
     SU_ERROR("Failed to initialize source\n");
     goto fail;
   }
+
+  source_info = suscan_source_get_info(new->source);
+  new->source_info = *source_info;
 
   /* Periodic updates */
   new->interval_channels = parent->params.channel_update_int;
@@ -585,17 +557,41 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->gain_req_mutex_init = SU_TRUE;
 
   /* Create spectral tuner, with suitable read size */
-  new->effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
-  if (new->effective_samp_rate >= 10000000)
+  
+  new->source_info.effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
+  if (new->source_info.effective_samp_rate >= 10000000)
     st_params.window_size = 131072;
-  else if (new->effective_samp_rate >= 5000000)
+  else if (new->source_info.effective_samp_rate >= 5000000)
     st_params.window_size = 65536;
-  else if (new->effective_samp_rate >= 1600000)
+  else if (new->source_info.effective_samp_rate >= 1600000)
     st_params.window_size = 16384;
-  else if (new->effective_samp_rate >= 250000)
+  else if (new->source_info.effective_samp_rate >= 250000)
     st_params.window_size = 4096;
   else
     st_params.window_size = 2048;
+
+  /* Initialize buffer pools */
+  bp_params.alloc_size     = st_params.window_size;
+
+  /*
+   * If we support VM circularity, we cannot have early windowing. On the
+   * other hand, reads are going to alternate between EVEN and ODD states:
+   * 
+   * In the EVEN state, we read window_size/2 samples with offset window_size/2
+   * In the ODD state, we read window_size/2 samples with offset 0
+   */
+
+  if (suscan_vm_circbuf_allowed(st_params.window_size)) {
+    bp_params.vm_circularity  = SU_TRUE;
+    st_params.early_windowing = SU_FALSE;
+    new->circularity          = SU_TRUE;
+  }
+  
+  if ((new->bufpool = suscan_sample_buffer_pool_new(&bp_params)) == NULL) {
+    SU_ERROR("Cannot create sample buffer pool\n");
+    goto fail;
+  }
+
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
 
   /* Initialize baseband filters */
@@ -639,11 +635,10 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 
   /* Allocate read buffer */
   new->read_size =
-      new->effective_samp_rate <= SUSCAN_ANALYZER_SLOW_RATE
+      new->source_info.effective_samp_rate <= SUSCAN_ANALYZER_SLOW_RATE
       ? SUSCAN_ANALYZER_SLOW_READ_SIZE
       : SUSCAN_ANALYZER_FAST_READ_SIZE;
 
-  source_info = suscan_source_get_info(new->source);
   if (new->read_size < source_info->mtu)
     new->read_size = source_info->mtu;
 
@@ -669,9 +664,9 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
      * can be slower, we ensure this way we can provide an accurate value of the
      * sample rate right after the analyzer object is created.
      */
-    if (new->effective_samp_rate != new->detector->params.samp_rate) {
+    if (new->source_info.effective_samp_rate != new->detector->params.samp_rate) {
       det_params = new->detector->params;
-      det_params.samp_rate = new->effective_samp_rate;
+      det_params.samp_rate = new->source_info.effective_samp_rate;
       SU_TRYCATCH(
           suscan_local_analyzer_readjust_detector(new, &det_params),
           goto fail);
@@ -810,9 +805,6 @@ suscan_local_analyzer_dtor(void *ptr)
 
   /* Release slow worker data */
   suscan_local_analyzer_destroy_slow_worker_data(self);
-
-  if (self->throttle_mutex_init)
-    pthread_mutex_destroy(&self->throttle_mutex);
 
   /* Delete all baseband filters (triggered by the dtor) */
   if (self->bbfilt_tree != NULL)

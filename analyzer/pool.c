@@ -20,6 +20,7 @@
 
 #include <sigutils/log.h>
 #include <string.h>
+#include <util/compat.h>
 
 #include "pool.h"
 
@@ -40,7 +41,13 @@ SU_INSTANCER(suscan_sample_buffer, suscan_sample_buffer_pool_t *parent)
   SU_TRYZ_FAIL(pthread_mutex_init(&self->mutex, NULL));
   self->mutex_init = SU_TRUE;
 
-  SU_ALLOCATE_MANY_FAIL(self->data, self->size, SUCOMPLEX);
+  if (self->circular) {
+    self->data = suscan_vm_circbuf_new(&self->circ_priv, self->size);
+    if (self->data == NULL)
+      goto fail;
+  } else {
+    SU_ALLOCATE_MANY_FAIL(self->data, self->size, SUCOMPLEX);
+  }
 
   return self;
 
@@ -54,8 +61,12 @@ fail:
 SU_COLLECTOR(suscan_sample_buffer)
 {
   /* TODO: If this is mmaped, free using munmap */
-  if (self->data != NULL)
-    free(self->data);
+  if (self->data != NULL) {
+    if (self->circular)
+      suscan_vm_circbuf_destroy(self->circ_priv);
+    else
+      free(self->data);
+  }
 
   if (self->mutex_init)
     pthread_mutex_destroy(&self->mutex);
@@ -178,6 +189,9 @@ SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, acquire)
     ret = suscan_sample_buffer_pool_try_acquire(self);
   }
 
+  if (ret != NULL)
+    suscan_sample_buffer_set_offset(ret, 0);
+  
   return ret;
 }
 
@@ -262,3 +276,25 @@ done:
   return ok;
 }
 
+SU_METHOD(
+  suscan_sample_buffer_pool,
+  suscan_sample_buffer_t *,
+  try_dup,
+  const suscan_sample_buffer_t *buffer)
+{
+  suscan_sample_buffer_t *dup = NULL;
+
+  if (buffer->parent != self) {
+    SU_ERROR("Cannot duplicate buffers from different parents\n");
+    return SU_FALSE;
+  }
+
+  if ((dup = suscan_sample_buffer_pool_try_acquire(self)) != NULL) {
+    SUCOMPLEX *dest = suscan_sample_buffer_data(dup);
+    const SUCOMPLEX *orig = suscan_sample_buffer_data(buffer);
+    
+    memcpy(dest, orig, self->params.alloc_size * sizeof(SUCOMPLEX));
+  }
+
+  return dup;
+}
