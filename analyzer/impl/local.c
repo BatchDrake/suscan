@@ -136,7 +136,7 @@ suscan_local_analyzer_reset_throttle(suscan_local_analyzer_t *self)
       suscan_local_analyzer_get_samp_rate(self));
 }
 
-SUPRIVATE SUBOOL
+SUBOOL
 suscan_local_analyzer_readjust_detector(
     suscan_local_analyzer_t *self,
     struct sigutils_channel_detector_params *params)
@@ -164,12 +164,8 @@ SUBOOL suscan_source_wide_wk_cb(
     void *wk_private,
     void *cb_private);
 
-SUBOOL suscan_source_channel_wk_cb(
-    struct suscan_mq *mq_out,
-    void *wk_private,
-    void *cb_private);
-
-SUBOOL suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self);
+SUBOOL suscan_local_analyzer_start_channel_worker(suscan_local_analyzer_t *self);
+SUBOOL suscan_local_analyzer_start_wide_worker(suscan_local_analyzer_t *self);
 
 SUBOOL
 suscan_local_analyzer_notify_params(suscan_local_analyzer_t *self)
@@ -219,34 +215,13 @@ suscan_analyzer_thread(void *data)
 
   switch (self->parent->params.mode) {
     case SUSCAN_ANALYZER_MODE_CHANNEL:
-      if (!suscan_worker_push(
-          self->source_wk,
-            suscan_source_channel_wk_cb,
-            self->source)) {
-          suscan_analyzer_send_status(
-              self->parent,
-              SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
-              SUSCAN_ANALYZER_INIT_FAILURE,
-              "Failed to push source callback to worker (channel mode)");
-          goto done;
-        }
+      SU_TRY(suscan_local_analyzer_start_channel_worker(self));
       break;
 
     case SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM:
-      if (!suscan_worker_push(
-          self->source_wk,
-            suscan_source_wide_wk_cb,
-            self->source)) {
-          suscan_analyzer_send_status(
-              self->parent,
-              SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
-              SUSCAN_ANALYZER_INIT_FAILURE,
-              "Failed to push source callback to worker (wide spectrum mode)");
-          goto done;
-        }
+      SU_TRY(suscan_local_analyzer_start_wide_worker(self));
       break;
   }
-
 
   /* Signal initialization success */
   suscan_analyzer_send_status(
@@ -428,29 +403,6 @@ done:
   return NULL;
 }
 
-SUPRIVATE void
-suscan_local_analyzer_init_detector_params(
-    suscan_local_analyzer_t *self,
-    struct sigutils_channel_detector_params *params)
-{
-  /* Recover template */
-  *params = self->parent->params.detector_params;
-
-  /* Populate members with source information */
-  params->mode = SU_CHANNEL_DETECTOR_MODE_SPECTRUM;
-
-  params->samp_rate = suscan_local_analyzer_get_samp_rate(self);
-
-  /* Adjust parameters that depend on sample rate */
-  su_channel_params_adjust(params);
-
-#if 0
-  /* Make alpha a little bigger, to provide a more dynamic spectrum */
-  if (params->alpha <= .05)
-    params->alpha *= 20;
-#endif
-}
-
 /*************************** Analyzer interface *******************************/
 SUPRIVATE SUBOOL
 suscan_local_analyzer_source_init(
@@ -496,7 +448,6 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   struct suscan_sample_buffer_pool_params bp_params = 
     suscan_sample_buffer_pool_params_INITIALIZER;
   
-  struct sigutils_channel_detector_params det_params;
   suscan_source_config_t *config;
   pthread_mutexattr_t attr;
   static SUBOOL insp_server_init = SU_FALSE;
@@ -557,8 +508,6 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   new->gain_req_mutex_init = SU_TRUE;
 
   /* Create spectral tuner, with suitable read size */
-  
-  new->source_info.effective_samp_rate = suscan_local_analyzer_get_samp_rate(new);
   if (new->source_info.effective_samp_rate >= 10000000)
     st_params.window_size = 131072;
   else if (new->source_info.effective_samp_rate >= 5000000)
@@ -646,45 +595,6 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
       new->read_size * sizeof(SUCOMPLEX))) == NULL) {
     SU_ERROR("Failed to allocate read buffer\n");
     goto fail;
-  }
-
-  /* In wide spectrum mode, additional tests are required */
-  if (parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
-    det_params = parent->params.detector_params;
-    suscan_local_analyzer_init_detector_params(new, &det_params);
-    SU_TRYCATCH(
-        new->detector = su_channel_detector_new(&det_params),
-        goto fail);
-
-    /*
-     * In case the source rejected our initial sample rate configuration, we
-     * update the detector accordingly.
-     *
-     * We do this here and not in the header thread because, although this
-     * can be slower, we ensure this way we can provide an accurate value of the
-     * sample rate right after the analyzer object is created.
-     */
-    if (new->source_info.effective_samp_rate != new->detector->params.samp_rate) {
-      det_params = new->detector->params;
-      det_params.samp_rate = new->source_info.effective_samp_rate;
-      SU_TRYCATCH(
-          suscan_local_analyzer_readjust_detector(new, &det_params),
-          goto fail);
-    }
-
-    SU_TRYCATCH(
-        parent->params.max_freq - parent->params.min_freq >=
-        suscan_local_analyzer_get_samp_rate(new),
-        goto fail);
-    new->current_sweep_params.fft_min_samples =
-            SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
-    new->current_sweep_params.max_freq = parent->params.max_freq;
-    new->current_sweep_params.min_freq = parent->params.min_freq;
-    new->current_sweep_params.rel_bw = 0.5;
-  } else {
-    SU_TRYCATCH(
-        suscan_local_analyzer_init_channel_worker(new),
-        goto fail);
   }
 
   /* Populate source info. */
@@ -1040,6 +950,7 @@ suscan_local_analyzer_set_hop_range(void *ptr, SUFREQ min, SUFREQ max)
       self->sweep_params_requested
         ? self->pending_sweep_params
         : self->current_sweep_params;
+
   self->pending_sweep_params.min_freq = min;
   self->pending_sweep_params.max_freq = max;
   self->sweep_params_requested = SU_TRUE;

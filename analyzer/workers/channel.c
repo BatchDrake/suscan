@@ -125,6 +125,9 @@ suscan_local_analyzer_feed_inspectors(
     return SU_TRUE;
 
   if (self->circularity) {
+    /* 
+     * When circularity is enabled, buffers already have the plan initialized
+     */
     if (pthread_mutex_lock(&self->stuner_mutex) != 0)
       return SU_FALSE;
 
@@ -132,16 +135,10 @@ suscan_local_analyzer_feed_inspectors(
       self->stuner,
       suscan_sample_buffer_userdata(buffer));
     
-    if (su_specttuner_new_data(self->stuner)) {
-        /*
-        * New data has been queued to the existing inspectors. We must
-        * ensure that all of them are done by issuing a barrier at the end
-        * of the worker queue.
-        */
-        suscan_inspector_factory_force_sync(self->insp_factory);
-        su_specttuner_ack_data(self->stuner);
-      }
-
+    suscan_inspector_factory_force_sync(self->insp_factory);
+    
+    su_specttuner_ack_data(self->stuner);
+      
     (void) pthread_mutex_unlock(&self->stuner_mutex);
   } else {
       /* This must be performed in a serialized way */
@@ -574,39 +571,6 @@ suscan_local_analyzer_on_psd(
 }
 
 SUBOOL
-suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self)
-{
-  struct sigutils_smoothpsd_params sp_params =
-      sigutils_smoothpsd_params_INITIALIZER;
-  SUBOOL ok = SU_FALSE;
-
-  /* Create smooth PSD */
-  sp_params.fft_size     = self->parent->params.detector_params.window_size;
-  sp_params.samp_rate    = self->source_info.effective_samp_rate;
-  sp_params.refresh_rate = 1. / self->interval_psd;
-
-  self->sp_params = sp_params;
-
-  SU_MAKE(
-    self->smooth_psd,
-    su_smoothpsd,
-    &sp_params,
-    suscan_local_analyzer_on_psd,
-    self);
-    
-  SU_TRY(
-    self->psd_worker = suscan_worker_new_ex(
-      "psd-worker",
-      &self->mq_in,
-      self));
-
-  ok = SU_TRUE;
-
-done:
-  return ok;
-}
-
-SUBOOL
 suscan_psd_worker_cb(
   struct suscan_mq *mq_out,
     void *wk_private,
@@ -691,8 +655,149 @@ done:
   return buffer;
 }
 
+SUPRIVATE SUBOOL
+suscan_local_analyzer_send_eos(suscan_local_analyzer_t *self, SUSDIFF got)
+{
+  SUBOOL ok = SU_FALSE;
+
+  self->parent->eos = SU_TRUE; /* TODO: Use force_eos? */
+  self->cpu_usage = 0;
+
+  switch (got) {
+    case SU_BLOCK_PORT_READ_END_OF_STREAM:
+      SU_TRY(suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+          got,
+          "End of stream reached"));
+      break;
+
+    case SU_BLOCK_PORT_READ_ERROR_NOT_INITIALIZED:
+      SU_TRY(suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+          got,
+          "Port not initialized"));
+      break;
+
+    case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
+      SU_TRY(suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR,
+          got,
+          "Acquire failed (source I/O error)"));
+      break;
+
+    case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
+      SU_TRY(suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+          got,
+          "Port desync"));
+      break;
+
+    default:
+      SU_TRY(suscan_analyzer_send_status(
+          self->parent,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
+          got,
+          "Unexpected read result (%d)",
+          got));
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+/********************** Worker callback implementation ************************/
+SUPRIVATE SUBOOL
+suscan_local_analyzer_buffer_channelizer_wk_cb(
+  struct suscan_mq *mq_out,
+  void *wk_private,
+  void *cb_private)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
+  suscan_sample_buffer_t *buffer = NULL;
+  SUCOMPLEX *samples;
+  SUSDIFF got;
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL restart = SU_FALSE;
+  SUFLOAT seconds;
+
+  SU_TRY(suscan_local_analyzer_lock_loop(self));
+  mutex_acquired = SU_TRUE;
+
+  SU_TRY(suscan_local_analyzer_parse_overridable(self));
+
+  /* Ready to read */
+  suscan_local_analyzer_read_start(self);
+  buffer = suscan_source_read_buffer(self->source, self->bufpool, &got);
+  
+  if (buffer == NULL) {
+    suscan_local_analyzer_send_eos(self, got);
+    goto done;
+  }
+  
+  suscan_local_analyzer_process_start(self);
+  samples = suscan_sample_buffer_data(buffer);
+
+  if (self->iq_rev)
+    suscan_analyzer_do_iq_rev(samples, got);
+
+  SU_TRY(suscan_local_analyzer_feed_baseband_filters(self, samples, got));
+
+  /*
+    * NO CIRCULARITY: Increment reference and deliver to worker.
+    * 
+    * We deliver the calculation of the PSD FFT to a different worker.
+    * Additionally. We only feed the PSD worker if we are sure that the
+    * next allocation of a buffer is not going to sleep.
+    */
+  if (suscan_sample_buffer_pool_free_num(self->bufpool) > 0) {
+    suscan_sample_buffer_inc_ref(buffer);
+    SU_TRY(suscan_worker_push(self->psd_worker, suscan_psd_worker_cb, buffer));
+  }
+
+  if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {
+    seconds = (self->read_start - self->last_measure) * 1e-9;
+
+    if (seconds >= SUSCAN_ANALYZER_FS_MEASURE_INTERVAL) {
+      self->measured_samp_rate =
+          self->measured_samp_count / seconds;
+      self->measured_samp_count = 0;
+      self->last_measure = self->read_start;
+#ifdef SUSCAN_DEBUG_THROTTLE
+      printf("Read rate: %g\n", self->measured_samp_rate);
+#endif /* SUSCAN_DEBUG_THROTTLE */
+    }
+
+    self->measured_samp_count += got;
+  }
+
+  /* Feed inspectors! */
+  SU_TRY(suscan_local_analyzer_feed_inspectors(self, buffer));
+
+
+  /* Finish processing */
+  suscan_local_analyzer_process_end(self);
+
+  restart = !self->parent->halt_requested;
+
+done:
+  if (mutex_acquired)
+    (void) suscan_local_analyzer_unlock_loop(self);
+
+  if (buffer != NULL)
+    if (!suscan_sample_buffer_pool_give(self->bufpool, buffer))
+      SU_ERROR("Failed to give buffer!\n");
+
+  return restart;
+}
+
 SUBOOL
-suscan_source_channel_wk_cb(
+suscan_local_analyzer_circbuf_channelizer_wk_cb(
     struct suscan_mq *mq_out,
     void *wk_private,
     void *cb_private)
@@ -713,129 +818,112 @@ suscan_source_channel_wk_cb(
   /* Ready to read */
   suscan_local_analyzer_read_start(self);
 
-  if (self->circularity)
-    buffer = suscan_local_analyzer_read_circ(self, &got);
-  else
-    buffer = suscan_source_read_buffer(self->source, self->bufpool, &got);
-  
-  if (buffer != NULL) {
-    suscan_local_analyzer_process_start(self);
-
-    samples = suscan_sample_buffer_data(buffer);
-
-    if (self->iq_rev)
-      suscan_analyzer_do_iq_rev(samples, got);
-
-    SU_TRY(
-        suscan_local_analyzer_feed_baseband_filters(
-            self,
-            samples,
-            got));
-
-    if (self->circularity) {
-      /*
-       * CIRCULARITY: Buffer is being reused and must be duplicated
-       *
-       * This duplicate is contingent and we don't want it to block.
-       */
-      
-      dup = suscan_sample_buffer_pool_try_dup(self->bufpool, buffer);
-      if (dup != NULL)
-        SU_TRY(suscan_worker_push(self->psd_worker, suscan_psd_worker_cb, dup));
-    } else { 
-      /*
-       * NO CIRCULARITY: Increment reference and deliver to worker.
-       * 
-       * We deliver the calculation of the PSD FFT to a different worker.
-       * Additionally. We only feed the PSD worker if we are sure that the
-       * next allocation of a buffer is not going to sleep.
-       */
-      if (suscan_sample_buffer_pool_free_num(self->bufpool) > 0) {
-        suscan_sample_buffer_inc_ref(buffer);
-        SU_TRY(suscan_worker_push(self->psd_worker, suscan_psd_worker_cb, buffer));
-      }
-    }
-
-    if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {
-      seconds = (self->read_start - self->last_measure) * 1e-9;
-
-      if (seconds >= SUSCAN_ANALYZER_FS_MEASURE_INTERVAL) {
-        self->measured_samp_rate =
-            self->measured_samp_count / seconds;
-        self->measured_samp_count = 0;
-        self->last_measure = self->read_start;
-#ifdef SUSCAN_DEBUG_THROTTLE
-        printf("Read rate: %g\n", self->measured_samp_rate);
-#endif /* SUSCAN_DEBUG_THROTTLE */
-      }
-
-      self->measured_samp_count += got;
-    }
-
-    /* Feed inspectors! */
-    SU_TRY(suscan_local_analyzer_feed_inspectors(self, buffer));
-
-  } else {
-    self->parent->eos = SU_TRUE; /* TODO: Use force_eos? */
-    self->cpu_usage = 0;
-
-    switch (got) {
-      case SU_BLOCK_PORT_READ_END_OF_STREAM:
-        suscan_analyzer_send_status(
-            self->parent,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            got,
-            "End of stream reached");
-        break;
-
-      case SU_BLOCK_PORT_READ_ERROR_NOT_INITIALIZED:
-        suscan_analyzer_send_status(
-            self->parent,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            got,
-            "Port not initialized");
-        break;
-
-      case SU_BLOCK_PORT_READ_ERROR_ACQUIRE:
-        suscan_analyzer_send_status(
-            self->parent,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR,
-            got,
-            "Acquire failed (source I/O error)");
-        break;
-
-      case SU_BLOCK_PORT_READ_ERROR_PORT_DESYNC:
-        suscan_analyzer_send_status(
-            self->parent,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            got,
-            "Port desync");
-        break;
-
-      default:
-        suscan_analyzer_send_status(
-            self->parent,
-            SUSCAN_ANALYZER_MESSAGE_TYPE_EOS,
-            got,
-            "Unexpected read result %d", got);
-    }
-
+  buffer = suscan_local_analyzer_read_circ(self, &got);
+  if (buffer == NULL) {
+    suscan_local_analyzer_send_eos(self, got);
     goto done;
   }
+  
+  suscan_local_analyzer_process_start(self);
+  samples = suscan_sample_buffer_data(buffer);
+
+  if (self->iq_rev)
+    suscan_analyzer_do_iq_rev(samples, got);
+
+  SU_TRY(
+      suscan_local_analyzer_feed_baseband_filters(
+          self,
+          samples,
+          got));
+
+  /*
+   * CIRCULARITY: Buffer is being reused and must be duplicated
+   *
+   * This duplicate is contingent and we don't want it to block.
+   */
+  
+  dup = suscan_sample_buffer_pool_try_dup(self->bufpool, buffer);
+  if (dup != NULL)
+    SU_TRY(suscan_worker_push(self->psd_worker, suscan_psd_worker_cb, dup));
+
+  if (SUSCAN_ANALYZER_FS_MEASURE_INTERVAL > 0) {
+    seconds = (self->read_start - self->last_measure) * 1e-9;
+
+    if (seconds >= SUSCAN_ANALYZER_FS_MEASURE_INTERVAL) {
+      self->measured_samp_rate =
+          self->measured_samp_count / seconds;
+      self->measured_samp_count = 0;
+      self->last_measure = self->read_start;
+#ifdef SUSCAN_DEBUG_THROTTLE
+      printf("Read rate: %g\n", self->measured_samp_rate);
+#endif /* SUSCAN_DEBUG_THROTTLE */
+    }
+
+    self->measured_samp_count += got;
+  }
+
+  /* Feed inspectors! */
+  SU_TRY(suscan_local_analyzer_feed_inspectors(self, buffer));
 
   /* Finish processing */
   suscan_local_analyzer_process_end(self);
-
   restart = !self->parent->halt_requested;
 
 done:
   if (mutex_acquired)
     (void) suscan_local_analyzer_unlock_loop(self);
 
-  if (!self->circularity && buffer != NULL)
-    if (!suscan_sample_buffer_pool_give(self->bufpool, buffer))
-      SU_ERROR("Failed to give buffer!\n");
-
   return restart;
 }
 
+SUBOOL
+suscan_local_analyzer_start_channel_worker(suscan_local_analyzer_t *self)
+{
+  SUBOOL (*callback) (
+          struct suscan_mq *mq_out,
+          void *worker_private,
+          void *callback_private);
+  struct sigutils_smoothpsd_params sp_params =
+      sigutils_smoothpsd_params_INITIALIZER;
+  SUBOOL ok = SU_FALSE;
+
+  /* Create smooth PSD and PSD worker */
+  sp_params.fft_size     = self->parent->params.detector_params.window_size;
+  sp_params.samp_rate    = self->source_info.effective_samp_rate;
+  sp_params.refresh_rate = 1. / self->interval_psd;
+
+  self->sp_params = sp_params;
+
+  SU_MAKE(
+    self->smooth_psd,
+    su_smoothpsd,
+    &sp_params,
+    suscan_local_analyzer_on_psd,
+    self);
+    
+  SU_TRY(
+    self->psd_worker = suscan_worker_new_ex(
+      "psd-worker",
+      &self->mq_in,
+      self));
+
+  /* Start source worker */
+  callback = self->circularity 
+    ? suscan_local_analyzer_circbuf_channelizer_wk_cb
+    : suscan_local_analyzer_buffer_channelizer_wk_cb;
+
+  if (!suscan_worker_push(self->source_wk, callback, self->source)) {
+    suscan_analyzer_send_status(
+        self->parent,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
+        SUSCAN_ANALYZER_INIT_FAILURE,
+        "Failed to push source callback to worker (channel mode)");
+    SU_ERROR("Failed to push source worker callback\n");
+    goto done;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}

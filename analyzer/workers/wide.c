@@ -63,6 +63,7 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
    * the frequency range. Note that when maximum and minimum frequencies
    * are exactly the same, the hop bandwidth is actually the sample rate.
    */
+
   if (bw < 1) {
     if (sufeq(self->curr_freq, next, 1))
       return SU_TRUE;
@@ -170,7 +171,8 @@ suscan_source_wide_wk_cb(
 
         self->fft_samples = 0;
         su_channel_detector_rewind(self->detector);
-        (void) suscan_local_analyzer_hop(self);
+        if (!suscan_local_analyzer_hop(self))
+          SU_ERROR("Hop failed!\n");
       }
     }
   } else {
@@ -230,3 +232,78 @@ done:
   return restart;
 }
 
+SUPRIVATE void
+suscan_local_analyzer_init_detector_params(
+    suscan_local_analyzer_t *self,
+    struct sigutils_channel_detector_params *params)
+{
+  /* Recover template */
+  *params = self->parent->params.detector_params;
+
+  /* Populate members with source information */
+  params->mode = SU_CHANNEL_DETECTOR_MODE_SPECTRUM;
+  params->samp_rate = self->source_info.source_samp_rate;
+
+  /* Adjust parameters that depend on sample rate */
+  su_channel_params_adjust(params);
+
+#if 0
+  /* Make alpha a little bigger, to provide a more dynamic spectrum */
+  if (params->alpha <= .05)
+    params->alpha *= 20;
+#endif
+}
+
+SUBOOL
+suscan_local_analyzer_start_wide_worker(suscan_local_analyzer_t *self)
+{
+  struct sigutils_channel_detector_params det_params;
+  SUBOOL ok = SU_FALSE;
+
+  det_params = self->parent->params.detector_params;
+  suscan_local_analyzer_init_detector_params(self, &det_params);
+
+  SU_MAKE(self->detector, su_channel_detector, &det_params);
+
+  /*
+    * In case the source rejected our initial sample rate configuration, we
+    * update the detector accordingly.
+    *
+    * We do this here and not in the header thread because, although this
+    * can be slower, we ensure this way we can provide an accurate value of the
+    * sample rate right after the analyzer object is created.
+    */
+  if (self->source_info.source_samp_rate != self->detector->params.samp_rate) {
+    det_params = self->detector->params;
+    det_params.samp_rate = self->source_info.effective_samp_rate;
+    SU_TRY(suscan_local_analyzer_readjust_detector(self, &det_params));
+  }
+
+  SU_TRY(
+      self->parent->params.max_freq - self->parent->params.min_freq >=
+      self->source_info.source_samp_rate);
+  
+  self->current_sweep_params.fft_min_samples =
+          SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
+  self->current_sweep_params.max_freq = self->parent->params.max_freq;
+  self->current_sweep_params.min_freq = self->parent->params.min_freq;
+  self->current_sweep_params.rel_bw = 0.5;
+  self->sweep_params_requested = SU_FALSE;
+
+  if (!suscan_worker_push(
+    self->source_wk,
+      suscan_source_wide_wk_cb,
+      self->source)) {
+    suscan_analyzer_send_status(
+        self->parent,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT,
+        SUSCAN_ANALYZER_INIT_FAILURE,
+        "Failed to push source callback to worker (wide spectrum mode)");
+    goto done;
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}

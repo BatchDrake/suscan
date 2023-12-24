@@ -299,6 +299,11 @@ SUBOOL suscan_local_analyzer_slow_set_gain(
     const char *name,
     SUFLOAT value);
 
+/* Iternal */
+SUBOOL suscan_local_analyzer_readjust_detector(
+    suscan_local_analyzer_t *self,
+    struct sigutils_channel_detector_params *params);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
