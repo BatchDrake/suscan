@@ -404,19 +404,6 @@ done:
 }
 
 /*************************** Analyzer interface *******************************/
-SUPRIVATE SUBOOL
-suscan_local_analyzer_source_init(
-    suscan_local_analyzer_t *self,
-    suscan_source_config_t *config)
-{
-  SU_TRYCATCH(self->source = suscan_source_new(config), goto fail);
-
-  return SU_TRUE;
-
-fail:
-  return SU_FALSE;
-}
-
 #ifdef DEBUG_ANALYZER_PARAMS
 void
 suscan_analyzer_params_debug(const struct suscan_analyzer_params *params)
@@ -465,11 +452,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   }
 
   /* Initialize source */
-  if (!suscan_local_analyzer_source_init(new, config)) {
-    SU_ERROR("Failed to initialize source\n");
-    goto fail;
-  }
-
+  SU_TRYCATCH(new->source = suscan_source_new(config), goto fail);
   source_info = suscan_source_get_info(new->source);
   new->source_info = *source_info;
 

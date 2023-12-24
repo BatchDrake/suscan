@@ -120,9 +120,14 @@ suscan_local_analyzer_feed_inspectors(
    * No opened channels. We can avoid doing extra work. However, we
    * should clean the tuner in this case to keep it from having
    * samples from previous calls to feed_bulk.
+   * 
+   * On the other hand, if circularity is enabled, we want to
+   * have the state in sync with the read buffer state.
    */
-  if (su_specttuner_get_channel_count(self->stuner) == 0)
+  if (su_specttuner_get_channel_count(self->stuner) == 0) {
+    su_specttuner_force_state(self->stuner, !self->circ_state);
     return SU_TRUE;
+  }
 
   if (self->circularity) {
     /* 
@@ -136,9 +141,8 @@ suscan_local_analyzer_feed_inspectors(
       suscan_sample_buffer_userdata(buffer));
     
     suscan_inspector_factory_force_sync(self->insp_factory);
-    
-    su_specttuner_ack_data(self->stuner);
       
+    su_specttuner_ack_data(self->stuner);
     (void) pthread_mutex_unlock(&self->stuner_mutex);
   } else {
       /* This must be performed in a serialized way */
@@ -630,6 +634,8 @@ suscan_local_analyzer_read_circ(suscan_local_analyzer_t *self, SUSDIFF *got)
     }
 
     self->circbuf = buffer;
+    su_specttuner_force_state(self->stuner, SU_FALSE);
+    self->circ_state = SU_FALSE;
   }
 
   read_size = suscan_sample_buffer_size(buffer) >> 1;
