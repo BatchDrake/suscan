@@ -413,6 +413,10 @@ if(WIN32)
   endif()
 endif()
 
+if(UNIX AND NOT APPLE)
+  target_link_libraries(suscan rt)
+endif()
+
 target_link_libraries(suscan m ${SIGUTILS_LIBRARIES})
 
 target_include_directories(suscan SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
