@@ -124,10 +124,8 @@ suscan_local_analyzer_feed_inspectors(
    * On the other hand, if circularity is enabled, we want to
    * have the state in sync with the read buffer state.
    */
-  if (su_specttuner_get_channel_count(self->stuner) == 0) {
-    su_specttuner_force_state(self->stuner, !self->circ_state);
+  if (su_specttuner_get_channel_count(self->stuner) == 0)
     return SU_TRUE;
-  }
 
   if (self->circularity) {
     /* 
@@ -136,6 +134,7 @@ suscan_local_analyzer_feed_inspectors(
     if (pthread_mutex_lock(&self->stuner_mutex) != 0)
       return SU_FALSE;
 
+    su_specttuner_force_state(self->stuner, self->circ_state);
     ok = su_specttuner_trigger(
       self->stuner,
       suscan_sample_buffer_userdata(buffer));
