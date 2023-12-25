@@ -18,6 +18,8 @@
 */
 
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include <sigutils/types.h>
 #include <sigutils/defs.h>
@@ -53,6 +55,7 @@ SU_COLLECTOR(suscan_vm_circbuf_state)
 SU_INSTANCER(suscan_vm_circbuf_state, SUSCOUNT size)
 {
   suscan_vm_circbuf_state_t *state = NULL;
+  char *name = NULL;
   size_t alloc_size;
 
   if (!suscan_vm_circbuf_allowed(size)) {
@@ -64,7 +67,9 @@ SU_INSTANCER(suscan_vm_circbuf_state, SUSCOUNT size)
 
   state->fd = -1;
 
-  SU_TRYC_FAIL(state->fd = memfd_create("vmcircbuf", 0)); 
+  SU_TRY_FAIL(name = strbuild("/vmcircbuf-%d-%p", getpid(), state));
+  SU_TRYC_FAIL(state->fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600)); 
+  free(name);
 
   state->size = size;
   alloc_size = size * sizeof(SUCOMPLEX);
@@ -111,6 +116,9 @@ SU_INSTANCER(suscan_vm_circbuf_state, SUSCOUNT size)
   return state;
 
 fail:
+  if (name != NULL)
+    free(name);
+  
   if (state != NULL)
     suscan_vm_circbuf_destroy(state);
 

@@ -19,9 +19,6 @@
 
 #define _COMPAT_BARRIERS
 
-#if defined(__linux__)
-#  define _GNU_SOURCE 
-#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -132,8 +129,8 @@ suscan_ifdesc_to_addr(const char *ifdesc)
 }
 
 /******************** VM circularity implementation ***************************/
-#if defined(__linux__)
-#  include "linux-vm-circbuf.imp.h"
+#if defined(__linux__) || defined(__APPLE__)
+#  include "unix-vm-circbuf.imp.h"
 #else
 SUBOOL
 suscan_vm_circbuf_allowed(SUSCOUNT size)
