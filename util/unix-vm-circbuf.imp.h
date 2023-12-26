@@ -68,7 +68,13 @@ SU_INSTANCER(suscan_vm_circbuf_state, SUSCOUNT size)
   state->fd = -1;
 
   SU_TRY_FAIL(name = strbuild("/vmcircbuf-%d-%p", getpid(), state));
-  SU_TRYC_FAIL(state->fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600)); 
+  state->fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
+
+  if (state->fd == -1) {
+    SU_ERROR("Failed to allocate shared memory: %s\n", strerror(errno));
+    goto fail;
+  } 
+
   free(name);
 
   state->size = size;
