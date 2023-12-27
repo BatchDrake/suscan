@@ -42,7 +42,11 @@ SU_INSTANCER(suscan_sample_buffer, suscan_sample_buffer_pool_t *parent)
   self->mutex_init = SU_TRUE;
 
   if (self->circular) {
-    self->data = suscan_vm_circbuf_new(&self->circ_priv, self->size);
+    self->data = suscan_vm_circbuf_new(
+      parent->name,
+      &self->circ_priv,
+      self->size);
+    
     if (self->data == NULL)
       goto fail;
   } else {
@@ -85,6 +89,7 @@ SU_METHOD(suscan_sample_buffer, void, inc_ref)
 SU_CONSTRUCTOR(suscan_sample_buffer_pool,
   const struct suscan_sample_buffer_pool_params *params)
 {
+  const char *name = params->name;
   SUBOOL ok = SU_FALSE;
 
   if (params->alloc_size == 0) {
@@ -102,6 +107,12 @@ SU_CONSTRUCTOR(suscan_sample_buffer_pool,
   self->params   = *params;
   self->free_num = params->max_buffers;
   
+  if (name == NULL)
+    name = "unnamed";
+  
+  SU_TRY(self->name = strdup(name));
+  self->params.name = name;
+
   SU_CONSTRUCT(suscan_mq, &self->free_mq);
   self->free_mq_init = SU_TRUE;
 
@@ -121,6 +132,9 @@ SU_DESTRUCTOR(suscan_sample_buffer_pool)
 {
   unsigned int i;
 
+  if (self->name != NULL)
+    free(self->name);
+  
   if (self->free_mq_init) {
     suscan_mq_write_urgent(&self->free_mq, SUSCAN_POOL_MQ_TYPE_HALT, NULL);
     SU_DESTRUCT(suscan_mq, &self->free_mq);

@@ -29,6 +29,7 @@
 #include <errno.h>
 
 struct suscan_vm_circbuf_state {
+  char      *shm_name;
   int        fd;
   SUSCOUNT   size;
   SUCOMPLEX *buf1;
@@ -49,13 +50,15 @@ SU_COLLECTOR(suscan_vm_circbuf_state)
   if (self->fd != -1)
     close(self->fd);
 
+  if (self->shm_name != NULL)
+    shm_unlink(self->shm_name);
+  
   free(self);
 }
 
-SU_INSTANCER(suscan_vm_circbuf_state, SUSCOUNT size)
+SU_INSTANCER(suscan_vm_circbuf_state, const char *name, SUSCOUNT size)
 {
   suscan_vm_circbuf_state_t *state = NULL;
-  char *name = NULL;
   size_t alloc_size;
 
   if (!suscan_vm_circbuf_allowed(size)) {
@@ -67,15 +70,14 @@ SU_INSTANCER(suscan_vm_circbuf_state, SUSCOUNT size)
 
   state->fd = -1;
 
-  SU_TRY_FAIL(name = strbuild("/vmcircbuf-%d-%p", getpid(), state));
-  state->fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
+  SU_TRY_FAIL(state->shm_name = strbuild("/%s-%d-%p", name, getpid(), state));
+
+  state->fd = shm_open(state->shm_name, O_RDWR | O_CREAT | O_EXCL, 0600);
 
   if (state->fd == -1) {
     SU_ERROR("Failed to allocate shared memory: %s\n", strerror(errno));
     goto fail;
   } 
-
-  free(name);
 
   state->size = size;
   alloc_size = size * sizeof(SUCOMPLEX);
@@ -122,9 +124,6 @@ SU_INSTANCER(suscan_vm_circbuf_state, SUSCOUNT size)
   return state;
 
 fail:
-  if (name != NULL)
-    free(name);
-  
   if (state != NULL)
     suscan_vm_circbuf_destroy(state);
 
@@ -138,9 +137,9 @@ suscan_vm_circbuf_allowed(SUSCOUNT size)
 }
 
 SUCOMPLEX *
-suscan_vm_circbuf_new(void **handle, SUSCOUNT size)
+suscan_vm_circbuf_new(const char *name, void **handle, SUSCOUNT size)
 {
-  suscan_vm_circbuf_state_t *state = suscan_vm_circbuf_state_new(size);
+  suscan_vm_circbuf_state_t *state = suscan_vm_circbuf_state_new(name, size);
 
   if (state != NULL) {
     *handle = (void *) state;

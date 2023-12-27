@@ -139,7 +139,7 @@ suscan_vm_circbuf_allowed(SUSCOUNT size)
 }
 
 SUCOMPLEX *
-suscan_vm_circbuf_new(void **state, SUSCOUNT size)
+suscan_vm_circbuf_new(const char *name, void **state, SUSCOUNT size)
 {
   return NULL;
 }

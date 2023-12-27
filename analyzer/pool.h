@@ -93,9 +93,10 @@ SU_METHOD(suscan_sample_buffer, void, inc_ref);
 SU_COLLECTOR(suscan_sample_buffer);
 
 struct suscan_sample_buffer_pool_params {
-  SUBOOL   vm_circularity;
-  SUSCOUNT alloc_size;
-  SUSCOUNT max_buffers;
+  SUBOOL      vm_circularity;
+  SUSCOUNT    alloc_size;
+  SUSCOUNT    max_buffers;
+  const char *name;
 };
 
 #define suscan_sample_buffer_pool_params_INITIALIZER       \
@@ -103,6 +104,7 @@ struct suscan_sample_buffer_pool_params {
   SU_FALSE,                                                \
   512, /* alloc_size = 512 * 2 * sizeof(float32) = 4096 */ \
   16,                                                      \
+  NULL, /* name */                                         \
 }
 
 /*
@@ -115,7 +117,8 @@ struct suscan_sample_buffer_pool_params {
  */
 struct suscan_sample_buffer_pool {
   struct suscan_sample_buffer_pool_params params;
-
+  char            *name;
+  
   PTR_LIST(suscan_sample_buffer_t, buffer);
   unsigned         free_num;
   struct suscan_mq free_mq;

@@ -504,6 +504,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
 
   /* Initialize buffer pools */
   bp_params.alloc_size     = st_params.window_size;
+  bp_params.name           = "baseband";
 
   /*
    * If we support VM circularity, we cannot have early windowing. On the
