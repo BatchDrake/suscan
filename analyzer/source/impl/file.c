@@ -20,6 +20,7 @@
 #include "file.h"
 #include <analyzer/source.h>
 #include <sigutils/util/compat-time.h>
+#include <libgen.h>
 
 #ifdef _SU_SINGLE_PRECISION
 #  define sf_read sf_read_float
@@ -27,6 +28,26 @@
 #  define sf_read sf_read_double
 #endif
 
+SUPRIVATE int
+suscan_source_format_to_sf_format(enum suscan_source_format format)
+{
+  switch (format) {
+    case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
+      return SF_FORMAT_FLOAT;
+
+    case SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8:
+      return SF_FORMAT_PCM_U8;
+
+    case SUSCAN_SOURCE_FORMAT_RAW_SIGNED16:
+      return SF_FORMAT_PCM_16;
+
+    case SUSCAN_SOURCE_FORMAT_RAW_SIGNED8:
+      return SF_FORMAT_PCM_S8;
+
+    default:
+      return -1;
+  }
+}
 
 SUPRIVATE SNDFILE *
 suscan_source_config_open_file_raw(
@@ -56,6 +77,50 @@ suscan_source_config_open_file_raw(
   sf_info->samplerate = self->samp_rate;
 
   return sf;
+}
+
+SUPRIVATE SNDFILE *
+suscan_source_config_open_file_sigmf(
+  const suscan_source_config_t *self,
+  SF_INFO *sf_info)
+{
+#ifdef HAVE_JSONC
+  struct suscan_sigmf_metadata metadata;
+  SNDFILE *sf = NULL;
+
+  if (!suscan_sigmf_extract_metadata(&metadata, self->path)) {
+    SU_ERROR("Cannot extract SigMF metadata\n");
+    return NULL;
+  }
+  
+  memset(sf_info, 0, sizeof(SF_INFO));
+
+  sf_info->format = 
+    SF_FORMAT_RAW | SF_ENDIAN_LITTLE | suscan_source_format_to_sf_format(
+      metadata.format);
+  sf_info->channels = 2;
+  sf_info->samplerate = 1000; 
+
+  if ((sf = sf_open(
+      metadata.path_data,
+      SFM_READ,
+      sf_info)) == NULL) {
+    SU_ERROR(
+        "Failed to open %s as raw file: %s\n",
+        metadata.path_data,
+        sf_strerror(NULL));
+  } else {
+    sf_info->samplerate = metadata.sample_rate;
+  }
+  
+  suscan_sigmf_metadata_finalize(&metadata);
+
+  return sf;
+
+#else
+  SU_ERROR("SigMF support disabled at compile time\n");
+  return NULL;
+#endif
 }
 
 SUPRIVATE const char *
@@ -121,6 +186,10 @@ suscan_source_config_sf_open(const suscan_source_config_t *self, SF_INFO *sf_inf
             guessed = SF_FORMAT_PCM_16;
           else if (strcasecmp(p, "cf32") == 0 || strcasecmp(p, "raw") == 0)
             guessed = SF_FORMAT_FLOAT;
+          else if (strcmp(p, "sigmf-data") == 0 || strcmp(p, "sigmf-meta") == 0) {
+            sf = suscan_source_config_open_file_sigmf(self, sf_info);
+            break;
+          }
         }
 
         if (guessed == -1) {
@@ -139,20 +208,18 @@ suscan_source_config_sf_open(const suscan_source_config_t *self, SF_INFO *sf_inf
       }
       break;
 
+    case SUSCAN_SOURCE_FORMAT_SIGMF:
+      sf = suscan_source_config_open_file_sigmf(self, sf_info);
+      break;
+
     case SUSCAN_SOURCE_FORMAT_RAW_FLOAT32:
-      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_FLOAT, sf_info);
-      break;
-
     case SUSCAN_SOURCE_FORMAT_RAW_UNSIGNED8:
-      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_PCM_U8, sf_info);
-      break;
-
     case SUSCAN_SOURCE_FORMAT_RAW_SIGNED16:
-      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_PCM_16, sf_info);
-      break;
-    
     case SUSCAN_SOURCE_FORMAT_RAW_SIGNED8:
-      sf = suscan_source_config_open_file_raw(self, SF_FORMAT_PCM_S8, sf_info);
+      sf = suscan_source_config_open_file_raw(
+        self,
+        suscan_source_format_to_sf_format(self->format),
+        sf_info);
       break;
   }
 
@@ -352,6 +419,164 @@ suscan_source_file_cancel(void *userdata)
   return SU_TRUE;
 }
 
+SUPRIVATE uint32_t
+suscan_source_file_guess_from_filename(
+  suscan_source_config_t *self,
+  const char *filename)
+{
+  struct tm tm;
+  struct timeval tv;
+  uint32_t guessed = 0;
+  SUFREQ fc;
+  unsigned int fs;
+  unsigned int date, time;
+  SUBOOL have_date = SU_FALSE;
+  SUBOOL have_time = SU_FALSE;
+  SUBOOL have_tm   = SU_FALSE;
+
+  enum suscan_source_format fmt = SUSCAN_SOURCE_FORMAT_RAW_FLOAT32;
+
+  memset(&tm, 0, sizeof(struct tm));
+
+  if (sscanf( /* Current SigDigger signal captures */
+        filename,
+        "sigdigger_%08d_%06dZ_%d_%lg_float32_iq",
+        &date,
+        &time,
+        &fs,
+        &fc) == 4) {
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_FREQ;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_SAMP_RATE;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_IS_UTC;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_FORMAT;
+    have_date = have_time = SU_TRUE;
+  } else if (sscanf( /* Old SigDigger capture file */
+        filename,
+        "sigdigger_%d_%lg_float32_iq",
+        &fs,
+        &fc) == 2) {
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_FREQ;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_SAMP_RATE;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_FORMAT;
+  } else if (sscanf( /* GQRX capture files */
+        filename,
+        "gqrx_%08d_%06d_%lg_%d_fc",
+        &date,
+        &time,
+        &fc,
+        &fs) == 4) {
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_FREQ;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_SAMP_RATE;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_FORMAT;
+    have_date = have_time = SU_TRUE;
+  } else if (sscanf( /* SDRSharp files. These are usually WAV files */
+        filename,
+        "SDRSharp_%08d_%06dZ_%lg_IQ",
+        &date,
+        &time,
+        &fc) == 3) {
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_FREQ;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_IS_UTC;
+    have_date = have_time = SU_TRUE;
+  } else if (sscanf(
+        filename,
+        "HDSDR_%08d_%06dZ_%lgkHz",
+        &date,
+        &time,
+        &fc) == 3) {
+    fc *= 1e3;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_FREQ;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_IS_UTC;
+    have_date = have_time = SU_TRUE;
+  } else if (sscanf(
+        filename,
+        "baseband_%lgHz_%02d-%02d-%02d_%02d-%02d-%04d",
+        &fc,
+        &tm.tm_hour,
+        &tm.tm_min,
+        &tm.tm_sec,
+        &tm.tm_mday,
+        &tm.tm_mon,
+        &tm.tm_year) == 7) {
+    tm.tm_year -= 1900;
+    tm.tm_mon  -= 1;
+
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_FREQ;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_IS_UTC;
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_FORMAT;
+  }
+
+  if (have_date || have_time) {
+    have_tm = SU_TRUE;
+    if (have_date) {
+      tm.tm_year = date / 10000 - 1900;
+      tm.tm_mon  = ((date / 100) % 100) - 1;
+      tm.tm_mday = date % 100;
+    }
+
+    if (have_time) {
+      tm.tm_hour = time / 10000;
+      tm.tm_min  = (time / 100) % 100;
+      tm.tm_sec  = time % 100;
+    }
+  }
+
+  if (have_tm) {
+    if (guessed & SUSCAN_SOURCE_CONFIG_GUESS_IS_UTC) {
+      const char *prev_tz = getenv("TZ");
+      setenv("TZ", "", 1);
+      tm.tm_isdst = 0;
+      tv.tv_sec = mktime(&tm);
+
+      if (prev_tz == NULL)
+        unsetenv("TZ");
+      else
+        setenv("TZ", prev_tz, 1);
+    } else {
+      tm.tm_isdst = -1;
+      tv.tv_sec = mktime(&tm);
+    }
+
+    guessed |= SUSCAN_SOURCE_CONFIG_GUESS_START_TIME;
+    suscan_source_config_set_start_time(self, tv);
+  }
+
+  if (guessed & SUSCAN_SOURCE_CONFIG_GUESS_FREQ)
+    suscan_source_config_set_freq(self, fc);
+
+  if (guessed & SUSCAN_SOURCE_CONFIG_GUESS_SAMP_RATE)
+    suscan_source_config_set_samp_rate(self, fs);
+
+  if (guessed & SUSCAN_SOURCE_CONFIG_GUESS_FORMAT)
+    suscan_source_config_set_type_format(self, "file", fmt);
+
+  return guessed;
+}
+
+SUPRIVATE uint32_t
+suscan_source_file_guess_metadata(suscan_source_config_t *self)
+{
+  const char *path;
+  char *path_dup = NULL;
+  char *path_basename;
+  uint32_t guessed = 0;
+  
+  path = suscan_source_config_get_path(self);
+  if (path == NULL)
+    goto done;
+
+  SU_TRY(path_dup = strdup(path));
+  path_basename = basename(path_dup);
+
+  guessed |= suscan_source_file_guess_from_filename(self, path_basename);
+  
+done:
+  if (path_dup != NULL)
+    free(path_dup);
+  
+  return guessed;
+}
+
 SUPRIVATE SUSDIFF
 suscan_source_file_estimate_size(const suscan_source_config_t *config)
 {
@@ -387,7 +612,8 @@ SUPRIVATE struct suscan_source_interface g_file_source =
   .seek            = suscan_source_file_seek,
   .max_size        = suscan_source_file_max_size,
   .get_time        = suscan_source_file_get_time,
-
+  .guess_metadata  = suscan_source_file_guess_metadata,
+  
   /* Unset members */
   .is_real_time    = NULL,
   .set_frequency   = NULL,

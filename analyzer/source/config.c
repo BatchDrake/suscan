@@ -583,6 +583,18 @@ suscan_source_config_is_seekable(const suscan_source_config_t *self)
   return iface->seek != NULL;
 }
 
+uint32_t
+suscan_source_config_guess_metadata(suscan_source_config_t *self)
+{
+  const struct suscan_source_interface *iface;
+
+  iface = suscan_source_interface_lookup_by_name(self->type);
+  if (iface == NULL || iface->guess_metadata == NULL)
+    return 0;
+  
+  return (iface->guess_metadata) (self);
+}
+
 
 SUBOOL
 suscan_source_config_get_end_time(
@@ -1187,6 +1199,9 @@ suscan_source_config_helper_format_to_str(enum suscan_source_format type)
 
     case SUSCAN_SOURCE_FORMAT_WAV:
       return "WAV";
+
+    case SUSCAN_SOURCE_FORMAT_SIGMF:
+      return "SIGMF";
   }
 
   return NULL;
@@ -1210,6 +1225,8 @@ suscan_source_type_config_helper_str_to_format(const char *format)
       return SUSCAN_SOURCE_FORMAT_RAW_SIGNED8;
     else if (strcasecmp(format, "WAV") == 0)
       return SUSCAN_SOURCE_FORMAT_WAV;
+    else if (strcasecmp(format, "SIGMF") == 0)
+      return SUSCAN_SOURCE_FORMAT_SIGMF;
   }
 
   return SUSCAN_SOURCE_FORMAT_AUTO;

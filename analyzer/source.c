@@ -456,7 +456,7 @@ suscan_source_get_max_size(const suscan_source_t *self)
   return (self->iface->max_size) (self->src_priv);
 }
 
-SUSCOUNT 
+SUSCOUNT
 suscan_source_get_base_samp_rate(const suscan_source_t *self)
 {
   return self->config->samp_rate;

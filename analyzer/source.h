@@ -74,6 +74,7 @@ struct suscan_source_interface {
   void     (*close) (void *);
 
   SUSDIFF  (*estimate_size) (const suscan_source_config_t *); /* Without decimation */
+  uint32_t (*guess_metadata) (suscan_source_config_t *);
   SUBOOL   (*is_real_time) (const suscan_source_config_t *);
   SUBOOL   (*get_freq_limits) (const suscan_source_config_t *, SUFREQ *, SUFREQ *);
 
