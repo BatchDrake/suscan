@@ -53,13 +53,24 @@ enum suscan_source_format {
 #define SUSCAN_SOURCE_CONFIG_GUESS_START_TIME (1 << 2)
 #define SUSCAN_SOURCE_CONFIG_GUESS_IS_UTC     (1 << 3)
 #define SUSCAN_SOURCE_CONFIG_GUESS_FORMAT     (1 << 4)
-#define SUSCAN_SOURCE_CONFIG_GUESS_PATH       (1 << 5)
+#define SUSCAN_SOURCE_CONFIG_GUESS_SIZE       (1 << 5)
 
 #define SUSCAN_SOURCE_FORMAT_FALLBACK SUSCAN_SOURCE_FORMAT_RAW_FLOAT32
 
 struct suscan_source_gain_value {
   const struct suscan_source_gain_desc *desc;
   SUFLOAT val;
+};
+
+struct suscan_source_metadata {
+  SUFREQ         frequency;
+  unsigned       sample_rate;
+  struct timeval start_time;
+  SUBOOL         is_utc;
+  enum suscan_source_format format;
+  SUSDIFF        size;
+
+  uint32_t       guessed;
 };
 
 SUSCAN_SERIALIZABLE(suscan_source_config) {
@@ -159,7 +170,9 @@ void suscan_source_config_set_loop(suscan_source_config_t *config, SUBOOL loop);
 const char *suscan_source_config_get_path(const suscan_source_config_t *config);
 SUBOOL suscan_source_config_file_is_valid(const suscan_source_config_t *self);
 SUBOOL suscan_source_config_is_real_time(const suscan_source_config_t *self);
-uint32_t suscan_source_config_guess_metadata(suscan_source_config_t *self);
+SUBOOL suscan_source_config_guess_metadata(
+    const suscan_source_config_t *self,
+    struct suscan_source_metadata *metadata);
 SUBOOL suscan_source_config_is_seekable(const suscan_source_config_t *self);
 SUBOOL suscan_source_config_get_end_time(
   const suscan_source_config_t *self,

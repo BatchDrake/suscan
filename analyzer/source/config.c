@@ -583,16 +583,18 @@ suscan_source_config_is_seekable(const suscan_source_config_t *self)
   return iface->seek != NULL;
 }
 
-uint32_t
-suscan_source_config_guess_metadata(suscan_source_config_t *self)
+SUBOOL
+suscan_source_config_guess_metadata(
+  const suscan_source_config_t *self,
+  struct suscan_source_metadata *metadata)
 {
   const struct suscan_source_interface *iface;
 
   iface = suscan_source_interface_lookup_by_name(self->type);
   if (iface == NULL || iface->guess_metadata == NULL)
-    return 0;
+    return SU_FALSE;
   
-  return (iface->guess_metadata) (self);
+  return (iface->guess_metadata) (self, metadata);
 }
 
 
