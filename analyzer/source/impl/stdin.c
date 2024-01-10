@@ -372,6 +372,7 @@ SUPRIVATE struct suscan_source_interface g_stdin_source =
   .estimate_size   = NULL,
   .seek            = NULL,
   .max_size        = NULL,
+  .guess_metadata  = NULL,
 };
   
 SUBOOL

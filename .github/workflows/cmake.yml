@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Install dependencies
-      run: sudo apt-get install libsndfile1-dev libvolk2-dev libfftw3-dev soapysdr-module-all libsoapysdr-dev libxml2-dev portaudio19-dev
+      run: sudo apt-get install libsndfile1-dev libjson-c-dev libvolk2-dev libfftw3-dev soapysdr-module-all libsoapysdr-dev libxml2-dev portaudio19-dev
 
     - name: Checkout (sigutils)
       uses: actions/checkout@v3
@@ -122,7 +122,7 @@ jobs:
         # soapyosmo  removed because of random compilation errors
         # soapyairspyhf  removed because of random compilation errors
         brew install --force --overwrite python@3.12
-        brew install libsndfile volk fftw soapysdr libxml2 portaudio
+        brew install libsndfile volk fftw soapysdr libxml2 portaudio json-c
         python3 -Im pip install setuptools
         # sudo rm /usr/local/bin/2to3* /usr/local/bin/idle3* /usr/local/bin/pydoc3*
         brew install soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyredpitaya soapyiris limesuite soapyplutosdr

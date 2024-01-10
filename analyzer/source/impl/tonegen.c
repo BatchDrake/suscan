@@ -247,6 +247,7 @@ SUPRIVATE struct suscan_source_interface g_tonegen_source =
   .estimate_size   = NULL,
   .get_freq_limits = NULL,
   .is_real_time    = NULL,
+  .guess_metadata  = NULL,
 };
 
 SUBOOL

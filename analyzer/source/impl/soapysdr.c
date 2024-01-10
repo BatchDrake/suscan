@@ -644,10 +644,11 @@ SUPRIVATE struct suscan_source_interface g_soapysdr_source =
   .get_freq_limits = suscan_source_soapysdr_get_freq_limits,
 
   /* Unset members */
-  .seek          = NULL,
-  .max_size      = NULL,
-  .is_real_time  = NULL,
-  .estimate_size = NULL,
+  .seek           = NULL,
+  .max_size       = NULL,
+  .is_real_time   = NULL,
+  .estimate_size  = NULL,
+  .guess_metadata = NULL,
 };
 
 SUBOOL

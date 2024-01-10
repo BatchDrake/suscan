@@ -30,7 +30,6 @@
 
 #include "worker.h"
 #include "source.h"
-#include "throttle.h"
 #include "inspector/inspector.h"
 #include "inspsched.h"
 #include "serialize.h"

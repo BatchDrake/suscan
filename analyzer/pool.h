@@ -40,9 +40,13 @@ struct suscan_sample_buffer {
   int        rindex; /* Reverse index in the buffer table */
   SUBOOL     circular;
   SUBOOL     acquired;
+  SUSCOUNT   offset;
 
   SUCOMPLEX *data;
   SUSCOUNT   size;
+
+  void *circ_priv; /* Private data for the circularity info */
+  void *user_priv; /* Private data for user */
 };
 
 typedef struct suscan_sample_buffer suscan_sample_buffer_t;
@@ -50,7 +54,7 @@ typedef struct suscan_sample_buffer suscan_sample_buffer_t;
 SUINLINE
 SU_GETTER(suscan_sample_buffer, SUCOMPLEX *, data)
 {
-  return self->data;
+  return self->data + self->offset;
 }
 
 SUINLINE
@@ -59,14 +63,40 @@ SU_GETTER(suscan_sample_buffer, SUSCOUNT, size)
   return self->size;
 }
 
+SUINLINE
+SU_GETTER(suscan_sample_buffer, void *, userdata)
+{
+  return self->user_priv;
+}
+
+SUINLINE
+SU_GETTER(suscan_sample_buffer, SUBOOL, is_circular)
+{
+  return self->circular;
+}
+
+SUINLINE
+SU_METHOD(suscan_sample_buffer, void, set_userdata, void *userdata)
+{
+  self->user_priv = userdata;
+}
+
+SUINLINE
+SU_METHOD(suscan_sample_buffer, void, set_offset, SUSCOUNT off)
+{
+  self->offset = off;
+}
+
+
 SU_INSTANCER(suscan_sample_buffer, struct suscan_sample_buffer_pool *);
 SU_METHOD(suscan_sample_buffer, void, inc_ref);
 SU_COLLECTOR(suscan_sample_buffer);
 
 struct suscan_sample_buffer_pool_params {
-  SUBOOL   vm_circularity;
-  SUSCOUNT alloc_size;
-  SUSCOUNT max_buffers;
+  SUBOOL      vm_circularity;
+  SUSCOUNT    alloc_size;
+  SUSCOUNT    max_buffers;
+  const char *name;
 };
 
 #define suscan_sample_buffer_pool_params_INITIALIZER       \
@@ -74,6 +104,7 @@ struct suscan_sample_buffer_pool_params {
   SU_FALSE,                                                \
   512, /* alloc_size = 512 * 2 * sizeof(float32) = 4096 */ \
   16,                                                      \
+  NULL, /* name */                                         \
 }
 
 /*
@@ -86,7 +117,8 @@ struct suscan_sample_buffer_pool_params {
  */
 struct suscan_sample_buffer_pool {
   struct suscan_sample_buffer_pool_params params;
-
+  char            *name;
+  
   PTR_LIST(suscan_sample_buffer_t, buffer);
   unsigned         free_num;
   struct suscan_mq free_mq;
@@ -110,6 +142,11 @@ SU_COLLECTOR(suscan_sample_buffer_pool);
 SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, acquire);
 SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, try_acquire);
 SU_METHOD(suscan_sample_buffer_pool, SUBOOL, give, suscan_sample_buffer_t *);
+SU_METHOD(
+  suscan_sample_buffer_pool,
+  suscan_sample_buffer_t *,
+  try_dup,
+  const suscan_sample_buffer_t *);
 
 SUINLINE SU_GETTER(suscan_sample_buffer_pool, SUBOOL, released)
 {

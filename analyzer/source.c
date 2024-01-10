@@ -52,24 +52,27 @@
 
 /****************************** Source API ***********************************/
 void
-suscan_source_destroy(suscan_source_t *source)
+suscan_source_destroy(suscan_source_t *self)
 {
-  if (source->src_priv != NULL)
-    (source->iface->close) (source->src_priv);
+  if (self->src_priv != NULL)
+    (self->iface->close) (self->src_priv);
   
-  if (source->config != NULL)
-    suscan_source_config_destroy(source->config);
+  if (self->config != NULL)
+    suscan_source_config_destroy(self->config);
 
-  if (source->decimator != NULL)
-    su_specttuner_destroy(source->decimator);
+  if (self->decimator != NULL)
+    su_specttuner_destroy(self->decimator);
 
-  if (source->decim_spillover != NULL)
-    free(source->decim_spillover);
+  if (self->decim_spillover != NULL)
+    free(self->decim_spillover);
 
-  if (source->read_buf != NULL)
-    free(source->read_buf);
+  if (self->read_buf != NULL)
+    free(self->read_buf);
 
-  free(source);
+  if (self->throttle_mutex_init)
+    pthread_mutex_destroy(&self->throttle_mutex);
+
+  free(self);
 }
 
 /*********************** Decimator configuration *****************************/
@@ -232,13 +235,20 @@ SUSDIFF
 suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 {
   SUSDIFF got = 0;
-  SUSCOUNT result;
+  SUSCOUNT result = -1;
   SUSCOUNT spill_avail, chunk;
   SUCOMPLEX *bufdec = buffer;
   SUSCOUNT maxdec = max;
 
   if (!self->capturing)
     return 0;
+
+  /* With non-real time sources, use throttle to control CPU usage */
+  if (!suscan_source_is_real_time(self)) {
+    SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
+    max = suscan_throttle_get_portion(&self->throttle, max);
+    SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
+  }
 
   if (self->decim > 1) {
     result = 0;
@@ -287,35 +297,37 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
   if (result > 0)
     self->total_samples += result;
 
+  if (!suscan_source_is_real_time(self)) {
+    SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
+    suscan_throttle_advance(&self->throttle, result);
+    SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
+  }
+
+done:
   return result;
 }
 
-suscan_sample_buffer_t *
-suscan_source_read_buffer(
+SUBOOL
+suscan_source_fill_buffer(
   suscan_source_t *self,
-  suscan_sample_buffer_pool_t *pool,
+  suscan_sample_buffer_t *buffer,
+  SUSCOUNT size,
   SUSDIFF *got)
 {
-  suscan_sample_buffer_t *buffer = NULL;
-  SUSCOUNT size, amount;
+  SUSCOUNT amount;
   SUSDIFF p = -1, read;
   SUCOMPLEX *data;
   SUBOOL ok = SU_FALSE;
 
-  // Acquire buffer
-  SU_TRY(buffer = suscan_sample_buffer_pool_acquire(pool));
-
-  // Read until done
-  p = 0;
-
   data = suscan_sample_buffer_data(buffer);
-  size = suscan_sample_buffer_size(buffer);
+
+  p = 0;
 
   while (p < size) {
     amount = size - p;
     read = suscan_source_read(self, data + p, amount);
 
-    // Check for errors
+    /* Check for errors */
     if (read == 0)
       goto done;
 
@@ -331,7 +343,30 @@ suscan_source_read_buffer(
 
 done:
   *got = p;
-  
+
+  return ok;
+}
+
+suscan_sample_buffer_t *
+suscan_source_read_buffer(
+  suscan_source_t *self,
+  suscan_sample_buffer_pool_t *pool,
+  SUSDIFF *got)
+{
+  suscan_sample_buffer_t *buffer = NULL;
+  SUSCOUNT size;
+  SUBOOL ok = SU_FALSE;
+
+  /* Acquire buffer */
+  SU_TRY(buffer = suscan_sample_buffer_pool_acquire(pool));
+  size = suscan_sample_buffer_size(buffer);
+
+  /* Populate it */
+  SU_TRY(suscan_source_fill_buffer(self, buffer, size, got));
+
+  ok = SU_TRUE;
+
+done:
   if (!ok) {
     if (buffer != NULL) {
       suscan_sample_buffer_pool_give(pool, buffer);
@@ -386,6 +421,32 @@ suscan_source_seek(suscan_source_t *self, SUSCOUNT pos)
   return (self->iface->seek) (self->src_priv, pos * self->decim);
 }
 
+SUBOOL
+suscan_source_override_throttle(suscan_source_t *self, SUSCOUNT val)
+{
+  SUBOOL mutex_acquired = SU_FALSE;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      pthread_mutex_lock(&self->throttle_mutex) != -1,
+      goto done);
+  mutex_acquired = SU_TRUE;
+
+  suscan_throttle_init(&self->throttle, val);
+
+  self->info.effective_samp_rate = val;
+
+  ok = SU_TRUE;
+
+done:
+
+  if (mutex_acquired)
+    pthread_mutex_unlock(&self->throttle_mutex);
+
+  return ok;
+}
+
+
 SUSDIFF
 suscan_source_get_max_size(const suscan_source_t *self)
 {
@@ -395,7 +456,7 @@ suscan_source_get_max_size(const suscan_source_t *self)
   return (self->iface->max_size) (self->src_priv);
 }
 
-SUSCOUNT 
+SUSCOUNT
 suscan_source_get_base_samp_rate(const suscan_source_t *self)
 {
   return self->config->samp_rate;
@@ -849,6 +910,15 @@ suscan_source_new(suscan_source_config_t *config)
   /* Done, adjust permissions */
   suscan_source_adjust_permissions(new);
   suscan_source_populate_source_info(new);
+
+  /* Initialize throttle (if applicable) */
+  if (!suscan_source_is_real_time(new)) {
+    /* Create throttle mutex */
+      (void) pthread_mutex_init(&new->throttle_mutex, NULL); /* Always succeeds */
+      new->throttle_mutex_init = SU_TRUE;
+
+    suscan_throttle_init(&new->throttle, new->info.effective_samp_rate);
+  }
 
   return new;
 

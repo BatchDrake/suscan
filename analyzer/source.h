@@ -28,6 +28,7 @@
 #include <SoapySDR/Version.h>
 #include <analyzer/serialize.h>
 #include <analyzer/pool.h>
+#include <analyzer/throttle.h>
 #include <analyzer/source/device.h>
 #include <analyzer/source/config.h>
 #include <analyzer/source/info.h>
@@ -73,6 +74,9 @@ struct suscan_source_interface {
   void     (*close) (void *);
 
   SUSDIFF  (*estimate_size) (const suscan_source_config_t *); /* Without decimation */
+  SUBOOL   (*guess_metadata) (
+    const suscan_source_config_t *,
+    struct suscan_source_metadata *);
   SUBOOL   (*is_real_time) (const suscan_source_config_t *);
   SUBOOL   (*get_freq_limits) (const suscan_source_config_t *, SUFREQ *, SUFREQ *);
 
@@ -100,6 +104,11 @@ struct suscan_source {
   suscan_source_config_t *config; /* Source may alter configuration! */
   const struct suscan_source_interface *iface;
   struct suscan_source_info info;
+
+  /* Throttle control */
+  suscan_throttle_t throttle; /* For non-realtime sources */
+  SUBOOL throttle_mutex_init;
+  pthread_mutex_t throttle_mutex;
 
   SUBOOL   capturing;
   void    *src_priv; /* Opaque source object */
@@ -146,6 +155,12 @@ SUSDIFF suscan_source_read(
     SUCOMPLEX *buffer,
     SUSCOUNT max);
 
+SUBOOL suscan_source_fill_buffer(
+  suscan_source_t *source,
+  suscan_sample_buffer_t *buffer,
+  SUSCOUNT size,
+  SUSDIFF *got);
+
 suscan_sample_buffer_t *suscan_source_read_buffer(
   suscan_source_t *source,
   suscan_sample_buffer_pool_t *pool,
@@ -156,6 +171,7 @@ SUSDIFF  suscan_source_get_max_size(const suscan_source_t *self);
 void   suscan_source_get_time(suscan_source_t *self, struct timeval *tv);
 SUBOOL suscan_source_seek(suscan_source_t *self, SUSCOUNT);
 
+SUBOOL suscan_source_override_throttle(suscan_source_t *self, SUSCOUNT val);
 SUFREQ suscan_source_get_freq(const suscan_source_t *source);
 SUBOOL suscan_source_set_freq(suscan_source_t *source, SUFREQ freq);
 SUBOOL suscan_source_set_lnb_freq(suscan_source_t *source, SUFREQ freq);

@@ -74,6 +74,7 @@ pkg_check_modules(FFTW3    REQUIRED fftw3f>=3.0)
 pkg_check_modules(SOAPYSDR REQUIRED SoapySDR>=0.5.0)
 pkg_check_modules(XML2     REQUIRED libxml-2.0>=2.9.0)
 pkg_check_modules(VOLK              volk>=1.0)
+pkg_check_modules(JSONC             json-c>=0.16)
 
 if (ENABLE_ALSA)
   pkg_check_modules(ALSA              alsa>=1.2)
@@ -152,7 +153,16 @@ set(
   "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
   CACHE PATH "Installation directory for pkgconfig (.pc) files")
 set(SU_PC_CFLAGS "${SIGUTILS_CONFIG_CFLAGS}")
-set(SU_PC_LIBRARIES "-l${SNDFILE_LIBRARIES} -lm -l${FFTW3_LIBRARIES} -l${VOLK_LIBRARIES}")
+set(SU_PC_LIBRARIES "-l${SNDFILE_LIBRARIES} -lm -l${FFTW3_LIBRARIES}")
+
+if(VOLK_FOUND)
+  set(SU_PC_LIBRARIES "${SU_PC_LIBRARIES} -l${VOLK_LIBRARIES}")
+endif()
+
+if(JSONC_FOUND)
+  set(SU_PC_LIBRARIES "${SU_PC_LIBRARIES} -l${JSONC_LIBRARIES}")
+endif()
+
 configure_file(suscan.pc.in "${SIGUTILS_PC_FILE_PATH}" @ONLY)
 
 install(
@@ -352,6 +362,13 @@ set(ANALYZER_LIB_SOURCES
   ${ESTIMATOR_SOURCES}
   ${SPECTSRC_SOURCES})
 
+if(JSONC_FOUND)
+  set(
+    ANALYZER_LIB_SOURCES
+    ${ANALYZER_LIB_SOURCES} 
+    ${ANALYZERDIR}/source/impl/guess-sigmf.c)
+endif()
+
 link_directories(
   ${PROJECT_BINARY_DIR}
   ${SNDFILE_LIBRARY_DIRS}
@@ -359,7 +376,8 @@ link_directories(
   ${SOAPYSDR_LIBRARY_DIRS}
   ${SIGUTILS_LIBRARY_DIRS}
   ${XML2_LIBRARY_DIRS}
-  ${VOLK_LIBRARY_DIRS})
+  ${VOLK_LIBRARY_DIRS}
+  ${JSONC_LIBRARY_DIRS})
  
 add_library(
   suscan SHARED
@@ -413,6 +431,10 @@ if(WIN32)
   endif()
 endif()
 
+if(UNIX AND NOT APPLE)
+  target_link_libraries(suscan rt)
+endif()
+
 target_link_libraries(suscan m ${SIGUTILS_LIBRARIES})
 
 target_include_directories(suscan SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
@@ -438,6 +460,13 @@ target_link_libraries(suscan ${CMAKE_THREAD_LIBS_INIT})
 if(VOLK_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_VOLK=1")
   target_include_directories(suscan SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
+  target_link_libraries(suscan ${VOLK_LIBRARIES})
+endif()
+
+if(JSONC_FOUND)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_JSONC=1")
+  target_include_directories(suscan SYSTEM PUBLIC ${JSONC_INCLUDE_DIRS})
+  target_link_libraries(suscan ${JSONC_LIBRARIES})
 endif()
 
 install(
@@ -534,6 +563,11 @@ if(VOLK_FOUND)
   target_link_libraries(suscan.status ${VOLK_LIBRARIES})
 endif()
 
+if(JSON_FOUND)
+  target_include_directories(suscan.status SYSTEM PUBLIC ${JSONC_INCLUDE_DIRS})
+  target_link_libraries(suscan.status ${JSONC_LIBRARIES})
+endif()
+
 install(TARGETS suscan.status DESTINATION bin)
 
 ######################### Suscan Command Line tool ############################
@@ -611,6 +645,11 @@ target_link_libraries(suscli ${CMAKE_THREAD_LIBS_INIT})
 if(VOLK_FOUND)
   target_include_directories(suscli SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
   target_link_libraries(suscli ${VOLK_LIBRARIES})
+endif()
+
+if(JSONC_FOUND)
+  target_include_directories(suscli SYSTEM PUBLIC ${JSONC_INCLUDE_DIRS})
+  target_link_libraries(suscli ${JSONC_LIBRARIES})
 endif()
 
 install(TARGETS suscli DESTINATION bin)

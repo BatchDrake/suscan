@@ -62,5 +62,9 @@ uint32_t suscan_get_nic_addr(const char *name);
 
 uint32_t suscan_ifdesc_to_addr(const char *ifdesc);
 
+SUBOOL     suscan_vm_circbuf_allowed(SUSCOUNT);
+SUCOMPLEX *suscan_vm_circbuf_new(const char *name, void **state, SUSCOUNT size);
+void       suscan_vm_circbuf_destroy(void *state);
+
 #endif /* _COMPAT_H */
 

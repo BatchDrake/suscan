@@ -20,6 +20,7 @@
 
 #include <sigutils/log.h>
 #include <string.h>
+#include <util/compat.h>
 
 #include "pool.h"
 
@@ -40,7 +41,17 @@ SU_INSTANCER(suscan_sample_buffer, suscan_sample_buffer_pool_t *parent)
   SU_TRYZ_FAIL(pthread_mutex_init(&self->mutex, NULL));
   self->mutex_init = SU_TRUE;
 
-  SU_ALLOCATE_MANY_FAIL(self->data, self->size, SUCOMPLEX);
+  if (self->circular) {
+    self->data = suscan_vm_circbuf_new(
+      parent->name,
+      &self->circ_priv,
+      self->size);
+    
+    if (self->data == NULL)
+      goto fail;
+  } else {
+    SU_ALLOCATE_MANY_FAIL(self->data, self->size, SUCOMPLEX);
+  }
 
   return self;
 
@@ -54,8 +65,12 @@ fail:
 SU_COLLECTOR(suscan_sample_buffer)
 {
   /* TODO: If this is mmaped, free using munmap */
-  if (self->data != NULL)
-    free(self->data);
+  if (self->data != NULL) {
+    if (self->circular)
+      suscan_vm_circbuf_destroy(self->circ_priv);
+    else
+      free(self->data);
+  }
 
   if (self->mutex_init)
     pthread_mutex_destroy(&self->mutex);
@@ -74,6 +89,7 @@ SU_METHOD(suscan_sample_buffer, void, inc_ref)
 SU_CONSTRUCTOR(suscan_sample_buffer_pool,
   const struct suscan_sample_buffer_pool_params *params)
 {
+  const char *name = params->name;
   SUBOOL ok = SU_FALSE;
 
   if (params->alloc_size == 0) {
@@ -91,11 +107,30 @@ SU_CONSTRUCTOR(suscan_sample_buffer_pool,
   self->params   = *params;
   self->free_num = params->max_buffers;
   
+  if (name == NULL)
+    name = "unnamed";
+  
+  SU_TRY(self->name = strdup(name));
+  self->params.name = name;
+
   SU_CONSTRUCT(suscan_mq, &self->free_mq);
   self->free_mq_init = SU_TRUE;
 
   SU_TRYZ(pthread_mutex_init(&self->mutex, NULL));
   self->mutex_init = SU_TRUE;
+
+  /* Test if VM circularity works */
+  if (self->params.vm_circularity) {
+    suscan_sample_buffer_t *buf = NULL;
+
+    if ((buf = suscan_sample_buffer_pool_try_acquire(self)) == NULL) {
+      SU_ERROR("VM circularity test failed.\n");
+      goto done;
+    }
+
+    /* It worked, return buffer to pool and succeed */
+    suscan_sample_buffer_pool_give(self, buf);
+  }
 
   ok = SU_TRUE;
 
@@ -110,6 +145,9 @@ SU_DESTRUCTOR(suscan_sample_buffer_pool)
 {
   unsigned int i;
 
+  if (self->name != NULL)
+    free(self->name);
+  
   if (self->free_mq_init) {
     suscan_mq_write_urgent(&self->free_mq, SUSCAN_POOL_MQ_TYPE_HALT, NULL);
     SU_DESTRUCT(suscan_mq, &self->free_mq);
@@ -178,6 +216,9 @@ SU_METHOD(suscan_sample_buffer_pool, suscan_sample_buffer_t *, acquire)
     ret = suscan_sample_buffer_pool_try_acquire(self);
   }
 
+  if (ret != NULL)
+    suscan_sample_buffer_set_offset(ret, 0);
+  
   return ret;
 }
 
@@ -262,3 +303,25 @@ done:
   return ok;
 }
 
+SU_METHOD(
+  suscan_sample_buffer_pool,
+  suscan_sample_buffer_t *,
+  try_dup,
+  const suscan_sample_buffer_t *buffer)
+{
+  suscan_sample_buffer_t *dup = NULL;
+
+  if (buffer->parent != self) {
+    SU_ERROR("Cannot duplicate buffers from different parents\n");
+    return SU_FALSE;
+  }
+
+  if ((dup = suscan_sample_buffer_pool_try_acquire(self)) != NULL) {
+    SUCOMPLEX *dest = suscan_sample_buffer_data(dup);
+    const SUCOMPLEX *orig = suscan_sample_buffer_data(buffer);
+    
+    memcpy(dest, orig, self->params.alloc_size * sizeof(SUCOMPLEX));
+  }
+
+  return dup;
+}

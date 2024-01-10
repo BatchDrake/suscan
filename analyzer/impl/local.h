@@ -48,10 +48,6 @@ struct suscan_local_analyzer {
   suscan_source_t *source;
   SUBOOL loop_init;
   pthread_mutex_t loop_mutex;
-  suscan_throttle_t throttle; /* For non-realtime sources */
-  SUBOOL throttle_mutex_init;
-  pthread_mutex_t throttle_mutex;
-  SUSCOUNT effective_samp_rate; /* Used for GUI */
   SUFLOAT  measured_samp_rate; /* Used for statistics */
   SUSCOUNT measured_samp_count;
   uint64_t last_measure;
@@ -129,9 +125,12 @@ struct suscan_local_analyzer {
   rbtree_t *bbfilt_tree;
 
   /* Spectral tuner */
-  su_specttuner_t    *stuner;
-  pthread_mutex_t     stuner_mutex;
-  SUBOOL              stuner_init;
+  su_specttuner_t        *stuner;
+  pthread_mutex_t         stuner_mutex;
+  SUBOOL                  stuner_init;
+  suscan_sample_buffer_t *circbuf;
+  SUBOOL                  circularity;
+  SUBOOL                  circ_state;
 
   /* Wide sweep parameters */
   SUBOOL sweep_params_requested;
@@ -299,6 +298,11 @@ SUBOOL suscan_local_analyzer_slow_set_gain(
     suscan_local_analyzer_t *analyzer,
     const char *name,
     SUFLOAT value);
+
+/* Iternal */
+SUBOOL suscan_local_analyzer_readjust_detector(
+    suscan_local_analyzer_t *self,
+    struct sigutils_channel_detector_params *params);
 
 #ifdef __cplusplus
 }
