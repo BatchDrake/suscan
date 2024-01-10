@@ -514,7 +514,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
    * In the ODD state, we read window_size/2 samples with offset 0
    */
 
-  if (suscan_vm_circbuf_allowed(st_params.window_size) && SU_FALSE) {
+  if (suscan_vm_circbuf_allowed(st_params.window_size)) {
     bp_params.vm_circularity  = SU_TRUE;
     st_params.early_windowing = SU_FALSE;
     new->circularity          = SU_TRUE;
