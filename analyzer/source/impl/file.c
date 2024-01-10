@@ -587,7 +587,10 @@ suscan_source_file_guess_metadata(
   SF_INFO sf_info;
   SNDFILE *sf = NULL;
 
+#ifdef HAVE_JSONC
   struct suscan_sigmf_metadata sigmf_meta;
+#endif /* HAVE_JSONC */
+
   SUBOOL result = SU_FALSE;
   
   path = suscan_source_config_get_path(self);
