@@ -514,7 +514,7 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
    * In the ODD state, we read window_size/2 samples with offset 0
    */
 
-  if (suscan_vm_circbuf_allowed(st_params.window_size)) {
+  if (suscan_vm_circbuf_allowed(st_params.window_size) && SU_FALSE) {
     bp_params.vm_circularity  = SU_TRUE;
     st_params.early_windowing = SU_FALSE;
     new->circularity          = SU_TRUE;
@@ -522,7 +522,18 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   
   if ((new->bufpool = suscan_sample_buffer_pool_new(&bp_params)) == NULL) {
     SU_ERROR("Cannot create sample buffer pool\n");
-    goto fail;
+    if (new->circularity) {
+      SU_INFO("Trying again with no VM circularity...\n");
+      bp_params.vm_circularity  = SU_FALSE;
+      new->circularity          = SU_FALSE;
+
+      if ((new->bufpool = suscan_sample_buffer_pool_new(&bp_params)) == NULL) {
+        SU_ERROR("Failed to create buffer pool (again)\n");
+        goto fail;
+      }
+    } else {
+      goto fail;
+    }
   }
 
   SU_TRYCATCH(new->stuner = su_specttuner_new(&st_params), goto fail);
