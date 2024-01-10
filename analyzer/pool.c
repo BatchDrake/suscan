@@ -119,6 +119,19 @@ SU_CONSTRUCTOR(suscan_sample_buffer_pool,
   SU_TRYZ(pthread_mutex_init(&self->mutex, NULL));
   self->mutex_init = SU_TRUE;
 
+  /* Test if VM circularity works */
+  if (self->params.vm_circularity) {
+    suscan_sample_buffer_t *buf = NULL;
+
+    if ((buf = suscan_sample_buffer_pool_try_acquire(self)) == NULL) {
+      SU_ERROR("VM circularity test failed.\n");
+      goto done;
+    }
+
+    /* It worked, return buffer to pool and succeed */
+    suscan_sample_buffer_pool_give(self, buf);
+  }
+
   ok = SU_TRUE;
 
 done:
