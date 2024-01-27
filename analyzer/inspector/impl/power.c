@@ -53,6 +53,15 @@
 #define SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN (8. / 3.)
 
 /*
+ * Additionally, due to the removal of information in the edges of the
+ * window when running in frequency mode, the power averages suffer from
+ * an increased variance. This value is obtained from multiplying the square
+ * of the previous value to the integral of the 4th power of the window
+ * function (25 / 128).
+ */
+#define SU_POWER_INSPECTOR_VARIANCE_SCALING (35. / 18.)
+
+/*
  * The power inspector works by computing the energy of the received samples,
  * and dividing them by the number of samples. The Parseval theorem states
  * that the energy computed in the time domain must equal the energy computed
@@ -209,8 +218,15 @@ suscan_power_inspector_commit_config(void *private)
       (SUFLOAT) self->cur_params.integrate_samples / (SUFLOAT) self->samp_info.fft_size;
   }
 
-  if (self->insp != NULL)
-    suscan_inspector_set_domain(self->insp, self->frequency_mode);
+  if (self->insp != NULL) {
+    suscan_inspector_set_domain(self->insp, self->frequency_mode);  
+    suscan_inspector_send_signal(
+        self->insp,
+        "scaling",
+        self->frequency_mode
+        ? self->cur_params.integrate_samples / SU_POWER_INSPECTOR_VARIANCE_SCALING
+        : self->cur_params.integrate_samples);
+  }
 }
 
 #ifdef HAVE_VOLK_ACCELERATION
@@ -497,6 +513,13 @@ suscan_power_inspector_feed(
 #endif
   } else {
     self->stable = SU_TRUE;
+    suscan_inspector_send_signal(
+      insp,
+      "scaling",
+      self->frequency_mode
+      ? self->cur_params.integrate_samples / SU_POWER_INSPECTOR_VARIANCE_SCALING
+      : self->cur_params.integrate_samples);
+
     return count;
   }
 }

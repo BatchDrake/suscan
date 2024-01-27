@@ -177,6 +177,7 @@ set(RSRC_CONFIG_FILES
   ${RSRCDIR}/locations.yaml)
   
 set(UTIL_HEADERS
+  ${UTILDIR}/bpe.h
   ${UTILDIR}/cbor.h
   ${UTILDIR}/com.h
   ${UTILDIR}/compat.h
@@ -191,6 +192,7 @@ set(UTIL_HEADERS
   ${UTILDIR}/sha256.h)
   
 set(UTIL_SOURCES
+  ${UTILDIR}/bpe.c
   ${UTILDIR}/cbor.c
   ${UTILDIR}/cfg.c
   ${UTILDIR}/com.c
