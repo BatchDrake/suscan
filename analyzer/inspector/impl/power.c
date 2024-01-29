@@ -50,7 +50,7 @@
  * by this factor in the end, so that time and frequency power estimations
  * are the same.
  */
-#define SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN (8. / 3.)
+#define SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN 1 // (8. / 3.)
 
 /*
  * Additionally, due to the removal of information in the edges of the
