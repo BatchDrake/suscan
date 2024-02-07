@@ -195,6 +195,32 @@ suscan_power_inspector_parse_config(void *private, const suscan_config_t *config
   return SU_TRUE;
 }
 
+SUPRIVATE void
+suscan_power_inspector_send_scaling(struct suscan_power_inspector *self)
+{
+  SUDOUBLE scaling;
+
+  if (self->frequency_mode) {
+    // Frequency domain integration: Calculated from the number
+    // of buffers and the FFT size.
+
+    scaling = self->cur_params.integrate_samples / SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN;
+    scaling /= SU_POWER_INSPECTOR_VARIANCE_SCALING;
+    
+    printf("Frequency domain, %ld samples, scaling is %g\n",
+      self->cur_params.integrate_samples,
+      scaling);
+  } else {
+    // Time domain integration: just the number of samples.
+    scaling = self->cur_params.integrate_samples;
+    printf("Time domain, %ld samples, scaling is %g\n",
+      self->cur_params.integrate_samples,
+      scaling);
+  }
+
+  suscan_inspector_send_signal(self->insp, "scaling", scaling);
+}
+
 /* Called inside inspector mutex */
 void
 suscan_power_inspector_commit_config(void *private)
@@ -215,17 +241,13 @@ suscan_power_inspector_commit_config(void *private)
     self->beta       = 0;
     self->last_piece = SU_FALSE;
     self->K          = 
-      (SUFLOAT) self->cur_params.integrate_samples / (SUFLOAT) self->samp_info.fft_size;
+      (SUFLOAT) self->cur_params.integrate_samples / (SUFLOAT) self->samp_info.fft_bins;
+    printf("Frequency mode: K is %g\n", self->K);
   }
 
   if (self->insp != NULL) {
     suscan_inspector_set_domain(self->insp, self->frequency_mode);  
-    suscan_inspector_send_signal(
-        self->insp,
-        "scaling",
-        self->frequency_mode
-        ? self->cur_params.integrate_samples / SU_POWER_INSPECTOR_VARIANCE_SCALING
-        : self->cur_params.integrate_samples);
+    suscan_power_inspector_send_scaling(self);
   }
 }
 
@@ -392,6 +414,7 @@ suscan_power_inspector_feed_time_domain(
     ++ptr;
     
     if (ptr >= max) {
+      printf("MAX: %g\n", acc / max);
       suscan_inspector_push_sample(insp, acc / max);
       ptr = 0;
       acc = 0;
@@ -405,6 +428,8 @@ suscan_power_inspector_feed_time_domain(
 
   return i;
 }
+
+FILE *fp = NULL;
 
 SUINLINE SUSDIFF
 suscan_power_inspector_feed_freq_domain(
@@ -423,19 +448,23 @@ suscan_power_inspector_feed_freq_domain(
   max   = self->Kr_total_samples;
   E     = self->E;
   E_p   = self->E_p;
-  max_n = max + self->samp_info.fft_size;
+  max_n = max + self->samp_info.fft_bins;
 
+  if (fp == NULL)
+    fp = fopen("decim.raw", "wb");
+  
   for (i = 0; i < count && suscan_inspector_sampler_buf_avail(insp) > 0; ++i) {
     /* First sample: initialize Kr and alpha */
     if (ptr == 0) {
       self->Kr = self->K - self->beta;
       self->alpha = self->Kr - SU_FLOOR(self->Kr);
-      max = SU_FLOOR(self->Kr) * self->samp_info.fft_size;
-      max_n = max + self->samp_info.fft_size;
+      max = SU_FLOOR(self->Kr) * self->samp_info.fft_bins;
+      max_n = max + self->samp_info.fft_bins;
       E = 0;
     }
 
     power = SU_C_REAL(x[i] * SU_C_CONJ(x[i]));
+    
     y = power - c;
     t = acc + y;
 
@@ -446,16 +475,24 @@ suscan_power_inspector_feed_freq_domain(
     
     if (ptr == max) {
       /* First floor(Kr) samples: calculate E. */
+      printf("%g\n", acc);
       E = acc;
       acc = 0;
       c   = 0;
     } else if (ptr == max_n) {
+      SUFLOAT measurement;
       /* Got next. */
+
       E_n = acc;
       E_t = self->beta * E_p + E + self->alpha * E_n;
-      suscan_inspector_push_sample(
-        insp,
-        E_t / self->K * SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN);
+
+      printf("Sum: %g, %g, %g\n", E_n, E, E_p);
+      printf("Prev measurement added with %g, tiny bit: %g\n", self->beta, self->alpha);
+      measurement = E_t / self->K * SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN;
+      
+      fwrite(&power, sizeof(power), 1, fp);
+      suscan_inspector_push_sample(insp, measurement);
+      
       E_p = E_n;
       self->beta = 1 - self->alpha;
 
@@ -493,6 +530,7 @@ suscan_power_inspector_feed(
   /* Make sure we are in the right domain to being with */
   if (suscan_inspector_is_freq_domain(insp) != self->frequency_mode) {
     suscan_inspector_set_domain(insp, self->frequency_mode);
+    suscan_power_inspector_send_scaling(self);
     return count;
   }
 
@@ -513,13 +551,7 @@ suscan_power_inspector_feed(
 #endif
   } else {
     self->stable = SU_TRUE;
-    suscan_inspector_send_signal(
-      insp,
-      "scaling",
-      self->frequency_mode
-      ? self->cur_params.integrate_samples / SU_POWER_INSPECTOR_VARIANCE_SCALING
-      : self->cur_params.integrate_samples);
-
+    suscan_power_inspector_send_scaling(self);
     return count;
   }
 }

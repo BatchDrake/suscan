@@ -35,6 +35,7 @@ struct suscan_inspector_sampling_info {
   SUFLOAT bw_bd;           /* Bandwidth before decimation */
   SUFLOAT f0;              /* Center frequency */
   SUSCOUNT fft_size;       /* Size of the FFT window. */
+  SUSCOUNT fft_bins;       /* Number of non-zero bins in the FFT window */
   unsigned decimation;     /* Decimation */
 };
 

@@ -352,6 +352,7 @@ suscan_local_inspector_factory_open(
   samp_info->bw         = .5 * schan->decimation * samp_info->bw_bd;
   samp_info->f0         = SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan));
   samp_info->fft_size   = schan->size;
+  samp_info->fft_bins   = schan->width;
   samp_info->decimation = schan->decimation;
   return schan;
 }
