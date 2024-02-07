@@ -69,18 +69,18 @@
  * calculation of the RMS for very long integration times. We identify
  * two modes of operation:
  * 
- *  TIME DOMAIN MODE (when integrate_samples < fft_size):
+ *  TIME DOMAIN MODE (when integrate_samples < fft_bins):
  *     We are running below the time resolution of the FFT. We compute the
  *     inverse Fourier transform of the samples and perform the energy
  *     calculation in the time domain.
  * 
- * FREQUENCY DOMAIN MODE (when integrate_samples >= fft_size):
+ * FREQUENCY DOMAIN MODE (when integrate_samples >= fft_bins):
  *     We are running well above the time resolution of the FFT. Additionally,
- *     FFTs are overlapped. If we call K = integrate_samples / fft_size, and
+ *     FFTs are overlapped. If we call K = integrate_samples / fft_bins, and
  *     alpha = K - floor(K), we operate as follows:
  * 
  *     1. Keep a variable named E_p (init: 0) and beta (init: 0).
- *     2. Calculate K as integrate_samples / fft_size                  <-- Number of full FFTs to take into account
+ *     2. Calculate K as integrate_samples / fft_bins                  <-- Number of full FFTs to take into account
  *     3. Calculate Kr = K - beta                                      <-- Fraction already computed
  *     3. Calculate alpha = Kr - floor(Kr)                             <-- Fraction of the partial (next) FFT
  *     4. Calculate the total energy of floor(Kr) fft buffers (E)      <-- Whole FFTs, may be 0
@@ -112,7 +112,7 @@ struct suscan_power_inspector {
   /* For frequency domain */
   SUFLOAT  K;
   SUFLOAT  Kr;
-  SUSCOUNT Kr_total_samples; /* floor(Kr) * fft_size */
+  SUSCOUNT Kr_total_samples; /* floor(Kr) * fft_bins */
   
   SUFLOAT  alpha, beta;
   SUFLOAT  E_p;
@@ -201,21 +201,27 @@ suscan_power_inspector_send_scaling(struct suscan_power_inspector *self)
   SUDOUBLE scaling;
 
   if (self->frequency_mode) {
-    // Frequency domain integration: Calculated from the number
-    // of buffers and the FFT size.
-
-    scaling = self->cur_params.integrate_samples / SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN;
-    scaling /= SU_POWER_INSPECTOR_VARIANCE_SCALING;
+    /*
+     * I know this may sound weird to you. The rationale is as follows:
+     * 1. Each sample is drawn from a chi square, scaled to P_N
+     * 2. After adding int_samp samples, we have something that looks like a 
+     *    Gauss(int_samp P_N, int_samp P_N^2)
+     * 3. After dividing by K, we have something that looks like a
+     *    Gauss(int_samp P_N / K, int_samp P_N^2 / K^2)
+     * 4. Our scaling constant is K^2 / int_samp. This is:
+     * 
+     *    (int_samp^2 / fft_bins^2) / int_samp = int_samp / fft_bins^2
+    */
+    SUSCOUNT fs = self->samp_info.fft_size;
     
-    printf("Frequency domain, %ld samples, scaling is %g\n",
-      self->cur_params.integrate_samples,
-      scaling);
+    scaling  = fs * fs;
+    scaling /= self->cur_params.integrate_samples;
+     
+    //scaling /= fs;
+
   } else {
-    // Time domain integration: just the number of samples.
+    /* Time domain integration: just the number of samples. */
     scaling = self->cur_params.integrate_samples;
-    printf("Time domain, %ld samples, scaling is %g\n",
-      self->cur_params.integrate_samples,
-      scaling);
   }
 
   suscan_inspector_send_signal(self->insp, "scaling", scaling);
@@ -234,7 +240,7 @@ suscan_power_inspector_commit_config(void *private)
   self->pwr_kahan_c = 0;
 
   self->frequency_mode = 
-    self->cur_params.integrate_samples >= self->samp_info.fft_size;
+    self->cur_params.integrate_samples >= self->samp_info.fft_bins;
 
   if (self->frequency_mode) {
     self->E_p        = 0;
@@ -242,7 +248,6 @@ suscan_power_inspector_commit_config(void *private)
     self->last_piece = SU_FALSE;
     self->K          = 
       (SUFLOAT) self->cur_params.integrate_samples / (SUFLOAT) self->samp_info.fft_bins;
-    printf("Frequency mode: K is %g\n", self->K);
   }
 
   if (self->insp != NULL) {
@@ -318,19 +323,19 @@ suscan_power_inspector_feed_freq_domain_volk(
   max   = self->Kr_total_samples;
   E     = self->E;
   E_p   = self->E_p;
-  max_n = max + self->samp_info.fft_size;
+  max_n = max + self->samp_info.fft_bins;
 
   i = 0;
 
-  if (count != self->samp_info.fft_size)
+  if (count != self->samp_info.fft_bins)
     return count;
   
   while (i < count && suscan_inspector_sampler_buf_avail(insp) > 0) {
     if (ptr == 0) {
       self->Kr = self->K - self->beta;
       self->alpha = self->Kr - SU_FLOOR(self->Kr);
-      max = SU_FLOOR(self->Kr) * self->samp_info.fft_size;
-      max_n = max + self->samp_info.fft_size;
+      max = SU_FLOOR(self->Kr) * self->samp_info.fft_bins;
+      max_n = max + self->samp_info.fft_bins;
       E = 0;
     }
     
@@ -414,7 +419,6 @@ suscan_power_inspector_feed_time_domain(
     ++ptr;
     
     if (ptr >= max) {
-      printf("MAX: %g\n", acc / max);
       suscan_inspector_push_sample(insp, acc / max);
       ptr = 0;
       acc = 0;
@@ -428,8 +432,6 @@ suscan_power_inspector_feed_time_domain(
 
   return i;
 }
-
-FILE *fp = NULL;
 
 SUINLINE SUSDIFF
 suscan_power_inspector_feed_freq_domain(
@@ -450,9 +452,6 @@ suscan_power_inspector_feed_freq_domain(
   E_p   = self->E_p;
   max_n = max + self->samp_info.fft_bins;
 
-  if (fp == NULL)
-    fp = fopen("decim.raw", "wb");
-  
   for (i = 0; i < count && suscan_inspector_sampler_buf_avail(insp) > 0; ++i) {
     /* First sample: initialize Kr and alpha */
     if (ptr == 0) {
@@ -475,7 +474,6 @@ suscan_power_inspector_feed_freq_domain(
     
     if (ptr == max) {
       /* First floor(Kr) samples: calculate E. */
-      printf("%g\n", acc);
       E = acc;
       acc = 0;
       c   = 0;
@@ -486,11 +484,8 @@ suscan_power_inspector_feed_freq_domain(
       E_n = acc;
       E_t = self->beta * E_p + E + self->alpha * E_n;
 
-      printf("Sum: %g, %g, %g\n", E_n, E, E_p);
-      printf("Prev measurement added with %g, tiny bit: %g\n", self->beta, self->alpha);
       measurement = E_t / self->K * SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN;
       
-      fwrite(&power, sizeof(power), 1, fp);
       suscan_inspector_push_sample(insp, measurement);
       
       E_p = E_n;

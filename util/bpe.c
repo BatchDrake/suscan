@@ -24,7 +24,7 @@
 
 #include "bpe.h"
 
-#define SUCAN_BPE_NEWTON_TOL 1e-5
+#define SUCAN_BPE_NEWTON_TOL 1e-8
 
 SU_CONSTRUCTOR(suscan_bpe)
 {
