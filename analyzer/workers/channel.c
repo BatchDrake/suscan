@@ -353,6 +353,8 @@ suscan_local_inspector_factory_open(
   samp_info->f0         = SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan));
   samp_info->fft_size   = schan->size;
   samp_info->fft_bins   = schan->width;
+  samp_info->early_windowing = su_specttuner_uses_early_windowing(self->stuner);
+
   samp_info->decimation = schan->decimation;
   return schan;
 }

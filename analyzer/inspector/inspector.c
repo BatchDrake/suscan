@@ -90,7 +90,7 @@ suscan_inspector_open_sc_channel_ex(
   params.guard    = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
   params.privdata = privdata;
   params.precise  = precise;
-
+  
   params.on_data  = on_data;
   params.on_freq_changed = on_new_freq;
 
@@ -101,6 +101,7 @@ suscan_inspector_open_sc_channel_ex(
       channel = su_specttuner_open_channel(self->sc_stuner, &params),
       goto done);
 
+  
 done:
   if (mutex_acquired)
     (void) pthread_mutex_unlock(&self->sc_stuner_mutex);
@@ -225,9 +226,11 @@ suscan_sc_inspector_factory_open(
   samp_info->bw       = .5 * schan->decimation * samp_info->bw_bd;
   samp_info->f0       = 
     SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan)) * schan->decimation;
-  samp_info->fft_size = schan->size;
-  samp_info->fft_bins = schan->width;
-  samp_info->decimation = self->samp_info.equiv_fs;
+    
+  samp_info->fft_size        = schan->size;
+  samp_info->fft_bins        = schan->width;
+  samp_info->early_windowing = su_specttuner_uses_early_windowing(self->sc_stuner);
+  samp_info->decimation      = self->samp_info.equiv_fs;
   
   return schan;
 }

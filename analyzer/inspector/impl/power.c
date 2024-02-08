@@ -46,18 +46,18 @@
  * frequency domain, the spectrum has been filtered by a raised cosine
  * window (also known as Hann window). This window is 1 in the center and
  * 0 in the edges. If you estimate its power, you will see it is 0.375. Or,
- * in faction form, 3. / 8. We compensate this effect by multiplying the result
+ * in fraction form, 3. / 8. We compensate this effect by multiplying the result
  * by this factor in the end, so that time and frequency power estimations
  * are the same.
  */
-#define SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN 1 // (8. / 3.)
+#define SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN (8. / 3.)
 
 /*
  * Additionally, due to the removal of information in the edges of the
  * window when running in frequency mode, the power averages suffer from
- * an increased variance. This value is obtained from multiplying the square
- * of the previous value to the integral of the 4th power of the window
- * function (25 / 128).
+ * an increased variance (as we are scaling down certain coefficients).
+ * This value is obtained from multiplying the square of the previous value to
+ * the integral of the 4th power of the window function (25 / 128).
  */
 #define SU_POWER_INSPECTOR_VARIANCE_SCALING (35. / 18.)
 
@@ -118,6 +118,7 @@ struct suscan_power_inspector {
   SUFLOAT  E_p;
   SUFLOAT  E;
   SUBOOL   last_piece;
+  SUFLOAT  inv_gain;
 };
 
 SUPRIVATE void
@@ -201,24 +202,10 @@ suscan_power_inspector_send_scaling(struct suscan_power_inspector *self)
   SUDOUBLE scaling;
 
   if (self->frequency_mode) {
-    /*
-     * I know this may sound weird to you. The rationale is as follows:
-     * 1. Each sample is drawn from a chi square, scaled to P_N
-     * 2. After adding int_samp samples, we have something that looks like a 
-     *    Gauss(int_samp P_N, int_samp P_N^2)
-     * 3. After dividing by K, we have something that looks like a
-     *    Gauss(int_samp P_N / K, int_samp P_N^2 / K^2)
-     * 4. Our scaling constant is K^2 / int_samp. This is:
-     * 
-     *    (int_samp^2 / fft_bins^2) / int_samp = int_samp / fft_bins^2
-    */
-    SUSCOUNT fs = self->samp_info.fft_size;
-    
-    scaling  = fs * fs;
-    scaling /= self->cur_params.integrate_samples;
-     
-    //scaling /= fs;
-
+    /* Frequency domain integration: take early windowing into account. */
+    scaling = self->cur_params.integrate_samples;
+    if (self->samp_info.early_windowing)
+      scaling /= SU_POWER_INSPECTOR_VARIANCE_SCALING;
   } else {
     /* Time domain integration: just the number of samples. */
     scaling = self->cur_params.integrate_samples;
@@ -246,6 +233,10 @@ suscan_power_inspector_commit_config(void *private)
     self->E_p        = 0;
     self->beta       = 0;
     self->last_piece = SU_FALSE;
+    self->inv_gain   = self->samp_info.early_windowing 
+      ? SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN
+      : 1.;
+    
     self->K          = 
       (SUFLOAT) self->cur_params.integrate_samples / (SUFLOAT) self->samp_info.fft_bins;
   }
@@ -371,7 +362,7 @@ suscan_power_inspector_feed_freq_domain_volk(
 
       suscan_inspector_push_sample(
         insp,
-        E_t / self->K * SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN);
+        E_t / self->K * self->inv_gain);
       E_p = E_n;
       self->beta = 1 - self->alpha;
 
@@ -484,7 +475,7 @@ suscan_power_inspector_feed_freq_domain(
       E_n = acc;
       E_t = self->beta * E_p + E + self->alpha * E_n;
 
-      measurement = E_t / self->K * SU_POWER_INSPECTOR_FFT_WINDOW_INV_GAIN;
+      measurement = E_t / self->K * self->inv_gain;
       
       suscan_inspector_push_sample(insp, measurement);
       
