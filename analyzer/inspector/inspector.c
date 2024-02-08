@@ -90,7 +90,7 @@ suscan_inspector_open_sc_channel_ex(
   params.guard    = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
   params.privdata = privdata;
   params.precise  = precise;
-
+  
   params.on_data  = on_data;
   params.on_freq_changed = on_new_freq;
 
@@ -101,6 +101,7 @@ suscan_inspector_open_sc_channel_ex(
       channel = su_specttuner_open_channel(self->sc_stuner, &params),
       goto done);
 
+  
 done:
   if (mutex_acquired)
     (void) pthread_mutex_unlock(&self->sc_stuner_mutex);
@@ -225,8 +226,11 @@ suscan_sc_inspector_factory_open(
   samp_info->bw       = .5 * schan->decimation * samp_info->bw_bd;
   samp_info->f0       = 
     SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan)) * schan->decimation;
-  samp_info->fft_size = schan->size;
-  samp_info->decimation = self->samp_info.equiv_fs;
+    
+  samp_info->fft_size        = schan->size;
+  samp_info->fft_bins        = schan->width;
+  samp_info->early_windowing = su_specttuner_uses_early_windowing(self->sc_stuner);
+  samp_info->decimation      = self->samp_info.equiv_fs;
   
   return schan;
 }
@@ -295,6 +299,18 @@ suscan_sc_inspector_factory_set_bandwidth(
   (void) su_specttuner_set_channel_bandwidth(self->sc_stuner, chan, relbw);
 
   return SU_TRUE;
+}
+
+SUPRIVATE SUFLOAT
+suscan_sc_inspector_factory_get_bandwidth(
+  void *userdata, 
+  void *insp_userdata)
+{
+  suscan_inspector_t *self = (suscan_inspector_t *) userdata;
+  su_specttuner_channel_t *chan = (su_specttuner_channel_t *) insp_userdata;
+  SUFLOAT relbw = su_specttuner_channel_get_bw(chan);
+
+  return SU_NORM2ABS_FREQ(self->samp_info.equiv_fs, SU_ANG2NORM_FREQ(relbw));
 }
 
 SUPRIVATE SUBOOL
@@ -387,6 +403,7 @@ static struct suscan_inspector_factory_class g_sc_factory = {
   .close               = suscan_sc_inspector_factory_close,
   .free_buf            = suscan_sc_inspector_factory_free_buf,
   .set_bandwidth       = suscan_sc_inspector_factory_set_bandwidth,
+  .get_bandwidth       = suscan_sc_inspector_factory_get_bandwidth,
   .set_frequency       = suscan_sc_inspector_factory_set_frequency,
   .set_domain          = suscan_sc_inspector_factory_set_domain,
   .get_abs_freq        = suscan_sc_inspector_factory_get_abs_freq,

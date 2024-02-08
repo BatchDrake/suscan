@@ -30,6 +30,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define SUSCAN_INSPECTOR_FACTORY_TRUE_BW_SIGNAL "insp.true_bw"
+
 struct suscan_inspector_factory;
 
 /* TODO: Use hashtables */
@@ -56,6 +58,9 @@ struct suscan_inspector_factory_class {
   /* Set absolute bandwidth */
   SUBOOL (*set_bandwidth) (void *, void *, SUFLOAT);
 
+  /* Get true bandwidth, taking resolution into account */
+  SUFLOAT (*get_bandwidth) (void *, void *);
+  
   /* Set absolute frequency */
   SUBOOL (*set_frequency) (void *, void *, SUFREQ);
   
@@ -155,10 +160,18 @@ suscan_inspector_factory_set_inspector_bandwidth(
   suscan_inspector_t *insp,
   SUFLOAT bandwidth)
 {
-  return (self->iface->set_bandwidth) (
+  SUBOOL ok = (self->iface->set_bandwidth) (
     self->userdata,
     insp->factory_userdata,
     bandwidth);
+
+  if (ok)
+    suscan_inspector_send_signal(
+      insp,
+      SUSCAN_INSPECTOR_FACTORY_TRUE_BW_SIGNAL,
+      (self->iface->get_bandwidth) (self->userdata, insp->factory_userdata));
+    
+  return ok;
 }
 
 SUINLINE SUBOOL

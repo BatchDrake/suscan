@@ -22,6 +22,7 @@
 
 #include <sigutils/types.h>
 #include <sigutils/defs.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,6 +40,9 @@ struct suscan_bpe {
 
   SUBOOL   have_estimate;
 
+  SUDOUBLE last_measurement;
+  SUDOUBLE last_scaling;
+
   SUDOUBLE pwr_mode;
   SUDOUBLE pwr_delta;
 
@@ -52,6 +56,7 @@ SU_CONSTRUCTOR(suscan_bpe);
 SU_METHOD(suscan_bpe, void, feed, SUDOUBLE, SUDOUBLE);
 SU_METHOD(suscan_bpe, SUDOUBLE, get_power);
 SU_METHOD(suscan_bpe, SUDOUBLE, get_dispersion);
+SU_METHOD(suscan_bpe, void, log_state, FILE *);
 
 #ifdef __cplusplus
 }

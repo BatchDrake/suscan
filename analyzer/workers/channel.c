@@ -352,6 +352,9 @@ suscan_local_inspector_factory_open(
   samp_info->bw         = .5 * schan->decimation * samp_info->bw_bd;
   samp_info->f0         = SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan));
   samp_info->fft_size   = schan->size;
+  samp_info->fft_bins   = schan->width;
+  samp_info->early_windowing = su_specttuner_uses_early_windowing(self->stuner);
+
   samp_info->decimation = schan->decimation;
   return schan;
 }
@@ -420,6 +423,20 @@ suscan_local_inspector_factory_set_bandwidth(
   (void) su_specttuner_set_channel_bandwidth(self->stuner, chan, relbw);
 
   return SU_TRUE;
+}
+
+SUPRIVATE SUFLOAT
+suscan_local_inspector_factory_get_bandwidth(
+  void *userdata, 
+  void *insp_userdata)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) userdata;
+  su_specttuner_channel_t *chan = (su_specttuner_channel_t *) insp_userdata;
+  SUFLOAT relbw = su_specttuner_channel_get_bw(chan);
+
+  return SU_NORM2ABS_FREQ(
+    suscan_analyzer_get_samp_rate(self->parent),
+    SU_ANG2NORM_FREQ(relbw));
 }
 
 SUPRIVATE SUBOOL
@@ -511,6 +528,7 @@ static struct suscan_inspector_factory_class g_local_factory = {
   .close               = suscan_local_inspector_factory_close,
   .free_buf            = suscan_local_inspector_factory_free_buf,
   .set_bandwidth       = suscan_local_inspector_factory_set_bandwidth,
+  .get_bandwidth       = suscan_local_inspector_factory_get_bandwidth,
   .set_frequency       = suscan_local_inspector_factory_set_frequency,
   .set_domain          = suscan_local_inspector_factory_set_domain,
   .get_abs_freq        = suscan_local_inspector_factory_get_abs_freq,

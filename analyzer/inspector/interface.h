@@ -30,12 +30,14 @@
 struct suscan_inspector;
 
 struct suscan_inspector_sampling_info {
-  SUFLOAT equiv_fs;        /* Equivalent sample rate */
-  SUFLOAT bw;              /* Bandwidth */
-  SUFLOAT bw_bd;           /* Bandwidth before decimation */
-  SUFLOAT f0;              /* Center frequency */
-  SUSCOUNT fft_size;       /* Size of the FFT window. */
-  unsigned decimation;     /* Decimation */
+  SUFLOAT equiv_fs;         /* Equivalent sample rate */
+  SUFLOAT bw;               /* Bandwidth */
+  SUFLOAT bw_bd;            /* Bandwidth before decimation */
+  SUFLOAT f0;               /* Center frequency */
+  SUSCOUNT fft_size;        /* Size of the FFT window. */
+  SUSCOUNT fft_bins;        /* Number of non-zero bins in the FFT window */
+  SUBOOL   early_windowing; /* Early windowing is being applied */
+  unsigned decimation;      /* Decimation */
 };
 
 struct suscan_inspector_interface {

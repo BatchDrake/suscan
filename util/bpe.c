@@ -24,14 +24,15 @@
 
 #include "bpe.h"
 
-#define SUCAN_BPE_NEWTON_TOL 1e-5
+#define SUCAN_BPE_NEWTON_TOL 1e-8
 
 SU_CONSTRUCTOR(suscan_bpe)
 {
   memset(self, 0, sizeof(suscan_bpe_t));
 
   /* Initialize the improper prior. */
-  self->alpha = -1;
+  self->alpha  = -1;
+  self->lambda = -2;
 
   return SU_TRUE;
 }
@@ -43,6 +44,9 @@ SU_METHOD(suscan_bpe, void, feed, SUDOUBLE x, SUDOUBLE k)
   SUDOUBLE prevMu       = self->mu;
   SUDOUBLE prevMuLambda = prevLambda * prevMu;
   SUDOUBLE kx = k * x;
+
+  self->last_measurement = x;
+  self->last_scaling     = k;
 
   self->alpha  += .5;
   self->lambda += k;
@@ -57,13 +61,16 @@ SU_METHOD(suscan_bpe, void, feed, SUDOUBLE x, SUDOUBLE k)
 SUINLINE
 SU_METHOD(suscan_bpe, SUDOUBLE, calc_mode)
 {
-  SUDOUBLE a, b, c;
+  SUDOUBLE a, b, c, ba, ca;
   
   a = -(2 * self->alpha + 3);
   b = -self->lambda * self->mu;
   c = 2 * self->beta + self->lambda * self->mu * self->mu;
 
-  return (-b - SU_SQRT(b * b - 4 * a * c)) / (2 * a);
+  ba = b / a;
+  ca = c / a;
+
+  return .5 * (-ba + sqrt(ba * ba - 4 * ca));
 }
 
 SUINLINE SUDOUBLE
@@ -149,3 +156,21 @@ SU_METHOD(suscan_bpe, SUDOUBLE, get_dispersion)
 
   return self->pwr_delta;
 }
+
+SU_METHOD(suscan_bpe, void, log_state, FILE *ofp)
+{
+  suscan_bpe_ensure_estimates(self);
+
+  fprintf(
+    ofp,
+    "%.15e,%.15e,%.15e,%.15e,%.15e,%.15e,%.15e,%.15e\n",
+    self->last_measurement,
+    self->last_scaling,
+    self->pwr_mode,
+    self->pwr_delta,
+    self->alpha,
+    self->beta,
+    self->lambda,
+    self->mu);
+}
+
