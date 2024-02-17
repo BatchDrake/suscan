@@ -255,7 +255,7 @@ suscan_local_analyzer_init_detector_params(
 }
 
 SUBOOL
-suscan_local_analyzer_start_wide_worker(suscan_local_analyzer_t *self)
+suscan_local_analyzer_init_wide_worker(suscan_local_analyzer_t *self)
 {
   struct sigutils_channel_detector_params det_params;
   SUBOOL ok = SU_FALSE;
@@ -282,13 +282,24 @@ suscan_local_analyzer_start_wide_worker(suscan_local_analyzer_t *self)
   SU_TRY(
       self->parent->params.max_freq - self->parent->params.min_freq >=
       self->source_info.source_samp_rate);
-  
+
   self->current_sweep_params.fft_min_samples =
           SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
   self->current_sweep_params.max_freq = self->parent->params.max_freq;
   self->current_sweep_params.min_freq = self->parent->params.min_freq;
   self->current_sweep_params.rel_bw = 0.5;
   self->sweep_params_requested = SU_FALSE;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscan_local_analyzer_start_wide_worker(suscan_local_analyzer_t *self)
+{
+  SUBOOL ok = SU_FALSE;
 
   if (!suscan_worker_push(
     self->source_wk,
