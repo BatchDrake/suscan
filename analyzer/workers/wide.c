@@ -38,6 +38,12 @@
 #include "mq.h"
 #include "msg.h"
 
+static uint64_t micros() {
+  struct timeval tv;
+  gettimeofday(&tv,NULL);
+  return tv.tv_sec * 1000000ull + tv.tv_usec;
+}
+
 /*
  * TODO: Add methods to define partition bandwidth
  */
@@ -56,6 +62,7 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
   SUFREQ next = .5 * (
       self->current_sweep_params.max_freq
       + self->current_sweep_params.min_freq);
+  uint64_t t0, hop_time;
 
   /*
    * For frequencies below the sample rate, we don't hop.
@@ -107,11 +114,14 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
   }
 
   /* All set. Go ahed and hop */
+  t0 = micros();
   if (suscan_source_set_freq2(
       self->source,
       next,
       suscan_source_config_get_lnb_freq(
           suscan_source_get_config(self->source)))) {
+    hop_time = micros() - t0;
+    self->hop_samples = fs * hop_time / 1000000;
     self->curr_freq = suscan_source_get_freq(self->source);
     self->source_info.frequency = self->curr_freq;
 
@@ -152,7 +162,8 @@ suscan_source_wide_wk_cb(
       suscan_analyzer_do_iq_rev(self->read_buf, got);
     self->fft_samples += got;
 
-    if (self->fft_samples > self->current_sweep_params.fft_min_samples) {
+    if (self->fft_samples > self->current_sweep_params.fft_min_samples +
+        self->hop_samples) {
       /* Feed detector (works in spectrum mode only) */
       SU_TRYCATCH(
           su_channel_detector_feed_bulk(
@@ -292,6 +303,8 @@ suscan_local_analyzer_init_wide_worker(suscan_local_analyzer_t *self)
   self->current_sweep_params.min_freq = self->parent->params.min_freq;
   self->current_sweep_params.rel_bw = 0.5;
   self->sweep_params_requested = SU_FALSE;
+
+  self->hop_samples = 0;
 
   ok = SU_TRUE;
 
