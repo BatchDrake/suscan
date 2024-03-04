@@ -300,6 +300,7 @@ suscan_source_file_open(
   SU_TRY_FAIL(suscan_source_config_file_check(config));
   SU_ALLOCATE_FAIL(new, struct suscan_source_file);
 
+  new->source = source;
   new->config = config;
   new->sf     = suscan_source_config_sf_open(config, &new->sf_info);
   
@@ -372,7 +373,8 @@ suscan_source_file_read(
       SU_ERROR("Failed to seek to the beginning of the stream\n");
       return 0;
     }
-    self->looped = SU_TRUE;
+    
+    suscan_source_mark_looped(self->source);
     self->total_samples = 0;
     got = sf_read(self->sf, as_real, real_count);
   }
