@@ -210,6 +210,12 @@ suscan_source_set_start_time(
   suscan_source_config_set_start_time(self->config, tv);
 }
 
+SUINLINE void
+suscan_source_mark_looped(suscan_source_t *self)
+{
+  self->looped = SU_TRUE;
+}
+
 SUINLINE SUBOOL
 suscan_source_has_looped(suscan_source_t *self)
 {

@@ -27,6 +27,7 @@
 /* File sources are accessed through a soundfile handle */
 
 struct suscan_source_config;
+struct suscan_source;
 
 /* SigMF metadata that is relevant for Suscan */
 /* TODO: What if we created a unified metadata structure that can be
@@ -46,10 +47,10 @@ struct suscan_source_file {
   SNDFILE *sf;
   SF_INFO sf_info;
   struct suscan_source_config *config;
+  struct suscan_source *source;
 
   SUBOOL iq_file;
   SUBOOL force_eos;
-  SUBOOL looped;
   SUFLOAT  samp_rate;
   SUSCOUNT total_samples;
   SUSCOUNT seek_request;
