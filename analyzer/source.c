@@ -39,6 +39,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sigutils/util/compat-time.h>
+#include <sigutils/util/compat-mman.h>
 #include <confdb.h>
 
 #ifdef _WIN32
@@ -231,24 +232,14 @@ suscan_source_get_dc_samples(const suscan_source_t *self)
   return (SUSCOUNT) (int_time * samp_rate);
 }
 
-SUSDIFF
-suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
+SUINLINE SUSDIFF
+suscan_source_read_samples(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 {
   SUSDIFF got = 0;
   SUSCOUNT result = -1;
   SUSCOUNT spill_avail, chunk;
   SUCOMPLEX *bufdec = buffer;
   SUSCOUNT maxdec = max;
-
-  if (!self->capturing)
-    return 0;
-
-  /* With non-real time sources, use throttle to control CPU usage */
-  if (!suscan_source_is_real_time(self)) {
-    SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
-    max = suscan_throttle_get_portion(&self->throttle, max);
-    SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
-  }
 
   if (self->decim > 1) {
     result = 0;
@@ -275,6 +266,7 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
       self->curr_buf  = bufdec;
       self->curr_ptr  = 0;
       self->curr_size = maxdec;
+
       do {
         if ((got = (self->iface->read) (
           self->src_priv,
@@ -292,6 +284,108 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
     result = (self->iface->read) (self->src_priv, buffer, max);
     if (result > 0 && self->dc_correction_enabled)
       su_dc_corrector_correct(&self->dc_corrector, buffer, result);
+  }
+
+  return result;
+}
+
+SUINLINE void
+suscan_source_history_write(
+  suscan_source_t *self,
+  const SUCOMPLEX *buffer,
+  SUSCOUNT len)
+{
+  SUSCOUNT ptr = self->history_ptr;
+
+  if (len > self->history_alloc) {
+    buffer += len - self->history_alloc;
+    len = self->history_alloc;
+  }
+
+  SUSCOUNT rem = len;
+  SUSCOUNT avail = self->history_alloc - ptr;
+  SUSCOUNT chunklen = MIN(len, avail);
+
+  memcpy(self->history + ptr, buffer, chunklen * sizeof(SUCOMPLEX));
+
+  rem    -= chunklen;
+  buffer += chunklen;
+  ptr    += chunklen;
+
+  if (ptr == self->history_alloc) {
+    ptr = 0;
+  
+    if (rem > 0) {
+      memcpy(self->history, buffer, rem * sizeof(SUCOMPLEX));
+      ptr += rem;
+    }
+  }
+
+  if (self->history_size < self->history_alloc) {
+    self->history_size += len;
+
+    if (self->history_size > self->history_alloc)
+      self->history_size = self->history_alloc;
+  }
+
+  self->history_ptr = ptr;
+}
+
+SUINLINE SUSDIFF
+suscan_source_history_read(
+  suscan_source_t *self,
+  SUCOMPLEX *buffer,
+  SUSCOUNT len)
+{
+  SUSCOUNT avail;
+
+  if (self->history_size == 0)
+    return 0;
+  
+  if (self->history_ptr >= self->history_size) {
+    self->history_ptr %= self->history_size;
+    suscan_source_mark_looped(self);
+  }
+
+  avail = self->history_size - self->history_ptr;
+
+  if (len > avail)
+    len = avail;
+
+  memcpy(buffer, self->history + self->history_ptr, len * sizeof(SUCOMPLEX));
+
+  self->history_ptr += len;
+
+  return len;
+}
+
+SUSDIFF
+suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
+{
+  SUSDIFF result = -1;
+
+  if (!self->capturing)
+    return 0;
+
+  /* With non-real time sources, use throttle to control CPU usage */
+  if (!suscan_source_is_real_time(self)) {
+    SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
+    max = suscan_throttle_get_portion(&self->throttle, max);
+    SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
+  }
+  
+  if (self->history_enabled) {
+    if (self->history_replay) {
+      result = suscan_source_history_read(self, buffer, max);
+    } else {
+      result = suscan_source_read_samples(self, buffer, max);
+
+      if (result > 0)
+        suscan_source_history_write(self, buffer, result);
+    }
+  } else {
+    /* No history, just regular read */
+    result = suscan_source_read_samples(self, buffer, max);
   }
 
   if (result > 0)
@@ -875,6 +969,136 @@ suscan_source_populate_source_info(suscan_source_t *self)
   
 done:
   return ok;
+}
+
+SUBOOL
+suscan_source_set_history_enabled(suscan_source_t *self, SUBOOL enabled)
+{
+  if (enabled && self->history_alloc == 0) {
+    SU_ERROR("Cannot enable history with no history allocation\n");
+    return SU_FALSE;
+  }
+
+
+  if (self->history_enabled != enabled) {
+    self->history_enabled = enabled;
+
+    if (enabled)
+      self->history_size = self->history_ptr = 0;
+  }
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_source_set_history_alloc(suscan_source_t *self, size_t bytes)
+{
+  SUSCOUNT samples = __UNITS(bytes, sizeof(SUCOMPLEX));
+  return suscan_source_set_history_length(self, samples);
+}
+
+SUBOOL
+suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
+{
+  size_t new_alloc = length * sizeof(SUCOMPLEX);
+  size_t old_alloc = self->history_alloc * sizeof(SUCOMPLEX);
+  SUCOMPLEX *new_bytes;
+
+  if (new_alloc == 0) {
+    /* Clear previous history */
+    suscan_source_clear_history(self);
+
+    self->history_size    = self->history_ptr = 0;
+    self->history_enabled = SU_FALSE;
+    self->history_replay  = SU_FALSE;
+
+    return SU_TRUE;
+  }
+  
+  new_bytes = mmap(
+    NULL,
+    new_alloc,
+    PROT_READ | PROT_WRITE,
+    MAP_PRIVATE | MAP_ANONYMOUS,
+    0, 0);
+
+  if (new_bytes == (SUCOMPLEX *) -1) {
+    SU_ERROR(
+      "Cannot mmap %lld bytes of memory: %s\n", new_alloc, strerror(errno));
+    return SU_FALSE;
+  }
+
+  /* 
+   * Now we have to copy the previous history to the new one. We need to
+   * transfer everything from (ptr - size) to offset 0 in the new buffer.
+   */
+  if (old_alloc > 0) {
+    SUSCOUNT p, copy_size;
+
+    /* Partially full buffer, guess where to start */
+    copy_size = self->history_size;
+    p = copy_size < old_alloc ? 0 : self->history_ptr;
+    
+    /* Adjust start according to new alloc */
+    if (copy_size > new_alloc) {
+      p += copy_size - new_alloc;
+      copy_size = new_alloc;
+    }
+
+    /* If p + copy_size surpasses the buffer size, divide in two */
+    if (p + copy_size > old_alloc) {
+      SUSCOUNT size1 = old_alloc - p;
+      SUSCOUNT size2 = copy_size - size1;
+
+      memcpy(new_bytes, self->history + p,     size1 * sizeof(SUCOMPLEX));
+      memcpy(new_bytes + size1, self->history, size2 * sizeof(SUCOMPLEX));
+    } else {
+      memcpy(new_bytes, self->history + p, copy_size * sizeof(SUCOMPLEX));
+    }
+
+    self->history_size = self->history_ptr = copy_size;
+    
+    if (self->history_ptr == self->history_size)
+      self->history_ptr = 0;
+  } else {
+    self->history_ptr = self->history_size = 0;
+  }
+
+  suscan_source_clear_history(self);
+
+  self->history = new_bytes;
+  self->history_alloc = new_alloc;
+  
+  return SU_TRUE;
+}
+
+SUSCOUNT
+suscan_source_get_history_length(const suscan_source_t *self)
+{
+  return self->history_alloc;
+}
+
+SUBOOL
+suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL enabled)
+{
+  if (self->history_alloc == 0 && enabled) {
+    SU_ERROR("Cannot enable replay: no history allocated\n");
+    return SU_FALSE;
+  }
+
+  self->history_replay = enabled;
+
+  return SU_TRUE;
+}
+
+void
+suscan_source_clear_history(suscan_source_t *self)
+{
+  if (self->history_alloc > 0) {
+    munmap(self->history, self->history_alloc);
+    self->history_alloc = 0;
+    self->history = NULL;
+  }
 }
 
 suscan_source_t *
