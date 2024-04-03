@@ -116,6 +116,7 @@ SUSCAN_SERIALIZABLE(suscan_source_info) {
   uint32_t mtu;
 
   SUBOOL   realtime;
+  SUBOOL   replay;
   SUSCOUNT source_samp_rate;
   SUSCOUNT effective_samp_rate;
   SUFLOAT  measured_samp_rate;

@@ -1086,8 +1086,24 @@ suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL enabled)
     return SU_FALSE;
   }
 
-  self->history_replay = enabled;
+  if (self->history_replay != enabled) {
+    /* When replay is enabled, we need to change the source start */
+    if (enabled) {
+      struct timeval diff;
+      SUDOUBLE fs = self->info.source_samp_rate;
+      SUSCOUNT us = 1e6 * self->history_size / fs;
 
+      diff.tv_sec  = us / 1000000;
+      diff.tv_usec = us % 1000000;
+
+      suscan_source_get_time(self, &self->info.source_end);
+      timersub(&self->info.source_end, &diff, &self->info.source_start);
+    }
+
+    self->history_replay = enabled;
+    self->info.replay    = enabled;
+  }
+  
   return SU_TRUE;
 }
 

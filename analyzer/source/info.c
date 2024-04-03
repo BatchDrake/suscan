@@ -124,6 +124,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_info)
   SUSCAN_PACK(uint,  self->permissions);
   SUSCAN_PACK(uint,  self->mtu);
   SUSCAN_PACK(bool,  self->realtime);
+  SUSCAN_PACK(bool,  self->replay);
   SUSCAN_PACK(uint,  self->source_samp_rate);
   SUSCAN_PACK(uint,  self->effective_samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
@@ -149,7 +150,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_info)
   SUSCAN_PACK(uint, self->source_time.tv_usec);
 
   SUSCAN_PACK(bool, self->seekable);
-  if (self->seekable) {
+  if (self->seekable || self->replay) {
     SUSCAN_PACK(uint,  self->source_start.tv_sec);
     SUSCAN_PACK(uint,  self->source_start.tv_usec);  
     SUSCAN_PACK(uint, self->source_end.tv_sec);
@@ -180,7 +181,8 @@ SUSCAN_DESERIALIZER_PROTO(suscan_source_info)
 
   SUSCAN_UNPACK(uint64, self->permissions);
   SUSCAN_UNPACK(uint32, self->mtu);
-  SUSCAN_UNPACK(bool,  self->realtime);
+  SUSCAN_UNPACK(bool,   self->realtime);
+  SUSCAN_UNPACK(bool,   self->replay);
   SUSCAN_UNPACK(uint64, self->source_samp_rate);
   SUSCAN_UNPACK(uint64, self->effective_samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
@@ -208,7 +210,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_source_info)
   self->source_time.tv_usec = tv_usec;
 
   SUSCAN_UNPACK(bool, self->seekable);
-  if (self->seekable) {
+  if (self->seekable || self->replay) {
     SUSCAN_UNPACK(uint64, tv_sec);
     SUSCAN_UNPACK(uint32, tv_usec);  
     self->source_start.tv_sec  = tv_sec;
@@ -304,7 +306,7 @@ suscan_source_info_init_copy(
   self->source_time         = origin->source_time;
   self->seekable            = origin->seekable;
 
-  if (self->seekable) {
+  if (self->seekable || self->replay) {
     self->source_start = origin->source_start;
     self->source_end   = origin->source_end;
   }
