@@ -363,12 +363,13 @@ SUSDIFF
 suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
 {
   SUSDIFF result = -1;
+  SUBOOL replay = self->history_replay;
 
   if (!self->capturing)
     return 0;
 
   /* With non-real time sources, use throttle to control CPU usage */
-  if (!suscan_source_is_real_time(self)) {
+  if (!suscan_source_is_real_time(self) || replay) {
     SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
     max = suscan_throttle_get_portion(&self->throttle, max);
     SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
@@ -391,7 +392,7 @@ suscan_source_read(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT max)
   if (result > 0)
     self->total_samples += result;
 
-  if (!suscan_source_is_real_time(self)) {
+  if (!suscan_source_is_real_time(self) || replay) {
     SU_TRYZ(pthread_mutex_lock(&self->throttle_mutex));
     suscan_throttle_advance(&self->throttle, result);
     SU_TRYZ(pthread_mutex_unlock(&self->throttle_mutex));
@@ -474,7 +475,18 @@ done:
 void 
 suscan_source_get_time(suscan_source_t *self, struct timeval *tv)
 {
-  (self->iface->get_time) (self->src_priv, tv);
+  if (self->history_replay) {
+    SUFLOAT dt = 1. / self->info.source_samp_rate;
+    SUSCOUNT us = 1e6 * self->history_ptr * dt;
+    struct timeval diff;
+
+    diff.tv_sec  = us / 1000000;
+    diff.tv_usec = us % 1000000;
+
+    timeradd(&self->info.source_start, &diff, tv);
+  } else {
+    (self->iface->get_time) (self->src_priv, tv);
+  }
 }
 
 SUSCOUNT 
@@ -971,14 +983,34 @@ done:
   return ok;
 }
 
+SUPRIVATE SUBOOL
+suscan_source_ensure_throttle(suscan_source_t *self)
+{
+  SUBOOL ok = SU_FALSE;
+
+  if (!self->throttle_mutex_init) {
+    SU_TRYZ(pthread_mutex_init(&self->throttle_mutex, NULL));
+    self->throttle_mutex_init = SU_TRUE;
+    suscan_throttle_init(&self->throttle, self->info.effective_samp_rate);
+  }
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
 SUBOOL
 suscan_source_set_history_enabled(suscan_source_t *self, SUBOOL enabled)
 {
+  SUBOOL ok = SU_FALSE;
+
   if (enabled && self->history_alloc == 0) {
     SU_ERROR("Cannot enable history with no history allocation\n");
-    return SU_FALSE;
+    goto done;
   }
 
+  SU_TRY(suscan_source_ensure_throttle(self));
 
   if (self->history_enabled != enabled) {
     self->history_enabled = enabled;
@@ -987,7 +1019,10 @@ suscan_source_set_history_enabled(suscan_source_t *self, SUBOOL enabled)
       self->history_size = self->history_ptr = 0;
   }
 
-  return SU_TRUE;
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
 
 SUBOOL
@@ -1081,6 +1116,8 @@ suscan_source_get_history_length(const suscan_source_t *self)
 SUBOOL
 suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL enabled)
 {
+  SUBOOL ok = SU_FALSE;
+
   if (self->history_alloc == 0 && enabled) {
     SU_ERROR("Cannot enable replay: no history allocated\n");
     return SU_FALSE;
@@ -1090,21 +1127,26 @@ suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL enabled)
     /* When replay is enabled, we need to change the source start */
     if (enabled) {
       struct timeval diff;
-      SUDOUBLE fs = self->info.source_samp_rate;
-      SUSCOUNT us = 1e6 * self->history_size / fs;
+      SUSCOUNT fs = self->info.source_samp_rate;
+      SUSCOUNT us = (1e6 * self->history_size) / fs;
 
       diff.tv_sec  = us / 1000000;
       diff.tv_usec = us % 1000000;
 
       suscan_source_get_time(self, &self->info.source_end);
       timersub(&self->info.source_end, &diff, &self->info.source_start);
+      
+      SU_TRY(suscan_source_override_throttle(self, fs));
     }
 
     self->history_replay = enabled;
     self->info.replay    = enabled;
   }
   
-  return SU_TRUE;
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
 
 void
@@ -1130,9 +1172,7 @@ suscan_source_new(suscan_source_config_t *config)
   new->decim = 1;
 
   if (config->average > 1)
-    SU_TRYCATCH(
-        suscan_source_configure_decimation(new, config->average),
-        goto fail);
+    SU_TRY_FAIL(suscan_source_configure_decimation(new, config->average));
 
   /* Search by index */
   new->iface = suscan_source_interface_lookup_by_name(config->type);
@@ -1152,13 +1192,8 @@ suscan_source_new(suscan_source_config_t *config)
   suscan_source_populate_source_info(new);
 
   /* Initialize throttle (if applicable) */
-  if (!suscan_source_is_real_time(new)) {
-    /* Create throttle mutex */
-      (void) pthread_mutex_init(&new->throttle_mutex, NULL); /* Always succeeds */
-      new->throttle_mutex_init = SU_TRUE;
-
-    suscan_throttle_init(&new->throttle, new->info.effective_samp_rate);
-  }
+  if (!suscan_source_is_real_time(new))
+    SU_TRY_FAIL(suscan_source_ensure_throttle(new));
 
   return new;
 
