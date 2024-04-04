@@ -180,6 +180,21 @@ suscan_local_analyzer_set_dc_remove_cb(
 }
 
 SUPRIVATE SUBOOL
+suscan_local_analyzer_set_history_size_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  SUSCOUNT size = (SUSCOUNT) (uintptr_t) cb_private;
+
+  /* TODO: Implement me! */
+
+  return SU_FALSE;
+}
+
+
+SUPRIVATE SUBOOL
 suscan_local_analyzer_set_agc_cb(
     struct suscan_mq *mq_out,
     void *wk_private,
@@ -637,6 +652,38 @@ suscan_local_analyzer_slow_seek(
   /* This request is to be processed by the source thread */
   return SU_TRUE;
 }
+
+SUBOOL
+suscan_local_analyzer_slow_set_replay(
+    suscan_local_analyzer_t *self,
+    SUBOOL replay)
+{
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  self->replay_req_state = replay;
+  self->replay_req      = SU_TRUE;
+
+  /* This request is to be processed by the source thread */
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_local_analyzer_slow_set_history_size(
+    suscan_local_analyzer_t *self,
+    SUSCOUNT size)
+{
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  return suscan_worker_push(
+        self->slow_wk,
+        suscan_local_analyzer_set_history_size_cb,
+        (void *) (uintptr_t) size);
+}
+
 
 SUBOOL
 suscan_local_analyzer_slow_set_dc_remove(
