@@ -2467,6 +2467,23 @@ suscan_remote_analyzer_seek(void *ptr, const struct timeval *tv)
   return suscan_analyzer_seek_async(self->parent, tv, 0);
 }
 
+SUPRIVATE SUBOOL
+suscan_remote_analyzer_set_history_size(void *ptr, SUSCOUNT size)
+{
+  suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+
+  return suscan_analyzer_set_history_size_async(self->parent, size, 0);
+}
+
+
+SUPRIVATE SUBOOL
+suscan_remote_analyzer_replay(void *ptr, SUBOOL replay)
+{
+  suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+
+  return suscan_analyzer_replay_async(self->parent, replay, 0);
+}
+
 SUPRIVATE struct suscan_source_info *
 suscan_remote_analyzer_get_source_info_pointer(const void *ptr)
 {
@@ -2705,6 +2722,8 @@ suscan_remote_analyzer_get_interface(void)
     SET_CALLBACK(get_samp_rate);
     SET_CALLBACK(get_source_time);
     SET_CALLBACK(seek);
+    SET_CALLBACK(set_history_size);
+    SET_CALLBACK(replay);
     SET_CALLBACK(get_measured_samp_rate);
     SET_CALLBACK(get_source_info_pointer);
     SET_CALLBACK(commit_source_info);

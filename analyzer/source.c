@@ -1015,8 +1015,10 @@ suscan_source_set_history_enabled(suscan_source_t *self, SUBOOL enabled)
   if (self->history_enabled != enabled) {
     self->history_enabled = enabled;
 
-    if (enabled)
+    if (enabled) {
+      self->history_replay = SU_FALSE;
       self->history_size = self->history_ptr = 0;
+    }
   }
 
   ok = SU_TRUE;
@@ -1059,7 +1061,7 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
 
   if (new_bytes == (SUCOMPLEX *) -1) {
     SU_ERROR(
-      "Cannot mmap %lld bytes of memory: %s\n", new_alloc, strerror(errno));
+      "Cannot mmap %lld bytes of memory for history: %s\n", new_alloc, strerror(errno));
     return SU_FALSE;
   }
 
@@ -1101,9 +1103,11 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
 
   suscan_source_clear_history(self);
 
-  self->history = new_bytes;
-  self->history_alloc = new_alloc;
+  self->history       = new_bytes;
+  self->history_alloc = length;
   
+  self->info.history_length = self->history_alloc;
+
   return SU_TRUE;
 }
 

@@ -138,6 +138,74 @@ done:
   return ok;
 }
 
+SUBOOL
+suscan_analyzer_set_history_size_async(
+    suscan_analyzer_t *analyzer,
+    SUSCOUNT size,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_history_size_msg *msg = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      msg = malloc(sizeof(struct suscan_analyzer_throttle_msg)),
+      goto done);
+
+  msg->buffer_length = size;
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_HISTORY_SIZE,
+      msg)) {
+    SU_ERROR("Failed to send throttle command\n");
+    goto done;
+  }
+
+  msg = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    free(msg);
+
+  return ok;
+}
+
+SUBOOL
+suscan_analyzer_replay_async(
+    suscan_analyzer_t *analyzer,
+    SUBOOL replay,
+    uint32_t req_id)
+{
+  struct suscan_analyzer_replay_msg *msg = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      msg = malloc(sizeof(struct suscan_analyzer_throttle_msg)),
+      goto done);
+
+  msg->replay = replay;
+
+  if (!suscan_analyzer_write(
+      analyzer,
+      SUSCAN_ANALYZER_MESSAGE_TYPE_REPLAY,
+      msg)) {
+    SU_ERROR("Failed to send throttle command\n");
+    goto done;
+  }
+
+  msg = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    free(msg);
+
+  return ok;
+}
+
 /****************************** Inspector methods ****************************/
 SUBOOL
 suscan_analyzer_open_ex_async(

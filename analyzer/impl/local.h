@@ -73,10 +73,6 @@ struct suscan_local_analyzer {
   SUBOOL   seek_req;
   SUSCOUNT seek_req_value; /* The seek request is a sample number */
 
-  /* Replay request */
-  SUBOOL   replay_req;
-  SUBOOL   replay_req_state; /* Whether or not enable replay */
-
   /* XXX: Define list for inspector frequency set */
   SUBOOL   inspector_freq_req;
   SUHANDLE inspector_freq_req_handle;
@@ -270,6 +266,16 @@ SUBOOL suscan_local_analyzer_slow_set_freq(
 SUBOOL suscan_local_analyzer_slow_seek(
     suscan_local_analyzer_t *self,
     const struct timeval *tv);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_slow_set_history_size(
+    suscan_local_analyzer_t *self,
+    SUSCOUNT size);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_slow_set_replay(
+    suscan_local_analyzer_t *self,
+    SUBOOL replay);
 
 /* Internal */
 SUBOOL suscan_local_analyzer_slow_set_dc_remove(

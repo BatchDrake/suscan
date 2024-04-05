@@ -128,6 +128,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_info)
   SUSCAN_PACK(uint,  self->source_samp_rate);
   SUSCAN_PACK(uint,  self->effective_samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
+  SUSCAN_PACK(uint,  self->history_length);
   SUSCAN_PACK(freq,  self->frequency);
   SUSCAN_PACK(freq,  self->freq_min);
   SUSCAN_PACK(freq,  self->freq_max);
@@ -186,6 +187,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_source_info)
   SUSCAN_UNPACK(uint64, self->source_samp_rate);
   SUSCAN_UNPACK(uint64, self->effective_samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
+  SUSCAN_UNPACK(uint64, self->history_length);
   SUSCAN_UNPACK(freq,   self->frequency);
   SUSCAN_UNPACK(freq,   self->freq_min);
   SUSCAN_UNPACK(freq,   self->freq_max);
@@ -297,6 +299,7 @@ suscan_source_info_init_copy(
   self->source_samp_rate    = origin->source_samp_rate;
   self->effective_samp_rate = origin->effective_samp_rate;
   self->measured_samp_rate  = origin->measured_samp_rate;
+  self->history_length      = origin->history_length;
   self->frequency           = origin->frequency;
   self->freq_min            = origin->freq_min;
   self->freq_max            = origin->freq_max;
@@ -305,7 +308,8 @@ suscan_source_info_init_copy(
   self->ppm                 = origin->ppm;
   self->source_time         = origin->source_time;
   self->seekable            = origin->seekable;
-
+  self->replay              = origin->replay;
+  
   if (self->seekable || self->replay) {
     self->source_start = origin->source_start;
     self->source_end   = origin->source_end;
