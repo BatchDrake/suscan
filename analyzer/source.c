@@ -343,7 +343,7 @@ suscan_source_history_read(
     return 0;
   
   if (self->history_ptr >= self->history_size) {
-    self->history_ptr %= self->history_size;
+    self->history_ptr = 0;
     suscan_source_mark_looped(self);
   }
 
@@ -521,10 +521,20 @@ suscan_source_get_end_time(
 SUBOOL
 suscan_source_seek(suscan_source_t *self, SUSCOUNT pos)
 {
-  if (self->iface->seek == NULL)
-    return SU_FALSE;
+  if (self->history_replay) {
+    /* Replay mode seek. Adjust pointer. */
+    if (pos >= self->history_size)
+      pos = 0;
 
-  return (self->iface->seek) (self->src_priv, pos * self->decim);
+    self->history_ptr = pos;
+    return SU_TRUE;
+  } else {
+    /* Natural source seek */
+    if (self->iface->seek == NULL)
+      return SU_FALSE;
+
+    return (self->iface->seek) (self->src_priv, pos * self->decim);
+  }
 }
 
 SUBOOL
@@ -1042,16 +1052,19 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
   SUCOMPLEX *new_bytes;
 
   if (new_alloc == 0) {
+    SU_INFO("New alloc is null, clear\n");
     /* Clear previous history */
     suscan_source_clear_history(self);
 
-    self->history_size    = self->history_ptr = 0;
-    self->history_enabled = SU_FALSE;
-    self->history_replay  = SU_FALSE;
-
+    self->history_size        = self->history_ptr = 0;
+    self->history_enabled     = SU_FALSE;
+    self->history_replay      = SU_FALSE;
+    self->info.history_length = 0;
     return SU_TRUE;
   }
   
+  SU_INFO("New alloc is not null, it is actually %lld\n", new_alloc);
+
   new_bytes = mmap(
     NULL,
     new_alloc,
@@ -1108,6 +1121,7 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
   
   self->info.history_length = self->history_alloc;
 
+  SU_INFO("History length updated: %lld\n", self->info.history_length);
   return SU_TRUE;
 }
 
@@ -1141,6 +1155,16 @@ suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL enabled)
       timersub(&self->info.source_end, &diff, &self->info.source_start);
       
       SU_TRY(suscan_source_override_throttle(self, fs));
+
+      /* Mark as looped */
+      if (self->history_ptr >= self->history_size)
+        self->history_ptr = 0;
+      
+      suscan_source_mark_looped(self);
+    } else {
+      /* Reset history pointer */
+      self->history_size = 0;
+      self->history_ptr  = 0;
     }
 
     self->history_replay = enabled;
