@@ -48,6 +48,8 @@ extern "C" {
 #define SUSCAN_ANALYZER_PERM_SEEK               (1ull << 15)
 #define SUSCAN_ANALYZER_PERM_THROTTLE           (1ull << 16)
 #define SUSCAN_ANALYZER_PERM_SET_BB_FILTER      (1ull << 17)
+#define SUSCAN_ANALYZER_PERM_SET_HISTORY_SIZE   (1ull << 18)
+#define SUSCAN_ANALYZER_PERM_REPLAY             (1ull << 19)
 
 #define SUSCAN_ANALYZER_PERM_ALL              0xffffffffffffffffull
 
@@ -116,9 +118,11 @@ SUSCAN_SERIALIZABLE(suscan_source_info) {
   uint32_t mtu;
 
   SUBOOL   realtime;
+  SUBOOL   replay;
   SUSCOUNT source_samp_rate;
   SUSCOUNT effective_samp_rate;
   SUFLOAT  measured_samp_rate;
+  SUSCOUNT history_length;
 
   SUFREQ   frequency;
   SUFREQ   freq_min;

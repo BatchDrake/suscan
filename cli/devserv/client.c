@@ -616,12 +616,35 @@ suscli_analyzer_client_intercept_message(
           goto done;
         }
         break;
+
       case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
         if (!suscli_analyzer_client_test_permission(
           self,
           SUSCAN_ANALYZER_PERM_SEEK)) {
           SU_WARNING(
             "%s: client not allowed to seek sources\n",
+            suscli_analyzer_client_get_name(self));
+          goto done;
+        }
+        break;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_HISTORY_SIZE:
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_SET_HISTORY_SIZE)) {
+          SU_WARNING(
+            "%s: client not allowed to change history size\n",
+            suscli_analyzer_client_get_name(self));
+          goto done;
+        }
+        break;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_REPLAY:
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_REPLAY)) {
+          SU_WARNING(
+            "%s: client not allowed to replay sources\n",
             suscli_analyzer_client_get_name(self));
           goto done;
         }

@@ -110,6 +110,7 @@ struct suscan_source {
   SUBOOL throttle_mutex_init;
   pthread_mutex_t throttle_mutex;
 
+  /* Source state */
   SUBOOL   capturing;
   void    *src_priv; /* Opaque source object */
 
@@ -138,6 +139,14 @@ struct suscan_source {
   SUSCOUNT   decim_spillover_ptr;
 
   int decim;
+
+  /* History */
+  SUBOOL     history_enabled;
+  SUBOOL     history_replay;
+  SUSCOUNT   history_alloc;
+  SUSCOUNT   history_size;
+  SUSCOUNT   history_ptr;
+  SUCOMPLEX *history;
 };
 
 typedef struct suscan_source suscan_source_t;
@@ -185,6 +194,14 @@ SUBOOL suscan_source_set_bandwidth(suscan_source_t *source, SUFLOAT bw);
 SUBOOL suscan_source_set_ppm(suscan_source_t *source, SUFLOAT ppm);
 SUBOOL suscan_source_set_dc_remove(suscan_source_t *source, SUBOOL remove);
 SUBOOL suscan_source_set_agc(suscan_source_t *source, SUBOOL set);
+
+/* History control */
+SUBOOL   suscan_source_set_history_enabled(suscan_source_t *self, SUBOOL);
+SUBOOL   suscan_source_set_history_alloc(suscan_source_t *self, size_t);
+SUBOOL   suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT);
+SUSCOUNT suscan_source_get_history_length(const suscan_source_t *self);
+SUBOOL   suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL);
+void     suscan_source_clear_history(suscan_source_t *self);
 
 /* Other API methods */
 SUSCOUNT suscan_source_get_dc_samples(const suscan_source_t *self);

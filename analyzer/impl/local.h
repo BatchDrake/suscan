@@ -268,6 +268,16 @@ SUBOOL suscan_local_analyzer_slow_seek(
     const struct timeval *tv);
 
 /* Internal */
+SUBOOL suscan_local_analyzer_slow_set_history_size(
+    suscan_local_analyzer_t *self,
+    SUSCOUNT size);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_slow_set_replay(
+    suscan_local_analyzer_t *self,
+    SUBOOL replay);
+
+/* Internal */
 SUBOOL suscan_local_analyzer_slow_set_dc_remove(
     suscan_local_analyzer_t *analyzer,
     SUBOOL remove);

@@ -46,6 +46,8 @@ extern "C" {
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xb /* Analyzer params */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS    0xc
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK          0xd
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_HISTORY_SIZE  0xe
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_REPLAY        0xf
 
 /* Invalid message. No one should even send this. */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_INVALID       0x8000000
@@ -88,6 +90,17 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_throttle_msg) {
 SUSCAN_SERIALIZABLE(suscan_analyzer_seek_msg) {
   struct timeval position;
 };
+
+/* History size */
+SUSCAN_SERIALIZABLE(suscan_analyzer_history_size_msg) {
+  SUSCOUNT buffer_length; /* In bytes */
+};
+
+/* Replay enabled */
+SUSCAN_SERIALIZABLE(suscan_analyzer_replay_msg) {
+  SUBOOL replay;
+};
+
 
 /* Channel spectrum message */
 SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {

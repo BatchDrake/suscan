@@ -180,6 +180,8 @@ struct suscan_analyzer_interface {
   SUFLOAT  (*get_measured_samp_rate) (const void *);
   void     (*get_source_time) (const void *, struct timeval *tv);
   SUBOOL   (*seek) (void *, const struct timeval *tv);
+  SUBOOL   (*set_history_size) (void *, SUSCOUNT);
+  SUBOOL   (*replay) (void *, SUBOOL);
   SUBOOL   (*register_baseband_filter) (
     void *,
     suscan_analyzer_baseband_filter_func_t func,
@@ -327,6 +329,35 @@ suscan_analyzer_seek(
   return (self->iface->seek) (self->impl, tv);
 }
 
+/*!
+ * Requests changing the history allocation for real-time sources. If size
+ * is greater than 0, history gets automatically enabled. Otherwise, it is
+ * disabled.
+ * \param analyzer a pointer to the analyzer object
+ * \param size allocation size of the history, in bytes
+ * \return SU_TRUE if the request was delivered, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUINLINE SUBOOL
+suscan_analyzer_set_history_size(suscan_analyzer_t *self, SUSCOUNT size)
+{
+  return (self->iface->set_history_size) (self->impl, size);
+}
+
+/*!
+ * Requests switching source history to replay mode. History size must be
+ * greater than zero in order for this request to work.
+ * \param analyzer a pointer to the analyzer object
+ * \param replay SU_TRUE to enable replay mode, SU_FALSE to return to
+ * real time capture mode.
+ * \return SU_TRUE if the request was delivered, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUINLINE SUBOOL
+suscan_analyzer_replay(suscan_analyzer_t *self, SUBOOL replay)
+{
+  return (self->iface->replay) (self->impl, replay);
+}
 
 /*!
  * Return a pointer to the current source information structure. This pointer
@@ -746,6 +777,37 @@ SUBOOL suscan_analyzer_set_throttle_async(
     uint32_t req_id);
 
 /*!
+ * Requests changing the history allocation for real-time sources. If size
+ * is greater than 0, history gets automatically enabled. Otherwise, it is
+ * disabled.
+ * \param analyzer a pointer to the analyzer object
+ * \param size allocation size of the history, in bytes
+ * \param req_id arbitrary request identifier used to match responses
+ * \return SU_TRUE if the request was delivered, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_set_history_size_async(
+    suscan_analyzer_t *analyzer,
+    SUSCOUNT size,
+    uint32_t req_id);
+
+/*!
+ * Requests switching source history to replay mode. History size must be
+ * greater than zero in order for this request to work.
+ * \param analyzer a pointer to the analyzer object
+ * \param replay SU_TRUE to enable replay mode, SU_FALSE to return to
+ * real time capture mode.
+ * \param req_id arbitrary request identifier used to match responses
+ * \return SU_TRUE if the request was delivered, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_replay_async(
+    suscan_analyzer_t *analyzer,
+    SUBOOL replay,
+    uint32_t req_id);
+
+
+/*!
  * For seekable sources (e.g. file replay), sets the current read position
  * \param analyzer pointer to the analyzer object
  * \param pos timeval struct with the absolute position in time
@@ -757,6 +819,7 @@ SUBOOL suscan_analyzer_seek_async(
     suscan_analyzer_t *analyzer,
     const struct timeval *pos,
     uint32_t req_id);
+
 
 /*!
  * For channel analyzers, open a new inspector of a given class at a given

@@ -208,6 +208,9 @@ suscan_analyzer_thread(void *data)
   const struct suscan_analyzer_params *new_params;
   const struct suscan_analyzer_throttle_msg *throttle;
   const struct suscan_analyzer_seek_msg *seek;
+  const struct suscan_analyzer_history_size_msg *history_size;
+  const struct suscan_analyzer_replay_msg *replay;
+
   void *private = NULL;
   uint32_t type;
   SUBOOL mutex_acquired = SU_FALSE;
@@ -272,6 +275,20 @@ suscan_analyzer_thread(void *data)
             goto done);
           break;
 
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_HISTORY_SIZE:
+          history_size = (const struct suscan_analyzer_history_size_msg *) private;
+          SU_TRYCATCH(
+            suscan_local_analyzer_slow_set_history_size(self, history_size->buffer_length),
+            goto done);
+          break;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_REPLAY:
+          replay = (const struct suscan_analyzer_replay_msg *) private;
+          SU_TRYCATCH(
+            suscan_local_analyzer_slow_set_replay(self, replay->replay),
+            goto done);
+          break;
+        
         /* Forward these messages to output */
         case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
         case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
@@ -748,6 +765,22 @@ suscan_local_analyzer_seek(void *ptr, const struct timeval *pos)
   return suscan_local_analyzer_slow_seek(self, pos);
 }
 
+SUPRIVATE SUBOOL
+suscan_local_analyzer_set_history_size(void *ptr, SUSCOUNT size)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
+
+  return suscan_local_analyzer_slow_set_history_size(self, size);
+}
+
+SUPRIVATE SUBOOL
+suscan_local_analyzer_replay(void *ptr, SUBOOL replay)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) ptr;
+
+  return suscan_local_analyzer_slow_set_replay(self, replay);
+}
+
 
 SUPRIVATE SUBOOL
 suscan_local_analyzer_set_gain(void *ptr, const char *name, SUFLOAT value)
@@ -1125,6 +1158,8 @@ suscan_local_analyzer_get_interface(void)
     SET_CALLBACK(get_samp_rate);
     SET_CALLBACK(get_source_time);
     SET_CALLBACK(seek);
+    SET_CALLBACK(set_history_size);
+    SET_CALLBACK(replay);
     SET_CALLBACK(register_baseband_filter);
     SET_CALLBACK(get_measured_samp_rate);
     SET_CALLBACK(get_source_info_pointer);

@@ -22,6 +22,7 @@
 #include <analyzer/impl/local.h>
 #include <analyzer/msg.h>
 #include <string.h>
+#include <inttypes.h>
 
 /*
  * Some tasks take some time to complete, time that is several orders of
@@ -175,6 +176,62 @@ suscan_local_analyzer_set_dc_remove_cb(
   suscan_analyzer_send_source_info(
       analyzer->parent,
       &analyzer->source_info);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE void
+suscan_local_analyzer_copy_source_history_info(suscan_local_analyzer_t *self)
+{
+  const struct suscan_source_info *info = suscan_source_get_info(self->source);
+  struct suscan_source_info *localinfo = &self->source_info;
+
+  localinfo->history_length = info->history_length;
+  localinfo->replay         = info->replay;
+
+  if (info->realtime) {
+    if (info->replay)
+      localinfo->permissions |= SUSCAN_ANALYZER_PERM_SEEK;
+    else
+      localinfo->permissions &= ~SUSCAN_ANALYZER_PERM_SEEK;
+  }
+}
+
+SUPRIVATE SUBOOL
+suscan_local_analyzer_set_history_size_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  SUSCOUNT size = (SUSCOUNT) (uintptr_t) cb_private;
+
+  (void) suscan_source_set_history_alloc(analyzer->source, size);
+  
+  if (size > 0)
+    suscan_source_set_history_enabled(analyzer->source, SU_TRUE);
+
+  suscan_local_analyzer_copy_source_history_info(analyzer);
+  
+  suscan_analyzer_send_source_info(analyzer->parent, &analyzer->source_info);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_local_analyzer_set_replay_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  SUBOOL replay = (SUBOOL) (uintptr_t) cb_private;
+
+  (void) suscan_source_set_replay_enabled(analyzer->source, replay);
+  
+  suscan_local_analyzer_copy_source_history_info(analyzer);
+  
+  suscan_analyzer_send_source_info(analyzer->parent, &analyzer->source_info);
 
   return SU_FALSE;
 }
@@ -636,6 +693,36 @@ suscan_local_analyzer_slow_seek(
 
   /* This request is to be processed by the source thread */
   return SU_TRUE;
+}
+
+SUBOOL
+suscan_local_analyzer_slow_set_replay(
+    suscan_local_analyzer_t *self,
+    SUBOOL replay)
+{
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  return suscan_worker_push(
+        self->slow_wk,
+        suscan_local_analyzer_set_replay_cb,
+        (void *) (uintptr_t) replay);
+}
+
+SUBOOL
+suscan_local_analyzer_slow_set_history_size(
+    suscan_local_analyzer_t *self,
+    SUSCOUNT size)
+{
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  return suscan_worker_push(
+        self->slow_wk,
+        suscan_local_analyzer_set_history_size_cb,
+        (void *) (uintptr_t) size);
 }
 
 SUBOOL
