@@ -190,10 +190,14 @@ suscan_local_analyzer_copy_source_history_info(suscan_local_analyzer_t *self)
   localinfo->replay         = info->replay;
 
   if (info->realtime) {
-    if (info->replay)
+    if (info->replay) {
       localinfo->permissions |= SUSCAN_ANALYZER_PERM_SEEK;
-    else
+      localinfo->source_start = info->source_start;
+      localinfo->source_end   = info->source_end;
+      localinfo->source_time  = info->source_start;
+    } else {
       localinfo->permissions &= ~SUSCAN_ANALYZER_PERM_SEEK;
+    }
   }
 }
 
@@ -209,7 +213,7 @@ suscan_local_analyzer_set_history_size_cb(
   (void) suscan_source_set_history_alloc(analyzer->source, size);
   
   if (size > 0)
-    suscan_source_set_history_enabled(analyzer->source, SU_TRUE);
+    suscan_source_set_history_enabled(analyzer->source, size > 0);
 
   suscan_local_analyzer_copy_source_history_info(analyzer);
   
