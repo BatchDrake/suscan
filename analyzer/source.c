@@ -1052,7 +1052,6 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
   SUCOMPLEX *new_bytes;
 
   if (new_alloc == 0) {
-    SU_INFO("New alloc is null, clear\n");
     /* Clear previous history */
     suscan_source_clear_history(self);
 
@@ -1063,8 +1062,6 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
     return SU_TRUE;
   }
   
-  SU_INFO("New alloc is not null, it is actually %lld\n", new_alloc);
-
   new_bytes = mmap(
     NULL,
     new_alloc,
@@ -1121,7 +1118,6 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
   
   self->info.history_length = self->history_alloc;
 
-  SU_INFO("History length updated: %lld\n", self->info.history_length);
   return SU_TRUE;
 }
 
