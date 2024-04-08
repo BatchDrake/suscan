@@ -189,6 +189,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
   SUSCAN_PACK(uint,  self->rt_time.tv_sec);
   SUSCAN_PACK(uint,  self->rt_time.tv_usec);
   SUSCAN_PACK(bool,  self->looped);
+  SUSCAN_PACK(uint,  self->history_size);
   SUSCAN_PACK(float, self->samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
   SUSCAN_PACK(float, self->N0);
@@ -223,6 +224,7 @@ SUSCAN_PARTIAL_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
   self->rt_time.tv_usec = tv_usec;
 
   SUSCAN_UNPACK(bool,   self->looped);
+  SUSCAN_UNPACK(uint64, self->history_size);
   SUSCAN_UNPACK(float,  self->samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
   SUSCAN_UNPACK(float,  self->N0);
@@ -1597,7 +1599,8 @@ SUBOOL
 suscan_analyzer_send_psd_from_smoothpsd(
     suscan_analyzer_t *self,
     const su_smoothpsd_t *smoothpsd,
-    SUBOOL looped)
+    SUBOOL looped,
+    SUSCOUNT history_size)
 {
   struct suscan_analyzer_psd_msg *msg = NULL;
   SUBOOL ok = SU_FALSE;
@@ -1620,6 +1623,7 @@ suscan_analyzer_send_psd_from_smoothpsd(
   msg->measured_samp_rate = suscan_analyzer_get_measured_samp_rate(self);
   suscan_analyzer_get_source_time(self, &msg->timestamp);
   msg->looped = looped;
+  msg->history_size = history_size;
   msg->N0 = 0;
 
   if (!suscan_mq_write(

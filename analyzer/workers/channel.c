@@ -585,7 +585,8 @@ suscan_local_analyzer_on_psd(
       suscan_analyzer_send_psd_from_smoothpsd(
         self->parent, 
         self->smooth_psd,
-        suscan_source_has_looped(self->source)),
+        suscan_source_has_looped(self->source),
+        suscan_source_get_current_history_size(self->source)),
       return SU_FALSE);
 
   return SU_TRUE;

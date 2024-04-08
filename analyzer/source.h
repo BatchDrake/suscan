@@ -200,6 +200,7 @@ SUBOOL   suscan_source_set_history_enabled(suscan_source_t *self, SUBOOL);
 SUBOOL   suscan_source_set_history_alloc(suscan_source_t *self, size_t);
 SUBOOL   suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT);
 SUSCOUNT suscan_source_get_history_length(const suscan_source_t *self);
+SUSCOUNT suscan_source_get_current_history_size(const suscan_source_t *self);
 SUBOOL   suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL);
 void     suscan_source_clear_history(suscan_source_t *self);
 

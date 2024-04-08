@@ -1131,6 +1131,12 @@ suscan_source_get_history_length(const suscan_source_t *self)
   return self->history_alloc;
 }
 
+SUSCOUNT
+suscan_source_get_current_history_size(const suscan_source_t *self)
+{
+  return self->history_size;
+}
+
 SUBOOL
 suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL enabled)
 {

@@ -109,6 +109,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
   struct   timeval timestamp; /* Timestamp after PSD */
   struct   timeval rt_time;   /* Real time timestamp */
   SUBOOL   looped;
+  SUSCOUNT history_size;
   SUFLOAT  samp_rate;
   SUFLOAT  measured_samp_rate;
   SUFLOAT  N0;
@@ -271,7 +272,8 @@ SUBOOL suscan_analyzer_send_psd(
 SUBOOL suscan_analyzer_send_psd_from_smoothpsd(
     suscan_analyzer_t *self,
     const su_smoothpsd_t *smoothpsd,
-    SUBOOL looped);
+    SUBOOL looped,
+    SUSCOUNT history_size);
 
 SUBOOL suscan_analyzer_send_source_info(
     suscan_analyzer_t *self,
