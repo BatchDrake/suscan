@@ -188,6 +188,13 @@ suscan_local_analyzer_copy_source_history_info(suscan_local_analyzer_t *self)
 
   localinfo->history_length = info->history_length;
   localinfo->replay         = info->replay;
+
+  if (info->realtime) {
+    if (info->replay)
+      localinfo->permissions |= SUSCAN_ANALYZER_PERM_SEEK;
+    else
+      localinfo->permissions &= ~SUSCAN_ANALYZER_PERM_SEEK;
+  }
 }
 
 SUPRIVATE SUBOOL
@@ -203,7 +210,7 @@ suscan_local_analyzer_set_history_size_cb(
   
   if (size > 0)
     suscan_source_set_history_enabled(analyzer->source, SU_TRUE);
-  
+
   suscan_local_analyzer_copy_source_history_info(analyzer);
   
   suscan_analyzer_send_source_info(analyzer->parent, &analyzer->source_info);
