@@ -212,8 +212,7 @@ suscan_local_analyzer_set_history_size_cb(
 
   (void) suscan_source_set_history_alloc(analyzer->source, size);
   
-  if (size > 0)
-    suscan_source_set_history_enabled(analyzer->source, size > 0);
+  suscan_source_set_history_enabled(analyzer->source, size > 0);
 
   suscan_local_analyzer_copy_source_history_info(analyzer);
   
