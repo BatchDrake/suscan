@@ -289,6 +289,22 @@ suscan_source_read_samples(suscan_source_t *self, SUCOMPLEX *buffer, SUSCOUNT ma
   return result;
 }
 
+/*
+ * Return the history replay pointer, relative to the write pointer. This is
+ * needed, as we replay right after the last saved sample, which due to
+ * circularity corresponds to the oldest sample in the buffer.
+ */
+SUINLINE SUSCOUNT
+suscan_source_history_get_rel_history_rp(const suscan_source_t *self)
+{
+  SUSDIFF ptr = self->rp - self->history_ptr;
+
+  if (ptr < 0)
+    ptr += self->history_size;
+
+  return ptr;
+}
+
 SUINLINE void
 suscan_source_history_write(
   suscan_source_t *self,
@@ -327,7 +343,7 @@ suscan_source_history_write(
     if (self->history_size > self->history_alloc)
       self->history_size = self->history_alloc;
   }
-
+  
   self->history_ptr = ptr;
 }
 
@@ -338,24 +354,29 @@ suscan_source_history_read(
   SUSCOUNT len)
 {
   SUSCOUNT avail;
+  SUBOOL   ptrside_before = self->rp <= self->history_ptr;
+  SUBOOL   ptrside_after;
 
   if (self->history_size == 0)
     return 0;
   
-  if (self->history_ptr >= self->history_size) {
-    self->history_ptr = 0;
-    suscan_source_mark_looped(self);
-  }
-
-  avail = self->history_size - self->history_ptr;
+  avail = self->history_size - self->rp;
 
   if (len > avail)
     len = avail;
 
-  memcpy(buffer, self->history + self->history_ptr, len * sizeof(SUCOMPLEX));
+  memcpy(buffer, self->history + self->rp, len * sizeof(SUCOMPLEX));
 
-  self->history_ptr += len;
+  self->rp += len;
+  
+  ptrside_after = self->rp <= self->history_ptr;
 
+  if (self->rp == self->history_size)
+    self->rp = 0;
+
+  if (ptrside_before != ptrside_after)
+    suscan_source_mark_looped(self);
+  
   return len;
 }
 
@@ -477,7 +498,8 @@ suscan_source_get_time(suscan_source_t *self, struct timeval *tv)
 {
   if (self->history_replay) {
     SUFLOAT dt = 1. / self->info.source_samp_rate;
-    SUSCOUNT us = 1e6 * self->history_ptr * dt;
+    SUSCOUNT relptr = suscan_source_history_get_rel_history_rp(self);
+    SUSCOUNT us = 1e6 * relptr * dt;
     struct timeval diff;
 
     diff.tv_sec  = us / 1000000;
@@ -523,10 +545,9 @@ suscan_source_seek(suscan_source_t *self, SUSCOUNT pos)
 {
   if (self->history_replay) {
     /* Replay mode seek. Adjust pointer. */
-    if (pos >= self->history_size)
-      pos = 0;
-
-    self->history_ptr = pos;
+    self->rp = pos + self->history_ptr;
+    if (self->rp >= self->history_size)
+      self->rp %= self->history_size;
     return SU_TRUE;
   } else {
     /* Natural source seek */
@@ -1026,8 +1047,12 @@ suscan_source_set_history_enabled(suscan_source_t *self, SUBOOL enabled)
     self->history_enabled = enabled;
 
     if (enabled) {
-      self->history_replay = SU_FALSE;
-      self->history_size = self->history_ptr = 0;
+      self->history_replay      = SU_FALSE;
+      self->history_size        = self->history_ptr = 0;
+      self->info.history_length = self->history_alloc;
+    } else {
+      self->info.history_length = 0;
+      self->info.replay         = SU_FALSE;
     }
   }
 
@@ -1059,6 +1084,7 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
     self->history_enabled     = SU_FALSE;
     self->history_replay      = SU_FALSE;
     self->info.history_length = 0;
+    self->info.replay         = SU_FALSE;
     return SU_TRUE;
   }
   
@@ -1103,9 +1129,9 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
       memcpy(new_bytes, self->history + p, copy_size * sizeof(SUCOMPLEX));
     }
 
-    self->history_size = self->history_ptr = copy_size;
+    self->history_size = copy_size;
     
-    if (self->history_ptr == self->history_size)
+    if (self->history_ptr >= new_alloc)
       self->history_ptr = 0;
   } else {
     self->history_ptr = self->history_size = 0;
@@ -1138,10 +1164,16 @@ suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL enabled)
 {
   SUBOOL ok = SU_FALSE;
 
-  if (self->history_alloc == 0 && enabled) {
-    SU_ERROR("Cannot enable replay: no history allocated\n");
-    return SU_FALSE;
+  if (enabled) {
+    if (self->history_alloc == 0) {
+      SU_ERROR("Cannot enable replay: no history allocated\n");
+      return SU_FALSE;
+    } else if (self->history_size == 0) {
+      SU_ERROR("Cannot enable replay: no samples received (yet)\n");
+      return SU_FALSE;
+    }
   }
+  
 
   if (self->history_replay != enabled) {
     /* When replay is enabled, we need to change the source start */
@@ -1158,15 +1190,14 @@ suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL enabled)
       
       SU_TRY(suscan_source_override_throttle(self, fs));
 
-      /* Mark as looped */
-      if (self->history_ptr >= self->history_size)
-        self->history_ptr = 0;
-      
-      suscan_source_mark_looped(self);
+      /* Set replay pointer right after the histor pointer */
+      self->history_ptr %= self->history_size;
+      self->rp           = self->history_ptr;
     } else {
       /* Reset history pointer */
       self->history_size = 0;
       self->history_ptr  = 0;
+      self->rp           = 0;
     }
 
     self->history_replay = enabled;

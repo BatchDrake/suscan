@@ -146,6 +146,7 @@ struct suscan_source {
   SUSCOUNT   history_alloc;
   SUSCOUNT   history_size;
   SUSCOUNT   history_ptr;
+  SUSCOUNT   rp; /* Replay pointer */
   SUCOMPLEX *history;
 };
 
