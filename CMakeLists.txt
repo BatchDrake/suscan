@@ -74,7 +74,7 @@ pkg_check_modules(FFTW3    REQUIRED fftw3f>=3.0)
 pkg_check_modules(SOAPYSDR REQUIRED SoapySDR>=0.5.0)
 pkg_check_modules(XML2     REQUIRED libxml-2.0>=2.9.0)
 pkg_check_modules(VOLK              volk>=1.0)
-pkg_check_modules(JSONC             json-c>=0.16)
+pkg_check_modules(JSONC             json-c>=0.13)
 
 if (ENABLE_ALSA)
   pkg_check_modules(ALSA              alsa>=1.2)
