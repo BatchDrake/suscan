@@ -173,6 +173,7 @@ enum suscan_inspector_audio_demod {
   SUSCAN_INSPECTOR_AUDIO_DEMOD_FM,
   SUSCAN_INSPECTOR_AUDIO_DEMOD_USB,
   SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB,
+  SUSCAN_INSPECTOR_AUDIO_DEMOD_RAW,
 };
 
 struct suscan_inspector_audio_params {

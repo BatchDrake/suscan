@@ -206,6 +206,8 @@ suscli_radio_param_read_demod(
       dfl = SUSCAN_INSPECTOR_AUDIO_DEMOD_USB;
     } else if (strcasecmp(value, "lsb") == 0) {
       dfl = SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB;
+    } else if (strcasecmp(value, "raw") == 0) {
+      dfl = SUSCAN_INSPECTOR_AUDIO_DEMOD_RAW;
     } else {
       SU_ERROR("`%s' is not a valid demodulator.\n", value);
       goto fail;
@@ -238,6 +240,9 @@ suscli_radio_demod_to_string(enum suscan_inspector_audio_demod demod)
 
     case SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB:
       return "LSB";
+
+    case SUSCAN_INSPECTOR_AUDIO_DEMOD_RAW:
+      return "RAW";
   }
 
   return "UNKNOWN";
