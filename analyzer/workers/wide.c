@@ -293,9 +293,7 @@ suscan_local_analyzer_init_wide_worker(suscan_local_analyzer_t *self)
     SU_TRY(suscan_local_analyzer_readjust_detector(self, &det_params));
   }
 
-  SU_TRY(
-      self->parent->params.max_freq - self->parent->params.min_freq >=
-      self->source_info.source_samp_rate);
+  SU_TRY(self->parent->params.max_freq >= self->parent->params.min_freq);
 
   self->current_sweep_params.fft_min_samples =
           SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
