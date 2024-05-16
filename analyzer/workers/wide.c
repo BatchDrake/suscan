@@ -93,8 +93,13 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
           next = part_bw * self->part_ndx++
             + self->current_sweep_params.min_freq;
           if (next > self->current_sweep_params.max_freq) {
-            next = self->current_sweep_params.min_freq;
-            self->part_ndx = 1;
+            if (self->curr_freq < self->current_sweep_params.max_freq - part_bw * 0.5) {
+              next = self->current_sweep_params.max_freq;
+              self->part_ndx = 0;
+            } else {
+              next = self->current_sweep_params.min_freq;
+              self->part_ndx = 1;
+            }
           }
         } else {
           /* Continuous: advance monotonically in randomized steps */
@@ -102,8 +107,12 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
           SUFLOAT freq_jiggle = SU_FLOOR(step_size * rnd * 0.2);
           next = self->curr_freq + step_size - freq_jiggle;
           if (next > self->current_sweep_params.max_freq) {
-            next = self->current_sweep_params.min_freq + step_size * 0.5
-                - freq_jiggle;
+            if (self->curr_freq < self->current_sweep_params.max_freq - step_size * 0.5) {
+              next = self->current_sweep_params.max_freq - freq_jiggle;
+            } else {
+              next = self->current_sweep_params.min_freq + step_size * 0.5
+                  - freq_jiggle;
+            }
           } else if (next < self->current_sweep_params.min_freq) {
             /* can happen on first run when self->curr_freq may be invalid */
             next = self->current_sweep_params.min_freq;
