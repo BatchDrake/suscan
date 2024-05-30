@@ -218,9 +218,10 @@ suscan_inspector_factory_feed(
     info = suscan_inspsched_acquire_task_info(self->sched, insp), 
     goto done);
 
-  info->data      = data;
-  info->size      = size;
-  info->inspector = insp;
+  info->type         = SUSCAN_INSPECTOR_TASK_INFO_TYPE_SAMPLES;
+  info->samples.data = data;
+  info->samples.size = size;
+  info->inspector    = insp;
 
   SU_TRYCATCH(suscan_inspsched_queue_task(self->sched, info), goto done);
   info = NULL;
@@ -233,6 +234,48 @@ done:
 
   return ok;  
 }
+
+/*
+ * We do not close in here. This may be called anywhere.
+ */
+SUBOOL
+suscan_inspector_factory_notify_freq(
+  suscan_inspector_factory_t *self,
+  suscan_inspector_t *insp,
+  SUFLOAT prev_freq,
+  SUFLOAT next_freq)
+{
+  struct suscan_inspector_task_info *info = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  if (insp->state != SUSCAN_ASYNC_STATE_RUNNING)
+    goto done;
+
+  /* Step 1: update frequency corrections for this inspector */
+  suscan_inspector_factory_update_frequency_corrections(self, insp);
+
+  /* Step 2: allocate task info and queue task */
+  SU_TRYCATCH(
+    info = suscan_inspsched_acquire_task_info(self->sched, insp), 
+    goto done);
+
+  info->type            = SUSCAN_INSPECTOR_TASK_INFO_TYPE_NEW_FREQ;
+  info->new_freq.old_f0 = prev_freq;
+  info->new_freq.new_f0 = next_freq;
+  info->inspector       = insp;
+
+  SU_TRYCATCH(suscan_inspsched_queue_task(self->sched, info), goto done);
+  info = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (info != NULL)
+    suscan_inspsched_return_task_info(self->sched, info);
+
+  return ok;  
+}
+
 
 SUBOOL
 suscan_inspector_factory_force_sync(suscan_inspector_factory_t *self)

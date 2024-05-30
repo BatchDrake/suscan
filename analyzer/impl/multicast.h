@@ -22,7 +22,7 @@
 
 #include <stdint.h>
 #include <analyzer/impl/remote.h>
-#include <util/compat-in.h>
+#include <sigutils/util/compat-in.h>
 #include <sigutils/types.h>
 #include <sigutils/defs.h>
 #include <util/list.h>

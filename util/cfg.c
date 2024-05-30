@@ -128,6 +128,23 @@ suscan_config_desc_lookup_field(
 }
 
 SUBOOL
+suscan_config_str_to_bool(const char *val, SUBOOL bool_val)
+{
+  if (val != NULL) {
+    if (strcasecmp(val, "true") == 0 ||
+        strcasecmp(val, "yes")  == 0 ||
+        strcasecmp(val, "1")    == 0)
+      bool_val = SU_TRUE;
+    else if (strcasecmp(val, "false") == 0 ||
+        strcasecmp(val, "no")         == 0 ||
+        strcasecmp(val, "0")          == 0)
+      bool_val = SU_FALSE;
+  }
+
+  return bool_val;
+}
+
+SUBOOL
 suscan_config_desc_has_prefix(const suscan_config_desc_t *desc, const char *pfx)
 {
   unsigned int i;
@@ -369,8 +386,10 @@ suscan_config_dup(const suscan_config_t *config)
   return new;
 
 fail:
-  if (new != NULL)
+  if (new != NULL) {
     suscan_config_destroy(new);
+    new = NULL;
+  }
 
   return new;
 }
@@ -678,18 +697,14 @@ suscan_string_to_config(const suscan_config_desc_t *desc, const char *string)
         break;
 
       case SUSCAN_FIELD_TYPE_BOOLEAN:
-        if (strcasecmp(val, "true") == 0 ||
-            strcasecmp(val, "yes")  == 0 ||
-            strcasecmp(val, "1")    == 0)
-          bool_val = SU_TRUE;
-        else if (strcasecmp(val, "false") == 0 ||
-            strcasecmp(val, "no")         == 0 ||
-            strcasecmp(val, "0")          == 0)
-          bool_val = SU_FALSE;
-        else {
+        /* Dirty tricks. Don't mind, this is not even a high perf code */
+        if (suscan_config_str_to_bool(val, SU_TRUE) 
+            != suscan_config_str_to_bool(val, SU_FALSE)) {
           SU_ERROR("Invalid boolean value for parameter `%s': %s\n", key, val);
           goto done;
         }
+
+        bool_val = suscan_config_str_to_bool(val, SU_FALSE);
 
         if (!suscan_config_set_bool(config, key, bool_val)) {
           SU_ERROR("Failed to set boolean parameter `%s'\n", key);

@@ -27,7 +27,7 @@
 
 #include <sigutils/sigutils.h>
 #include <sigutils/sampling.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-time.h>
 
 #include "factory.h"
 #include "correctors/tle.h"
@@ -63,12 +63,9 @@ suscan_inspector_open_sc_channel_ex(
     suscan_inspector_t *self,
     const struct sigutils_channel *chan_info,
     SUBOOL precise,
-    SUBOOL (*on_data) (
-        const struct sigutils_specttuner_channel *channel,
-        void *privdata,
-        const SUCOMPLEX *data, /* This pointer remains valid until the next call to feed */
-        SUSCOUNT size),
-        void *privdata)
+    su_specttuner_channel_data_func_t on_data,
+    su_specttuner_channel_new_freq_func_t on_new_freq,
+    void *privdata)
 {
   SUBOOL mutex_acquired = SU_FALSE;
   su_specttuner_channel_t *channel = NULL;
@@ -89,10 +86,13 @@ suscan_inspector_open_sc_channel_ex(
           SU_ABS2NORM_FREQ(
               self->samp_info.equiv_fs,
               chan_info->f_hi - chan_info->f_lo));
+  
   params.guard    = SUSCAN_ANALYZER_GUARD_BAND_PROPORTION;
-  params.on_data  = on_data;
   params.privdata = privdata;
   params.precise  = precise;
+  
+  params.on_data  = on_data;
+  params.on_freq_changed = on_new_freq;
 
   SU_TRYCATCH(pthread_mutex_lock(&self->sc_stuner_mutex) == 0, goto done);
   mutex_acquired = SU_TRUE;
@@ -101,6 +101,7 @@ suscan_inspector_open_sc_channel_ex(
       channel = su_specttuner_open_channel(self->sc_stuner, &params),
       goto done);
 
+  
 done:
   if (mutex_acquired)
     (void) pthread_mutex_unlock(&self->sc_stuner_mutex);
@@ -170,6 +171,25 @@ suscan_sc_inspector_on_channel_data(
     size);
 }
 
+SUPRIVATE void
+suscan_sc_inspector_on_new_freq(
+    const struct sigutils_specttuner_channel *channel,
+    void *userdata,
+    SUFLOAT prev_f0,
+    SUFLOAT new_f0)
+{
+  suscan_inspector_t *insp = (suscan_inspector_t *) userdata;
+  
+  if (insp == NULL)
+    return;
+
+  suscan_inspector_factory_notify_freq(
+    suscan_inspector_get_factory(insp),
+    insp,
+    prev_f0 * channel->decimation,
+    new_f0 * channel->decimation);
+}
+
 SUPRIVATE void *
 suscan_sc_inspector_factory_open(
   void *userdata, 
@@ -193,6 +213,7 @@ suscan_sc_inspector_factory_open(
       channel,
       precise,
       suscan_sc_inspector_on_channel_data,
+      suscan_sc_inspector_on_new_freq,
       NULL),
     return NULL);
 
@@ -203,8 +224,14 @@ suscan_sc_inspector_factory_open(
   samp_info->equiv_fs = self->samp_info.equiv_fs / schan->decimation;
   samp_info->bw_bd    = SU_ANG2NORM_FREQ(su_specttuner_channel_get_bw(schan));
   samp_info->bw       = .5 * schan->decimation * samp_info->bw_bd;
-  samp_info->f0       = SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan));
-
+  samp_info->f0       = 
+    SU_ANG2NORM_FREQ(su_specttuner_channel_get_f0(schan)) * schan->decimation;
+    
+  samp_info->fft_size        = schan->size;
+  samp_info->fft_bins        = schan->width;
+  samp_info->early_windowing = su_specttuner_uses_early_windowing(self->sc_stuner);
+  samp_info->decimation      = self->samp_info.equiv_fs;
+  
   return schan;
 }
 
@@ -216,6 +243,12 @@ suscan_sc_inspector_factory_bind(
 {
   su_specttuner_channel_t *chan = (su_specttuner_channel_t *) insp_self;
 
+  /* We need to do this here. */
+  suscan_inspector_set_domain(
+    insp,
+    suscan_inspector_is_freq_domain(insp));
+
+  
   /* TODO: Assign inspector to channel and open a handle (use SU_REF) */
   chan->params.privdata = insp;
 
@@ -231,7 +264,8 @@ suscan_sc_inspector_factory_close(
   su_specttuner_channel_t *chan = (su_specttuner_channel_t *) insp_self;
   suscan_inspector_t *insp      = (suscan_inspector_t *) chan->params.privdata;
 
-  SU_DEREF(insp, specttuner);
+  if (insp != NULL)
+    SU_DEREF(insp, specttuner);
 
   if (!suscan_inspector_open_sc_close_channel(self, chan))
     SU_WARNING("Failed to close channel!\n");
@@ -267,6 +301,18 @@ suscan_sc_inspector_factory_set_bandwidth(
   return SU_TRUE;
 }
 
+SUPRIVATE SUFLOAT
+suscan_sc_inspector_factory_get_bandwidth(
+  void *userdata, 
+  void *insp_userdata)
+{
+  suscan_inspector_t *self = (suscan_inspector_t *) userdata;
+  su_specttuner_channel_t *chan = (su_specttuner_channel_t *) insp_userdata;
+  SUFLOAT relbw = su_specttuner_channel_get_bw(chan);
+
+  return SU_NORM2ABS_FREQ(self->samp_info.equiv_fs, SU_ANG2NORM_FREQ(relbw));
+}
+
 SUPRIVATE SUBOOL
 suscan_sc_inspector_factory_set_frequency(
   void *userdata, 
@@ -289,6 +335,24 @@ suscan_sc_inspector_factory_set_frequency(
 
   return SU_TRUE;
 }
+
+SUPRIVATE SUBOOL
+suscan_sc_inspector_factory_set_domain(
+  void *userdata, 
+  void *insp_userdata, 
+  SUBOOL is_freq)
+{
+  su_specttuner_channel_t *chan = (su_specttuner_channel_t *) insp_userdata;
+  
+  su_specttuner_channel_set_domain(
+    chan,
+    is_freq 
+    ? SU_SPECTTUNER_CHANNEL_FREQUENCY_DOMAIN
+    : SU_SPECTTUNER_CHANNEL_TIME_DOMAIN);    
+
+  return SU_TRUE;
+}
+
 
 SUPRIVATE SUFREQ
 suscan_sc_inspector_factory_get_abs_freq(
@@ -339,7 +403,9 @@ static struct suscan_inspector_factory_class g_sc_factory = {
   .close               = suscan_sc_inspector_factory_close,
   .free_buf            = suscan_sc_inspector_factory_free_buf,
   .set_bandwidth       = suscan_sc_inspector_factory_set_bandwidth,
+  .get_bandwidth       = suscan_sc_inspector_factory_get_bandwidth,
   .set_frequency       = suscan_sc_inspector_factory_set_frequency,
+  .set_domain          = suscan_sc_inspector_factory_set_domain,
   .get_abs_freq        = suscan_sc_inspector_factory_get_abs_freq,
   .set_freq_correction = suscan_sc_inspector_factory_set_freq_correction,
   .dtor                = suscan_sc_inspector_factory_dtor
@@ -359,6 +425,8 @@ suscan_inspector_sampler_loop(
     SUSCOUNT samp_count)
 {
   struct suscan_analyzer_sample_batch_msg *msg = NULL;
+  unsigned int length;
+
   SUSDIFF fed;
 
   while (samp_count > 0) {
@@ -369,7 +437,10 @@ suscan_inspector_sampler_loop(
         (fed = suscan_inspector_feed_bulk(insp, samp_buf, samp_count)) >= 0,
         goto fail);
 
-    if (suscan_inspector_get_output_length(insp) > insp->sample_msg_watermark) {
+    length = suscan_inspector_get_output_length(insp);
+
+    if (length > 0 && (length >= insp->sample_msg_watermark
+        || suscan_inspector_sampler_buf_avail(insp) == 0)) {
       /* New samples produced by sampler: send to client */
       SU_TRYCATCH(
           msg = suscan_analyzer_sample_batch_msg_new(
@@ -404,6 +475,57 @@ fail:
   return SU_FALSE;
 }
 
+SUPRIVATE SUBOOL
+suscan_inspector_send_freq_domain_psd(
+    void *userdata,
+    const SUCOMPLEX *x,
+    SUSCOUNT size)
+{
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  suscan_inspector_t *insp = (suscan_inspector_t *) userdata;
+  SUSCOUNT i;
+  SUBOOL ok = SU_FALSE;
+  SUFLOAT K;
+
+  SU_TRYCATCH(
+      msg = suscan_analyzer_inspector_msg_new(
+          SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SPECTRUM,
+          rand()),
+      goto done);
+
+  K = (8. / 3.) / insp->samp_info.fft_size;
+
+  msg->inspector_id  = insp->inspector_id;
+  msg->spectsrc_id   = insp->spectsrc_index;
+  msg->samp_rate     = insp->samp_info.equiv_fs;
+  msg->spectrum_size = size;
+
+  SU_TRYCATCH(
+      msg->spectrum_data = malloc(size * sizeof(SUFLOAT)),
+      goto done);
+
+  for (i = 0; i < size; ++i)
+    msg->spectrum_data[i] = K * SU_C_REAL(x[i] * SU_C_CONJ(x[i]));
+
+  /* Provide a more accurate real timestamp */
+  gettimeofday(&msg->rt_time, NULL);
+  SU_TRYCATCH(
+      suscan_mq_write(
+          insp->mq_out,
+          SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+          msg),
+      goto done);
+
+  msg = NULL; /* We don't own this anymore */
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+
+  return ok;
+}
 
 SUBOOL
 suscan_inspector_spectrum_loop(
@@ -417,13 +539,27 @@ suscan_inspector_spectrum_loop(
   if (insp->spectsrc_index > 0) {
     src = insp->spectsrc_list[insp->spectsrc_index - 1];
 
-    while (samp_count > 0) {
-      fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
+    if (suscan_inspector_is_freq_domain(insp)) {
+      uint64_t interval = insp->interval_spectrum * 1e9;
+      uint64_t now = suscan_gettime();
+      if (now - insp->last_spectrum > interval) {
+        insp->last_spectrum = now;
 
-      SU_TRYCATCH(fed >= 0, goto fail);
+        SU_TRY_FAIL(
+          suscan_inspector_send_freq_domain_psd(
+            insp,
+            samp_buf,
+            samp_count));
+      }
+    } else {
+      while (samp_count > 0) {
+        fed = suscan_spectsrc_feed(src, samp_buf, samp_count);
 
-      samp_buf   += fed;
-      samp_count -= fed;
+        SU_TRY_FAIL(fed >= 0);
+
+        samp_buf   += fed;
+        samp_count -= fed;
+      }
     }
   }
 
@@ -431,6 +567,41 @@ suscan_inspector_spectrum_loop(
 
 fail:
   return SU_FALSE;
+}
+
+SUBOOL
+suscan_inspector_send_signal(
+    suscan_inspector_t *self,
+    const char *name,
+    SUDOUBLE value)
+{
+  struct suscan_analyzer_inspector_msg *msg = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRY(
+    msg = suscan_analyzer_inspector_msg_new(
+        SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL,
+        rand()));
+
+  SU_TRY(msg->signal_name = strdup(name));
+  msg->signal_value = value;
+  msg->inspector_id = self->inspector_id;
+  
+  SU_TRY(
+    suscan_mq_write(
+        self->mq_out,
+        SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR,
+        msg));
+  
+  msg = NULL;
+
+  ok = SU_TRUE;
+
+done:
+  if (msg != NULL)
+    suscan_analyzer_inspector_msg_destroy(msg);
+  
+  return ok;
 }
 
 SUBOOL
@@ -723,6 +894,16 @@ suscan_inspector_set_throttle_factor(
     suscan_spectsrc_set_throttle_factor(self->spectsrc_list[i], factor);
 }
 
+void
+suscan_inspector_set_domain(suscan_inspector_t *self, SUBOOL domain)
+{
+  self->frequency_domain = domain;
+  suscan_inspector_factory_set_inspector_domain(
+    self->factory,
+    self,
+    domain);
+}
+
 SUBOOL
 suscan_inspector_get_config(
     const suscan_inspector_t *insp,
@@ -943,6 +1124,7 @@ suscan_inspector_new(
   SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
   new->state            = SUSCAN_ASYNC_STATE_CREATED;
   new->samp_info        = *samp_info;
+  new->frequency_domain = iface->frequency_domain;
 
   /* Initialize reference counting */
   SU_TRYCATCH(SUSCAN_INIT_REFCOUNT(suscan_inspector, new), goto fail);
@@ -1041,6 +1223,19 @@ suscan_inspector_feed_bulk(
   return result;
 }
 
+void
+suscan_inspector_notify_freq(
+    suscan_inspector_t *insp,
+    SUFLOAT prev_freq,
+    SUFLOAT next_freq)
+{
+  if (insp->iface->freq_changed != NULL) {
+    suscan_inspector_lock(insp);
+    (insp->iface->freq_changed) (insp->privdata, insp, prev_freq, next_freq);
+    suscan_inspector_unlock(insp);
+  }
+}
+
 SUBOOL
 suscan_init_inspectors(void)
 {
@@ -1051,6 +1246,10 @@ suscan_init_inspectors(void)
   SU_TRYCATCH(suscan_fsk_inspector_register(),   return SU_FALSE);
   SU_TRYCATCH(suscan_audio_inspector_register(), return SU_FALSE);
   SU_TRYCATCH(suscan_raw_inspector_register(),   return SU_FALSE);
+  SU_TRYCATCH(suscan_power_inspector_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_drift_inspector_register(), return SU_FALSE);
+  SU_TRYCATCH(suscan_multicarrier_inspector_register(),   return SU_FALSE);
+
 
   return SU_TRUE;
 }

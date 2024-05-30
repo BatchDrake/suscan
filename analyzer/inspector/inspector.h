@@ -31,11 +31,12 @@ extern "C" {
 #include <util/com.h>
 
 #define SUHANDLE int32_t
+#define SUSCAN_INVALID_HANDLE_VALUE ((SUHANDLE) -1)
 
 #define SUSCAN_ANALYZER_CPU_USAGE_UPDATE_ALPHA .025
 
 #define SUSCAN_INSPECTOR_TUNER_BUF_SIZE    SU_BLOCK_STREAM_BUFFER_SIZE
-#define SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE  SU_BLOCK_STREAM_BUFFER_SIZE
+#define SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE  65536
 #define SUSCAN_INSPECTOR_SPECTRUM_BUF_SIZE 8192
 
 struct suscan_inspector_factory;
@@ -61,7 +62,8 @@ struct suscan_inspector {
   struct suscan_mq *mq_out;     /* Non-owned */
   struct suscan_mq *mq_ctl;     /* Non-owner */
   enum suscan_aync_state state; /* Used to remove analyzer from queue */
-
+  SUBOOL frequency_domain;      /* Used to tell if the inspector is in the frequency domain */
+  
   /* Specific inspector interface being used */
   const struct suscan_inspector_interface *iface;
   void *privdata;
@@ -73,7 +75,7 @@ struct suscan_inspector {
   pthread_mutex_t               corrector_mutex;
   SUBOOL                        corrector_init;
   suscan_frequency_corrector_t *corrector;
-  
+
   /* Spectrum and estimator state */
   SUFLOAT  interval_estimator;
   SUFLOAT  interval_spectrum;
@@ -99,12 +101,18 @@ struct suscan_inspector {
   SUCOMPLEX sampler_buf[SUSCAN_INSPECTOR_SAMPLER_BUF_SIZE];
   SUSCOUNT  sampler_ptr;
   SUSCOUNT  sample_msg_watermark; /* Watermark. When reached, message is sent */
-
+  
   PTR_LIST(suscan_estimator_t, estimator); /* Parameter estimators */
   PTR_LIST(suscan_spectsrc_t, spectsrc); /* Spectrum source */
 };
 
 typedef struct suscan_inspector suscan_inspector_t;
+
+SUINLINE SUBOOL
+suscan_inspector_is_freq_domain(const suscan_inspector_t *self)
+{
+  return self->frequency_domain;
+}
 
 SUINLINE void
 suscan_inspector_set_handle(suscan_inspector_t *self, SUHANDLE handle)
@@ -182,6 +190,24 @@ suscan_inspector_push_sample(suscan_inspector_t *self, SUCOMPLEX samp)
   self->sampler_buf[self->sampler_ptr++] = samp;
 
   return SU_TRUE;
+}
+
+SUINLINE SUSCOUNT
+suscan_inspector_push_sample_buffer(
+  suscan_inspector_t *self,
+  const SUCOMPLEX *x,
+  SUSCOUNT count)
+{
+  SUSCOUNT avail = suscan_inspector_sampler_buf_avail(self);
+
+  if (count > avail)
+    count = avail;
+
+  memcpy(self->sampler_buf + self->sampler_ptr, x, count * sizeof(SUCOMPLEX));
+
+  self->sampler_ptr += count;
+  
+  return count;
 }
 
 SUINLINE SUSCOUNT
@@ -276,6 +302,8 @@ void suscan_inspector_set_throttle_factor(
   suscan_inspector_t *insp,
   SUFLOAT factor);
 
+void suscan_inspector_set_domain(suscan_inspector_t *self, SUBOOL domain);
+
 SUBOOL suscan_inspector_notify_bandwidth(
     suscan_inspector_t *insp,
     SUFREQ new_bandwidth);
@@ -292,6 +320,11 @@ suscan_inspector_t *suscan_inspector_new(
     struct suscan_mq *mq_ctl,
     void *userdata);
 
+SUBOOL suscan_inspector_send_signal(
+    suscan_inspector_t *self,
+    const char *name,
+    SUDOUBLE value);
+    
 SUBOOL suscan_inspector_walk_inspectors(
   suscan_inspector_t *self,
   SUBOOL (*callback) (
@@ -319,6 +352,11 @@ SUSDIFF suscan_inspector_feed_bulk(
     const SUCOMPLEX *x,
     int count);
 
+void suscan_inspector_notify_freq(
+    suscan_inspector_t *insp,
+    SUFLOAT prev_freq,
+    SUFLOAT next_freq);
+
 SUBOOL suscan_init_inspectors(void);
 
 /* Builtin inspectors */
@@ -327,6 +365,9 @@ SUBOOL suscan_fsk_inspector_register(void);
 SUBOOL suscan_psk_inspector_register(void);
 SUBOOL suscan_audio_inspector_register(void);
 SUBOOL suscan_raw_inspector_register(void);
+SUBOOL suscan_power_inspector_register(void);
+SUBOOL suscan_multicarrier_inspector_register(void);
+SUBOOL suscan_drift_inspector_register(void);
 
 #ifdef __cplusplus
 }

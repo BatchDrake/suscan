@@ -26,6 +26,10 @@
 #include <sys/time.h>
 #include <pthread.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus*/
+
 #define SUSCLI_DATASAVER_BLOCK_SIZE 4096
 
 struct suscli_sample {
@@ -35,6 +39,7 @@ struct suscli_sample {
 
 struct suscli_datasaver_params {
   void *userdata;
+  char *(*fname) (void);
   void *(*open) (void *userdata);
   SUBOOL (*write) (void *state, const struct suscli_sample *, size_t);
   SUBOOL (*close) (void *state);
@@ -57,10 +62,17 @@ struct suscli_datasaver {
 
 typedef struct suscli_datasaver suscli_datasaver_t;
 
+SUINLINE char *
+suscli_datasaver_get_filename(const struct suscli_datasaver_params *params)
+{
+  return (params->fname) ();
+}
+
 suscli_datasaver_t *suscli_datasaver_new(
     const struct suscli_datasaver_params *);
 
 SUBOOL suscli_datasaver_write(suscli_datasaver_t *, SUFLOAT);
+SUBOOL suscli_datasaver_write_timestamp(suscli_datasaver_t *, const struct timeval *, SUFLOAT);
 
 void suscli_datasaver_destroy(suscli_datasaver_t *);
 
@@ -71,8 +83,15 @@ void suscli_datasaver_params_init_matlab(
 void suscli_datasaver_params_init_mat5(
     struct suscli_datasaver_params *self,
     const hashlist_t *params);
+void suscli_datasaver_params_init_csv(
+    struct suscli_datasaver_params *self,
+    const hashlist_t *params);
 void suscli_datasaver_params_init_tcp(
     struct suscli_datasaver_params *self,
     const hashlist_t *params);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _SUSCLI_DATASAVER_H */

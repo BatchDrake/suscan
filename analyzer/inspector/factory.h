@@ -30,6 +30,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define SUSCAN_INSPECTOR_FACTORY_TRUE_BW_SIGNAL "insp.true_bw"
+
 struct suscan_inspector_factory;
 
 /* TODO: Use hashtables */
@@ -56,9 +58,15 @@ struct suscan_inspector_factory_class {
   /* Set absolute bandwidth */
   SUBOOL (*set_bandwidth) (void *, void *, SUFLOAT);
 
+  /* Get true bandwidth, taking resolution into account */
+  SUFLOAT (*get_bandwidth) (void *, void *);
+  
   /* Set absolute frequency */
   SUBOOL (*set_frequency) (void *, void *, SUFREQ);
   
+  /* Set domain */
+  SUBOOL (*set_domain) (void *, void *, SUBOOL);
+
   SUFREQ (*get_abs_freq) (void *, void *);
   SUBOOL (*set_freq_correction) (void *, void *, SUFLOAT);
   
@@ -135,15 +143,35 @@ suscan_inspector_factory_set_inspector_freq(
 }
 
 SUINLINE SUBOOL
+suscan_inspector_factory_set_inspector_domain(
+  suscan_inspector_factory_t *self,
+  suscan_inspector_t *insp,
+  SUBOOL is_freq)
+{
+  return (self->iface->set_domain) (
+    self->userdata,
+    insp->factory_userdata,
+    is_freq);
+}
+
+SUINLINE SUBOOL
 suscan_inspector_factory_set_inspector_bandwidth(
   suscan_inspector_factory_t *self,
   suscan_inspector_t *insp,
   SUFLOAT bandwidth)
 {
-  return (self->iface->set_bandwidth) (
+  SUBOOL ok = (self->iface->set_bandwidth) (
     self->userdata,
     insp->factory_userdata,
     bandwidth);
+
+  if (ok)
+    suscan_inspector_send_signal(
+      insp,
+      SUSCAN_INSPECTOR_FACTORY_TRUE_BW_SIGNAL,
+      (self->iface->get_bandwidth) (self->userdata, insp->factory_userdata));
+    
+  return ok;
 }
 
 SUINLINE SUBOOL
@@ -182,6 +210,12 @@ SUBOOL suscan_inspector_factory_feed(
   suscan_inspector_t *insp,
   const SUCOMPLEX *data,
   SUSCOUNT size);
+
+SUBOOL suscan_inspector_factory_notify_freq(
+  suscan_inspector_factory_t *self,
+  suscan_inspector_t *insp,
+  SUFLOAT prev_f0,
+  SUFLOAT next_f0);
 
 SUBOOL suscan_inspector_factory_force_sync(suscan_inspector_factory_t *self);
 

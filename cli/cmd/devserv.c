@@ -20,10 +20,10 @@
 #define SU_LOG_DOMAIN "cli-devserv"
 
 #include <sys/types.h>
-#include <util/compat-socket.h>
-#include <util/compat-inet.h>
-#include <util/compat-in.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-socket.h>
+#include <sigutils/util/compat-inet.h>
+#include <sigutils/util/compat-in.h>
+#include <sigutils/util/compat-time.h>
 #include <util/confdb.h>
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>

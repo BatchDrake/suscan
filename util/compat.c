@@ -19,13 +19,14 @@
 
 #define _COMPAT_BARRIERS
 
+
 #include <stdlib.h>
 #include <string.h>
 #include <sigutils/log.h>
 
-#include "compat-socket.h"
-#include "compat-in.h"
-#include "compat-inet.h"
+#include <sigutils/util/compat-socket.h>
+#include <sigutils/util/compat-in.h>
+#include <sigutils/util/compat-inet.h>
 #include "compat.h"
 
 /* Bundle implementations */
@@ -126,3 +127,26 @@ suscan_ifdesc_to_addr(const char *ifdesc)
 
   return htonl(0xffffffff);
 }
+
+/******************** VM circularity implementation ***************************/
+#if defined(__linux__)
+#  include "unix-vm-circbuf.imp.h"
+#else
+SUBOOL
+suscan_vm_circbuf_allowed(SUSCOUNT size)
+{
+  return SU_FALSE;
+}
+
+SUCOMPLEX *
+suscan_vm_circbuf_new(const char *name, void **state, SUSCOUNT size)
+{
+  return NULL;
+}
+
+void
+suscan_vm_circbuf_destroy(void *state)
+{
+  /* Do nothing */
+}
+#endif

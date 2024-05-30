@@ -19,15 +19,15 @@
 
 #define SU_LOG_DOMAIN "tle"
 
-#include <util/compat-stdlib.h>
+#include <sigutils/util/compat-stdlib.h>
 #include "sgdp4.h"
 #include <sigutils/log.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <util/compat-stat.h>
+#include <sigutils/util/compat-stat.h>
 #include <sys/types.h>
-#include <util/compat-mman.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-mman.h>
+#include <sigutils/util/compat-time.h>
 #include <inttypes.h>
 
 
@@ -80,6 +80,7 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
   char classification, designator[16];
   char str_revol[8];
   int n;
+  char linebufcpy[SUSCAN_TLE_LINE_LEN + 1];
 
   switch (num) {
     case 0:
@@ -151,6 +152,13 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
        * This is the most critical line. It contains the orbital
        * elements that fully describe the orbit in the current epoch
        */
+
+      n = strlen(linebuf);
+      memcpy(linebufcpy, linebuf, n);
+
+      if (n >= 52 && linebufcpy[52] == ' ')
+        linebufcpy[52] = '0';
+
       n = sscanf(
         linebuf,
         "%1u %05u %8lf %8lf %07u %8lf %8lf %11lf%5[0-9 ]%1u",
@@ -190,12 +198,12 @@ su_orbit_parse_tle_line(orbit_t *self, unsigned int num, const char *linebuf)
       }
 
       /* The 6 orbital elements: */
-      self->eqinc = SU_DEG2RAD(fields[0]); /* i */
-      self->ascn  = SU_DEG2RAD(fields[1]); /* \Omega */
-      self->ecc   = ecc * 1e-7;            /* e */
-      self->argp  = SU_DEG2RAD(fields[2]); /* \omega */
-      self->mnan  = SU_DEG2RAD(fields[3]); /* M */
-      self->rev   = fields[4]; /* n */
+      self->eqinc  = SU_DEG2RAD(fields[0]); /* i */
+      self->ascn   = SU_DEG2RAD(fields[1]); /* \Omega */
+      self->ecc    = ecc * 1e-7;            /* e */
+      self->argp   = SU_DEG2RAD(fields[2]); /* \omega */
+      self->mnan   = SU_DEG2RAD(fields[3]); /* M */
+      self->rev    = fields[4]; /* n */
       break;
   }
 
@@ -418,7 +426,7 @@ orbit_debug(const orbit_t *self)
   SU_INFO("  Mnan:     %gº\n", SU_RAD2DEG(self->mnan));
   SU_INFO("  Argp:     %gº\n", SU_RAD2DEG(self->argp));
   SU_INFO("  RAAN:     %gº\n", SU_RAD2DEG(self->ascn));
-  SU_INFO("  S. axis:  %gº\n", self->smjaxs);
+  SU_INFO("  S. axis:  %g km\n", self->smjaxs);
   SU_INFO("  Norb:     %ld\n", self->norb);
   SU_INFO("  Satno:    %d\n", self->satno);
 }

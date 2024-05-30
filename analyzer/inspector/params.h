@@ -173,6 +173,7 @@ enum suscan_inspector_audio_demod {
   SUSCAN_INSPECTOR_AUDIO_DEMOD_FM,
   SUSCAN_INSPECTOR_AUDIO_DEMOD_USB,
   SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB,
+  SUSCAN_INSPECTOR_AUDIO_DEMOD_RAW,
 };
 
 struct suscan_inspector_audio_params {
@@ -191,5 +192,19 @@ SUBOOL suscan_inspector_audio_params_parse(
 SUBOOL suscan_inspector_audio_params_save(
     const struct suscan_inspector_audio_params *params,
     suscan_config_t *config);
+
+/*************************** Multicarrier config ******************************/
+struct suscan_inspector_multicarrier_params {
+  SUBOOL enabled;
+};
+
+SUBOOL suscan_config_desc_add_multicarrier_params(suscan_config_desc_t *desc);
+SUBOOL suscan_inspector_multicarrier_params_parse(
+    struct suscan_inspector_multicarrier_params *params,
+    const suscan_config_t *config);
+SUBOOL suscan_inspector_multicarrier_params_save(
+    const struct suscan_inspector_multicarrier_params *params,
+    suscan_config_t *config);
+
 
 #endif /* _INSPECTOR_PARAMS_H */

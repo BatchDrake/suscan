@@ -118,8 +118,14 @@ suscli_param_read_profile(
   int profile_id = 0;
   suscan_source_config_t *profile = NULL;
   const char *profile_name;
+  const char *value;
+  SUBOOL have_profile_id = SU_FALSE;
 
-  if (suscli_param_read_int(p, key, &profile_id, profile_id)) {
+  if ((value = hashlist_get(p, key)) != NULL)
+    if (sscanf(value, "%i", &profile_id) == 1)
+      have_profile_id = SU_TRUE;
+
+  if (have_profile_id) {
     if (profile_id == 0) {
       profile = ui_config;
     } else if (profile_id > 0 && profile_id <= cli_config_count) {

@@ -80,12 +80,7 @@ suscli_device_register_cb(
 
   (void) suscan_source_device_get_info(dev, 0, &info);
 
-  SU_TRYCATCH(
-      prof = suscan_source_config_new(
-          SUSCAN_SOURCE_TYPE_SDR,
-          SUSCAN_SOURCE_FORMAT_AUTO),
-      goto done);
-
+  SU_TRYCATCH(prof = suscan_source_config_new_default(), goto done);
   SU_TRYCATCH(suscan_source_config_set_label(prof, label), goto done);
   SU_TRYCATCH(suscan_source_config_set_device(prof, dev), goto done);
 

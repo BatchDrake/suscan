@@ -24,6 +24,10 @@
 #include <suscan.h>
 #include <cli/cli.h>
 #include <analyzer/version.h>
+#ifdef __unix__
+#  include <signal.h>
+#endif /* __unix__ */
+
 
 SUPRIVATE SUBOOL
 suscan_init(const char *a0)
@@ -68,6 +72,14 @@ help(const char *a0)
         "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n");
 }
 
+#ifdef __unix__
+void
+suscli_sigint_handler(int sig)
+{
+  exit(1);
+}
+#endif /* __unix__ */
+
 int
 main(int argc, const char *argv[], char *envp[])
 {
@@ -88,6 +100,10 @@ main(int argc, const char *argv[], char *envp[])
     fprintf(stderr, "%s: Suscan command line failed to load\n", argv[0]);
     goto done;
   }
+
+#ifdef __unix__
+  signal(SIGINT, suscli_sigint_handler);
+#endif /* __unix__ */
 
   if (suscli_run_command(argv[1], &argv[2]))
     ret = EXIT_SUCCESS;

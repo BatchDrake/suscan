@@ -39,7 +39,7 @@
 #endif /* bool */
 
 /* Gain info objects */
-SUSCAN_SERIALIZER_PROTO(suscan_analyzer_gain_info)
+SUSCAN_SERIALIZER_PROTO(suscan_source_gain_info)
 {
   SUSCAN_PACK_BOILERPLATE_START;
 
@@ -52,7 +52,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_gain_info)
   SUSCAN_PACK_BOILERPLATE_END;
 }
 
-SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_gain_info)
+SUSCAN_DESERIALIZER_PROTO(suscan_source_gain_info)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
 
@@ -112,342 +112,6 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_params)
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
-void
-suscan_analyzer_gain_info_destroy(struct suscan_analyzer_gain_info *self)
-{
-  if (self->name != NULL)
-    free(self->name);
-
-  free(self);
-}
-
-struct suscan_analyzer_gain_info *
-suscan_analyzer_gain_info_dup(
-    const struct suscan_analyzer_gain_info *old)
-{
-  struct suscan_analyzer_gain_info *new = NULL;
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_analyzer_gain_info)),
-      goto fail);
-
-  SU_TRYCATCH(new->name = strdup(old->name), goto fail);
-
-  new->max   = old->max;
-  new->min   = old->min;
-  new->step  = old->step;
-  new->value = old->value;
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_analyzer_gain_info_destroy(new);
-
-  return NULL;
-}
-
-struct suscan_analyzer_gain_info *
-suscan_analyzer_gain_info_new(
-    const struct suscan_source_gain_value *value)
-{
-  struct suscan_analyzer_gain_info *new = NULL;
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_analyzer_gain_info)),
-      goto fail);
-
-  SU_TRYCATCH(new->name = strdup(value->desc->name), goto fail);
-
-  new->max   = value->desc->max;
-  new->min   = value->desc->min;
-  new->step  = value->desc->step;
-  new->value = value->val;
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_analyzer_gain_info_destroy(new);
-
-  return NULL;
-}
-
-struct suscan_analyzer_gain_info *
-suscan_analyzer_gain_info_new_value_only(
-    const char *name,
-    SUFLOAT value)
-{
-  struct suscan_analyzer_gain_info *new = NULL;
-
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_analyzer_gain_info)),
-      goto fail);
-
-  SU_TRYCATCH(new->name = strdup(name), goto fail);
-
-  new->value = value;
-
-  return new;
-
-fail:
-  if (new != NULL)
-    suscan_analyzer_gain_info_destroy(new);
-
-  return NULL;
-}
-
-/* Helper methods */
-SUSCAN_SERIALIZER_PROTO(suscan_analyzer_source_info)
-{
-  SUSCAN_PACK_BOILERPLATE_START;
-  unsigned int i;
-
-  SUSCAN_PACK(uint,  self->permissions);
-  SUSCAN_PACK(uint,  self->source_samp_rate);
-  SUSCAN_PACK(uint,  self->effective_samp_rate);
-  SUSCAN_PACK(float, self->measured_samp_rate);
-  SUSCAN_PACK(freq,  self->frequency);
-  SUSCAN_PACK(freq,  self->freq_min);
-  SUSCAN_PACK(freq,  self->freq_max);
-  SUSCAN_PACK(freq,  self->lnb);
-  SUSCAN_PACK(float, self->bandwidth);
-  SUSCAN_PACK(float, self->ppm);
-  SUSCAN_PACK(str,   self->antenna);
-  SUSCAN_PACK(bool,  self->dc_remove);
-  SUSCAN_PACK(bool,  self->iq_reverse);
-  SUSCAN_PACK(bool,  self->agc);
-
-  SUSCAN_PACK(bool,   self->have_qth);
-  if (self->have_qth) {
-    SUSCAN_PACK(double, self->qth.lat);
-    SUSCAN_PACK(double, self->qth.lon);
-    SUSCAN_PACK(double, self->qth.height);
-  }
-
-  SUSCAN_PACK(uint, self->source_time.tv_sec);
-  SUSCAN_PACK(uint, self->source_time.tv_usec);
-
-  SUSCAN_PACK(bool, self->seekable);
-  if (self->seekable) {
-    SUSCAN_PACK(uint,  self->source_start.tv_sec);
-    SUSCAN_PACK(uint,  self->source_start.tv_usec);  
-    SUSCAN_PACK(uint, self->source_end.tv_sec);
-    SUSCAN_PACK(uint, self->source_end.tv_usec);
-  }
-
-  SU_TRYCATCH(cbor_pack_map_start(buffer, self->gain_count) == 0, goto fail);
-  for (i = 0; i < self->gain_count; ++i)
-    SU_TRYCATCH(
-        suscan_analyzer_gain_info_serialize(self->gain_list[i], buffer),
-        goto fail);
-
-  SU_TRYCATCH(cbor_pack_map_start(buffer, self->antenna_count) == 0, goto fail);
-  for (i = 0; i < self->antenna_count; ++i)
-    SUSCAN_PACK(str, self->antenna_list[i]);
-
-  SUSCAN_PACK_BOILERPLATE_END;
-}
-
-SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_source_info)
-{
-  SUSCAN_UNPACK_BOILERPLATE_START;
-  SUBOOL end_required = SU_FALSE;
-  size_t i;
-  uint64_t nelem = 0;
-  uint64_t tv_sec = 0;
-  uint32_t tv_usec = 0;
-
-  SUSCAN_UNPACK(uint64, self->permissions);
-  SUSCAN_UNPACK(uint64, self->source_samp_rate);
-  SUSCAN_UNPACK(uint64, self->effective_samp_rate);
-  SUSCAN_UNPACK(float,  self->measured_samp_rate);
-  SUSCAN_UNPACK(freq,   self->frequency);
-  SUSCAN_UNPACK(freq,   self->freq_min);
-  SUSCAN_UNPACK(freq,   self->freq_max);
-  SUSCAN_UNPACK(freq,   self->lnb);
-  SUSCAN_UNPACK(float,  self->bandwidth);
-  SUSCAN_UNPACK(float,  self->ppm);
-  SUSCAN_UNPACK(str,    self->antenna);
-  SUSCAN_UNPACK(bool,   self->dc_remove);
-  SUSCAN_UNPACK(bool,   self->iq_reverse);
-  SUSCAN_UNPACK(bool,   self->agc);
-
-  SUSCAN_UNPACK(bool,   self->have_qth);
-  if (self->have_qth) {
-    SUSCAN_UNPACK(double, self->qth.lat);
-    SUSCAN_UNPACK(double, self->qth.lon);
-    SUSCAN_UNPACK(double, self->qth.height);
-  }
-
-  SUSCAN_UNPACK(uint64, tv_sec);
-  SUSCAN_UNPACK(uint32, tv_usec);
-  self->source_time.tv_sec  = tv_sec;
-  self->source_time.tv_usec = tv_usec;
-
-  SUSCAN_UNPACK(bool, self->seekable);
-  if (self->seekable) {
-    SUSCAN_UNPACK(uint64, tv_sec);
-    SUSCAN_UNPACK(uint32, tv_usec);  
-    self->source_start.tv_sec  = tv_sec;
-    self->source_start.tv_usec = tv_usec;
-
-    SUSCAN_UNPACK(uint64, tv_sec);
-    SUSCAN_UNPACK(uint32, tv_usec);
-    self->source_end.tv_sec  = tv_sec;
-    self->source_end.tv_usec = tv_usec;
-  }
-
-  /* Deserialize gains */
-  SU_TRYCATCH(
-      cbor_unpack_map_start(buffer, &nelem, &end_required) == 0,
-      goto fail);
-  SU_TRYCATCH(!end_required, goto fail);
-
-  self->gain_count = (unsigned int) nelem;
-
-  if (self->gain_count > 0) {
-    SU_TRYCATCH(
-        self->gain_list = calloc(
-            nelem,
-            sizeof (struct suscan_analyzer_gain_info *)),
-        goto fail);
-
-    for (i = 0; i < self->gain_count; ++i) {
-      SU_TRYCATCH(
-          self->gain_list[i] = 
-            calloc(1, sizeof (struct suscan_analyzer_gain_info)),
-          goto fail);
-
-      SU_TRYCATCH(
-          suscan_analyzer_gain_info_deserialize(self->gain_list[i], buffer),
-          goto fail);
-    }
-  } else {
-    self->gain_list = NULL;
-  }
-  
-  /* Deserialize antennas */
-  SU_TRYCATCH(
-      cbor_unpack_map_start(buffer, &nelem, &end_required) == 0,
-      goto fail);
-  SU_TRYCATCH(!end_required, goto fail);
-
-  self->antenna_count = (unsigned int) nelem;
-
-  if (self->antenna_count > 0) {
-    SU_TRYCATCH(
-      self->antenna_list = calloc(nelem, sizeof (char *)), 
-      goto fail);
-
-    for (i = 0; i < self->antenna_count; ++i)
-      SUSCAN_UNPACK(str, self->antenna_list[i]);
-  } else {
-    self->antenna_list = NULL;
-  }
-
-  SUSCAN_UNPACK_BOILERPLATE_END;
-}
-
-void
-suscan_analyzer_source_info_init(struct suscan_analyzer_source_info *self)
-{
-  memset(self, 0, sizeof(struct suscan_analyzer_source_info));
-
-  self->permissions = SUSCAN_ANALYZER_PERM_ALL;
-}
-
-SUBOOL
-suscan_analyzer_source_info_init_copy(
-    struct suscan_analyzer_source_info *self,
-    const struct suscan_analyzer_source_info *origin)
-{
-  struct suscan_analyzer_gain_info *gi = NULL;
-  char *dup = NULL;
-  unsigned int i;
-  SUBOOL ok = SU_FALSE;
-
-  suscan_analyzer_source_info_init(self);
-
-  self->permissions         = origin->permissions;
-  self->source_samp_rate    = origin->source_samp_rate;
-  self->effective_samp_rate = origin->effective_samp_rate;
-  self->measured_samp_rate  = origin->measured_samp_rate;
-  self->frequency           = origin->frequency;
-  self->freq_min            = origin->freq_min;
-  self->freq_max            = origin->freq_max;
-  self->lnb                 = origin->lnb;
-  self->bandwidth           = origin->bandwidth;
-  self->ppm                 = origin->ppm;
-  self->source_time         = origin->source_time;
-  self->seekable            = origin->seekable;
-
-  if (self->seekable) {
-    self->source_start = origin->source_start;
-    self->source_end   = origin->source_end;
-  }
-
-  if (origin->antenna != NULL)
-    SU_TRYCATCH(self->antenna = strdup(origin->antenna), goto done);
-
-  self->dc_remove  = origin->dc_remove;
-  self->iq_reverse = origin->iq_reverse;
-  self->agc        = origin->agc;
-
-  for (i = 0; i < origin->gain_count; ++i) {
-    SU_TRYCATCH(
-        gi = suscan_analyzer_gain_info_dup(origin->gain_list[i]),
-        goto done);
-
-    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(self->gain, gi) != -1, goto done);
-    gi = NULL;
-  }
-
-  for (i = 0; i < origin->antenna_count; ++i) {
-    SU_TRYCATCH(dup = strdup(origin->antenna_list[i]), goto done);
-    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(self->antenna, dup) != -1, goto done);
-    dup = NULL;
-  }
-
-  ok = SU_TRUE;
-
-done:
-  if (gi != NULL)
-    suscan_analyzer_gain_info_destroy(gi);
-
-  if (dup != NULL)
-    free(dup);
-
-  if (!ok)
-    suscan_analyzer_source_info_finalize(self);
-
-  return ok;
-}
-
-void
-suscan_analyzer_source_info_finalize(struct suscan_analyzer_source_info *self)
-{
-  unsigned int i;
-
-  if (self->antenna != NULL)
-    free(self->antenna);
-
-  for (i = 0; i < self->gain_count; ++i)
-    if (self->gain_list[i] != NULL)
-      suscan_analyzer_gain_info_destroy(self->gain_list[i]);
-
-  if (self->gain_list != NULL)
-    free(self->gain_list);
-
-  for (i = 0; i < self->antenna_count; ++i)
-    if (self->antenna_list[i] != NULL)
-      free(self->antenna_list[i]);
-
-  if (self->antenna_list != NULL)
-    free(self->antenna_list);
-
-  memset(self, 0, sizeof(struct suscan_analyzer_source_info));
-}
 
 void
 suscan_analyzer_consume_mq(struct suscan_mq *mq)
@@ -477,11 +141,25 @@ suscan_analyzer_consume_mq_until_halt(struct suscan_mq *mq)
 SUBOOL
 suscan_analyzer_halt_worker(suscan_worker_t *worker)
 {
+  /* We resue this timeout as a sane value. */
+  struct timespec ts = 
+    {
+      SUSCAN_WORKER_DESTROY_TIMEOUT_MS / 1000,
+      (SUSCAN_WORKER_DESTROY_TIMEOUT_MS * 1000000ull) % 1000000000
+    };
+
   while (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
     suscan_worker_req_halt(worker);
 
     while (!suscan_analyzer_consume_mq_until_halt(worker->mq_out))
-      suscan_mq_wait(worker->mq_out);
+      if (suscan_mq_timedwait(worker->mq_out, &ts)) {
+        if (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
+          SU_ERROR(
+            "Worker destruction took more than %d ms. Aborted.\n",
+            SUSCAN_WORKER_DESTROY_TIMEOUT_MS);
+          return SU_FALSE;
+        }
+      }
   }
 
   return suscan_worker_destroy(worker);
@@ -663,7 +341,7 @@ suscan_analyzer_destroy(suscan_analyzer_t *self)
 SUPRIVATE SUBOOL
 suscan_analyzer_test_permissions(const suscan_analyzer_t *self, uint64_t perm)
 {
-  const struct suscan_analyzer_source_info *info = 
+  const struct suscan_source_info *info = 
     suscan_analyzer_get_source_info(self);
 
   return (info->permissions & perm) == perm;
@@ -755,6 +433,54 @@ suscan_analyzer_commit_source_info(suscan_analyzer_t *self)
   return (self->iface->commit_source_info) (self->impl);
 }
 
+SUBOOL
+suscan_analyzer_supports_baseband_filtering(suscan_analyzer_t *analyzer)
+{
+  return analyzer->iface->register_baseband_filter != NULL;
+}
+
+SUBOOL
+suscan_analyzer_register_baseband_filter_with_prio(
+    suscan_analyzer_t *self,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata,
+    int64_t prio)
+{
+  if (!suscan_analyzer_supports_baseband_filtering(self)) {
+    SU_ERROR("This type of analyzer object does not support custom baseband filtering\n");
+    return SU_FALSE;
+  }
+
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_BB_FILTER);
+
+  return (self->iface->register_baseband_filter) (
+    self->impl,
+    func,
+    privdata,
+    prio);
+}
+
+
+SUBOOL
+suscan_analyzer_register_baseband_filter(
+    suscan_analyzer_t *self,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata)
+{
+  if (!suscan_analyzer_supports_baseband_filtering(self)) {
+    SU_ERROR("This type of analyzer object does not support custom baseband filtering\n");
+    return SU_FALSE;
+  }
+
+  CHECK_PERMISSION(self, SUSCAN_ANALYZER_PERM_SET_BB_FILTER);
+
+  return (self->iface->register_baseband_filter) (
+    self->impl,
+    func,
+    privdata,
+    SUSCAN_ANALYZER_BBFILT_PRIO_DEFAULT);
+}
+
 /* Worker-specific methods */
 SUBOOL
 suscan_analyzer_set_sweep_stratrgy(
@@ -776,6 +502,12 @@ SUBOOL
 suscan_analyzer_set_hop_range(suscan_analyzer_t *self, SUFREQ min, SUFREQ max)
 {
   return (self->iface->set_hop_range) (self->impl, min, max);
+}
+
+SUBOOL
+suscan_analyzer_set_rel_bandwidth(suscan_analyzer_t *self, SUFLOAT rel_bw)
+{
+  return (self->iface->set_rel_bandwidth) (self->impl, rel_bw);
 }
 
 SUBOOL

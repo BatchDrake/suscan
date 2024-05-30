@@ -1,0 +1,8 @@
+ci:
+  - .github/workflows/**/*
+  - .github/actions/**/*
+
+build_system:
+  - 'CMake*'
+  - '**/CMakeLists.txt'
+  - '**/*.cmake'

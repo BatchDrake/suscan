@@ -20,7 +20,7 @@
 #ifndef _MSG_H
 #define _MSG_H
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include <stdint.h>
 
 #include "analyzer.h"
@@ -46,6 +46,8 @@ extern "C" {
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS        0xb /* Analyzer params */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS    0xc
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK          0xd
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_HISTORY_SIZE  0xe
+#define SUSCAN_ANALYZER_MESSAGE_TYPE_REPLAY        0xf
 
 /* Invalid message. No one should even send this. */
 #define SUSCAN_ANALYZER_MESSAGE_TYPE_INVALID       0x8000000
@@ -89,6 +91,17 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_seek_msg) {
   struct timeval position;
 };
 
+/* History size */
+SUSCAN_SERIALIZABLE(suscan_analyzer_history_size_msg) {
+  SUSCOUNT buffer_length; /* In bytes */
+};
+
+/* Replay enabled */
+SUSCAN_SERIALIZABLE(suscan_analyzer_replay_msg) {
+  SUBOOL replay;
+};
+
+
 /* Channel spectrum message */
 SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
   int64_t fc;
@@ -96,6 +109,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_psd_msg) {
   struct   timeval timestamp; /* Timestamp after PSD */
   struct   timeval rt_time;   /* Real time timestamp */
   SUBOOL   looped;
+  SUSCOUNT history_size;
   SUFLOAT  samp_rate;
   SUFLOAT  measured_samp_rate;
   SUFLOAT  N0;
@@ -138,6 +152,7 @@ enum suscan_analyzer_inspector_msgkind {
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_TLE,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_ORBIT_REPORT,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_INVALID_CORRECTION,
+  SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL,
   SUSCAN_ANALYZER_INSPECTOR_MSGKIND_COUNT
 };
 
@@ -166,6 +181,10 @@ suscan_analyzer_inspector_msgkind_to_string(
     SUSCAN_COMP_MSGKIND(INVALID_ARGUMENT);
     SUSCAN_COMP_MSGKIND(WRONG_KIND);
     SUSCAN_COMP_MSGKIND(INVALID_CHANNEL);
+    SUSCAN_COMP_MSGKIND(SET_TLE);
+    SUSCAN_COMP_MSGKIND(ORBIT_REPORT);
+    SUSCAN_COMP_MSGKIND(INVALID_CORRECTION);
+    SUSCAN_COMP_MSGKIND(SIGNAL);
 
     default:
       return "UNKNOWN";
@@ -219,6 +238,11 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
       orbit_t tle_orbit;
     };
 
+    struct {
+      char    *signal_name;
+      SUDOUBLE signal_value;
+    };
+    
     struct suscan_orbit_report orbit_report;
 
     SUSCOUNT watermark;
@@ -248,11 +272,12 @@ SUBOOL suscan_analyzer_send_psd(
 SUBOOL suscan_analyzer_send_psd_from_smoothpsd(
     suscan_analyzer_t *self,
     const su_smoothpsd_t *smoothpsd,
-    SUBOOL looped);
+    SUBOOL looped,
+    SUSCOUNT history_size);
 
 SUBOOL suscan_analyzer_send_source_info(
     suscan_analyzer_t *self,
-    const struct suscan_analyzer_source_info *info);
+    const struct suscan_source_info *info);
 
 /***************** Message constructors and destructors **********************/
 /* Status message */

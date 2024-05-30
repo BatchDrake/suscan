@@ -66,12 +66,8 @@ suscan_raw_inspector_feed(
     const SUCOMPLEX *x,
     SUSCOUNT count)
 {
-  SUSDIFF i;
-
-  for (i = 0; i < count && suscan_inspector_sampler_buf_avail(insp) > 0; ++i)
-      suscan_inspector_push_sample(insp, x[i]);
-
-  return i;
+  /* Pass-thru */
+  return suscan_inspector_push_sample_buffer(insp, x, count);
 }
 
 void
@@ -100,6 +96,8 @@ suscan_raw_inspector_register(void)
 
   SU_TRYCATCH(suscan_config_desc_register(iface.cfgdesc), return SU_FALSE);
 
+  (void) suscan_inspector_interface_add_spectsrc(&iface, "psd");
+  
   /* Register inspector interface */
   SU_TRYCATCH(suscan_inspector_interface_register(&iface), return SU_FALSE);
 

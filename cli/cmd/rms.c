@@ -88,6 +88,10 @@ struct suscli_rms_params {
   SUBOOL mat5_enabled;
   const char *mat5_path;
 
+  /* CSV forwarder */
+  SUBOOL csv_enabled;
+  const char *csv_path;
+
   /* Precalculated terms */
   enum suscli_rms_mode mode_enum;
   SUFLOAT k;
@@ -112,6 +116,7 @@ struct suscli_rms_state {
 
   SUFLOAT prev_db;
   SUFLOAT curr_db;
+  SUFLOAT curr_db_copy;
 
   SUFLOAT freq1;
   SUFLOAT freq2;
@@ -142,8 +147,8 @@ suscli_rms_audio_start_cb(suscli_audio_player_t *self, void *userdata)
   SUBOOL ok = SU_FALSE;
 
   state->samp_rate = suscli_audio_player_samp_rate(self);
-
-  su_ncqo_set_freq(
+  
+  su_ncqo_init(
       &state->afo,
       SU_ABS2NORM_FREQ(
           state->samp_rate,
@@ -178,8 +183,8 @@ suscli_rms_audio_play_cb(
 
       /* TODO: lock */
       if (state->rms_changed) {
+        db = state->curr_db_copy;
         state->rms_changed = SU_FALSE;
-        db = state->curr_db;
 
         if (state->params.scale > 0)
             db = state->params.scale * SU_FLOOR(db / state->params.scale);
@@ -193,7 +198,7 @@ suscli_rms_audio_play_cb(
             state->samp_per_short_beep = 0;
             state->freq1 = 0;
             state->freq2 = state->params.freq_min
-                * SU_C_EXP(state->params.k * normalized);
+                * SU_EXP(state->params.k * normalized);
             freq_changed = SU_TRUE;
             break;
 
@@ -201,7 +206,7 @@ suscli_rms_audio_play_cb(
             state->samp_per_beep_cycle = state->samp_per_long_beep;
             state->freq1 = state->params.freq_min;
             state->freq2 = state->params.freq_min
-                * SU_C_EXP(state->params.k * normalized);
+                * SU_EXP(state->params.k * normalized);
             break;
 
           case SUSCLI_RMSTONE_MODE_BEEPER:
@@ -219,7 +224,7 @@ suscli_rms_audio_play_cb(
             break;
         }
 
-        state->prev_db = state->curr_db;
+        state->prev_db = db;
       }
 
       if (!state->second_cycle) {
@@ -565,6 +570,22 @@ suscli_rms_params_parse(
           NULL),
       goto fail);
 
+  SU_TRYCATCH(
+      suscli_param_read_bool(
+          p,
+          "csv",
+          &self->csv_enabled,
+          SU_FALSE),
+      goto fail);
+
+  SU_TRYCATCH(
+      suscli_param_read_string(
+          p,
+          "csv-path",
+          &self->csv_path,
+          NULL),
+      goto fail);
+
   self->k = SU_LOG(self->freq_max / self->freq_min);
 
   suscli_rms_params_debug(self);
@@ -657,6 +678,18 @@ suscli_rms_state_init(
     ds = NULL;
   }
 
+  /* User requested CSV forwarder */
+  if (state->params.csv_enabled) {
+    SU_TRYCATCH(
+        hashlist_set(dshash, "path", (void *) state->params.csv_path),
+        goto fail);
+
+    suscli_datasaver_params_init_csv(&ds_params, dshash);
+    SU_TRYCATCH(ds = suscli_datasaver_new(&ds_params), goto fail);
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(state->ds, ds) != -1, goto fail);
+    ds = NULL;
+  }
+
   /* User requested TCP forwarder */
   if (state->params.tcp_enabled) {
     snprintf(portstr, sizeof(portstr), "%d", state->params.tcp_port);
@@ -711,6 +744,7 @@ suscli_rms_on_data_cb(
   unsigned int j;
   SUFLOAT y, tmp;
   SUFLOAT measure;
+
   struct suscli_rms_state *state = (struct suscli_rms_state *) userdata;
   struct timeval tv;
 
@@ -723,9 +757,14 @@ suscli_rms_on_data_cb(
     if (++state->update_ctr >= state->samp_per_update) {
       measure = state->sum / state->update_ctr;
       state->curr_db = SU_POWER_DB(state->sum / state->update_ctr);
-      state->c = state->sum = state->update_ctr = 0;
-      state->rms_changed = SU_TRUE;
 
+      if (!state->rms_changed) {
+        state->rms_changed = SU_TRUE;
+        state->curr_db_copy = state->curr_db;
+      }
+
+      state->c = state->sum = state->update_ctr = 0;
+      
       /* Feed datasavers */
       for (j = 0; j < state->ds_count; ++j)
         if (state->ds_list[j] != NULL)

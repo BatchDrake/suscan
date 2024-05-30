@@ -20,7 +20,7 @@
 #ifndef _UTIL_OBJECT_H
 #define _UTIL_OBJECT_H
 
-#include "util.h"
+#include <sigutils/util/util.h>
 #include <sigutils/types.h>
 
 #ifdef __cplusplus

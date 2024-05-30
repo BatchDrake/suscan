@@ -20,7 +20,7 @@
 #ifndef _INSPECTOR_INTERFACE_H
 #define _INSPECTOR_INTERFACE_H
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include <sigutils/sigutils.h>
 #include <cfg.h>
 
@@ -30,10 +30,14 @@
 struct suscan_inspector;
 
 struct suscan_inspector_sampling_info {
-  SUFLOAT equiv_fs;        /* Equivalent sample rate */
-  SUFLOAT bw;              /* Bandwidth */
-  SUFLOAT bw_bd;           /* Bandwidth before decimation */
-  SUFLOAT f0;              /* Center frequency */
+  SUFLOAT equiv_fs;         /* Equivalent sample rate */
+  SUFLOAT bw;               /* Bandwidth */
+  SUFLOAT bw_bd;            /* Bandwidth before decimation */
+  SUFLOAT f0;               /* Center frequency */
+  SUSCOUNT fft_size;        /* Size of the FFT window. */
+  SUSCOUNT fft_bins;        /* Number of non-zero bins in the FFT window */
+  SUBOOL   early_windowing; /* Early windowing is being applied */
+  unsigned decimation;      /* Decimation */
 };
 
 struct suscan_inspector_interface {
@@ -41,6 +45,8 @@ struct suscan_inspector_interface {
   const char *desc;               /* Description */
   const char *sc_factory_class;   /* Factory class (if any) */
 
+  SUBOOL frequency_domain;
+  
   suscan_config_desc_t *cfgdesc;
 
   PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc);
@@ -67,6 +73,13 @@ struct suscan_inspector_interface {
       const SUCOMPLEX *x,
       SUSCOUNT count);
 
+  /* Frequency was changed */
+  void (*freq_changed) (
+    void *priv,
+    struct suscan_inspector *insp,
+    SUFLOAT prev_freq,
+    SUFLOAT next_freq);
+  
   /* Close inspector */
   void (*close) (void *priv);
 };

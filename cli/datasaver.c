@@ -100,16 +100,26 @@ fail:
 
 SUBOOL
 suscli_datasaver_write(
+  suscli_datasaver_t *self,
+  SUFLOAT data)
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+
+  return suscli_datasaver_write_timestamp(self, &tv, data);
+}
+
+SUBOOL
+suscli_datasaver_write_timestamp(
     suscli_datasaver_t *self,
+    const struct timeval *tv,
     SUFLOAT data)
 {
   struct suscli_sample *samp;
   struct suscli_sample *tmp;
-  struct timeval tv;
+  
   SUSDIFF avail;
   SUBOOL ok = SU_FALSE;
-
-  gettimeofday(&tv, NULL);
 
   SU_TRYCATCH(!self->failed, goto fail);
 
@@ -140,7 +150,7 @@ suscli_datasaver_write(
   SU_TRYCATCH(pthread_mutex_unlock(&self->mutex) == 0, goto fail);
 
   /* Populate sample */
-  samp->timestamp = tv;
+  samp->timestamp = *tv;
   samp->value     = data;
 
   /*

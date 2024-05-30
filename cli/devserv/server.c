@@ -22,9 +22,9 @@
 #include "devserv.h"
 #include <analyzer/msg.h>
 #include <sigutils/log.h>
-#include <util/compat-poll.h>
-#include <util/compat-fcntl.h>
-#include <util/compat-socket.h>
+#include <sigutils/util/compat-poll.h>
+#include <sigutils/util/compat-fcntl.h>
+#include <sigutils/util/compat-socket.h>
 #include <analyzer/impl/multicast.h>
 
 SUPRIVATE void suscli_analyzer_server_kick_client(
@@ -916,6 +916,14 @@ suscli_analyzer_server_deliver_call(
               self->analyzer,
               call->hop_range.min,
               call->hop_range.max),
+          goto done);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_REL_BANDWIDTH:
+      SU_TRYCATCH(
+          suscan_analyzer_set_rel_bandwidth(
+              self->analyzer,
+              call->rel_bw),
           goto done);
       break;
 

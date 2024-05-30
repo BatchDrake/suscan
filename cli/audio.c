@@ -104,6 +104,8 @@ suscli_audio_open_stream(
 
   ATTEMPT(snd_pcm_hw_params(pcm, params), "set device params");
 
+  self->samp_rate = samp_rate;
+  
   return pcm;
 
 fail:
@@ -320,13 +322,14 @@ suscli_audio_player_new(const struct suscli_audio_player_params *params)
 
   SU_TRYCATCH(new = calloc(1, sizeof(suscli_audio_player_t)), goto fail);
 
+  new->params   = *params;
+  
   if (new->params.samp_rate == 0)
     new->params.samp_rate = SUSCLI_AUDIO_DEFAULT_SAMPLE_RATE;
 
-  new->params   = *params;
   new->bufsiz   = SUSCLI_AUDIO_BUFFER_DELAY_MS * 1e-3f * new->params.samp_rate;
   new->bufalloc = SUSCLI_AUDIO_BUFFER_ALLOC_SIZE;
-
+  
   if (new->bufsiz < SUSCLI_AUDIO_MIN_BUFFER_SIZE)
     new->bufsiz = SUSCLI_AUDIO_MIN_BUFFER_SIZE;
   else if (new->bufsiz > SUSCLI_AUDIO_BUFFER_ALLOC_SIZE)

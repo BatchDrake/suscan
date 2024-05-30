@@ -20,6 +20,10 @@
   
 cmake_minimum_required(VERSION 3.5.1)
 
+# CMake modules search path
+file(GLOB MODULE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/*/" LIST_DIRECTORIES true)
+list(APPEND CMAKE_MODULE_PATH "${MODULE_DIRS}")
+
 set(SUSCAN_VERSION_MAJOR 0)
 set(SUSCAN_VERSION_MINOR 3)
 set(SUSCAN_VERSION_PATCH 0)
@@ -38,7 +42,22 @@ project(
   VERSION ${SUSCAN_VERSION}
   LANGUAGES C)
 
+# Check that all required submodules are there
+set(
+  GIT_CMAKE_SUBMODULES
+  cmake-relativefilemacro)
+
+foreach (submodule IN ITEMS ${GIT_CMAKE_SUBMODULES})
+  if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${submodule}/.git")
+  message( FATAL_ERROR "Required CMake submodule `${submodule}' not found. This \
+  is most likely caused by an incomplete clone from the main repository. Please run:
+  $ git submodule update --init --recursive
+to clone all required submodules and run CMake again.")
+  endif()
+endforeach()
+
 include(FindPkgConfig)
+include(RelativeFileMacro)
 
 # Make sure CMAKE_INSTALL_LIBDIR is defined for all systems
 if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
@@ -55,6 +74,7 @@ pkg_check_modules(FFTW3    REQUIRED fftw3f>=3.0)
 pkg_check_modules(SOAPYSDR REQUIRED SoapySDR>=0.5.0)
 pkg_check_modules(XML2     REQUIRED libxml-2.0>=2.9.0)
 pkg_check_modules(VOLK              volk>=1.0)
+pkg_check_modules(JSONC             json-c>=0.13)
 
 if (ENABLE_ALSA)
   pkg_check_modules(ALSA              alsa>=1.2)
@@ -65,7 +85,6 @@ if (ENABLE_PORTAUDIO)
 endif()
 
 # Find cppcheck (if available)
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 include(CodeAnalysis)
 
 # Source location
@@ -99,10 +118,6 @@ string(REPLACE ";" " " SIGUTILS_SPC_LDFLAGS "${SIGUTILS_LDFLAGS}")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall ${SIGUTILS_CONFIG_CFLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPKGDATADIR='\"${SUSCAN_PKGDIR}/share/suscan\"'")
-# The following hack exposes __FILENAME__ to source files as the relative
-# path of each source file.
-set(CMAKE_C_FLAGS
-"${CMAKE_C_FLAGS} -D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")
 
 #
 # If you are building suscan for your own software distribution, you may want
@@ -138,7 +153,16 @@ set(
   "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
   CACHE PATH "Installation directory for pkgconfig (.pc) files")
 set(SU_PC_CFLAGS "${SIGUTILS_CONFIG_CFLAGS}")
-set(SU_PC_LIBRARIES "-l${SNDFILE_LIBRARIES} -lm -l${FFTW3_LIBRARIES} -l${VOLK_LIBRARIES}")
+set(SU_PC_LIBRARIES "-l${SNDFILE_LIBRARIES} -lm -l${FFTW3_LIBRARIES}")
+
+if(VOLK_FOUND)
+  set(SU_PC_LIBRARIES "${SU_PC_LIBRARIES} -l${VOLK_LIBRARIES}")
+endif()
+
+if(JSONC_FOUND)
+  set(SU_PC_LIBRARIES "${SU_PC_LIBRARIES} -l${JSONC_LIBRARIES}")
+endif()
+
 configure_file(suscan.pc.in "${SIGUTILS_PC_FILE_PATH}" @ONLY)
 
 install(
@@ -153,6 +177,7 @@ set(RSRC_CONFIG_FILES
   ${RSRCDIR}/locations.yaml)
   
 set(UTIL_HEADERS
+  ${UTILDIR}/bpe.h
   ${UTILDIR}/cbor.h
   ${UTILDIR}/com.h
   ${UTILDIR}/compat.h
@@ -167,6 +192,7 @@ set(UTIL_HEADERS
   ${UTILDIR}/sha256.h)
   
 set(UTIL_SOURCES
+  ${UTILDIR}/bpe.c
   ${UTILDIR}/cbor.c
   ${UTILDIR}/cfg.c
   ${UTILDIR}/com.c
@@ -218,6 +244,15 @@ set(INSPECTOR_LIB_HEADERS
   ${ANALYZERDIR}/inspector/params.h
   ${ANALYZERDIR}/inspector/interface.h)
 
+set(SOURCE_LIB_HEADERS
+  ${ANALYZERDIR}/source/config.h
+  ${ANALYZERDIR}/source/device.h
+  ${ANALYZERDIR}/source/info.h
+  ${ANALYZERDIR}/source/impl/file.h
+  ${ANALYZERDIR}/source/impl/soapysdr.h
+  ${ANALYZERDIR}/source/impl/stdin.h
+  ${ANALYZERDIR}/source/impl/tonegen.h)
+
 set(INSPECTOR_LIB_SOURCES
   ${ANALYZERDIR}/inspector/factory.c
   ${ANALYZERDIR}/inspector/inspector.c
@@ -226,8 +261,11 @@ set(INSPECTOR_LIB_SOURCES
   ${ANALYZERDIR}/inspector/params.c
   ${INSPECTORDIR}/ask.c
   ${INSPECTORDIR}/audio.c
+  ${INSPECTORDIR}/drift.c
   ${INSPECTORDIR}/fsk.c
+  ${INSPECTORDIR}/multicarrier.c
   ${INSPECTORDIR}/psk.c
+  ${INSPECTORDIR}/power.c
   ${INSPECTORDIR}/raw.c)
 
 set(CORRECTOR_HEADERS 
@@ -247,6 +285,7 @@ set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/spectsrc.h
   ${ANALYZERDIR}/worker.h
   ${ANALYZERDIR}/estimator.h
+  ${ANALYZERDIR}/pool.h
   ${ANALYZERDIR}/serialize.h
   ${ANALYZERDIR}/source.h
   ${ANALYZERDIR}/symbuf.h
@@ -262,8 +301,13 @@ set(CLI_LIB_HEADERS
   ${CLIDIR}/datasaver.h
   ${CLIDIR}/devserv/devserv.h)
 
-set(CLI_LIB_SOURCES 
+set(CLI_LIB_SOURCES
+  ${CLIDIR}/datasavers/csv.c
+  ${CLIDIR}/datasavers/mat5.c
+  ${CLIDIR}/datasavers/matlab.c
+  ${CLIDIR}/datasavers/tcp.c
   ${CLIDIR}/chanloop.c
+  ${CLIDIR}/parse.c
   ${CLIDIR}/datasaver.c)
   
 set(ESTIMATOR_SOURCES
@@ -289,7 +333,6 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/client.c
   ${ANALYZERDIR}/corrector.c
   ${ANALYZERDIR}/correctors/tle.c
-  ${ANALYZERDIR}/device.c
   ${ANALYZERDIR}/discovery.c
   ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/impl/local.c
@@ -302,9 +345,18 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/kludges.c
   ${ANALYZERDIR}/mq.c
   ${ANALYZERDIR}/msg.c
+  ${ANALYZERDIR}/pool.c
   ${ANALYZERDIR}/serialize.c
   ${ANALYZERDIR}/slow.c
   ${ANALYZERDIR}/source.c
+  ${ANALYZERDIR}/source/config.c
+  ${ANALYZERDIR}/source/device.c
+  ${ANALYZERDIR}/source/info.c
+  ${ANALYZERDIR}/source/impl/file.c
+  ${ANALYZERDIR}/source/impl/soapysdr.c
+  ${ANALYZERDIR}/source/impl/stdin.c
+  ${ANALYZERDIR}/source/impl/tonegen.c
+  ${ANALYZERDIR}/source/register.c
   ${ANALYZERDIR}/spectsrc.c
   ${ANALYZERDIR}/symbuf.c
   ${ANALYZERDIR}/throttle.c
@@ -312,13 +364,22 @@ set(ANALYZER_LIB_SOURCES
   ${ESTIMATOR_SOURCES}
   ${SPECTSRC_SOURCES})
 
+if(JSONC_FOUND)
+  set(
+    ANALYZER_LIB_SOURCES
+    ${ANALYZER_LIB_SOURCES} 
+    ${ANALYZERDIR}/source/impl/guess-sigmf.c)
+endif()
+
 link_directories(
   ${PROJECT_BINARY_DIR}
   ${SNDFILE_LIBRARY_DIRS}
   ${FFTW3_LIBRARY_DIRS}
   ${SOAPYSDR_LIBRARY_DIRS}
   ${SIGUTILS_LIBRARY_DIRS}
-  ${XML2_LIBRARY_DIRS})
+  ${XML2_LIBRARY_DIRS}
+  ${VOLK_LIBRARY_DIRS}
+  ${JSONC_LIBRARY_DIRS})
  
 add_library(
   suscan SHARED
@@ -337,11 +398,18 @@ add_library(
   ${ANALYZER_LIB_SOURCES}
   ${VERSION_SOURCES}
   ${SRCDIR}/lib.c)
-  
+
+target_add_relative_file_macro(suscan)
+
 # Private header directories
 target_include_directories(
   suscan 
-  PRIVATE . ${UTILDIR} ${ANALYZERDIR} ${ANALYZERDIR}/inspector ${CODECLIBDIR})
+  PRIVATE . 
+  ${UTILDIR} 
+  ${ANALYZERDIR}
+  ${ANALYZERDIR}/inspector
+  ${ANALYZERDIR}/source
+  ${CODECLIBDIR})
 
 set_property(TARGET suscan PROPERTY VERSION   ${SUSCAN_VERSION})
 set_property(TARGET suscan PROPERTY SOVERSION ${SUSCAN_ABI})
@@ -363,6 +431,10 @@ if(WIN32)
   if (MINGW)
     target_link_libraries(suscan regex)
   endif()
+endif()
+
+if(UNIX AND NOT APPLE)
+  target_link_libraries(suscan rt)
 endif()
 
 target_link_libraries(suscan m ${SIGUTILS_LIBRARIES})
@@ -390,7 +462,13 @@ target_link_libraries(suscan ${CMAKE_THREAD_LIBS_INIT})
 if(VOLK_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_VOLK=1")
   target_include_directories(suscan SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
-  link_directories(${VOLK_LIBRARY_DIRS})
+  target_link_libraries(suscan ${VOLK_LIBRARIES})
+endif()
+
+if(JSONC_FOUND)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_JSONC=1")
+  target_include_directories(suscan SYSTEM PUBLIC ${JSONC_INCLUDE_DIRS})
+  target_link_libraries(suscan ${JSONC_LIBRARIES})
 endif()
 
 install(
@@ -400,6 +478,10 @@ install(
 install(
   FILES ${INSPECTOR_LIB_HEADERS} 
   DESTINATION include/suscan/analyzer/inspector)
+
+install(
+  FILES ${SOURCE_LIB_HEADERS} 
+  DESTINATION include/suscan/analyzer/source)
 
 install(
   FILES ${UTIL_HEADERS} 
@@ -483,6 +565,11 @@ if(VOLK_FOUND)
   target_link_libraries(suscan.status ${VOLK_LIBRARIES})
 endif()
 
+if(JSON_FOUND)
+  target_include_directories(suscan.status SYSTEM PUBLIC ${JSONC_INCLUDE_DIRS})
+  target_link_libraries(suscan.status ${JSONC_LIBRARIES})
+endif()
+
 install(TARGETS suscan.status DESTINATION bin)
 
 ######################### Suscan Command Line tool ############################
@@ -500,9 +587,6 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/cmd/profinfo.c
   ${CLIDIR}/cmd/snoop.c
   ${CLIDIR}/cmd/tleinfo.c
-  ${CLIDIR}/datasavers/mat5.c
-  ${CLIDIR}/datasavers/matlab.c
-  ${CLIDIR}/datasavers/tcp.c
   ${CLIDIR}/devserv/client.c
   ${CLIDIR}/devserv/mc_manager.c
   ${CLIDIR}/devserv/server.c
@@ -563,6 +647,11 @@ target_link_libraries(suscli ${CMAKE_THREAD_LIBS_INIT})
 if(VOLK_FOUND)
   target_include_directories(suscli SYSTEM PUBLIC ${VOLK_INCLUDE_DIRS})
   target_link_libraries(suscli ${VOLK_LIBRARIES})
+endif()
+
+if(JSONC_FOUND)
+  target_include_directories(suscli SYSTEM PUBLIC ${JSONC_INCLUDE_DIRS})
+  target_link_libraries(suscli ${JSONC_LIBRARIES})
 endif()
 
 install(TARGETS suscli DESTINATION bin)

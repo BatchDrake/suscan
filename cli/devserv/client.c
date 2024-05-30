@@ -23,8 +23,8 @@
 #include <analyzer/msg.h>
 #include <analyzer/version.h>
 #include <sigutils/log.h>
-#include <util/compat-poll.h>
-#include <util/compat-socket.h>
+#include <sigutils/util/compat-poll.h>
+#include <sigutils/util/compat-socket.h>
 #include <sys/fcntl.h>
 #include <analyzer/impl/multicast.h>
 
@@ -616,12 +616,35 @@ suscli_analyzer_client_intercept_message(
           goto done;
         }
         break;
+
       case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
         if (!suscli_analyzer_client_test_permission(
           self,
           SUSCAN_ANALYZER_PERM_SEEK)) {
           SU_WARNING(
             "%s: client not allowed to seek sources\n",
+            suscli_analyzer_client_get_name(self));
+          goto done;
+        }
+        break;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_HISTORY_SIZE:
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_SET_HISTORY_SIZE)) {
+          SU_WARNING(
+            "%s: client not allowed to change history size\n",
+            suscli_analyzer_client_get_name(self));
+          goto done;
+        }
+        break;
+
+      case SUSCAN_ANALYZER_MESSAGE_TYPE_REPLAY:
+        if (!suscli_analyzer_client_test_permission(
+          self,
+          SUSCAN_ANALYZER_PERM_REPLAY)) {
+          SU_WARNING(
+            "%s: client not allowed to replay sources\n",
             suscli_analyzer_client_get_name(self));
           goto done;
         }
@@ -759,7 +782,7 @@ done:
 SUBOOL
 suscli_analyzer_client_send_source_info(
     suscli_analyzer_client_t *self,
-    const struct suscan_analyzer_source_info *info,
+    const struct suscan_source_info *info,
     const struct timeval *tv)
 {
   struct suscan_analyzer_remote_call *call = NULL;
@@ -772,7 +795,7 @@ suscli_analyzer_client_send_source_info(
   suscan_analyzer_remote_call_init(call, SUSCAN_ANALYZER_REMOTE_SOURCE_INFO);
 
   SU_TRYCATCH(
-      suscan_analyzer_source_info_init_copy(&call->source_info, info),
+      suscan_source_info_init_copy(&call->source_info, info),
       goto done);
 
   /* Intersect client permissions and source permissions */

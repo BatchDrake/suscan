@@ -22,6 +22,7 @@
 #include <analyzer/impl/local.h>
 #include <analyzer/msg.h>
 #include <string.h>
+#include <inttypes.h>
 
 /*
  * Some tasks take some time to complete, time that is several orders of
@@ -40,7 +41,7 @@ suscan_local_analyzer_destroy_slow_worker_data(suscan_local_analyzer_t *self)
 
   /* Delete all pending gain requessts */
   for (i = 0; i < self->gain_request_count; ++i)
-    suscan_analyzer_gain_info_destroy(self->gain_request_list[i]);
+    suscan_source_gain_info_destroy(self->gain_request_list[i]);
 
   if (self->gain_request_list != NULL)
     free(self->gain_request_list);
@@ -61,7 +62,7 @@ suscan_local_analyzer_set_gain_cb(
 {
   suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
   SUBOOL mutex_acquired = SU_FALSE;
-  PTR_LIST_LOCAL(struct suscan_analyzer_gain_info, request);
+  PTR_LIST_LOCAL(struct suscan_source_gain_info, request);
   unsigned int i, j;
   SUBOOL updated = SU_FALSE;
 
@@ -103,7 +104,7 @@ fail:
     pthread_mutex_unlock(&self->hotconf_mutex);
 
   for (i = 0; i < request_count; ++i)
-    suscan_analyzer_gain_info_destroy(request_list[i]);
+    suscan_source_gain_info_destroy(request_list[i]);
 
   if (request_list != NULL)
     free(request_list);
@@ -136,7 +137,13 @@ suscan_local_analyzer_set_antenna_cb(
   mutex_acquired = SU_FALSE;
   /* ^^^^^^^^^^^^^^^^^^ Release hotconf request mutex ^^^^^^^^^^^^^^^^^^^^^^^^^ */
 
-  suscan_source_set_antenna(self->source, req);
+  SU_TRY_FAIL(suscan_source_set_antenna(self->source, req));
+  
+  if (self->source_info.antenna != NULL)
+    free(self->source_info.antenna);
+  
+  self->source_info.antenna = req;
+  req = NULL;
 
   updated = SU_TRUE;
 
@@ -169,6 +176,65 @@ suscan_local_analyzer_set_dc_remove_cb(
   suscan_analyzer_send_source_info(
       analyzer->parent,
       &analyzer->source_info);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE void
+suscan_local_analyzer_copy_source_history_info(suscan_local_analyzer_t *self)
+{
+  const struct suscan_source_info *info = suscan_source_get_info(self->source);
+  struct suscan_source_info *localinfo = &self->source_info;
+
+  localinfo->history_length = info->history_length;
+  localinfo->replay         = info->replay;
+
+  if (info->realtime) {
+    if (info->replay) {
+      localinfo->permissions |= SUSCAN_ANALYZER_PERM_SEEK;
+      localinfo->source_start = info->source_start;
+      localinfo->source_end   = info->source_end;
+      localinfo->source_time  = info->source_start;
+    } else {
+      localinfo->permissions &= ~SUSCAN_ANALYZER_PERM_SEEK;
+    }
+  }
+}
+
+SUPRIVATE SUBOOL
+suscan_local_analyzer_set_history_size_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  SUSCOUNT size = (SUSCOUNT) (uintptr_t) cb_private;
+
+  (void) suscan_source_set_history_alloc(analyzer->source, size);
+  
+  suscan_source_set_history_enabled(analyzer->source, size > 0);
+
+  suscan_local_analyzer_copy_source_history_info(analyzer);
+  
+  suscan_analyzer_send_source_info(analyzer->parent, &analyzer->source_info);
+
+  return SU_FALSE;
+}
+
+SUPRIVATE SUBOOL
+suscan_local_analyzer_set_replay_cb(
+    struct suscan_mq *mq_out,
+    void *wk_private,
+    void *cb_private)
+{
+  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  SUBOOL replay = (SUBOOL) (uintptr_t) cb_private;
+
+  (void) suscan_source_set_replay_enabled(analyzer->source, replay);
+  
+  suscan_local_analyzer_copy_source_history_info(analyzer);
+  
+  suscan_analyzer_send_source_info(analyzer->parent, &analyzer->source_info);
 
   return SU_FALSE;
 }
@@ -254,30 +320,31 @@ suscan_local_analyzer_set_freq_cb(
     void *wk_private,
     void *cb_private)
 {
-  suscan_local_analyzer_t *analyzer = (suscan_local_analyzer_t *) wk_private;
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) wk_private;
   SUFREQ freq;
   SUFREQ lnb_freq;
 
-  if (analyzer->freq_req) {
-    freq = analyzer->freq_req_value;
-    lnb_freq = analyzer->lnb_req_value;
-    if (suscan_source_set_freq2(analyzer->source, freq, lnb_freq)) {
-      if (analyzer->parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
+  if (self->freq_req) {
+    freq = self->freq_req_value;
+    lnb_freq = self->lnb_req_value;
+    
+    if (suscan_source_set_freq2(self->source, freq, lnb_freq)) {
+      if (self->parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
         /* XXX: Use a proper frequency adjust method */
-        analyzer->detector->params.fc = freq;
+        self->detector->params.fc = freq;
       }
 
       /* Source info changed. Notify update */
-      analyzer->source_info.frequency = freq;
-      analyzer->source_info.lnb       = lnb_freq;
+      self->source_info.frequency = freq;
+      self->source_info.lnb       = lnb_freq;
 
       suscan_analyzer_send_source_info(
-          analyzer->parent,
-          &analyzer->source_info);
+          self->parent,
+          &self->source_info);
     }
 
-    analyzer->freq_req = (analyzer->freq_req_value != freq ||
-        analyzer->lnb_req_value != lnb_freq);
+    self->freq_req = (self->freq_req_value != freq ||
+        self->lnb_req_value != lnb_freq);
   }
 
   return SU_FALSE;
@@ -621,7 +688,7 @@ suscan_local_analyzer_slow_seek(
       return SU_FALSE);
 
   /* We need to conver the timeval to position first */
-  samp_rate = suscan_source_get_base_samp_rate(self->source);
+  samp_rate = suscan_source_get_samp_rate(self->source);
   
   self->seek_req_value = 
     tv->tv_sec * samp_rate + (tv->tv_usec * samp_rate) / 1000000;
@@ -629,6 +696,36 @@ suscan_local_analyzer_slow_seek(
 
   /* This request is to be processed by the source thread */
   return SU_TRUE;
+}
+
+SUBOOL
+suscan_local_analyzer_slow_set_replay(
+    suscan_local_analyzer_t *self,
+    SUBOOL replay)
+{
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  return suscan_worker_push(
+        self->slow_wk,
+        suscan_local_analyzer_set_replay_cb,
+        (void *) (uintptr_t) replay);
+}
+
+SUBOOL
+suscan_local_analyzer_slow_set_history_size(
+    suscan_local_analyzer_t *self,
+    SUSCOUNT size)
+{
+  SU_TRYCATCH(
+      self->parent->params.mode == SUSCAN_ANALYZER_MODE_CHANNEL,
+      return SU_FALSE);
+
+  return suscan_worker_push(
+        self->slow_wk,
+        suscan_local_analyzer_set_history_size_cb,
+        (void *) (uintptr_t) size);
 }
 
 SUBOOL
@@ -726,11 +823,11 @@ suscan_local_analyzer_slow_set_gain(
     const char *name,
     SUFLOAT value)
 {
-  struct suscan_analyzer_gain_info *req = NULL;
+  struct suscan_source_gain_info *req = NULL;
   SUBOOL mutex_acquired = SU_FALSE;
 
   SU_TRYCATCH(
-      req = suscan_analyzer_gain_info_new_value_only(name, value),
+      req = suscan_source_gain_info_new_value_only(name, value),
       goto fail);
 
   /* vvvvvvvvvvvvvvvvvv Acquire hotconf request mutex vvvvvvvvvvvvvvvvvvvvvvv */
@@ -758,7 +855,7 @@ fail:
     pthread_mutex_unlock(&analyzer->hotconf_mutex);
 
   if (req != NULL)
-    suscan_analyzer_gain_info_destroy(req);
+    suscan_source_gain_info_destroy(req);
 
   return SU_FALSE;
 }

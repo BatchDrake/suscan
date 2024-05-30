@@ -24,6 +24,7 @@
 #include <sigutils/smoothpsd.h>
 #include <analyzer/inspector/factory.h>
 #include <analyzer/inspector/overridable.h>
+#include <analyzer/pool.h>
 
 #include <rbtree.h>
 
@@ -37,37 +38,21 @@ extern "C" {
 #define SULIMPL(analyzer) ((suscan_local_analyzer_t *) ((analyzer)->impl))
 #define SUSCAN_LOCAL_ANALYZER_AS_ANALYZER(local) ((local)->parent)
 
-/*!
- * \brief Baseband filter description
- *
- * Structure holding a pointer to a function that would perform some kind
- * of baseband processing (i.e. before channelization).
- * \author Gonzalo José Carracedo Carballal
- */
-struct suscan_analyzer_baseband_filter {
-  suscan_analyzer_baseband_filter_func_t func;
-  void *privdata;
-};
-
 struct suscan_local_analyzer {
   suscan_analyzer_t *parent;
   struct suscan_mq mq_in;   /* Input queue */
 
-  struct suscan_analyzer_source_info source_info;
+  struct suscan_source_info source_info;
 
   /* Source members */
   suscan_source_t *source;
   SUBOOL loop_init;
   pthread_mutex_t loop_mutex;
-  suscan_throttle_t throttle; /* For non-realtime sources */
-  SUBOOL throttle_mutex_init;
-  pthread_mutex_t throttle_mutex;
-  SUSCOUNT effective_samp_rate; /* Used for GUI */
   SUFLOAT  measured_samp_rate; /* Used for statistics */
   SUSCOUNT measured_samp_count;
   uint64_t last_measure;
   SUBOOL   iq_rev;
-
+  
   /* Periodic updates */
   struct sigutils_smoothpsd_params sp_params;
   SUFLOAT  interval_channels;
@@ -111,7 +96,7 @@ struct suscan_local_analyzer {
 
   /* Gain request */
   SUBOOL gain_req_mutex_init;
-  PTR_LIST(struct suscan_analyzer_gain_info, gain_request);
+  PTR_LIST(struct suscan_source_gain_info, gain_request);
 
   /* PSD request */
   SUBOOL   psd_params_req;
@@ -128,18 +113,24 @@ struct suscan_local_analyzer {
   uint64_t last_channels;
 
   /* Source worker objects */
+  suscan_sample_buffer_pool_t *bufpool; /* Sample buffer pool */
   su_channel_detector_t *detector; /* Channel detector */
   su_smoothpsd_t  *smooth_psd;
+  suscan_worker_t *psd_worker;
   suscan_worker_t *source_wk; /* Used by one source only */
   suscan_worker_t *slow_wk; /* Worker for slow operations */
   SUCOMPLEX *read_buf;
   SUSCOUNT   read_size;
-  PTR_LIST(struct suscan_analyzer_baseband_filter, bbfilt);
+
+  rbtree_t *bbfilt_tree;
 
   /* Spectral tuner */
-  su_specttuner_t    *stuner;
-  pthread_mutex_t     stuner_mutex;
-  SUBOOL              stuner_init;
+  su_specttuner_t        *stuner;
+  pthread_mutex_t         stuner_mutex;
+  SUBOOL                  stuner_init;
+  suscan_sample_buffer_t *circbuf;
+  SUBOOL                  circularity;
+  SUBOOL                  circ_state;
 
   /* Wide sweep parameters */
   SUBOOL sweep_params_requested;
@@ -277,6 +268,16 @@ SUBOOL suscan_local_analyzer_slow_seek(
     const struct timeval *tv);
 
 /* Internal */
+SUBOOL suscan_local_analyzer_slow_set_history_size(
+    suscan_local_analyzer_t *self,
+    SUSCOUNT size);
+
+/* Internal */
+SUBOOL suscan_local_analyzer_slow_set_replay(
+    suscan_local_analyzer_t *self,
+    SUBOOL replay);
+
+/* Internal */
 SUBOOL suscan_local_analyzer_slow_set_dc_remove(
     suscan_local_analyzer_t *analyzer,
     SUBOOL remove);
@@ -307,6 +308,11 @@ SUBOOL suscan_local_analyzer_slow_set_gain(
     suscan_local_analyzer_t *analyzer,
     const char *name,
     SUFLOAT value);
+
+/* Iternal */
+SUBOOL suscan_local_analyzer_readjust_detector(
+    suscan_local_analyzer_t *self,
+    struct sigutils_channel_detector_params *params);
 
 #ifdef __cplusplus
 }

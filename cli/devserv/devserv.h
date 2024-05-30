@@ -20,11 +20,11 @@
 #ifndef _SUSCAN_CLI_DEVSERV_DEVSERV_H
 #define _SUSCAN_CLI_DEVSERV_DEVSERV_H
 
-#include <util/compat-unistd.h>
+#include <sigutils/util/compat-unistd.h>
 #include <analyzer/impl/remote.h>
 #include <util/rbtree.h>
 #include <util/hashlist.h>
-#include <util/compat-inet.h>
+#include <sigutils/util/compat-inet.h>
 
 #define SUSCLI_ANSERV_LISTEN_FD 0
 #define SUSCLI_ANSERV_CANCEL_FD 1
@@ -404,7 +404,7 @@ SUBOOL suscli_analyzer_client_write_buffer_zerocopy(
 
 SUBOOL suscli_analyzer_client_send_source_info(
     suscli_analyzer_client_t *self,
-    const struct suscan_analyzer_source_info *info,
+    const struct suscan_source_info *info,
     const struct timeval *timestamp);
 
 SUBOOL suscli_analyzer_client_send_startup_error(

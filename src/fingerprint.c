@@ -25,7 +25,7 @@
 #include <getopt.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <util/compat-select.h>
+#include <sigutils/util/compat-select.h>
 
 #define SU_LOG_DOMAIN "fingerprint"
 

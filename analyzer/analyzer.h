@@ -30,7 +30,6 @@
 
 #include "worker.h"
 #include "source.h"
-#include "throttle.h"
 #include "inspector/inspector.h"
 #include "inspsched.h"
 #include "serialize.h"
@@ -46,40 +45,8 @@ extern "C" {
 #define SUSCAN_ANALYZER_GUARD_BAND_PROPORTION 1.1
 #define SUSCAN_ANALYZER_FS_MEASURE_INTERVAL   1.0
 
-/* Permissions */
-#define SUSCAN_ANALYZER_PERM_HALT               (1ull << 0)
-#define SUSCAN_ANALYZER_PERM_SET_FREQ           (1ull << 1)
-#define SUSCAN_ANALYZER_PERM_SET_GAIN           (1ull << 2)
-#define SUSCAN_ANALYZER_PERM_SET_ANTENNA        (1ull << 3)
-#define SUSCAN_ANALYZER_PERM_SET_BW             (1ull << 4)
-#define SUSCAN_ANALYZER_PERM_SET_PPM            (1ull << 5)
-#define SUSCAN_ANALYZER_PERM_SET_DC_REMOVE      (1ull << 6)
-#define SUSCAN_ANALYZER_PERM_SET_IQ_REVERSE     (1ull << 7)
-#define SUSCAN_ANALYZER_PERM_SET_AGC            (1ull << 8)
-#define SUSCAN_ANALYZER_PERM_OPEN_AUDIO         (1ull << 9)
-#define SUSCAN_ANALYZER_PERM_OPEN_RAW           (1ull << 10)
-#define SUSCAN_ANALYZER_PERM_OPEN_INSPECTOR     (1ull << 11)
-#define SUSCAN_ANALYZER_PERM_SET_FFT_SIZE       (1ull << 12)
-#define SUSCAN_ANALYZER_PERM_SET_FFT_FPS        (1ull << 13)
-#define SUSCAN_ANALYZER_PERM_SET_FFT_WINDOW     (1ull << 14)
-#define SUSCAN_ANALYZER_PERM_SEEK               (1ull << 15)
-#define SUSCAN_ANALYZER_PERM_THROTTLE           (1ull << 16)
-
-#define SUSCAN_ANALYZER_PERM_ALL              0xffffffffffffffffull
-
-#define SUSCAN_ANALYZER_ALL_FILE_PERMISSIONS \
-  (SUSCAN_ANALYZER_PERM_ALL &                \
-  ~(SUSCAN_ANALYZER_PERM_SET_GAIN       |    \
-    SUSCAN_ANALYZER_PERM_SET_ANTENNA    |    \
-    SUSCAN_ANALYZER_PERM_SET_BW         |    \
-    SUSCAN_ANALYZER_PERM_SET_PPM        |    \
-    SUSCAN_ANALYZER_PERM_SET_DC_REMOVE  |    \
-    SUSCAN_ANALYZER_PERM_SET_AGC))
-
-#define SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS  \
-  (SUSCAN_ANALYZER_PERM_ALL &                \
-  ~(SUSCAN_ANALYZER_PERM_SEEK |              \
-    SUSCAN_ANALYZER_PERM_THROTTLE))
+/* Default priorities */
+#define SUSCAN_ANALYZER_BBFILT_PRIO_DEFAULT   0x7fffffffffffffffll
 
 /* Entirely empirical */
 #define SUSCAN_ANALYZER_SLOW_RATE             44100
@@ -126,52 +93,6 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_params) {
   0,                                            /* max_freq */              \
 }
 
-SUSCAN_SERIALIZABLE(suscan_analyzer_gain_info) {
-  char *name;
-  SUFLOAT min;
-  SUFLOAT max;
-  SUFLOAT step;
-  SUFLOAT value;
-};
-
-/*!
- * Constructor for gain info objects.
- * \param value gain value object describing this gain element
- * \return a pointer to the created object or NULL on failure
- * \author Gonzalo José Carracedo Carballal
- */
-struct suscan_analyzer_gain_info *suscan_analyzer_gain_info_new(
-    const struct suscan_source_gain_value *value);
-
-/*!
- * Constructor for gain info objects (value only).
- * \param name name of the gain element
- * \param value value of this gain in dBs
- * \return a pointer to the created object or NULL on failure
- * \author Gonzalo José Carracedo Carballal
- */
-struct suscan_analyzer_gain_info *
-suscan_analyzer_gain_info_new_value_only(
-    const char *name,
-    SUFLOAT value);
-
-/*!
- * Copy-constructor for gain info objects.
- * \param old existing gain info object
- * \return a pointer to the created object or NULL on failure
- * \author Gonzalo José Carracedo Carballal
- */
-struct suscan_analyzer_gain_info *
-suscan_analyzer_gain_info_dup(
-    const struct suscan_analyzer_gain_info *old);
-
-/*!
- * Destructor of the gain info object.
- * \param self pointer to the gain info object
- * \author Gonzalo José Carracedo Carballal
- */
-void suscan_analyzer_gain_info_destroy(struct suscan_analyzer_gain_info *self);
-
 /*!
  * \brief Wideband analyzer sweep strategy
  *
@@ -210,6 +131,7 @@ struct suscan_analyzer_sweep_params {
 
   SUFREQ min_freq;
   SUFREQ max_freq;
+  SUFLOAT rel_bw;
   SUSCOUNT fft_min_samples; /* Minimum number of FFT frames before updating */
 };
 
@@ -222,67 +144,21 @@ struct suscan_analyzer_sweep_params {
 typedef SUBOOL (*suscan_analyzer_baseband_filter_func_t) (
       void *privdata,
       struct suscan_analyzer *analyzer,
-      const SUCOMPLEX *samples,
-      SUSCOUNT length);
+      SUCOMPLEX *samples,
+      SUSCOUNT length,
+      SUSCOUNT consumed);
 
-SUSCAN_SERIALIZABLE(suscan_analyzer_source_info) {
-  uint64_t permissions;
-  SUSCOUNT source_samp_rate;
-  SUSCOUNT effective_samp_rate;
-  SUFLOAT  measured_samp_rate;
-
-  SUFREQ   frequency;
-  SUFREQ   freq_min;
-  SUFREQ   freq_max;
-  SUFREQ   lnb;
-
-  SUFLOAT  bandwidth;
-  SUFLOAT  ppm;
-  char    *antenna;
-  SUBOOL   dc_remove;
-  SUBOOL   iq_reverse;
-  SUBOOL   agc;
- 
-  SUBOOL   have_qth;
-  xyz_t    qth;
-
-  struct timeval source_time;
-
-  SUBOOL         seekable;
-  struct timeval source_start;
-  struct timeval source_end;
-
-  PTR_LIST(struct suscan_analyzer_gain_info, gain);
-  PTR_LIST(char, antenna);
+/*!
+ * \brief Baseband filter description
+ *
+ * Structure holding a pointer to a function that would perform some kind
+ * of baseband processing (i.e. before channelization).
+ * \author Gonzalo José Carracedo Carballal
+ */
+struct suscan_analyzer_baseband_filter {
+  suscan_analyzer_baseband_filter_func_t func;
+  void *privdata;
 };
-
-/*!
- * Initialize a source information structure
- * \param self a pointer to the source info structure
- * \author Gonzalo José Carracedo Carballal
- */
-void suscan_analyzer_source_info_init(
-    struct suscan_analyzer_source_info *self);
-
-/*!
- * Initialize a source information structure from an existing
- * source information
- * \param self a pointer to the source info structure to be initialized
- * \param origin a pointer to the source info structure to copy
- * \return SU_TRUE on success, SU_FALSE on failure
- * \author Gonzalo José Carracedo Carballal
- */
-SUBOOL suscan_analyzer_source_info_init_copy(
-    struct suscan_analyzer_source_info *self,
-    const struct suscan_analyzer_source_info *origin);
-
-/*!
- * Release allocated resources in the source information structure
- * \param self a pointer to the source info structure
- * \author Gonzalo José Carracedo Carballal
- */
-void suscan_analyzer_source_info_finalize(
-    struct suscan_analyzer_source_info *self);
 
 struct suscan_analyzer_interface {
   const char *name;
@@ -304,14 +180,22 @@ struct suscan_analyzer_interface {
   SUFLOAT  (*get_measured_samp_rate) (const void *);
   void     (*get_source_time) (const void *, struct timeval *tv);
   SUBOOL   (*seek) (void *, const struct timeval *tv);
-
-  struct suscan_analyzer_source_info *(*get_source_info_pointer) (const void *);
+  SUBOOL   (*set_history_size) (void *, SUSCOUNT);
+  SUBOOL   (*replay) (void *, SUBOOL);
+  SUBOOL   (*register_baseband_filter) (
+    void *,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata,
+    int64_t priority);
+  
+  struct suscan_source_info *(*get_source_info_pointer) (const void *);
   SUBOOL   (*commit_source_info) (void *);
 
   /* Worker-specific methods */
   SUBOOL   (*set_sweep_strategy) (void *, enum suscan_analyzer_sweep_strategy);
   SUBOOL   (*set_spectrum_partitioning) (void *, enum suscan_analyzer_spectrum_partitioning);
   SUBOOL   (*set_hop_range) (void *, SUFREQ, SUFREQ);
+  SUBOOL   (*set_rel_bandwidth) (void *, SUFLOAT);
   SUBOOL   (*set_buffering_size) (void *, SUSCOUNT);
 
   /* Fast methods */
@@ -380,7 +264,6 @@ void suscan_analyzer_destroy(suscan_analyzer_t *analyzer);
 SUBOOL suscan_analyzer_is_local(const suscan_analyzer_t *self);
 
 /******************************* Inlined methods ******************************/
-
 /*!
  * Is the analyzer running on top of a real-time source?
  * \param analyzer a pointer to the analyzer object
@@ -446,6 +329,35 @@ suscan_analyzer_seek(
   return (self->iface->seek) (self->impl, tv);
 }
 
+/*!
+ * Requests changing the history allocation for real-time sources. If size
+ * is greater than 0, history gets automatically enabled. Otherwise, it is
+ * disabled.
+ * \param analyzer a pointer to the analyzer object
+ * \param size allocation size of the history, in bytes
+ * \return SU_TRUE if the request was delivered, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUINLINE SUBOOL
+suscan_analyzer_set_history_size(suscan_analyzer_t *self, SUSCOUNT size)
+{
+  return (self->iface->set_history_size) (self->impl, size);
+}
+
+/*!
+ * Requests switching source history to replay mode. History size must be
+ * greater than zero in order for this request to work.
+ * \param analyzer a pointer to the analyzer object
+ * \param replay SU_TRUE to enable replay mode, SU_FALSE to return to
+ * real time capture mode.
+ * \return SU_TRUE if the request was delivered, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUINLINE SUBOOL
+suscan_analyzer_replay(suscan_analyzer_t *self, SUBOOL replay)
+{
+  return (self->iface->replay) (self->impl, replay);
+}
 
 /*!
  * Return a pointer to the current source information structure. This pointer
@@ -462,7 +374,7 @@ suscan_analyzer_seek(
  * \return a pointer to the source information structure
  * \author Gonzalo José Carracedo Carballal
  */
-SUINLINE struct suscan_analyzer_source_info *
+SUINLINE struct suscan_source_info *
 suscan_analyzer_get_source_info(const suscan_analyzer_t *self)
 {
   return (self->iface->get_source_info_pointer) (self->impl);
@@ -518,6 +430,18 @@ SUBOOL suscan_analyzer_set_hop_range(
     suscan_analyzer_t *self,
     SUFREQ min,
     SUFREQ max);
+
+/*!
+ * In wideband analyzers, set the the frequency step interval as a
+ * fraction of the sample rate.
+ * \param self a pointer to the analyzer object
+ * \param rel_bw fraction of the sample rate to advance per hop
+ * \return SU_TRUE for success or SU_FALSE on failure
+ * \author Sultan Qasim Khan
+ */
+SUBOOL suscan_analyzer_set_rel_bandwidth(
+    suscan_analyzer_t *self,
+    SUFLOAT rel_bw);
 
 /*!
  * In wideband analyzers, set the sweep strategy.
@@ -773,10 +697,18 @@ void suscan_analyzer_req_halt(suscan_analyzer_t *analyzer);
  */
 SUBOOL suscan_analyzer_halt_worker(suscan_worker_t *worker);
 
+/*!
+ * Inspects whether this particular instance of the analyzer object supports
+ * baseband filters.
+ * \param analyzer a pointer to the analyzer object
+ * \return SU_TRUE if the analyzer supports baseband filters, SU_FALSE otherwise.
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_supports_baseband_filtering(suscan_analyzer_t *analyzer);
 
 /*!
  * Registers a baseband filter given by a processing function and a pointer to
- * private data.
+ * private data. The baseband filter is installed with default priority.
  * \param analyzer pointer to the analyzer object
  * \param func pointer to the baseband filter function
  * \param privdata pointer to its private data
@@ -787,6 +719,24 @@ SUBOOL suscan_analyzer_register_baseband_filter(
     suscan_analyzer_t *analyzer,
     suscan_analyzer_baseband_filter_func_t func,
     void *privdata);
+
+/*!
+ * Registers a baseband filter given by a processing function, a pointer to
+ * private data, and a given priority. Smaller values for the prio means
+ * higher precedence in the evaluation of the baseband filters.
+ * \param analyzer pointer to the analyzer object
+ * \param func pointer to the baseband filter function
+ * \param privdata pointer to its private data
+ * \param prio priority index or SUSCAN_ANALYZER_BBFILT_PRIO_DEFAULT
+ * \return SU_TRUE for success or SU_FALSE on failure
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_register_baseband_filter_with_prio(
+    suscan_analyzer_t *analyzer,
+    suscan_analyzer_baseband_filter_func_t func,
+    void *privdata,
+    int64_t prio);
+
 
 /************************ Client interface methods ****************************/
 /*
@@ -827,6 +777,37 @@ SUBOOL suscan_analyzer_set_throttle_async(
     uint32_t req_id);
 
 /*!
+ * Requests changing the history allocation for real-time sources. If size
+ * is greater than 0, history gets automatically enabled. Otherwise, it is
+ * disabled.
+ * \param analyzer a pointer to the analyzer object
+ * \param size allocation size of the history, in bytes
+ * \param req_id arbitrary request identifier used to match responses
+ * \return SU_TRUE if the request was delivered, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_set_history_size_async(
+    suscan_analyzer_t *analyzer,
+    SUSCOUNT size,
+    uint32_t req_id);
+
+/*!
+ * Requests switching source history to replay mode. History size must be
+ * greater than zero in order for this request to work.
+ * \param analyzer a pointer to the analyzer object
+ * \param replay SU_TRUE to enable replay mode, SU_FALSE to return to
+ * real time capture mode.
+ * \param req_id arbitrary request identifier used to match responses
+ * \return SU_TRUE if the request was delivered, SU_FALSE otherwise
+ * \author Gonzalo José Carracedo Carballal
+ */
+SUBOOL suscan_analyzer_replay_async(
+    suscan_analyzer_t *analyzer,
+    SUBOOL replay,
+    uint32_t req_id);
+
+
+/*!
  * For seekable sources (e.g. file replay), sets the current read position
  * \param analyzer pointer to the analyzer object
  * \param pos timeval struct with the absolute position in time
@@ -838,6 +819,7 @@ SUBOOL suscan_analyzer_seek_async(
     suscan_analyzer_t *analyzer,
     const struct timeval *pos,
     uint32_t req_id);
+
 
 /*!
  * For channel analyzers, open a new inspector of a given class at a given

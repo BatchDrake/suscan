@@ -21,7 +21,7 @@
 #define _SUSCAN_ANALYZER_IMPL_REMOTE_H
 
 #include <analyzer/analyzer.h>
-#include <util/compat-in.h>
+#include <sigutils/util/compat-in.h>
 #include <util/sha256.h>
 
 #ifdef __cplusplus
@@ -40,7 +40,7 @@ extern "C" {
 
 #define SUSCAN_REMOTE_PROTOCOL_TOKEN_SIZE   SHA256_BLOCK_SIZE
 #define SUSCAN_REMOTE_PROTOCOL_MAJOR_VERSION                0
-#define SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION                8
+#define SUSCAN_REMOTE_PROTOCOL_MINOR_VERSION               11
 
 #define SUSCAN_REMOTE_AUTH_MODE_NONE                        0
 #define SUSCAN_REMOTE_AUTH_MODE_USER_PASSWORD               1
@@ -70,6 +70,7 @@ enum suscan_analyzer_remote_type {
   SUSCAN_ANALYZER_REMOTE_SET_SWEEP_STRATEGY,
   SUSCAN_ANALYZER_REMOTE_SET_SPECTRUM_PARTITIONING,
   SUSCAN_ANALYZER_REMOTE_SET_HOP_RANGE,
+  SUSCAN_ANALYZER_REMOTE_SET_REL_BANDWIDTH,
   SUSCAN_ANALYZER_REMOTE_SET_BUFFERING_SIZE,
   SUSCAN_ANALYZER_REMOTE_MESSAGE,
   SUSCAN_ANALYZER_REMOTE_REQ_HALT,
@@ -184,7 +185,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call) {
   uint32_t type;
 
   union {
-    struct suscan_analyzer_source_info source_info;
+    struct suscan_source_info source_info;
     struct suscan_analyzer_server_client_auth client_auth;
     struct {
       SUFREQ freq;
@@ -199,6 +200,7 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_remote_call) {
     char *antenna;
     SUFLOAT bandwidth;
     SUFLOAT ppm;
+    SUFLOAT rel_bw;
     SUBOOL dc_remove;
     SUBOOL iq_reverse;
     SUBOOL agc;
@@ -235,7 +237,7 @@ void suscan_analyzer_remote_call_init(
 
 SUBOOL suscan_analyzer_remote_call_take_source_info(
     struct suscan_analyzer_remote_call *self,
-    struct suscan_analyzer_source_info *info);
+    struct suscan_source_info *info);
 
 struct suscan_remote_analyzer;
 
@@ -329,7 +331,7 @@ struct suscan_remote_analyzer {
   pthread_mutex_t call_mutex;
   SUBOOL call_mutex_initialized;
   
-  struct suscan_analyzer_source_info      source_info;
+  struct suscan_source_info      source_info;
   struct suscan_analyzer_remote_call      call;
   struct suscan_remote_analyzer_peer_info peer;
   struct suscan_mq pdu_queue;

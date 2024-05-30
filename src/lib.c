@@ -22,10 +22,11 @@
 #include <sigutils/sigutils.h>
 #include <confdb.h>
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include "suscan.h"
 
 #define SUSCAN_MAX_MESSAGES 1024
+#define SUSCAN_WISDOM_FILE_NAME "wisdom.dat"
 
 struct suscan_message {
   enum sigutils_log_severity severity;
@@ -247,22 +248,68 @@ fail:
   return NULL;
 }
 
+SUPRIVATE void
+suscan_atexit_handler(void)
+{
+  if (!su_lib_save_wisdom()) {
+    fprintf(stderr, "suscan: failed to save FFT wisdom, next run may be slow.\n");
+  }
+}
+
 SUBOOL
 suscan_sigutils_init(enum suscan_mode mode)
 {
   struct sigutils_log_config config = sigutils_log_config_INITIALIZER;
   struct sigutils_log_config *config_p = NULL;
+  const char *userpath = NULL;
+  char *wisdom_file = NULL;
+  SUBOOL ok = SU_FALSE;
 
   SIGUTILS_ABI_CHECK();
 
-  if (mode != SUSCAN_MODE_IMMEDIATE) {
-    config.exclusive = SU_FALSE; /* We handle concurrency manually */
-    config.log_func = suscan_log_func;
+  switch (mode) {
+    case SUSCAN_MODE_NOLOG:
+      config_p = NULL; /* Disable logging. Will configure it later. */
+      break;
 
-    config_p = &config;
+    case SUSCAN_MODE_DELAYED_LOG:
+      config.exclusive = SU_FALSE; /* We handle concurrency manually */
+      config.log_func = suscan_log_func;
+      config_p = &config;
+      break;
+
+    case SUSCAN_MODE_IMMEDIATE:
+      break;
   }
 
-  return su_lib_init_ex(config_p);
+  if (mode == SUSCAN_MODE_IMMEDIATE) {
+    /* Initialize Sigutils with the default logging facilites */
+    if (!su_lib_init())
+      goto done;
+  } else {
+    /* Initialize Sigutils with custom logging */
+    if (!su_lib_init_ex(config_p))
+      goto done;
+  }
+  
+
+
+  SU_TRY(userpath = suscan_confdb_get_user_path());
+  SU_TRY(wisdom_file = strbuild("%s/" SUSCAN_WISDOM_FILE_NAME, userpath));
+
+  SU_TRY(su_lib_set_wisdom_file(wisdom_file));
+  SU_TRY(su_lib_set_wisdom_enabled(SU_TRUE));
+
+  /* Save FFT wisdom on exit */
+  atexit(suscan_atexit_handler);
+
+  ok = SU_TRUE;
+
+done:
+  if (wisdom_file != NULL)
+    free(wisdom_file);
+
+  return ok;
 }
 
 

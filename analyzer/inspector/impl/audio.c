@@ -58,7 +58,7 @@ struct suscan_audio_inspector_params {
 #define SUSCAN_AUDIO_AM_LPF_SECONDS               .1
 #define SUSCAN_AUDIO_AM_ATTENUATION               .25
 #define SUSCAN_AUDIO_AM_CARRIER_AVERAGING_SECONDS .2
-
+#define SUSCAN_AUDIO_RAW_GAIN                     1e3
 #define SUSCAN_AUDIO_SQUELCH_AVG_SECONDS          1e-2
 
 struct suscan_audio_inspector {
@@ -260,6 +260,7 @@ suscan_audio_inspector_commit_config(void *private)
 
         break;
 
+      case SUSCAN_INSPECTOR_AUDIO_DEMOD_RAW:
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_AM:
         /*
          * AM transmissions are around 12 kHz (6 per sideband). In this case,
@@ -300,10 +301,12 @@ suscan_audio_inspector_commit_config(void *private)
   }
 
   /* Set sampling info */
-  if (self->req_params.audio.sample_rate > 0)
-    su_sampler_set_rate(
+  if (self->req_params.audio.sample_rate > 0) {
+    su_sampler_finalize(&self->sampler);
+    su_sampler_init(
         &self->sampler,
         SU_ABS2NORM_BAUD(fs, self->req_params.audio.sample_rate));
+  }
 
   self->cur_params = self->req_params;
 }
@@ -321,6 +324,7 @@ suscan_audio_inspector_feed(
   SUCOMPLEX ylp;
   struct suscan_audio_inspector *self =
       (struct suscan_audio_inspector *) private;
+  SUBOOL raw = self->cur_params.audio.demod == SUSCAN_INSPECTOR_AUDIO_DEMOD_RAW;
 
   if (self->cur_params.audio.demod == SUSCAN_INSPECTOR_AUDIO_DEMOD_DISABLED)
     return count;
@@ -330,7 +334,8 @@ suscan_audio_inspector_feed(
   for (i = 0; i < count && suscan_inspector_sampler_buf_avail(insp) > 0; ++i) {
     det_x = SU_C_VALID(x[i]) ? x[i] : 0;
 
-    if (self->cur_params.audio.squelch
+    if (!raw
+        && self->cur_params.audio.squelch
         && (self->cur_params.audio.demod
               == SUSCAN_INSPECTOR_AUDIO_DEMOD_LSB
             || self->cur_params.audio.demod
@@ -347,15 +352,17 @@ suscan_audio_inspector_feed(
         det_x = 0;
     }
 
-    /* Perform gain control */
-    switch (self->cur_params.gc.gc_ctrl) {
-      case SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL:
-        det_x = 2 * self->cur_params.gc.gc_gain * det_x;
-        break;
+    if (!raw) {
+      /* Perform gain control */
+      switch (self->cur_params.gc.gc_ctrl) {
+        case SUSCAN_INSPECTOR_GAIN_CONTROL_MANUAL:
+          det_x = 2 * self->cur_params.gc.gc_gain * det_x;
+          break;
 
-      case SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC:
-        det_x  = 2 * su_agc_feed(&self->agc, det_x);
-        break;
+        case SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC:
+          det_x  = 2 * su_agc_feed(&self->agc, det_x);
+          break;
+      }
     }
 
     switch (self->cur_params.audio.demod) {
@@ -421,6 +428,10 @@ suscan_audio_inspector_feed(
         output = det_x * SU_C_CONJ(lo);
         break;
 
+      /* Pass thru */
+      case SUSCAN_INSPECTOR_AUDIO_DEMOD_RAW:
+        output = SUSCAN_AUDIO_RAW_GAIN * det_x;
+
       default:
         break;
     }
@@ -429,8 +440,13 @@ suscan_audio_inspector_feed(
 
     output = su_iir_filt_feed(&self->filt, output);
 
-    if (su_sampler_feed(&self->sampler, &output))
+    if (su_sampler_feed(&self->sampler, &output)) {
       suscan_inspector_push_sample(insp, output * .75);
+      if (suscan_inspector_get_output_length(insp) == insp->sample_msg_watermark) {
+        ++i; /* Important! We have consumed this sample too! */
+        break;
+      }
+    }
   }
 
 

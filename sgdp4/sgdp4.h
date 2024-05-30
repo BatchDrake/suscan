@@ -51,6 +51,7 @@ extern "C" {
 #define LATCON  (1.0/298.257)                /* Latitude radius constant */
 #define ECON    ((1.0-LATCON)*(1.0-LATCON))
 
+#define COARSE_SEARCH_REL_STEP (1. / 10.)
 #define SPEED_OF_LIGHT_KM_S 299792.458
 
 #define JD1900 2415020.5    /* Julian day number for Jan 1st, 00:00 hours 1900 */
@@ -306,6 +307,9 @@ SUDOUBLE time_timeval_to_julian(const struct timeval *tv);
 SUDOUBLE time_julian_to_unix(SUDOUBLE jd);
 
 /************** Prediction functions ***************/
+
+SUFLOAT
+sgdp4_prediction_get_max_delta_t(const sgdp4_prediction_t *self);
 
 SUBOOL sgdp4_prediction_find_aos(
   sgdp4_prediction_t *self, 

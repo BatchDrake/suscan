@@ -19,12 +19,12 @@
 
 #define SU_LOG_DOMAIN "remote-analyzer"
 
-#include <util/compat-socket.h>
-#include <util/compat-unistd.h>
-#include <util/compat-netdb.h>
-#include <util/compat-inet.h>
-#include <util/compat-fcntl.h>
-#include <util/compat-poll.h>
+#include <sigutils/util/compat-socket.h>
+#include <sigutils/util/compat-unistd.h>
+#include <sigutils/util/compat-netdb.h>
+#include <sigutils/util/compat-inet.h>
+#include <sigutils/util/compat-fcntl.h>
+#include <sigutils/util/compat-poll.h>
 
 #include "remote.h"
 #include "msg.h"
@@ -391,7 +391,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
 
     case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
       SU_TRYCATCH(
-          suscan_analyzer_source_info_serialize(&self->source_info, buffer),
+          suscan_source_info_serialize(&self->source_info, buffer),
           goto fail);
       break;
 
@@ -443,6 +443,10 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_remote_call)
     case SUSCAN_ANALYZER_REMOTE_SET_HOP_RANGE:
       SUSCAN_PACK(freq, self->hop_range.min);
       SUSCAN_PACK(freq, self->hop_range.max);
+      break;
+
+    case SUSCAN_ANALYZER_REMOTE_SET_REL_BANDWIDTH:
+      SUSCAN_PACK(float, self->rel_bw);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SET_BUFFERING_SIZE:
@@ -500,7 +504,7 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
 
     case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
       SU_TRYCATCH(
-          suscan_analyzer_source_info_deserialize(&self->source_info, buffer),
+          suscan_source_info_deserialize(&self->source_info, buffer),
           goto fail);
       break;
 
@@ -558,6 +562,12 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_remote_call)
       SU_TRYCATCH(self->hop_range.min < self->hop_range.max, goto fail);
       break;
 
+    case SUSCAN_ANALYZER_REMOTE_SET_REL_BANDWIDTH:
+      SUSCAN_UNPACK(float, self->rel_bw);
+
+      SU_TRYCATCH(self->rel_bw >= 0.001, goto fail);
+      break;
+
     case SUSCAN_ANALYZER_REMOTE_SET_BUFFERING_SIZE:
       SUSCAN_UNPACK(uint32, self->buffering_size);
       break;
@@ -601,13 +611,13 @@ suscan_analyzer_remote_call_init(
 SUBOOL
 suscan_analyzer_remote_call_take_source_info(
     struct suscan_analyzer_remote_call *self,
-    struct suscan_analyzer_source_info *info)
+    struct suscan_source_info *info)
 {
   SU_TRYCATCH(
       self->type == SUSCAN_ANALYZER_REMOTE_SOURCE_INFO,
       return SU_FALSE);
 
-  suscan_analyzer_source_info_finalize(info);
+  suscan_source_info_finalize(info);
   *info = self->source_info;
   self->type = SUSCAN_ANALYZER_REMOTE_NONE;
 
@@ -621,7 +631,7 @@ suscan_analyzer_remote_call_deliver_message(
 {
   uint32_t type = 0;
   struct suscan_analyzer_psd_msg *psd_msg;
-  struct suscan_analyzer_source_info *as_source_info;
+  struct suscan_source_info *as_source_info;
   uint64_t old_permissions = analyzer->source_info.permissions;
 
   void *priv = NULL;
@@ -642,10 +652,10 @@ suscan_analyzer_remote_call_deliver_message(
       as_source_info = priv;
       as_source_info->permissions = old_permissions;
 
-      suscan_analyzer_source_info_finalize(&analyzer->source_info);
+      suscan_source_info_finalize(&analyzer->source_info);
 
       SU_TRYCATCH(
-          suscan_analyzer_source_info_init_copy(&analyzer->source_info, priv),
+          suscan_source_info_init_copy(&analyzer->source_info, priv),
           goto done);
 
       break;
@@ -692,7 +702,7 @@ suscan_analyzer_remote_call_finalize(struct suscan_analyzer_remote_call *self)
       break;
 
     case SUSCAN_ANALYZER_REMOTE_SOURCE_INFO:
-      suscan_analyzer_source_info_finalize(&self->source_info);
+      suscan_source_info_finalize(&self->source_info);
       break;
 
     case SUSCAN_ANALYZER_REMOTE_MESSAGE:
@@ -1518,13 +1528,12 @@ suscan_remote_analyzer_auth_peer(suscan_remote_analyzer_t *self)
   }
 
   SU_INFO("Authentication successful, source info received\n");
-
   SU_TRYCATCH(
       suscan_analyzer_remote_call_take_source_info(
           call,
           &self->source_info),
       goto done);
-
+  
   SU_TRYCATCH(
       suscan_analyzer_send_source_info(self->parent, &self->source_info),
       goto done);
@@ -1822,7 +1831,7 @@ suscan_remote_analyzer_rx_thread(void *ptr)
             goto done);
 
         self->source_info.permissions = old_permissions;
-
+        
         SU_TRYCATCH(
             suscan_analyzer_send_source_info(self->parent, &self->source_info),
             goto done);
@@ -2031,7 +2040,8 @@ suscan_remote_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
   SU_TRY_FAIL(suscan_mq_init(&new->peer.call_queue));
   new->peer.call_queue_init = SU_TRUE;
 
-  suscan_analyzer_source_info_init(&new->source_info);
+  suscan_source_info_init(&new->source_info);
+  new->source_info.permissions = 0; /* No permissions until we receive them */
 
   val = suscan_source_config_get_param(config, "host");
   if (val == NULL) {
@@ -2457,7 +2467,24 @@ suscan_remote_analyzer_seek(void *ptr, const struct timeval *tv)
   return suscan_analyzer_seek_async(self->parent, tv, 0);
 }
 
-SUPRIVATE struct suscan_analyzer_source_info *
+SUPRIVATE SUBOOL
+suscan_remote_analyzer_set_history_size(void *ptr, SUSCOUNT size)
+{
+  suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+
+  return suscan_analyzer_set_history_size_async(self->parent, size, 0);
+}
+
+
+SUPRIVATE SUBOOL
+suscan_remote_analyzer_replay(void *ptr, SUBOOL replay)
+{
+  suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+
+  return suscan_analyzer_replay_async(self->parent, replay, 0);
+}
+
+SUPRIVATE struct suscan_source_info *
 suscan_remote_analyzer_get_source_info_pointer(const void *ptr)
 {
   suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
@@ -2547,6 +2574,34 @@ suscan_remote_analyzer_set_hop_range(void *ptr, SUFREQ min, SUFREQ max)
 
   call->hop_range.min = min;
   call->hop_range.max = max;
+
+  SU_TRYCATCH(
+      suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
+      goto done);
+
+  ok = SU_TRUE;
+
+done:
+  if (call != NULL)
+    suscan_remote_analyzer_release_call(self, call);
+
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscan_remote_analyzer_set_rel_bandwidth(void *ptr, SUFLOAT rel_bw)
+{
+  suscan_remote_analyzer_t *self = (suscan_remote_analyzer_t *) ptr;
+  struct suscan_analyzer_remote_call *call = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYCATCH(
+      call = suscan_remote_analyzer_acquire_call(
+          self,
+          SUSCAN_ANALYZER_REMOTE_SET_REL_BANDWIDTH),
+      goto done);
+
+  call->rel_bw = rel_bw;
 
   SU_TRYCATCH(
       suscan_remote_analyzer_queue_call(self, call, SU_TRUE),
@@ -2667,12 +2722,15 @@ suscan_remote_analyzer_get_interface(void)
     SET_CALLBACK(get_samp_rate);
     SET_CALLBACK(get_source_time);
     SET_CALLBACK(seek);
+    SET_CALLBACK(set_history_size);
+    SET_CALLBACK(replay);
     SET_CALLBACK(get_measured_samp_rate);
     SET_CALLBACK(get_source_info_pointer);
     SET_CALLBACK(commit_source_info);
     SET_CALLBACK(set_sweep_strategy);
     SET_CALLBACK(set_spectrum_partitioning);
     SET_CALLBACK(set_hop_range);
+    SET_CALLBACK(set_rel_bandwidth);
     SET_CALLBACK(set_buffering_size);
     SET_CALLBACK(write);
     SET_CALLBACK(req_halt);

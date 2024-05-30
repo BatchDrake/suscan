@@ -19,7 +19,7 @@
 
 #include <assert.h>
 
-#include <util.h>
+#include <sigutils/util/util.h>
 #include <rbtree.h>
 
 static void rbtree_insert_case_1 (struct rbtree_node *);

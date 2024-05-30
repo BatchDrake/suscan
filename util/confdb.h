@@ -21,7 +21,7 @@
 #define _UTIL_CONFDB_H
 
 #include <sigutils/types.h>
-#include "util.h"
+#include <sigutils/util/util.h>
 #include "object.h"
 
 #ifdef __cplusplus
@@ -30,7 +30,7 @@ extern "C" {
 
 /* Helper functions */
 const char *suscan_confdb_get_system_path(void);
-
+const char *suscan_confdb_get_user_path(void);
 const char *suscan_confdb_get_local_path(void);
 const char *suscan_confdb_get_local_tle_path(void);
 

@@ -23,7 +23,7 @@
 #include <ctype.h>
 #include <libgen.h>
 #include <stdint.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-time.h>
 
 #define SU_LOG_DOMAIN "msg"
 
@@ -189,6 +189,7 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_psd_msg)
   SUSCAN_PACK(uint,  self->rt_time.tv_sec);
   SUSCAN_PACK(uint,  self->rt_time.tv_usec);
   SUSCAN_PACK(bool,  self->looped);
+  SUSCAN_PACK(uint,  self->history_size);
   SUSCAN_PACK(float, self->samp_rate);
   SUSCAN_PACK(float, self->measured_samp_rate);
   SUSCAN_PACK(float, self->N0);
@@ -223,6 +224,7 @@ SUSCAN_PARTIAL_DESERIALIZER_PROTO(suscan_analyzer_psd_msg)
   self->rt_time.tv_usec = tv_usec;
 
   SUSCAN_UNPACK(bool,   self->looped);
+  SUSCAN_UNPACK(uint64, self->history_size);
   SUSCAN_UNPACK(float,  self->samp_rate);
   SUSCAN_UNPACK(float,  self->measured_samp_rate);
   SUSCAN_UNPACK(float,  self->N0);
@@ -769,6 +771,32 @@ suscan_analyzer_inspector_msg_deserialize_orbit_report(
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_serialize_signal(
+    grow_buf_t *buffer,
+    const struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(str,    self->signal_name);
+  SUSCAN_PACK(double, self->signal_value);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUPRIVATE SUBOOL
+suscan_analyzer_inspector_msg_deserialize_signal(
+    grow_buf_t *buffer,
+    struct suscan_analyzer_inspector_msg *self)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+  
+  SUSCAN_UNPACK(str,    self->signal_name);
+  SUSCAN_UNPACK(double, self->signal_value);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
 {
   SUSCAN_PACK_BOILERPLATE_START;
@@ -836,6 +864,11 @@ SUSCAN_SERIALIZER_PROTO(suscan_analyzer_inspector_msg)
           suscan_analyzer_inspector_msg_serialize_orbit_report(buffer, self),
           goto fail);
       break;
+    
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_serialize_signal(buffer, self),
+          goto fail);
     
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
@@ -931,6 +964,12 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_inspector_msg)
           goto fail);
       break;
     
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL:
+      SU_TRYCATCH(
+          suscan_analyzer_inspector_msg_deserialize_signal(buffer, self),
+          goto fail);
+      break;
+    
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_NOOP:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_ID:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
@@ -1013,6 +1052,10 @@ suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
         orbit_finalize(&msg->tle_orbit);
       break;
 
+    case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL:
+      if (msg->signal_name != NULL)
+        free(msg->signal_name);
+      
     default:
       ;
   }
@@ -1139,6 +1182,44 @@ SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_seek_msg)
   SUSCAN_UNPACK_BOILERPLATE_END;
 }
 
+/************************** History size message ******************************/
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_history_size_msg)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(uint, self->buffer_length);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_history_size_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(uint64, self->buffer_length);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
+/************************** History replay message ***************************/
+SUSCAN_SERIALIZER_PROTO(suscan_analyzer_replay_msg)
+{
+  SUSCAN_PACK_BOILERPLATE_START;
+
+  SUSCAN_PACK(bool, self->replay);
+
+  SUSCAN_PACK_BOILERPLATE_END;
+}
+
+SUSCAN_DESERIALIZER_PROTO(suscan_analyzer_replay_msg)
+{
+  SUSCAN_UNPACK_BOILERPLATE_START;
+
+  SUSCAN_UNPACK(bool, self->replay);
+
+  SUSCAN_UNPACK_BOILERPLATE_END;
+}
+
 /*********************** Generic message serialization ************************/
 SUBOOL
 suscan_analyzer_msg_serialize(
@@ -1152,17 +1233,13 @@ suscan_analyzer_msg_serialize(
 
   switch (type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
-      SU_TRYCATCH(
-          suscan_analyzer_source_info_serialize(ptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(suscan_source_info_serialize(ptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
-      SU_TRYCATCH(
-          suscan_analyzer_status_msg_serialize(ptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(suscan_analyzer_status_msg_serialize(ptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
@@ -1170,43 +1247,40 @@ suscan_analyzer_msg_serialize(
       goto fail;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
-      SU_TRYCATCH(
-          suscan_analyzer_inspector_msg_serialize(ptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(suscan_analyzer_inspector_msg_serialize(ptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
-      SU_TRYCATCH(
-          suscan_analyzer_psd_msg_serialize(ptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(suscan_analyzer_psd_msg_serialize(ptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
-      SU_TRYCATCH(
-          suscan_analyzer_sample_batch_msg_serialize(ptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(suscan_analyzer_sample_batch_msg_serialize(ptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
-      SU_TRYCATCH(
-          suscan_analyzer_throttle_msg_serialize(ptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(suscan_analyzer_throttle_msg_serialize(ptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
-      SU_TRYCATCH(
-          suscan_analyzer_params_serialize(ptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(suscan_analyzer_params_serialize(ptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
-      SU_TRYCATCH(
-          suscan_analyzer_seek_msg_serialize(ptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(suscan_analyzer_seek_msg_serialize(ptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS:
       break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_HISTORY_SIZE:
+      SU_TRY_FAIL(suscan_analyzer_history_size_msg_serialize(ptr, buffer));
+      break;
+    
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_REPLAY:
+      SU_TRY_FAIL(suscan_analyzer_replay_msg_serialize(ptr, buffer));
+      break;
+    
   }
 
   SUSCAN_PACK_BOILERPLATE_END;
@@ -1232,23 +1306,15 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
 
   switch (*type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
-      SU_TRYCATCH(
-          msgptr = calloc(1, sizeof (struct suscan_analyzer_source_info)),
-          goto fail);
-      SU_TRYCATCH(
-          suscan_analyzer_source_info_deserialize(msgptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(msgptr = calloc(1, sizeof (struct suscan_source_info)));
+      SU_TRY_FAIL(suscan_source_info_deserialize(msgptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INIT:
     case SUSCAN_ANALYZER_MESSAGE_TYPE_EOS:
-      SU_TRYCATCH(
-          msgptr = suscan_analyzer_status_msg_new(0, NULL),
-          goto fail);
-      SU_TRYCATCH(
-          suscan_analyzer_status_msg_deserialize(msgptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(msgptr = suscan_analyzer_status_msg_new(0, NULL));
+      SU_TRY_FAIL(suscan_analyzer_status_msg_deserialize(msgptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_CHANNEL:
@@ -1256,61 +1322,47 @@ suscan_analyzer_msg_deserialize(uint32_t *type, void **ptr, grow_buf_t *buffer)
       goto fail;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
-      SU_TRYCATCH(
-          msgptr = suscan_analyzer_inspector_msg_new(0, 0),
-          goto fail);
-      SU_TRYCATCH(
-          suscan_analyzer_inspector_msg_deserialize(msgptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(msgptr = suscan_analyzer_inspector_msg_new(0, 0));
+      SU_TRY_FAIL(suscan_analyzer_inspector_msg_deserialize(msgptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_PSD:
-      SU_TRYCATCH(
-          msgptr = suscan_analyzer_psd_msg_new(NULL),
-          goto fail);
-      SU_TRYCATCH(
-          suscan_analyzer_psd_msg_deserialize(msgptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(msgptr = suscan_analyzer_psd_msg_new(NULL));
+      SU_TRY_FAIL(suscan_analyzer_psd_msg_deserialize(msgptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
-      SU_TRYCATCH(
-          msgptr = suscan_analyzer_sample_batch_msg_new(0, NULL, 0),
-          goto fail);
-      SU_TRYCATCH(
-          suscan_analyzer_sample_batch_msg_deserialize(msgptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(msgptr = suscan_analyzer_sample_batch_msg_new(0, NULL, 0));
+      SU_TRY_FAIL(suscan_analyzer_sample_batch_msg_deserialize(msgptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_THROTTLE:
-      SU_TRYCATCH(
-          msgptr = calloc(1, sizeof (struct suscan_analyzer_throttle_msg)),
-          goto fail);
-      SU_TRYCATCH(
-          suscan_analyzer_throttle_msg_deserialize(msgptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(msgptr = calloc(1, sizeof (struct suscan_analyzer_throttle_msg)));
+      SU_TRY_FAIL(suscan_analyzer_throttle_msg_deserialize(msgptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_PARAMS:
-      SU_TRYCATCH(
-          msgptr = calloc(1, sizeof (struct suscan_analyzer_params)),
-          goto fail);
-      SU_TRYCATCH(
-          suscan_analyzer_params_deserialize(msgptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(msgptr = calloc(1, sizeof (struct suscan_analyzer_params)));
+      SU_TRY_FAIL(suscan_analyzer_params_deserialize(msgptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SEEK:
-      SU_TRYCATCH(
-          msgptr = calloc(1, sizeof (struct suscan_analyzer_seek_msg)),
-          goto fail);
-      SU_TRYCATCH(
-          suscan_analyzer_seek_msg_deserialize(msgptr, buffer),
-          goto fail);
+      SU_TRY_FAIL(msgptr = calloc(1, sizeof (struct suscan_analyzer_seek_msg)));
+      SU_TRY_FAIL(suscan_analyzer_seek_msg_deserialize(msgptr, buffer));
       break;
 
     case SUSCAN_ANALYZER_MESSAGE_TYPE_GET_PARAMS:
       msgptr = "REMOTE";
+      break;
+
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_HISTORY_SIZE:
+      SU_TRY_FAIL(msgptr = calloc(1, sizeof (struct suscan_analyzer_history_size_msg)));
+      SU_TRY_FAIL(suscan_analyzer_history_size_msg_deserialize(msgptr, buffer));
+      break;
+    
+    case SUSCAN_ANALYZER_MESSAGE_TYPE_REPLAY:
+      SU_TRY_FAIL(msgptr = calloc(1, sizeof (struct suscan_analyzer_replay_msg)));
+      SU_TRY_FAIL(suscan_analyzer_replay_msg_deserialize(msgptr, buffer));
       break;
 
     default:
@@ -1334,7 +1386,7 @@ suscan_analyzer_dispose_message(uint32_t type, void *ptr)
 {
   switch (type) {
     case SUSCAN_ANALYZER_MESSAGE_TYPE_SOURCE_INFO:
-      suscan_analyzer_source_info_finalize(ptr);
+      suscan_source_info_finalize(ptr);
       free(ptr);
       break;
 
@@ -1458,17 +1510,17 @@ done:
 SUBOOL
 suscan_analyzer_send_source_info(
     suscan_analyzer_t *self,
-    const struct suscan_analyzer_source_info *info)
+    const struct suscan_source_info *info)
 {
-  struct suscan_analyzer_source_info *copy = NULL;
+  struct suscan_source_info *copy = NULL;
   SUBOOL ok = SU_FALSE;
 
   SU_TRYCATCH(
-      copy = calloc(1, sizeof(struct suscan_analyzer_source_info)),
+      copy = calloc(1, sizeof(struct suscan_source_info)),
       goto done);
 
   // XXX: Protect!
-  SU_TRYCATCH(suscan_analyzer_source_info_init_copy(copy, info), goto done);
+  SU_TRYCATCH(suscan_source_info_init_copy(copy, info), goto done);
 
   /* Send source info */
   suscan_analyzer_get_source_time(self, &copy->source_time);
@@ -1486,7 +1538,7 @@ suscan_analyzer_send_source_info(
 
 done:
   if (copy != NULL) {
-    suscan_analyzer_source_info_finalize(copy);
+    suscan_source_info_finalize(copy);
     free(copy);
   }
 
@@ -1547,7 +1599,8 @@ SUBOOL
 suscan_analyzer_send_psd_from_smoothpsd(
     suscan_analyzer_t *self,
     const su_smoothpsd_t *smoothpsd,
-    SUBOOL looped)
+    SUBOOL looped,
+    SUSCOUNT history_size)
 {
   struct suscan_analyzer_psd_msg *msg = NULL;
   SUBOOL ok = SU_FALSE;
@@ -1570,6 +1623,7 @@ suscan_analyzer_send_psd_from_smoothpsd(
   msg->measured_samp_rate = suscan_analyzer_get_measured_samp_rate(self);
   suscan_analyzer_get_source_time(self, &msg->timestamp);
   msg->looped = looped;
+  msg->history_size = history_size;
   msg->N0 = 0;
 
   if (!suscan_mq_write(

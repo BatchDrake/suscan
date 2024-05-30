@@ -22,6 +22,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus*/
+
 enum rbtree_node_search_mode
 {
   RB_LEFTWARDS = -1,
@@ -128,4 +132,7 @@ rbtree_search_data (
   return node->data;
 }
 
+#ifdef __cplusplus
+}
+#endif /* __cplusplus*/
 #endif /* _UTIL_RBTREE_H */

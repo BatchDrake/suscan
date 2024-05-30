@@ -1004,3 +1004,54 @@ suscan_inspector_audio_params_save(
   return SU_TRUE;
 
 }
+
+/**************************** Multicarrier config *****************************/
+SUBOOL
+suscan_config_desc_add_multicarrier_params(suscan_config_desc_t *desc)
+{
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_BOOLEAN,
+          SU_TRUE,
+          "mc.enabled",
+          "Forward samples to subchannels"),
+      return SU_FALSE);
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_multicarrier_params_parse(
+    struct suscan_inspector_multicarrier_params *params,
+    const suscan_config_t *config)
+{
+  struct suscan_field_value *value;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+        config,
+        "mc.enabled"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_BOOLEAN, return SU_FALSE);
+
+  params->enabled = value->as_bool;
+
+  return SU_TRUE;
+}
+
+SUBOOL
+suscan_inspector_multicarrier_params_save(
+    const struct suscan_inspector_multicarrier_params *params,
+    suscan_config_t *config)
+{
+  SU_TRYCATCH(
+    suscan_config_set_bool(
+        config,
+        "mc.enabled",
+        params->enabled),
+    return SU_FALSE);
+
+  return SU_TRUE;
+}

@@ -28,7 +28,7 @@
 #include <cli/cli.h>
 #include <cli/cmds.h>
 #include <inttypes.h>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-time.h>
 
 SUPRIVATE SUBOOL g_halting = SU_FALSE;
 
@@ -187,7 +187,7 @@ suscli_snoop_msg_debug_params(
 
 SUPRIVATE SUBOOL
 suscli_snoop_msg_debug_source_info(
-  const struct suscan_analyzer_source_info *msg)
+  const struct suscan_source_info *msg)
 {
 
   struct strlist *list = NULL;

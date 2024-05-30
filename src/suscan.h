@@ -6,7 +6,7 @@
 #ifndef _MAIN_INCLUDE_H
 #define _MAIN_INCLUDE_H
 
-#include <util.h> /* From util: Common utility library */
+#include <sigutils/util/util.h> /* From util: Common utility library */
 
 #include <analyzer/source.h> /* Generic source API */
 #include <analyzer/mq.h>     /* Message queue object */
@@ -44,7 +44,8 @@ extern "C" {
 
 enum suscan_mode {
   SUSCAN_MODE_DELAYED_LOG,
-  SUSCAN_MODE_IMMEDIATE
+  SUSCAN_MODE_IMMEDIATE,
+  SUSCAN_MODE_NOLOG
 };
 
 SUBOOL suscan_channel_is_dc(const struct sigutils_channel *ch);

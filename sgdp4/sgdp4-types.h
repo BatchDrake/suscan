@@ -194,6 +194,7 @@ struct sgdp4_prediction {
   SUBOOL         init;
 
   /* Predicted members */
+  kep_t          state;
   SUDOUBLE       alt;
   xyz_t          pos_ecef;
   xyz_t          vel_ecef;
