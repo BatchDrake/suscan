@@ -76,34 +76,7 @@ jobs:
     runs-on: macos-latest
     steps:
     - name: Install dependencies
-      run: |
-        # Add custom homebrew repos
-        brew tap pothosware/homebrew-pothos
-        brew update
-        # Install deps
-        # soapyaudio removed from due to deprecated hamlib API
-        # soapyosmo  removed because of random compilation errors
-        # soapyairspyhf  removed because of random compilation errors
-        brew install --force --overwrite python@3.12
-        brew install libsndfile volk fftw soapysdr libxml2 portaudio json-c
-        python3 -Im pip install setuptools
-        # sudo rm /usr/local/bin/2to3* /usr/local/bin/idle3* /usr/local/bin/pydoc3*
-        brew install soapyrtlsdr soapyhackrf soapybladerf soapyairspy soapyredpitaya soapyiris limesuite soapyplutosdr
-        brew install --head soapyuhd
-        # TODO: needed?
-        #sudo mkdir -p /usr/local/lib/SoapySDR/modules0.8
-        #sudo chmod -R a+rw /usr/local/lib/SoapySDR/modules0.8
-        # SDRPlay API
-        wget https://www.sdrplay.com/software/SDRplay_RSP_API-MacOSX-3.07.3.pkg
-        sudo installer -pkg SDRplay_RSP_API-MacOSX-3.07.3.pkg -target /
-        # SoapySDRPlay3 from source
-        git clone https://github.com/pothosware/SoapySDRPlay3
-        cd SoapySDRPlay3
-        cmake -DCMAKE_BUILD_TYPE=Release -B build .
-        cmake --build build
-        cd build
-        sudo make install
-        cd ../..
+      run: brew install libsndfile volk fftw soapysdr json-c portaudio
 
     - name: Checkout (sigutils)
       uses: actions/checkout@v3
