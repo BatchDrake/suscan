@@ -20,6 +20,7 @@
 #include "file.h"
 #include <analyzer/source.h>
 #include <sigutils/util/compat-time.h>
+#include <sigutils/util/compat-stdlib.h>
 #include <libgen.h>
 
 #ifdef _SU_SINGLE_PRECISION
