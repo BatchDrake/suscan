@@ -122,7 +122,7 @@ jobs:
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: git mingw-w64-x86_64-cc mingw-w64-x86_64-make mingw-w64-x86_64-cmake mingw-w64-x86_64-libsndfile mingw-w64-x86_64-fftw mingw-w64-x86_64-volk mingw-w64-x86_64-libxml2 mingw-w64-x86_64-libusb mingw-w64-x86_64-soapysdr mingw-w64-x86_64-rtl-sdr mingw-w64-x86_64-soapyrtlsdr
+          install: git mingw-w64-x86_64-cc mingw-w64-x86_64-make mingw-w64-x86_64-cmake mingw-w64-x86_64-libsndfile mingw-w64-x86_64-fftw mingw-w64-x86_64-volk mingw-w64-x86_64-libxml2 mingw-w64-x86_64-libusb mingw-w64-x86_64-soapysdr mingw-w64-x86_64-rtl-sdr mingw-w64-x86_64-soapyrtlsdr mingw-w64-x86_64-json-c
           
       - name: Checkout (sigutils)
         uses: actions/checkout@v3
