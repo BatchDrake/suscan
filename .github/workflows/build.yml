@@ -121,8 +121,8 @@ jobs:
     steps:
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
-          install: git mingw-w64-x86_64-cc mingw-w64-x86_64-make mingw-w64-x86_64-cmake mingw-w64-x86_64-libsndfile mingw-w64-x86_64-fftw mingw-w64-x86_64-volk mingw-w64-x86_64-libxml2 mingw-w64-x86_64-libusb mingw-w64-x86_64-soapysdr mingw-w64-x86_64-rtl-sdr mingw-w64-x86_64-soapyrtlsdr mingw-w64-x86_64-json-c
+          msystem: UCRT64
+          install: git mingw-w64-ucrt-x86_64-cc mingw-w64-ucrt-x86_64-make mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-libsndfile mingw-w64-ucrt-x86_64-fftw mingw-w64-ucrt-x86_64-volk mingw-w64-ucrt-x86_64-libxml2 mingw-w64-ucrt-x86_64-libusb mingw-w64-ucrt-x86_64-soapysdr mingw-w64-ucrt-x86_64-rtl-sdr mingw-w64-ucrt-x86_64-soapyrtlsdr mingw-w64-ucrt-x86_64-json-c
           
       - name: Checkout (sigutils)
         uses: actions/checkout@v3
@@ -134,13 +134,13 @@ jobs:
           fetch-depth: 0
         
       - name: Configure sigutils
-        run: /mingw64/bin/cmake -G"MinGW Makefiles" -B D:\\a\\suscan\\suscan\\sigutils\\build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} D:\\a\\suscan\\suscan\\sigutils
+        run: cmake -G"MinGW Makefiles" -B D:\\a\\suscan\\suscan\\sigutils\\build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} D:\\a\\suscan\\suscan\\sigutils
         
       - name: Build sigutils
-        run: /mingw64/bin/cmake --build D:\\a\\suscan\\suscan\\sigutils\\build --config ${{env.BUILD_TYPE}}
+        run: cmake --build D:\\a\\suscan\\suscan\\sigutils\\build --config ${{env.BUILD_TYPE}}
         
       - name: Install sigutils
-        run: /mingw64/bin/cmake --build D:\\a\\suscan\\suscan\\sigutils\\build --config ${{env.BUILD_TYPE}} --target install
+        run: cmake --build D:\\a\\suscan\\suscan\\sigutils\\build --config ${{env.BUILD_TYPE}} --target install
 
       # suscan
       - name: Checkout
@@ -152,7 +152,7 @@ jobs:
       - name: Configure CMake
         run: |
           export PKG_CONFIG_PATH=C:\\msys64\\mingw64\\lib\\pkgconfig\\
-          /mingw64/bin/cmake -B  D:\\a\\suscan\\suscan\\build -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\
+          cmake -B  D:\\a\\suscan\\suscan\\build -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\
 
       - name: Build
-        run: /mingw64/bin/cmake --build  D:\\a\\suscan\\suscan\\build --config ${{env.BUILD_TYPE}}
+        run: cmake --build  D:\\a\\suscan\\suscan\\build --config ${{env.BUILD_TYPE}}
