@@ -12,20 +12,23 @@ Suscan is a realtime DSP processing library. It provides a set of useful abstrac
 ## Getting the code
 Just clone it from the GitHub repository. Make sure you pass --recurse-submodules to git clone so all required submodules are also cloned.
 
+```bash
 % git clone --recurse-submodules https://github.com/BatchDrake/suscan.git
+```
 
 ## Building and installing Suscan
 In order to build Suscan, you will need the development files for the following packages:
-
-```
-sigutils fftw3 sndfile SoapySDR libxml-2.0
-```
+* sigutils
+* fftw3
+* sndfile
+* SoapySDR
+* libxml-2.0
 
 If you are in a Debian-like operating system, you will also need `cmake` and `build-essential`. 
 
 After installing all dependencies, enter Suscan's source directory and compile by typing:
 
-```
+```bash
 % cd suscan
 % mkdir build
 % cd build

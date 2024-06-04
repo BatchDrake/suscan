@@ -40,6 +40,15 @@ suscan_config_desc_add_gc_params(suscan_config_desc_t *desc)
           desc,
           SUSCAN_FIELD_TYPE_FLOAT,
           SU_TRUE,
+          "agc.ts",
+          "AGC time scale (samples)"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_desc_add_field(
+          desc,
+          SUSCAN_FIELD_TYPE_FLOAT,
+          SU_TRUE,
           "agc.gain",
           "Manual gain (dB)"),
       return SU_FALSE);
@@ -67,6 +76,16 @@ suscan_inspector_gc_params_parse(
   SU_TRYCATCH(
       value = suscan_config_get_value(
           config,
+          "agc.ts"),
+      return SU_FALSE);
+
+  SU_TRYCATCH(value->field->type == SUSCAN_FIELD_TYPE_FLOAT, return SU_FALSE);
+
+  params->gc_ts = value->as_float;
+
+  SU_TRYCATCH(
+      value = suscan_config_get_value(
+          config,
           "agc.enabled"),
       return SU_FALSE);
 
@@ -89,6 +108,13 @@ suscan_inspector_gc_params_save(
           config,
           "agc.gain",
           SU_DB_RAW(params->gc_gain)),
+      return SU_FALSE);
+
+  SU_TRYCATCH(
+      suscan_config_set_float(
+          config,
+          "agc.ts",
+          params->gc_ts),
       return SU_FALSE);
 
   SU_TRYCATCH(

@@ -1,0 +1,158 @@
+name: Build
+
+on: [push, pull_request, workflow_dispatch]
+    
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install dependencies
+      run: sudo apt-get install libsndfile1-dev libjson-c-dev libvolk2-dev libfftw3-dev soapysdr-module-all libsoapysdr-dev libxml2-dev portaudio19-dev
+
+    - name: Checkout (sigutils)
+      uses: actions/checkout@v4
+      with:
+        repository: BatchDrake/sigutils
+        ref: master
+        path: sigutils
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Configure CMake (sigutils)
+      run: |
+        cd sigutils
+        cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} .
+        cd ..
+
+    - name: Build (sigutils)
+      run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}}
+
+    - name: Install system-wide (sigutils)
+      run: sudo cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: suscan
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Get short hash
+      id: vars
+      run: cd ${{github.workspace}}/suscan/ && echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Configure CMake (suscan)
+      run: cmake -DSUSCAN_PKGDIR="/usr" -DPKGVERSION="${{steps.vars.outputs.sha_short}}" -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
+
+    - name: Build (suscan)
+      run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
+
+    - name: Make Debian packages
+      run: cd ${{github.workspace}}/suscan/ && ./makedeb.sh 0.3.0 ${{steps.vars.outputs.sha_short}}
+
+    - name: Upload lib deb artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: libsuscan_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+        path: ${{github.workspace}}/suscan/libsuscan_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+
+    - name: Upload lib dev deb artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: libsuscan-dev_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+        path: ${{github.workspace}}/suscan/libsuscan-dev_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+
+    - name: Upload tools deb artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: suscan-tools_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+        path: ${{github.workspace}}/suscan/suscan-tools_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - name: Install dependencies
+      run: brew install libsndfile volk fftw soapysdr json-c portaudio
+
+    - name: Checkout (sigutils)
+      uses: actions/checkout@v4
+      with:
+        repository: BatchDrake/sigutils
+        ref: master
+        path: sigutils
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Configure CMake (sigutils)
+      run: |
+        export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+        cmake -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
+
+    - name: Build (sigutils)
+      run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}}
+
+    - name: Install system-wide (sigutils)
+      run: sudo cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Checkout (suscan)
+      uses: actions/checkout@v4
+      with:
+        path: suscan
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Configure CMake (suscan)
+      run: |
+        export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+        cmake -B ${{github.workspace}}/suscan/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} suscan
+
+    - name: Build (suscan)
+      run: cmake --build ${{github.workspace}}/suscan/build --config ${{env.BUILD_TYPE}}
+
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: git mingw-w64-ucrt-x86_64-cc mingw-w64-ucrt-x86_64-make mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-libsndfile mingw-w64-ucrt-x86_64-fftw mingw-w64-ucrt-x86_64-volk mingw-w64-ucrt-x86_64-libxml2 mingw-w64-ucrt-x86_64-libusb mingw-w64-ucrt-x86_64-soapysdr mingw-w64-ucrt-x86_64-rtl-sdr mingw-w64-ucrt-x86_64-soapyrtlsdr mingw-w64-ucrt-x86_64-json-c
+          
+      - name: Checkout (sigutils)
+        uses: actions/checkout@v4
+        with:
+          repository: BatchDrake/sigutils
+          ref: master
+          path: sigutils
+          submodules: recursive
+          fetch-depth: 0
+        
+      - name: Configure sigutils
+        run: cmake -G"MinGW Makefiles" -B D:\\a\\suscan\\suscan\\sigutils\\build -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} D:\\a\\suscan\\suscan\\sigutils
+        
+      - name: Build sigutils
+        run: cmake --build D:\\a\\suscan\\suscan\\sigutils\\build --config ${{env.BUILD_TYPE}}
+        
+      - name: Install sigutils
+        run: cmake --build D:\\a\\suscan\\suscan\\sigutils\\build --config ${{env.BUILD_TYPE}} --target install
+
+      # suscan
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Configure CMake
+        run: |
+          export PKG_CONFIG_PATH=C:\\msys64\\mingw64\\lib\\pkgconfig\\
+          cmake -B  D:\\a\\suscan\\suscan\\build -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX:PATH=C:\\msys64\\mingw64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  D:\\a\\suscan\\suscan\\
+
+      - name: Build
+        run: cmake --build  D:\\a\\suscan\\suscan\\build --config ${{env.BUILD_TYPE}}

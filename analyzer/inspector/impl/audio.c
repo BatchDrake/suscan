@@ -54,6 +54,8 @@ struct suscan_audio_inspector_params {
 #define SUSCAN_AUDIO_INSPECTOR_DELAY_LINE_FRAC  (SUSCAN_AUDIO_INSPECTOR_FAST_RISE_FRAC * 10)
 #define SUSCAN_AUDIO_INSPECTOR_MAG_HISTORY_FRAC (SUSCAN_AUDIO_INSPECTOR_FAST_RISE_FRAC * 10)
 
+#define SUSCAN_AUDIO_INSPECTOR_MIN_TS             1e-1
+
 #define SUSCAN_AUDIO_INSPECTOR_BRICKWALL_LEN      200
 #define SUSCAN_AUDIO_AM_LPF_SECONDS               .1
 #define SUSCAN_AUDIO_AM_ATTENUATION               .25
@@ -97,6 +99,7 @@ suscan_audio_inspector_params_initialize(
 
   params->gc.gc_ctrl = SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC;
   params->gc.gc_gain = 1;
+  params->gc.gc_ts   = 1;
 
   params->audio.sample_rate = SUSCAN_AUDIO_INSPECTOR_SAMPLE_RATE;
   params->audio.demod       = SUSCAN_INSPECTOR_AUDIO_DEMOD_DISABLED;
@@ -119,23 +122,20 @@ suscan_audio_inspector_destroy(struct suscan_audio_inspector *insp)
   free(insp);
 }
 
-SUPRIVATE struct suscan_audio_inspector *
-suscan_audio_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
+SUINLINE SUBOOL
+suscan_audio_inspector_update_agc(
+  struct suscan_audio_inspector *self,
+  SUFLOAT ts)
 {
-  struct suscan_audio_inspector *new = NULL;
+  su_agc_t new_agc = su_agc_INITIALIZER;
   struct su_agc_params agc_params = su_agc_params_INITIALIZER;
-  SUFLOAT tau, bw;
+  SUBOOL ok = SU_FALSE;
+  SUFLOAT tau;
 
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_audio_inspector)),
-      goto fail);
+  if (ts < SUSCAN_AUDIO_INSPECTOR_MIN_TS)
+    ts = SUSCAN_AUDIO_INSPECTOR_MIN_TS;
 
-  new->samp_info = *sinfo;
-
-  suscan_audio_inspector_params_initialize(&new->cur_params, sinfo);
-
-  bw = sinfo->bw;
-  tau = 1. / bw;
+  tau = ts / self->samp_info.bw;
 
   agc_params.fast_rise_t = tau * SUSCAN_AUDIO_INSPECTOR_FAST_RISE_FRAC;
   agc_params.fast_fall_t = tau * SUSCAN_AUDIO_INSPECTOR_FAST_FALL_FRAC;
@@ -147,22 +147,46 @@ suscan_audio_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
   agc_params.delay_line_size  = tau * SUSCAN_AUDIO_INSPECTOR_DELAY_LINE_FRAC;
   agc_params.mag_history_size = tau * SUSCAN_AUDIO_INSPECTOR_MAG_HISTORY_FRAC;
 
-  SU_TRYCATCH(su_agc_init(&new->agc, &agc_params), goto fail);
+  SU_TRY(su_agc_init(&new_agc, &agc_params));
+
+  su_agc_finalize(&self->agc);
+  self->agc = new_agc;
+  
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUPRIVATE struct suscan_audio_inspector *
+suscan_audio_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
+{
+  struct suscan_audio_inspector *new = NULL;
+  SUFLOAT bw;
+
+  SU_ALLOCATE_FAIL(new, struct suscan_audio_inspector);
+
+  new->samp_info = *sinfo;
+  bw = sinfo->bw;
+
+  suscan_audio_inspector_params_initialize(&new->cur_params, sinfo);
+
+  SU_TRY_FAIL(suscan_audio_inspector_update_agc(new, new->cur_params.gc.gc_ts));
 
   /* PLL init, this is an experimental optimum that works rather well for AM */
   su_pll_init(&new->pll, 0, .005f * bw);
 
   /* Filter init */
-  su_iir_bwlpf_init(
+  SU_TRY_FAIL(su_iir_bwlpf_init(
       &new->filt,
       5,
-      SU_ABS2NORM_FREQ(sinfo->equiv_fs, new->cur_params.audio.cutoff));
+      SU_ABS2NORM_FREQ(sinfo->equiv_fs, new->cur_params.audio.cutoff)));
 
   /* NCQO init, used to sideband adjustment */
   su_ncqo_init(&new->lo, .5 * bw);
 
   /* FM filters initialization, used for FM squelch */
-  SU_TRYCATCH(su_iir_bwlpf_init(&new->fm_lpf, 5, .5 * bw), goto fail);
+  SU_TRY_FAIL(su_iir_bwlpf_init(&new->fm_lpf, 5, .5 * bw));
 
   /* One second time constant, used to remove AM carrier */
   new->beta = SU_SPLPF_ALPHA(
@@ -174,8 +198,10 @@ suscan_audio_inspector_new(const struct suscan_inspector_sampling_info *sinfo)
   return new;
 
 fail:
-  if (new != NULL)
+  if (new != NULL) {
     suscan_audio_inspector_destroy(new);
+    new = NULL;
+  }
 
   return new;
 }
@@ -233,6 +259,30 @@ suscan_audio_inspector_new_bandwidth(void *private, SUFREQ bw)
   su_ncqo_set_freq(&insp->lo, SU_ABS2NORM_FREQ(fs, .5 * bw));
 }
 
+SUINLINE SUBOOL
+suscan_audio_inspector_needs_agc_update(
+  const struct suscan_audio_inspector *self)
+{
+  if (self->req_params.gc.gc_ctrl != self->cur_params.gc.gc_ctrl) {
+    /* Changed to automatic */
+    if (self->req_params.gc.gc_ctrl == SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC)
+      return SU_TRUE;
+  }
+
+  if (self->req_params.gc.gc_ctrl == SUSCAN_INSPECTOR_GAIN_CONTROL_AUTOMATIC) {
+    SUFLOAT cur_ts = self->cur_params.gc.gc_ts;
+    SUFLOAT req_ts = self->req_params.gc.gc_ts;
+
+    if (req_ts < SUSCAN_AUDIO_INSPECTOR_MIN_TS)
+      req_ts = SUSCAN_AUDIO_INSPECTOR_MIN_TS;
+
+    if (!sufeq(cur_ts, req_ts, .5 * SUSCAN_AUDIO_INSPECTOR_MIN_TS))
+      return SU_TRUE;
+  }
+
+  return SU_FALSE;
+}
+
 /* Called inside inspector mutex */
 void
 suscan_audio_inspector_commit_config(void *private)
@@ -245,6 +295,16 @@ suscan_audio_inspector_commit_config(void *private)
 
   self->last  = 0;
 
+  /* Configure AGC */
+  if (suscan_audio_inspector_needs_agc_update(self)) {
+    if (!suscan_audio_inspector_update_agc(
+      self,
+      self->req_params.gc.gc_ts)) {
+      SU_ERROR("Failed to update audio AGC\n");
+    }
+  }
+
+  /* Configure demod */
   if (self->req_params.audio.demod != SUSCAN_INSPECTOR_AUDIO_DEMOD_DISABLED) {
     switch (self->req_params.audio.demod) {
       case SUSCAN_INSPECTOR_AUDIO_DEMOD_FM:

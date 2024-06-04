@@ -32,7 +32,8 @@ enum suscan_inspector_gain_control {
 
 struct suscan_inspector_gc_params {
   enum suscan_inspector_gain_control gc_ctrl;
-  SUFLOAT gc_gain;    /* Positive gain (linear) */
+  SUFLOAT gc_ts;   /* AGC time scale */
+  SUFLOAT gc_gain; /* Positive gain (linear) */
 };
 
 SUBOOL suscan_config_desc_add_gc_params(suscan_config_desc_t *desc);
