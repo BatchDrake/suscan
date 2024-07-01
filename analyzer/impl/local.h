@@ -139,6 +139,7 @@ struct suscan_local_analyzer {
   SUFREQ   curr_freq;
   SUSCOUNT part_ndx;
   SUSCOUNT fft_samples; /* Number of FFT frames */
+  SUSCOUNT hop_samples;
 
   suscan_inspector_factory_t         *insp_factory;
   suscan_inspector_request_manager_t  insp_reqmgr;

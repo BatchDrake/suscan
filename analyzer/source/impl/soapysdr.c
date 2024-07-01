@@ -42,6 +42,21 @@ suscan_source_soapysdr_find_setting(
   return NULL;
 }
 
+SUPRIVATE SoapySDRArgInfo *
+suscan_source_soapysdr_find_stream_arg(
+  const struct suscan_source_soapysdr *source,
+  const char *name)
+{
+  size_t i;
+
+  for (i = 0; i < source->stream_args_count; ++i) {
+    if (strcmp(source->stream_args[i].key, name) == 0)
+      return source->stream_args + i;
+  }
+
+  return NULL;
+}
+
 SUPRIVATE SUBOOL
 suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
 {
@@ -154,6 +169,43 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
   /* All set: open SoapySDR stream */
   self->chan_array[0] = config->channel;
 
+  /* Set up stream arguments */
+  self->stream_args = SoapySDRDevice_getStreamArgsInfo(self->sdr, SOAPY_SDR_RX, 0,
+      &self->stream_args_count);
+
+  if (self->stream_args_count != 0 && self->stream_args == NULL) {
+    SU_ERROR(
+        "Failed to retrieve stream argumentss: %s\n",
+        SoapySDRDevice_lastError());
+    goto done;
+  }
+
+  SoapySDRKwargs stream_args_to_set = {};
+  for (i = 0; i < config->soapy_args->size; ++i) {
+    if (strncmp(
+      config->soapy_args->keys[i],
+      SUSCAN_STREAM_SETTING_PREFIX,
+      SUSCAN_STREAM_SETTING_PFXLEN) == 0) {
+
+      key = config->soapy_args->keys[i] + SUSCAN_STREAM_SETTING_PFXLEN;
+      arg = suscan_source_soapysdr_find_stream_arg(self, key);
+
+      if (arg != NULL) {
+        desc = arg->description == NULL ? arg->key : arg->description;
+        SU_INFO(
+          "Stream setting `%s': set to %s\n",
+          desc,
+          config->soapy_args->vals[i]);
+      } else {
+        SU_WARNING(
+          "Stream setting `%s': not supported by device. Setting anyways.\n",
+          key);
+      }
+
+      SoapySDRKwargs_set(&stream_args_to_set, key, config->soapy_args->vals[i]);
+    }
+  }
+
 #if SOAPY_SDR_API_VERSION < 0x00080000
   if (SoapySDRDevice_setupStream(
       self->sdr,
@@ -162,7 +214,7 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
       SUSCAN_SOAPY_SAMPFMT,
       self->chan_array,
       1,
-      NULL) != 0) {
+      &stream_args_to_set) != 0) {
 #else
   if ((self->rx_stream = SoapySDRDevice_setupStream(
       self->sdr,
@@ -170,7 +222,7 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
       SUSCAN_SOAPY_SAMPFMT,
       self->chan_array,
       1,
-      NULL)) == NULL) {
+      &stream_args_to_set)) == NULL) {
 #endif
     SU_ERROR(
         "Failed to open RX stream on SDR device: %s\n",
@@ -178,8 +230,11 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
     goto done;
   }
 
+  SoapySDRKwargs_clear(&stream_args_to_set);
+
+  /* Set up device settings */
   self->settings = SoapySDRDevice_getSettingInfo(self->sdr, &self->settings_count);
-  
+
   if (self->settings_count != 0 && self->settings == NULL) {
     SU_ERROR(
         "Failed to retrieve device settings: %s\n",
@@ -244,9 +299,12 @@ suscan_source_soapysdr_close(void *ptr)
   if (self->settings != NULL)
     SoapySDRArgInfoList_clear(self->settings, self->settings_count);
 
+  if (self->stream_args != NULL)
+    SoapySDRArgInfoList_clear(self->stream_args, self->stream_args_count);
+
   if (self->sdr != NULL)
     SoapySDRDevice_unmake(self->sdr);
-  
+
   free(self);
 }
 

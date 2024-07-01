@@ -164,6 +164,8 @@ SUBOOL suscan_source_wide_wk_cb(
     void *wk_private,
     void *cb_private);
 
+SUBOOL suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self);
+SUBOOL suscan_local_analyzer_init_wide_worker(suscan_local_analyzer_t *self);
 SUBOOL suscan_local_analyzer_start_channel_worker(suscan_local_analyzer_t *self);
 SUBOOL suscan_local_analyzer_start_wide_worker(suscan_local_analyzer_t *self);
 
@@ -614,6 +616,16 @@ suscan_local_analyzer_ctor(suscan_analyzer_t *parent, va_list ap)
     suscan_source_info_init_copy(
       &new->source_info,
       suscan_source_get_info(new->source)));
+
+  if (parent->params.mode == SUSCAN_ANALYZER_MODE_WIDE_SPECTRUM) {
+    SU_TRYCATCH(
+        suscan_local_analyzer_init_wide_worker(new),
+        goto fail);
+  } else {
+    SU_TRYCATCH(
+        suscan_local_analyzer_init_channel_worker(new),
+        goto fail);
+  }
 
   /* Get ahead of the initialization. analyzer_thread
      need this to be properly initialized. */

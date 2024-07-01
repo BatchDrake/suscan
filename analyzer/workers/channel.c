@@ -593,6 +593,33 @@ suscan_local_analyzer_on_psd(
 }
 
 SUBOOL
+suscan_local_analyzer_init_channel_worker(suscan_local_analyzer_t *self)
+{
+  struct sigutils_smoothpsd_params sp_params =
+      sigutils_smoothpsd_params_INITIALIZER;
+  SUBOOL ok = SU_FALSE;
+
+  /* Create smooth PSD */
+  sp_params.fft_size     = self->parent->params.detector_params.window_size;
+  sp_params.samp_rate    = self->source_info.effective_samp_rate;
+  sp_params.refresh_rate = 1. / self->interval_psd;
+
+  self->sp_params = sp_params;
+
+  SU_MAKE(
+    self->smooth_psd,
+    su_smoothpsd,
+    &sp_params,
+    suscan_local_analyzer_on_psd,
+    self);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
 suscan_psd_worker_cb(
   struct suscan_mq *mq_out,
     void *wk_private,
@@ -907,24 +934,8 @@ suscan_local_analyzer_start_channel_worker(suscan_local_analyzer_t *self)
           struct suscan_mq *mq_out,
           void *worker_private,
           void *callback_private);
-  struct sigutils_smoothpsd_params sp_params =
-      sigutils_smoothpsd_params_INITIALIZER;
   SUBOOL ok = SU_FALSE;
 
-  /* Create smooth PSD and PSD worker */
-  sp_params.fft_size     = self->parent->params.detector_params.window_size;
-  sp_params.samp_rate    = self->source_info.effective_samp_rate;
-  sp_params.refresh_rate = 1. / self->interval_psd;
-
-  self->sp_params = sp_params;
-
-  SU_MAKE(
-    self->smooth_psd,
-    su_smoothpsd,
-    &sp_params,
-    suscan_local_analyzer_on_psd,
-    self);
-    
   SU_TRY(
     self->psd_worker = suscan_worker_new_ex(
       "psd-worker",
@@ -932,7 +943,7 @@ suscan_local_analyzer_start_channel_worker(suscan_local_analyzer_t *self)
       self));
 
   /* Start source worker */
-  callback = self->circularity 
+  callback = self->circularity
     ? suscan_local_analyzer_circbuf_channelizer_wk_cb
     : suscan_local_analyzer_buffer_channelizer_wk_cb;
 
