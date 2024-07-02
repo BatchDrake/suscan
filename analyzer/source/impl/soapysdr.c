@@ -582,7 +582,7 @@ suscan_source_soapysdr_set_bandwidth(void *userdata, SUFLOAT bw)
       self->sdr,
       SOAPY_SDR_RX,
       self->config->channel,
-      self->config->bandwidth) != 0) {
+      bw) != 0) {
     SU_ERROR(
         "Failed to set SDR bandwidth: %s\n",
         SoapySDRDevice_lastError());
