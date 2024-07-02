@@ -170,7 +170,7 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
   self->chan_array[0] = config->channel;
 
   /* Set up stream arguments */
-  self->stream_args = SoapySDRDevice_getStreamArgsInfo(self->sdr, SOAPY_SDR_RX, 0,
+  self->stream_args = SoapySDRDevice_getStreamArgsInfo(self->sdr, SOAPY_SDR_RX, config->channel,
       &self->stream_args_count);
 
   if (self->stream_args_count != 0 && self->stream_args == NULL) {
@@ -271,12 +271,12 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
   }
 
   self->mtu = SoapySDRDevice_getStreamMTU(self->sdr, self->rx_stream);
-  self->samp_rate = SoapySDRDevice_getSampleRate(self->sdr, SOAPY_SDR_RX, 0);
+  self->samp_rate = SoapySDRDevice_getSampleRate(self->sdr, SOAPY_SDR_RX, config->channel);
 
   if ((antenna = SoapySDRDevice_getAntenna(
     self->sdr,
     SOAPY_SDR_RX,
-    0)) != NULL) {
+    config->channel)) != NULL) {
     (void) suscan_source_config_set_antenna(config, antenna);
     free(antenna);
   }
@@ -627,7 +627,7 @@ suscan_source_soapysdr_set_dc_remove(void *userdata, SUBOOL remove)
   if (SoapySDRDevice_setDCOffsetMode(
       self->sdr,
       SOAPY_SDR_RX,
-      0,
+      self->config->channel,
       remove ? true : false)
       != 0) {
     SU_ERROR("Failed to set DC mode\n");
@@ -645,7 +645,7 @@ suscan_source_soapysdr_set_agc(void *userdata, SUBOOL set)
   if (SoapySDRDevice_setGainMode(
       self->sdr,
       SOAPY_SDR_RX,
-      0,
+      self->config->channel,
       set ? true : false)
       != 0) {
     SU_ERROR("Failed to set AGC\n");
