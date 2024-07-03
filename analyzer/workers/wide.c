@@ -38,6 +38,12 @@
 #include "mq.h"
 #include "msg.h"
 
+static uint64_t micros() {
+  struct timeval tv;
+  gettimeofday(&tv,NULL);
+  return tv.tv_sec * 1000000ull + tv.tv_usec;
+}
+
 /*
  * TODO: Add methods to define partition bandwidth
  */
@@ -56,6 +62,7 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
   SUFREQ next = .5 * (
       self->current_sweep_params.max_freq
       + self->current_sweep_params.min_freq);
+  uint64_t t0, hop_time;
 
   /*
    * For frequencies below the sample rate, we don't hop.
@@ -86,8 +93,13 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
           next = part_bw * self->part_ndx++
             + self->current_sweep_params.min_freq;
           if (next > self->current_sweep_params.max_freq) {
-            next = self->current_sweep_params.min_freq;
-            self->part_ndx = 1;
+            if (self->curr_freq < self->current_sweep_params.max_freq - part_bw * 0.5) {
+              next = self->current_sweep_params.max_freq;
+              self->part_ndx = 0;
+            } else {
+              next = self->current_sweep_params.min_freq;
+              self->part_ndx = 1;
+            }
           }
         } else {
           /* Continuous: advance monotonically in randomized steps */
@@ -95,8 +107,15 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
           SUFLOAT freq_jiggle = SU_FLOOR(step_size * rnd * 0.2);
           next = self->curr_freq + step_size - freq_jiggle;
           if (next > self->current_sweep_params.max_freq) {
-            next = self->current_sweep_params.min_freq + step_size * 0.5
-                - freq_jiggle;
+            if (self->curr_freq < self->current_sweep_params.max_freq - step_size * 0.5) {
+              next = self->current_sweep_params.max_freq - freq_jiggle;
+            } else {
+              next = self->current_sweep_params.min_freq + step_size * 0.5
+                  - freq_jiggle;
+            }
+          } else if (next < self->current_sweep_params.min_freq) {
+            /* can happen on first run when self->curr_freq may be invalid */
+            next = self->current_sweep_params.min_freq;
           }
         }
         break;
@@ -104,11 +123,14 @@ suscan_local_analyzer_hop(suscan_local_analyzer_t *self)
   }
 
   /* All set. Go ahed and hop */
+  t0 = micros();
   if (suscan_source_set_freq2(
       self->source,
       next,
       suscan_source_config_get_lnb_freq(
           suscan_source_get_config(self->source)))) {
+    hop_time = micros() - t0;
+    self->hop_samples = fs * hop_time / 1000000;
     self->curr_freq = suscan_source_get_freq(self->source);
     self->source_info.frequency = self->curr_freq;
 
@@ -149,7 +171,8 @@ suscan_source_wide_wk_cb(
       suscan_analyzer_do_iq_rev(self->read_buf, got);
     self->fft_samples += got;
 
-    if (self->fft_samples > self->current_sweep_params.fft_min_samples) {
+    if (self->fft_samples > self->current_sweep_params.fft_min_samples +
+        self->hop_samples) {
       /* Feed detector (works in spectrum mode only) */
       SU_TRYCATCH(
           su_channel_detector_feed_bulk(
@@ -255,7 +278,7 @@ suscan_local_analyzer_init_detector_params(
 }
 
 SUBOOL
-suscan_local_analyzer_start_wide_worker(suscan_local_analyzer_t *self)
+suscan_local_analyzer_init_wide_worker(suscan_local_analyzer_t *self)
 {
   struct sigutils_channel_detector_params det_params;
   SUBOOL ok = SU_FALSE;
@@ -279,16 +302,27 @@ suscan_local_analyzer_start_wide_worker(suscan_local_analyzer_t *self)
     SU_TRY(suscan_local_analyzer_readjust_detector(self, &det_params));
   }
 
-  SU_TRY(
-      self->parent->params.max_freq - self->parent->params.min_freq >=
-      self->source_info.source_samp_rate);
-  
+  SU_TRY(self->parent->params.max_freq >= self->parent->params.min_freq);
+
   self->current_sweep_params.fft_min_samples =
           SUSCAN_ANALYZER_MIN_POST_HOP_FFTS * det_params.window_size;
   self->current_sweep_params.max_freq = self->parent->params.max_freq;
   self->current_sweep_params.min_freq = self->parent->params.min_freq;
   self->current_sweep_params.rel_bw = 0.5;
   self->sweep_params_requested = SU_FALSE;
+
+  self->hop_samples = 0;
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+SUBOOL
+suscan_local_analyzer_start_wide_worker(suscan_local_analyzer_t *self)
+{
+  SUBOOL ok = SU_FALSE;
 
   if (!suscan_worker_push(
     self->source_wk,

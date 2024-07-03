@@ -48,6 +48,8 @@ extern "C" {
 
 #define SUSCAN_SOURCE_SETTING_PREFIX    "setting:"
 #define SUSCAN_SOURCE_SETTING_PFXLEN    (sizeof("setting:") - 1)
+#define SUSCAN_STREAM_SETTING_PREFIX    "stream:"
+#define SUSCAN_STREAM_SETTING_PFXLEN    (sizeof("stream:") - 1)
 
 #define SUSCAN_SOURCE_DEFAULT_READ_TIMEOUT 100000 /* 100 ms */
 #define SUSCAN_SOURCE_ANTIALIAS_REL_SIZE    5
