@@ -211,6 +211,15 @@ suscan_object_from_yaml(const void *data, size_t size)
 
   do {
     yaml_parser_parse(&parser, &event);
+    
+    if (parser.error != YAML_NO_ERROR) {
+      SU_ERROR(
+        "YAML parser error %s (line %d): %s\n",
+        parser.context,
+        parser.mark.line + 1,
+        parser.problem);
+      goto done;
+    }
 
     if (event.type == YAML_SEQUENCE_START_EVENT) {
       SU_TRY(suscan_object_parse_yaml_event(&parser, &event, &object));
