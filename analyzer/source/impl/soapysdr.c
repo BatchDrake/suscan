@@ -57,13 +57,41 @@ suscan_source_soapysdr_find_stream_arg(
   return NULL;
 }
 
+SUPRIVATE void
+suscan_source_soapysdr_debug_clocks(struct suscan_source_soapysdr *self)
+{
+  size_t i = 0;
+  char *ref_string = NULL;
+  char *tmp = NULL;
+
+  for (i = 0; i < self->clock_sources_count; ++i) {
+    if (ref_string == NULL) {
+      SU_TRY(tmp = strdup(self->clock_sources[i]));
+    } else {
+      SU_TRY(tmp = strbuild("%s, %s", ref_string, self->clock_sources[i]));
+      free(ref_string);
+    }
+
+    ref_string = tmp;
+  }
+
+  if (ref_string ==  NULL)
+    SU_INFO("Device does not external clock reference\n");
+  else
+    SU_INFO("Device supports the following clock references: %s\n", ref_string);
+  
+done:
+  if (ref_string != NULL)
+    free(ref_string);
+}
+
 SUPRIVATE SUBOOL
 suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
 {
   suscan_source_config_t *config = self->config;
   unsigned int i;
   char *antenna = NULL;
-  const char *key, *desc;
+  const char *key, *desc, *val;
   SoapySDRArgInfo *arg;
   SUBOOL ok = SU_FALSE;
 
@@ -129,6 +157,9 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
     goto done;
   }
 
+  if (SoapySDRDevice_setClockSource(self->sdr, "external") != 0)
+    SU_WARNING("Failed to switch to external clock\n");
+  
 #if SOAPY_SDR_API_VERSION >= 0x00060000
   if (SoapySDRDevice_setFrequencyCorrection(
       self->sdr,
@@ -242,6 +273,19 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
     goto done;
   }
 
+  self->clock_sources = SoapySDRDevice_listClockSources(self->sdr, &self->clock_sources_count);
+
+  if (self->clock_sources_count != 0) {
+    if (self->clock_sources == NULL) {
+      SU_ERROR(
+        "Failed to retrieve clock source list: %s\n",
+        SoapySDRDevice_lastError());
+      goto done;
+    }
+
+    suscan_source_soapysdr_debug_clocks(self);
+  }
+  
   for (i = 0; i < config->soapy_args->size; ++i) {
     if (strncmp(
       config->soapy_args->keys[i],
@@ -267,6 +311,25 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
         self->sdr,
         key,
         config->soapy_args->vals[i]);
+    } else if (strncmp(
+      config->soapy_args->keys[i],
+      SUSCAN_SOAPY_SETTING_PREFIX,
+      SUSCAN_SOAPY_SETTING_PFXLEN) == 0) {
+      key = config->soapy_args->keys[i] + SUSCAN_SOAPY_SETTING_PFXLEN;
+      val = config->soapy_args->vals[i];
+
+      if (strcmp(key, "clock") == 0) {
+        if (SoapySDRDevice_setClockSource(self->sdr, val) != 0) {
+          SU_ERROR(
+            "Cannot set clock source to %s: %s\n",
+            val,
+            SoapySDRDevice_lastError());
+          goto done;
+        }
+      } else {
+        SU_ERROR("Unknown SoapySDR-specific tweak `%s'\n", key);
+        goto done;
+      }
     }
   }
 
@@ -298,6 +361,9 @@ suscan_source_soapysdr_close(void *ptr)
 
   if (self->settings != NULL)
     SoapySDRArgInfoList_clear(self->settings, self->settings_count);
+
+  if (self->clock_sources != NULL)
+    SoapySDRStrings_clear(&self->clock_sources, self->clock_sources_count);
 
   if (self->stream_args != NULL)
     SoapySDRArgInfoList_clear(self->stream_args, self->stream_args_count);

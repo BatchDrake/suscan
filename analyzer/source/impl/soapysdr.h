@@ -41,7 +41,9 @@ struct suscan_source_soapysdr {
   size_t           settings_count;
   SoapySDRArgInfo *stream_args;
   size_t           stream_args_count;
-
+  char           **clock_sources;
+  size_t           clock_sources_count;
+  
   size_t chan_array[1];
   SUFLOAT samp_rate; /* Actual sample rate */
   size_t mtu;
