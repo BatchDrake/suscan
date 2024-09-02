@@ -121,10 +121,12 @@ suscan_source_init_source_types(void)
   SU_MAKE(g_type_to_source_impl, rbtree);
   SU_MAKE(g_name_to_source_impl, hashlist);
 
+#ifndef SUSCAN_THIN_CLIENT
   SU_TRY(suscan_source_register_file());
   SU_TRY(suscan_source_register_soapysdr());
   SU_TRY(suscan_source_register_stdin());
   SU_TRY(suscan_source_register_tonegen());
+#endif // SUSCAN_THIN_CLIENT
 
   ok = SU_TRUE;
 

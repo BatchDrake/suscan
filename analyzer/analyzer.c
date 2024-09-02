@@ -38,6 +38,14 @@
 #  undef bool
 #endif /* bool */
 
+#ifdef SUSCAN_THIN_CLIENT
+SUBOOL
+suscan_analyzer_is_local(const suscan_analyzer_t *self)
+{
+  return SU_FALSE;
+}
+#endif /* SUSCAN_THIN_CLIENT */
+
 /* Gain info objects */
 SUSCAN_SERIALIZER_PROTO(suscan_source_gain_info)
 {
@@ -302,14 +310,21 @@ suscan_analyzer_new(
     suscan_source_config_t *config,
     struct suscan_mq *mq)
 {
-  const struct suscan_analyzer_interface *iface =
-      suscan_local_analyzer_get_interface();
+  const struct suscan_analyzer_interface *iface;
 
   /* TODO: Replace by a lookup method when the
    * global interface list is available */
 
-  if (suscan_source_config_is_remote(config))
+  if (suscan_source_config_is_remote(config)) {
     iface = suscan_remote_analyzer_get_interface();
+  } else {
+#ifdef SUSCAN_THIN_CLIENT
+    SU_ERROR("Suscan thin client library cannot instantiate local analyzers\n");
+    return NULL;
+#else
+    iface = suscan_local_analyzer_get_interface();
+#endif // SUSCAN_THIN_CLIENT
+  }
 
   return suscan_analyzer_new_from_interface(params, mq, iface, config);
 }

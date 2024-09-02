@@ -146,8 +146,9 @@ if(APPLE)
 endif()
 
 ########################## pkg-config description #############################
-set(SIGUTILS_PC_FILE_PATH "${PROJECT_BINARY_DIR}/suscan.pc")
-  
+set(SUSCAN_PC_FILE_PATH "${PROJECT_BINARY_DIR}/suscan.pc")
+set(SUSCAN_THIN_CLIENT_PC_FILE_PATH "${PROJECT_BINARY_DIR}/suscan-thin-client.pc")
+
 set(
   INSTALL_PKGCONFIG_DIR 
   "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
@@ -163,10 +164,11 @@ if(JSONC_FOUND)
   set(SU_PC_LIBRARIES "${SU_PC_LIBRARIES} -l${JSONC_LIBRARIES}")
 endif()
 
-configure_file(suscan.pc.in "${SIGUTILS_PC_FILE_PATH}" @ONLY)
+configure_file(suscan.pc.in "${SUSCAN_PC_FILE_PATH}" @ONLY)
+configure_file(suscan-thin-client.pc.in "${SUSCAN_THIN_CLIENT_PC_FILE_PATH}" @ONLY)
 
 install(
-  FILES "${SIGUTILS_PC_FILE_PATH}"
+  FILES "${SUSCAN_PC_FILE_PATH}" "${SUSCAN_THIN_CLIENT_PC_FILE_PATH}"
   DESTINATION "${INSTALL_PKGCONFIG_DIR}")
 
 ############################ Suscan library build #############################
@@ -325,51 +327,54 @@ set(SPECTSRC_SOURCES
   ${SPECTSRCDIR}/exp-8.c
   ${SPECTSRCDIR}/psd.c)
   
-set(ANALYZER_LIB_SOURCES
+set(LOCAL_ANALYZER_SOURCES
   ${ANALYZERDIR}/workers/channel.c
   ${ANALYZERDIR}/workers/wide.c
-  ${ANALYZERDIR}/analyzer.c
-  ${ANALYZERDIR}/bufpool.c
-  ${ANALYZERDIR}/client.c
   ${ANALYZERDIR}/corrector.c
   ${ANALYZERDIR}/correctors/tle.c
-  ${ANALYZERDIR}/discovery.c
-  ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/impl/local.c
-  ${ANALYZERDIR}/impl/remote.c
-  ${ANALYZERDIR}/impl/mc_processor.c
-  ${ANALYZERDIR}/impl/processors/encap.c
-  ${ANALYZERDIR}/impl/processors/psd.c
   ${ANALYZERDIR}/inspsched.c
   ${ANALYZERDIR}/insp-server.c
   ${ANALYZERDIR}/kludges.c
-  ${ANALYZERDIR}/mq.c
-  ${ANALYZERDIR}/msg.c
-  ${ANALYZERDIR}/pool.c
-  ${ANALYZERDIR}/serialize.c
   ${ANALYZERDIR}/slow.c
-  ${ANALYZERDIR}/source.c
-  ${ANALYZERDIR}/source/config.c
-  ${ANALYZERDIR}/source/device.c
-  ${ANALYZERDIR}/source/info.c
   ${ANALYZERDIR}/source/impl/file.c
   ${ANALYZERDIR}/source/impl/soapysdr.c
   ${ANALYZERDIR}/source/impl/stdin.c
   ${ANALYZERDIR}/source/impl/tonegen.c
-  ${ANALYZERDIR}/source/register.c
-  ${ANALYZERDIR}/spectsrc.c
-  ${ANALYZERDIR}/symbuf.c
-  ${ANALYZERDIR}/throttle.c
-  ${ANALYZERDIR}/worker.c
-  ${ESTIMATOR_SOURCES}
-  ${SPECTSRC_SOURCES})
+  ${ANALYZERDIR}/symbuf.c)
 
 if(JSONC_FOUND)
   set(
-    ANALYZER_LIB_SOURCES
-    ${ANALYZER_LIB_SOURCES} 
+    LOCAL_ANALYZER_SOURCES
+    ${LOCAL_ANALYZER_SOURCES} 
     ${ANALYZERDIR}/source/impl/guess-sigmf.c)
 endif()
+
+
+set(ANALYZER_LIB_SOURCES
+  ${ESTIMATOR_SOURCES}
+  ${SPECTSRC_SOURCES}
+  ${ANALYZERDIR}/analyzer.c
+  ${ANALYZERDIR}/bufpool.c
+  ${ANALYZERDIR}/client.c
+  ${ANALYZERDIR}/discovery.c
+  ${ANALYZERDIR}/estimator.c
+  ${ANALYZERDIR}/mq.c
+  ${ANALYZERDIR}/msg.c
+  ${ANALYZERDIR}/pool.c
+  ${ANALYZERDIR}/serialize.c
+  ${ANALYZERDIR}/source.c
+  ${ANALYZERDIR}/source/config.c
+  ${ANALYZERDIR}/source/device.c
+  ${ANALYZERDIR}/source/info.c
+  ${ANALYZERDIR}/source/register.c
+  ${ANALYZERDIR}/spectsrc.c
+  ${ANALYZERDIR}/impl/remote.c
+  ${ANALYZERDIR}/impl/mc_processor.c
+  ${ANALYZERDIR}/impl/processors/encap.c
+  ${ANALYZERDIR}/impl/processors/psd.c
+  ${ANALYZERDIR}/throttle.c
+  ${ANALYZERDIR}/worker.c)
 
 link_directories(
   ${PROJECT_BINARY_DIR}
@@ -380,7 +385,7 @@ link_directories(
   ${XML2_LIBRARY_DIRS}
   ${VOLK_LIBRARY_DIRS}
   ${JSONC_LIBRARY_DIRS})
- 
+
 add_library(
   suscan SHARED
   ${UTIL_HEADERS}
@@ -395,10 +400,25 @@ add_library(
   ${SGDP4_SOURCES}
   ${CLI_LIB_SOURCES}
   ${ANALYZER_LIB_HEADERS}
+  ${LOCAL_ANALYZER_SOURCES}
   ${ANALYZER_LIB_SOURCES}
   ${VERSION_SOURCES}
   ${SRCDIR}/lib.c)
 
+add_library(
+  suscan-thin-client SHARED
+  ${UTIL_HEADERS}
+  ${UTIL_SOURCES}
+  ${YAML_HEADERS}
+  ${YAML_SOURCES}
+  ${CLI_LIB_SOURCES}
+  ${SGDP4_HEADERS}
+  ${SGDP4_SOURCES}
+  ${ANALYZER_LIB_HEADERS}
+  ${ANALYZER_LIB_SOURCES}
+  ${VERSION_SOURCES}
+  ${SRCDIR}/lib.c)
+      
 target_add_relative_file_macro(suscan)
 
 # Private header directories
@@ -416,6 +436,22 @@ set_property(TARGET suscan PROPERTY SOVERSION ${SUSCAN_ABI})
 
 set_property(TARGET suscan PROPERTY COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 set_property(TARGET suscan PROPERTY LINK_FLAGS    "${SIGUTILS_SPC_LDFLAGS}")
+
+set_target_properties(suscan-thin-client PROPERTIES VERSION   ${SUSCAN_VERSION})
+set_target_properties(suscan-thin-client PROPERTIES SOVERSION "${SUSCAN_ABI}")
+
+set_target_properties(suscan-thin-client PROPERTIES COMPILE_FLAGS "-DSUSCAN_THIN_CLIENT=1 ${SIGUTILS_SPC_CFLAGS}")
+set_target_properties(suscan-thin-client PROPERTIES LINK_FLAGS    "${SIGUTILS_SPC_LDFLAGS}")
+
+# Thin client definition
+target_include_directories(
+  suscan-thin-client
+  PRIVATE . 
+  ${UTILDIR} 
+  ${ANALYZERDIR}
+  ${ANALYZERDIR}/inspector
+  ${ANALYZERDIR}/source
+  ${CODECLIBDIR})
 
 # Required dependencies
 if(APPLE)
@@ -437,6 +473,7 @@ if(UNIX AND NOT APPLE)
   target_link_libraries(suscan rt)
 endif()
 
+# Fat client
 target_link_libraries(suscan m ${SIGUTILS_LIBRARIES})
 
 target_include_directories(suscan SYSTEM PUBLIC ${SNDFILE_INCLUDE_DIRS})
@@ -457,6 +494,21 @@ target_link_libraries(suscan ${XML2_LIBRARIES})
 include_directories(${ZLIB_INCLUDE_DIRS})
 target_link_libraries(suscan ${ZLIB_LIBRARIES})
 target_link_libraries(suscan ${CMAKE_THREAD_LIBS_INIT})
+
+# Thin client
+target_link_libraries(suscan-thin-client m ${SIGUTILS_LIBRARIES})
+
+target_include_directories(suscan-thin-client SYSTEM PUBLIC ${XML2_INCLUDE_DIRS})
+target_link_libraries(suscan-thin-client ${XML2_LIBRARIES})
+
+# TODO: THIS DEPENDENCY EXISTS BECAUSE THE DEVICE API IS BROKEN. A DEVICE API
+# REFACTOR IS PENDING. UNTIL THEN, WE HAVE TO STICK WITH THIS CRAP.
+target_include_directories(suscan-thin-client SYSTEM PUBLIC ${SOAPYSDR_INCLUDE_DIRS})
+target_link_libraries(suscan-thin-client ${SOAPYSDR_LIBRARIES})
+
+include_directories(${ZLIB_INCLUDE_DIRS})
+target_link_libraries(suscan-thin-client ${ZLIB_LIBRARIES})
+target_link_libraries(suscan-thin-client ${CMAKE_THREAD_LIBS_INIT})
 
 # Optional dependencies
 if(VOLK_FOUND)
@@ -515,7 +567,7 @@ install(
   FILES src/suscan.h
   DESTINATION include/suscan)
 
-install(TARGETS suscan DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS suscan suscan-thin-client DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 ########################### Suscan test executable ############################
 set(SUSCAN_HEADERS ${SRCDIR}/suscan.h)

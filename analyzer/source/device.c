@@ -27,7 +27,9 @@
 
 #include <confdb.h>
 #include <analyzer/source/device.h>
+
 #include <SoapySDR/Device.h>
+
 #include "compat.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -41,6 +43,8 @@ PTR_LIST(SUPRIVATE struct suscan_source_gain_desc, g_hidden_gain);
 
 /* Null device */
 SUPRIVATE suscan_source_device_t *null_device;
+
+#ifndef SUSCAN_THIN_CLIENT
 SUPRIVATE const char *soapysdr_module_path = NULL;
 
 /* Helper global state */
@@ -86,6 +90,8 @@ suscan_source_enable_stderr(void)
   }
 #endif /* _WIN32 */
 }
+
+#endif // SUSCAN_THIN_CLIENT
 
 /******************************* Source devices ******************************/
 SUPRIVATE void
@@ -307,6 +313,15 @@ done:
   return result;
 }
 
+#ifdef SUSCAN_THIN_CLIENT
+SUBOOL
+suscan_source_device_populate_info(suscan_source_device_t *dev)
+{
+  dev->available = suscan_source_device_is_remote(dev);
+
+  return SU_TRUE;
+}
+#else
 SUBOOL
 suscan_source_device_populate_info(suscan_source_device_t *dev)
 {
@@ -466,6 +481,7 @@ done:
 
   return ok;
 }
+#endif //SUSCAN_THIN_CLIENT
 
 /* FIXME: This is awful. Plase change constness of 1st arg ASAP */
 SUBOOL
@@ -800,14 +816,16 @@ suscan_source_register_null_device(void)
 SUBOOL
 suscan_source_detect_devices(void)
 {
+  SUBOOL ok = SU_FALSE;
+
+  suscan_source_reset_devices();
+
+#ifndef SUSCAN_THIN_CLIENT
   SoapySDRKwargs *soapy_dev_list = NULL;
   suscan_source_device_t *dev = NULL;
   size_t soapy_dev_len;
   unsigned int i;
   SUBOOL mutex_acquired = SU_FALSE;
-  SUBOOL ok = SU_FALSE;
-
-  suscan_source_reset_devices();
 
   if (soapysdr_module_path == NULL)
     soapysdr_module_path = suscan_bundle_get_soapysdr_module_path();
@@ -858,6 +876,10 @@ done:
   if (soapy_dev_list != NULL)
     SoapySDRKwargsList_clear(soapy_dev_list, soapy_dev_len);
 
+#else
+  SU_INFO("Device enumeration disabled in thin client mode\n");
+  ok = SU_TRUE;
+#endif // SUSCAN_THIN_CLIENT
   return ok;
 }
 
