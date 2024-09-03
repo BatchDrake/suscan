@@ -410,13 +410,13 @@ suscan_analyzer_inspector_msg_serialize_open(
       cbor_pack_array_start(buffer, self->estimator_count) == 0,
       goto fail);
   for (i = 0; i < self->estimator_count; ++i)
-    SUSCAN_PACK(str, self->estimator_list[i]->name);
+    SUSCAN_PACK(str, self->estimator_list[i]);
 
   SU_TRYCATCH(
       cbor_pack_array_start(buffer, self->spectsrc_count) == 0,
       goto fail);
   for (i = 0; i < self->spectsrc_count; ++i)
-    SUSCAN_PACK(str, self->spectsrc_list[i]->name);
+    SUSCAN_PACK(str, self->spectsrc_list[i]);
 
   SUSCAN_PACK_BOILERPLATE_END;
 }
@@ -461,15 +461,8 @@ suscan_analyzer_inspector_msg_deserialize_open(
           sizeof(struct suscan_estimator_class *)),
       goto fail);
 
-  for (i = 0; i < self->estimator_count; ++i) {
-    SUSCAN_UNPACK(str, name);
-    self->estimator_list[i] = suscan_estimator_class_lookup(name);
-    if (self->estimator_list[i] == NULL)
-      SU_WARNING("Estimator class `%s' not found\n", name);
-
-    free(name);
-    name = NULL;
-  }
+  for (i = 0; i < self->estimator_count; ++i)
+    SUSCAN_UNPACK(str, self->estimator_list[i]);
 
   SU_TRYCATCH(
       cbor_unpack_array_start(
@@ -486,16 +479,8 @@ suscan_analyzer_inspector_msg_deserialize_open(
           sizeof(struct suscan_spectsrc_class *)),
       goto fail);
 
-  for (i = 0; i < self->spectsrc_count; ++i) {
-    SUSCAN_UNPACK(str, name);
-    self->spectsrc_list[i] = suscan_spectsrc_class_lookup(name);
-    if (self->spectsrc_list[i] == NULL)
-      SU_WARNING("Spectrum source class `%s' not found\n", name);
-
-    free(name);
-    name = NULL;
-  }
-
+  for (i = 0; i < self->spectsrc_count; ++i)
+    SUSCAN_UNPACK(str, self->spectsrc_list[i]);
 
   SUSCAN_UNPACK_BOILERPLATE_FINALLY;
 
@@ -1025,6 +1010,8 @@ suscan_analyzer_inspector_msg_take_spectrum(
 void
 suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
 {
+  unsigned int i = 0;
+
   switch (msg->kind) {
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_GET_CONFIG:
     case SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SET_CONFIG:
@@ -1032,11 +1019,19 @@ suscan_analyzer_inspector_msg_destroy(struct suscan_analyzer_inspector_msg *msg)
       if (msg->config != NULL)
         suscan_config_destroy(msg->config);
 
-      if (msg->estimator_list != NULL)
+      if (msg->estimator_list != NULL) {
+        for (i = 0; i < msg->estimator_count; ++i)
+          if (msg->estimator_list[i] != NULL)
+            free(msg->estimator_list[i]);
         free(msg->estimator_list);
+      }
 
-      if (msg->spectsrc_list != NULL)
+      if (msg->spectsrc_list != NULL) {
+        for (i = 0; i < msg->spectsrc_count; ++i)
+          if (msg->spectsrc_list[i] != NULL)
+            free(msg->spectsrc_list[i]);
         free(msg->spectsrc_list);
+      }
 
       if (msg->class_name != NULL)
         free(msg->class_name);
