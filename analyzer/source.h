@@ -113,7 +113,7 @@ struct suscan_source {
   suscan_throttle_t throttle; /* For non-realtime sources */
   SUBOOL throttle_mutex_init;
   pthread_mutex_t throttle_mutex;
-
+  
   /* Source state */
   SUBOOL   capturing;
   void    *src_priv; /* Opaque source object */
@@ -152,6 +152,9 @@ struct suscan_source {
   SUSCOUNT   history_ptr;
   SUSCOUNT   rp; /* Replay pointer */
   SUCOMPLEX *history;
+
+  pthread_mutex_t history_mutex;
+  SUBOOL          history_mutex_init;
 };
 
 typedef struct suscan_source suscan_source_t;
