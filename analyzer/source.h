@@ -29,7 +29,6 @@
 #include <analyzer/serialize.h>
 #include <analyzer/pool.h>
 #include <analyzer/throttle.h>
-#include <analyzer/source/device.h>
 #include <analyzer/source/config.h>
 #include <analyzer/source/info.h>
 #include <sigutils/util/compat-time.h>
@@ -68,6 +67,7 @@ struct sigutils_specttuner_channel;
 struct suscan_source;
 struct suscan_source_interface {
   const char *name;
+  const char *analyzer;
   const char *desc;
   SUBOOL      realtime; /* True if no throttling is needed */
 
@@ -319,11 +319,16 @@ suscan_source_is_capturing(const suscan_source_t *src)
 /******************************* Source interface *****************************/
 SUBOOL suscan_source_config_register(suscan_source_config_t *config);
 
-int suscan_source_register(const struct suscan_source_interface *iface);
-const struct suscan_source_interface *suscan_source_interface_lookup_by_index(int);
-const struct suscan_source_interface *suscan_source_interface_lookup_by_name(const char *);
+SUBOOL suscan_source_interface_walk(const char *name,
+  SUBOOL (*function) (
+    const struct suscan_source_interface *iface,
+    void *private),
+  void *private);
 
-SUBOOL suscan_source_detect_devices(void);
+int suscan_source_register(const struct suscan_source_interface *iface);
+const struct suscan_source_interface *suscan_source_lookup(
+  const char *,
+  const char *);
 
 /* Internal */
 SUBOOL suscan_source_register_file(void);

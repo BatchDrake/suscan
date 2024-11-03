@@ -110,6 +110,30 @@ fail:
 }
 
 SUBOOL
+suscli_param_read_uuid(
+    const hashlist_t *params,
+    const char *key,
+    uint64_t *out,
+    uint64_t dfl)
+{
+  const char *value;
+  SUBOOL ok = SU_FALSE;
+
+  if ((value = hashlist_get(params, key)) != NULL)
+    if (sscanf(value, "%16" SCNx64, &dfl) < 1) {
+      SU_ERROR("Parameter `%s' is not a device UUID.\n", key);
+      goto fail;
+    }
+
+  *out = dfl;
+
+  ok = SU_TRUE;
+
+fail:
+  return ok;
+}
+
+SUBOOL
 suscli_param_read_profile(
     const hashlist_t *p,
     const char *key,

@@ -22,7 +22,9 @@
 #define SU_LOG_DOMAIN "source-info"
 
 #include <analyzer/source/info.h>
+#include <analyzer/device/properties.h>
 #include <sigutils/defs.h>
+#include <sigutils/log.h>
 
 /* Come on */
 #ifdef bool
@@ -67,20 +69,18 @@ fail:
 
 struct suscan_source_gain_info *
 suscan_source_gain_info_new(
-    const struct suscan_source_gain_value *value)
+  const struct suscan_device_gain_desc *desc,
+  SUFLOAT value)
 {
   struct suscan_source_gain_info *new = NULL;
 
-  SU_TRYCATCH(
-      new = calloc(1, sizeof(struct suscan_source_gain_info)),
-      goto fail);
+  SU_ALLOCATE_FAIL(new, struct suscan_source_gain_info);
+  SU_TRY_FAIL(new->name = strdup(desc->name));
 
-  SU_TRYCATCH(new->name = strdup(value->desc->name), goto fail);
-
-  new->max   = value->desc->max;
-  new->min   = value->desc->min;
-  new->step  = value->desc->step;
-  new->value = value->val;
+  new->max   = desc->max;
+  new->min   = desc->min;
+  new->step  = desc->step;
+  new->value = value;
 
   return new;
 

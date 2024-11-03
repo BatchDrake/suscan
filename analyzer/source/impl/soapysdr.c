@@ -19,6 +19,8 @@
 
 #include "soapysdr.h"
 #include <analyzer/source.h>
+#include <analyzer/device/spec.h>
+#include <analyzer/device/properties.h>
 #include <sys/time.h>
 
 #ifdef _SU_SINGLE_PRECISION
@@ -26,6 +28,59 @@
 #else
 #  define SUSCAN_SOAPY_SAMPFMT SOAPY_SDR_CF64
 #endif
+
+SUPRIVATE SoapySDRKwargs *
+strmap_to_SoapySDRKwargs(const strmap_t *map)
+{
+  SoapySDRKwargs *args = NULL;
+  strmap_iterator_t it;
+  unsigned int i;
+
+  PTR_LIST_LOCAL(char, key);
+  PTR_LIST_LOCAL(char, val);
+
+  SU_ALLOCATE_FAIL(args, SoapySDRKwargs);
+
+  it = strmap_begin(map);
+  while (!strmap_iterator_end(&it)) {
+    if (it.value != NULL) {
+      SU_TRY_FAIL(PTR_LIST_APPEND_CHECK(key, it.name));
+      SU_TRY_FAIL(PTR_LIST_APPEND_CHECK(val, it.value)); 
+    }
+
+    strmap_iterator_advance(&it);
+  }
+
+  args->keys = key_list;
+  args->vals = val_list;
+  args->size = key_count;
+
+  return args;
+
+fail:
+  if (args != NULL) {
+    SoapySDRKwargs_clear(args);
+    free(args);
+  }
+
+  if (key_list != NULL) {
+    for (i = 0; i < key_count; ++i)
+      if (key_list[i] != NULL)
+        free(key_list[i]);
+
+    free(key_list);
+  }
+
+  if (val_list != NULL) {
+    for (i = 0; i < val_count; ++i)
+      if (val_list[i] != NULL)
+        free(val_list[i]);
+
+    free(val_list);
+  }
+
+  return NULL;
+}
 
 SUPRIVATE SoapySDRArgInfo *
 suscan_source_soapysdr_find_setting(
@@ -92,10 +147,14 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
   unsigned int i;
   char *antenna = NULL;
   const char *key, *desc, *val;
+  strmap_t *all_params = NULL;
   SoapySDRArgInfo *arg;
   SUBOOL ok = SU_FALSE;
 
-  if ((self->sdr = SoapySDRDevice_make(config->soapy_args)) == NULL) {
+  SU_TRY(all_params = suscan_device_spec_get_all(config->device_spec));
+  SU_TRY(self->sdr_args = strmap_to_SoapySDRKwargs(all_params));
+
+  if ((self->sdr = SoapySDRDevice_make(self->sdr_args)) == NULL) {
     SU_ERROR("Failed to open SDR device: %s\n", SoapySDRDevice_lastError());
     goto done;
   }
@@ -121,11 +180,11 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
         self->sdr,
         SOAPY_SDR_RX,
         config->channel,
-        config->gain_list[i]->desc->name,
+        config->gain_list[i]->name,
         config->gain_list[i]->val) != 0)
       SU_WARNING(
           "Failed to set gain `%s' to %gdB, ignoring silently\n",
-          config->gain_list[i]->desc->name,
+          config->gain_list[i]->name,
           config->gain_list[i]->val);
 
 
@@ -212,13 +271,13 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
   }
 
   SoapySDRKwargs stream_args_to_set = {};
-  for (i = 0; i < config->soapy_args->size; ++i) {
+  for (i = 0; i < self->sdr_args->size; ++i) {
     if (strncmp(
-      config->soapy_args->keys[i],
+      self->sdr_args->keys[i],
       SUSCAN_STREAM_SETTING_PREFIX,
       SUSCAN_STREAM_SETTING_PFXLEN) == 0) {
 
-      key = config->soapy_args->keys[i] + SUSCAN_STREAM_SETTING_PFXLEN;
+      key = self->sdr_args->keys[i] + SUSCAN_STREAM_SETTING_PFXLEN;
       arg = suscan_source_soapysdr_find_stream_arg(self, key);
 
       if (arg != NULL) {
@@ -226,14 +285,14 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
         SU_INFO(
           "Stream setting `%s': set to %s\n",
           desc,
-          config->soapy_args->vals[i]);
+          self->sdr_args->vals[i]);
       } else {
         SU_WARNING(
           "Stream setting `%s': not supported by device. Setting anyways.\n",
           key);
       }
 
-      SoapySDRKwargs_set(&stream_args_to_set, key, config->soapy_args->vals[i]);
+      SoapySDRKwargs_set(&stream_args_to_set, key, self->sdr_args->vals[i]);
     }
   }
 
@@ -286,13 +345,13 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
     suscan_source_soapysdr_debug_clocks(self);
   }
   
-  for (i = 0; i < config->soapy_args->size; ++i) {
+  for (i = 0; i < self->sdr_args->size; ++i) {
     if (strncmp(
-      config->soapy_args->keys[i],
+      self->sdr_args->keys[i],
       SUSCAN_SOURCE_SETTING_PREFIX,
       SUSCAN_SOURCE_SETTING_PFXLEN) == 0) {
 
-      key = config->soapy_args->keys[i] + SUSCAN_SOURCE_SETTING_PFXLEN;
+      key = self->sdr_args->keys[i] + SUSCAN_SOURCE_SETTING_PFXLEN;
       arg = suscan_source_soapysdr_find_setting(self, key);
 
       if (arg != NULL) {
@@ -300,7 +359,7 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
         SU_INFO(
           "Device setting `%s': set to %s\n",
           desc,
-          config->soapy_args->vals[i]);
+          self->sdr_args->vals[i]);
       } else {
         SU_WARNING(
           "Device setting `%s': not supported by device. Setting anyways.\n",
@@ -310,13 +369,13 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
       SoapySDRDevice_writeSetting(
         self->sdr,
         key,
-        config->soapy_args->vals[i]);
+        self->sdr_args->vals[i]);
     } else if (strncmp(
-      config->soapy_args->keys[i],
+      self->sdr_args->keys[i],
       SUSCAN_SOAPY_SETTING_PREFIX,
       SUSCAN_SOAPY_SETTING_PFXLEN) == 0) {
-      key = config->soapy_args->keys[i] + SUSCAN_SOAPY_SETTING_PFXLEN;
-      val = config->soapy_args->vals[i];
+      key = self->sdr_args->keys[i] + SUSCAN_SOAPY_SETTING_PFXLEN;
+      val = self->sdr_args->vals[i];
 
       if (strcmp(key, "clock") == 0) {
         if (SoapySDRDevice_setClockSource(self->sdr, val) != 0) {
@@ -347,6 +406,9 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
   ok = SU_TRUE;
 
 done:
+  if (all_params != NULL)
+    SU_DISPOSE(strmap, all_params);
+  
   return ok;
 }
 
@@ -368,11 +430,22 @@ suscan_source_soapysdr_close(void *ptr)
   if (self->stream_args != NULL)
     SoapySDRArgInfoList_clear(self->stream_args, self->stream_args_count);
 
+  if (self->sdr_args != NULL) {
+    SoapySDRKwargs_clear(self->sdr_args);
+    free(self->sdr_args);
+    self->sdr_args = NULL;
+  }
+
   if (self->sdr != NULL)
     SoapySDRDevice_unmake(self->sdr);
 
   free(self);
 }
+
+struct soapysdr_gain_ctx {
+  struct suscan_source_info       *info;
+  struct suscan_device_properties *prop;
+};
 
 SUPRIVATE SUBOOL
 suscan_source_soapysdr_source_info_add_gain(
@@ -380,19 +453,19 @@ suscan_source_soapysdr_source_info_add_gain(
     struct suscan_source_gain_value *gain)
 {
   SUBOOL ok = SU_FALSE;
-  struct suscan_source_gain_info *ginfo;
-  struct suscan_source_info *info =
-      (struct suscan_source_info *) private;
+  struct suscan_source_gain_info  *ginfo;
+  struct soapysdr_gain_ctx *ctx =  private;
+  const struct suscan_device_gain_desc *gain_desc;
 
-  SU_TRYCATCH(ginfo = suscan_source_gain_info_new(gain), goto fail);
-
-  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->gain, ginfo) != -1, goto fail);
+  SU_TRY(gain_desc = suscan_device_properties_lookup_gain(ctx->prop, gain->name));
+  SU_TRY(ginfo = suscan_source_gain_info_new(gain_desc, gain->val));
+  SU_TRYC(PTR_LIST_APPEND_CHECK(ctx->info->gain, ginfo));
 
   ginfo = NULL;
 
   ok = SU_TRUE;
 
-fail:
+done:
   if (ginfo != NULL)
     suscan_source_gain_info_destroy(ginfo);
 
@@ -405,15 +478,18 @@ suscan_source_soapysdr_populate_source_info(
   struct suscan_source_info *info,
   const suscan_source_config_t *config)
 {
-  const suscan_source_device_t *dev = suscan_source_config_get_device(config);
-  struct suscan_source_device_info dev_info =
-      suscan_source_device_info_INITIALIZER;
+  struct soapysdr_gain_ctx ctx;
+  struct suscan_device_properties *prop;
   unsigned int i;
   char *dup = NULL;
   SUBOOL ok = SU_FALSE;
 
   info->realtime    = SU_TRUE;
   
+  SU_TRY(
+    prop = suscan_device_spec_properties(
+      suscan_source_config_get_device_spec(config)));
+
   /* Adjust permissions */
   info->permissions = SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS;
   if (!self->have_dc)
@@ -425,29 +501,29 @@ suscan_source_soapysdr_populate_source_info(
   info->measured_samp_rate  = self->samp_rate;
   
   /* Adjust limits */
-  info->freq_min = suscan_source_device_get_min_freq(dev);
-  info->freq_max = suscan_source_device_get_max_freq(dev);
+  info->freq_min = prop->freq_min;
+  info->freq_max = prop->freq_max;
 
   /* Get current source time */
   gettimeofday(&info->source_time, NULL);
   gettimeofday(&info->source_start, NULL);
 
   /* Initialize gains. This were set earlier in the config object. */
+  ctx.prop = prop;
+  ctx.info = info;
+
   SU_TRYCATCH(
       suscan_source_config_walk_gains_ex(
           config,
           suscan_source_soapysdr_source_info_add_gain,
-          info),
+          &ctx),
       goto done);
 
   /* Initialize antennas */
-  dev = suscan_source_config_get_device(config);
-  if (suscan_source_device_get_info(dev, 0, &dev_info)) {
-    for (i = 0; i < dev_info.antenna_count; ++i) {
-      SU_TRYCATCH(dup = strdup(dev_info.antenna_list[i]), goto done);
-      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->antenna, dup) != -1, goto done);
-      dup = NULL;
-    }
+  for (i = 0; i < prop->antenna_count; ++i) {
+    SU_TRYCATCH(dup = strdup(prop->antenna_list[i]), goto done);
+    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->antenna, dup) != -1, goto done);
+    dup = NULL;
   }
 
   ok = SU_TRUE;
@@ -455,8 +531,6 @@ suscan_source_soapysdr_populate_source_info(
 done:
   if (dup != NULL)
     free(dup);
-
-  suscan_source_device_info_finalize(&dev_info);
 
   return ok;
 }
@@ -727,28 +801,24 @@ suscan_source_soapysdr_get_freq_limits(
   SUFREQ *min,
   SUFREQ *max)
 {
-  struct suscan_source_device_info info = suscan_source_device_info_INITIALIZER;
+  struct suscan_device_properties *prop = NULL;
   SUBOOL ok = SU_FALSE;
 
-  if (self->device == NULL)
-    goto done;
+  SU_TRY(prop = suscan_device_spec_properties(self->device_spec));
 
-  SU_TRY(suscan_source_device_get_info(self->device, self->channel, &info));
-
-  *min = info.freq_min;
-  *max = info.freq_max;
+  *min = prop->freq_min;
+  *max = prop->freq_max;
 
   ok = SU_TRUE;
 
 done:
-  suscan_source_device_info_finalize(&info);
-
   return ok;
 }
 
 SUPRIVATE struct suscan_source_interface g_soapysdr_source =
 {
   .name            = "soapysdr",
+  .analyzer        = "local",
   .desc            = "SoapySDR (ABI " SOAPY_SDR_ABI_VERSION ")",
   .realtime        = SU_TRUE,
   
@@ -778,11 +848,9 @@ SUPRIVATE struct suscan_source_interface g_soapysdr_source =
 SUBOOL
 suscan_source_register_soapysdr(void)
 {
-  int ndx;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYC(ndx = suscan_source_register(&g_soapysdr_source));
-  SU_TRYC(ndx == SUSCAN_SOURCE_TYPE_FILE);
+  SU_TRY(suscan_source_register(&g_soapysdr_source));
 
   ok = SU_TRUE;
 

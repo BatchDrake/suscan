@@ -252,17 +252,11 @@ SUPRIVATE void
 suscli_radio_params_debug(const struct suscli_radio_params *self)
 {
   char freqbuffer[24];
-  const suscan_source_device_t *dev =
-      suscan_source_config_get_device(self->profile);
 
   printf("Demodulator summary:\n");
   printf(
       "  Profile:       %s\n",
       suscan_source_config_get_label(self->profile));
-
-  printf(
-      "  Device:        %s\n",
-      suscan_source_device_get_desc(dev));
 
   suscli_radio_helper_format_frequency(
       self->frequency,

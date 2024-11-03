@@ -35,6 +35,7 @@ struct suscan_source_soapysdr {
   struct suscan_source_config *config;
   struct suscan_source        *source;
 
+  SoapySDRKwargs  *sdr_args;
   SoapySDRDevice  *sdr;
   SoapySDRStream  *rx_stream;
   SoapySDRArgInfo *settings;

@@ -30,11 +30,29 @@
 #  define suscan_unpack_compact_float_array suscan_unpack_compact_double_array
 #endif /* _SU_SINGLE_PRECISION */
 
+#define SUSCAN_TYPE_SERIALIZER_PROTO(typename)         \
+SUBOOL                                                 \
+JOIN(typename, _serialize)(                            \
+    const JOIN(typename, _t) *self,                    \
+    grow_buf_t *buffer)                                \
+
+#define SUSCAN_PARTIAL_DESERIALIZER_PROTO(structname)  \
+SUBOOL                                                 \
+JOIN(structname, _deserialize_partial)(                \
+    struct structname *self,                           \
+    grow_buf_t *buffer)                 
+
 #define SUSCAN_SERIALIZER_PROTO(structname)            \
 SUBOOL                                                 \
 JOIN(structname, _serialize)(                          \
     const struct structname *self,                     \
     grow_buf_t *buffer)                                \
+
+#define SUSCAN_TYPE_DESERIALIZER_PROTO(typename)       \
+SUBOOL                                                 \
+JOIN(typename, _deserialize)(                          \
+    JOIN(typename, _t) *self,                          \
+    grow_buf_t *buffer)        
 
 #define SUSCAN_PARTIAL_DESERIALIZER_PROTO(structname)  \
 SUBOOL                                                 \

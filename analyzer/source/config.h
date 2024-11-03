@@ -24,7 +24,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#include <analyzer/source/device.h>
+#include <analyzer/device/spec.h>
+#include <sigutils/util/compat-time.h>
 #include <analyzer/serialize.h>
 #include <object.h>
 
@@ -33,10 +34,8 @@ extern "C" {
 #define SUSCAN_SOURCE_DEFAULT_SAMP_RATE 1000000
 #define SUSCAN_SOURCE_DEFAULT_BANDWIDTH SUSCAN_SOURCE_DEFAULT_SAMP_RATE
 
-enum suscan_source_type {
-  SUSCAN_SOURCE_TYPE_FILE = 0,
-  SUSCAN_SOURCE_TYPE_SDR  = 1
-};
+#define SUSCAN_SOURCE_LOCAL_INTERFACE   "local"
+#define SUSCAN_SOURCE_REMOTE_INTERFACE  "remote"
 
 enum suscan_source_format {
   SUSCAN_SOURCE_FORMAT_AUTO,
@@ -58,7 +57,7 @@ enum suscan_source_format {
 #define SUSCAN_SOURCE_FORMAT_FALLBACK SUSCAN_SOURCE_FORMAT_RAW_FLOAT32
 
 struct suscan_source_gain_value {
-  const struct suscan_source_gain_desc *desc;
+  char   *name;
   SUFLOAT val;
 };
 
@@ -93,10 +92,8 @@ SUSCAN_SERIALIZABLE(suscan_source_config) {
   char *path;
   SUBOOL loop;
 
-  /* For SDR sources */
-  const suscan_source_device_t *device; /* Borrowed, optional */
-  const char *interface;
-  SoapySDRKwargs *soapy_args;
+  /* For real time sources */
+  suscan_device_spec_t *device_spec;
   char *antenna;
   unsigned int channel;
   PTR_LIST(struct suscan_source_gain_value, gain);
@@ -227,7 +224,7 @@ SUBOOL suscan_source_config_walk_gains_ex(
     SUBOOL (*gain_cb) (void *privdata, struct suscan_source_gain_value *),
     void *privdata);
 
-struct suscan_source_gain_value *suscan_source_config_assert_gain(
+struct suscan_source_gain_value *suscan_source_config_upsert_gain(
     suscan_source_config_t *config,
     const char *name,
     SUFLOAT value);
@@ -253,18 +250,14 @@ void suscan_source_config_set_start_time(
     suscan_source_config_t *config,
     struct timeval tv);
 
-SUBOOL suscan_source_config_set_device(
+SUBOOL suscan_source_config_set_device_spec(
     suscan_source_config_t *config,
-    const suscan_source_device_t *self);
+    const suscan_device_spec_t *spec);
 
-SUBOOL suscan_source_config_set_interface(
-    suscan_source_config_t *self,
-    const char *interface);
-
-SUINLINE const suscan_source_device_t *
-suscan_source_config_get_device(const suscan_source_config_t *config)
+SUINLINE const suscan_device_spec_t *
+suscan_source_config_get_device_spec(const suscan_source_config_t *config)
 {
-  return config->device;
+  return config->device_spec;
 }
 
 SUINLINE const char *
@@ -272,7 +265,7 @@ suscan_source_config_get_param(
     const suscan_source_config_t *self,
     const char *key)
 {
-  return SoapySDRKwargs_get(self->soapy_args, key);
+  return suscan_device_spec_get(self->device_spec, key);
 }
 
 SUINLINE SUBOOL
@@ -281,14 +274,10 @@ suscan_source_config_set_param(
     const char *key,
     const char *value)
 {
-  /* DANGER */
-  SoapySDRKwargs_set(self->soapy_args, key, value);
-  /* DANGER */
-
-  return SU_TRUE;
+  return suscan_device_spec_set(self->device_spec, key, value);
 }
 
-SUINLINE SUBOOL
+SUBOOL
 suscan_source_config_walk_params(
   const suscan_source_config_t *self,
   SUBOOL (*callback) (
@@ -296,41 +285,21 @@ suscan_source_config_walk_params(
     const char *key,
     const char *value,
     void *userdata),
-  void *userdata)
-{
-  size_t i;
-
-  for (i = 0; i < self->soapy_args->size; ++i)
-    if (!(callback) (
-      self, 
-      self->soapy_args->keys[i], 
-      self->soapy_args->vals[i],
-      userdata))
-      return SU_FALSE;
-
-  return SU_TRUE;
-}
+  void *userdata);
 
 SUINLINE void
 suscan_source_config_clear_params(suscan_source_config_t *self)
 {
-  SoapySDRKwargs_clear(self->soapy_args);
+  suscan_device_spec_reset(self->device_spec);
 }
 
 SUINLINE SUBOOL
 suscan_source_config_is_remote(const suscan_source_config_t *self)
 {
-  if (self->interface == NULL)
-    return SU_FALSE;
-
-  return strcmp(self->interface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0;
+  return strcmp(
+    suscan_device_spec_analyzer(self->device_spec),
+    SUSCAN_SOURCE_REMOTE_INTERFACE) == 0;
 }
-
-char *suscan_source_config_get_sdr_args(const suscan_source_config_t *config);
-
-SUBOOL suscan_source_config_set_sdr_args(
-    const suscan_source_config_t *config,
-    const char *args);
 
 suscan_source_config_t *suscan_source_config_new_default(void);
 suscan_source_config_t *suscan_source_config_new(

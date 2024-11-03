@@ -87,7 +87,7 @@ hashlist_entry_dtor(void *data, void *private)
 
   while (this != NULL) {
     next = this->next;
-
+    
     if (owner->dtor != NULL)
       (owner->dtor) (this->key, this->value, owner->userdata);
 
@@ -98,24 +98,100 @@ hashlist_entry_dtor(void *data, void *private)
 }
 
 /***************************** Hashlist object ********************************/
-hashlist_t *
-hashlist_new(void)
+SU_CONSTRUCTOR(hashlist)
+{
+  SUBOOL ok = SU_FALSE;
+
+  memset(self, 0, sizeof(hashlist_t));
+
+  SU_MAKE(self->rbtree, rbtree);
+
+  rbtree_set_dtor(self->rbtree, hashlist_entry_dtor, self);
+
+  ok = SU_TRUE;
+
+done:
+  if (!ok)
+    SU_DESTRUCT(hashlist, self);
+  
+  return ok;
+}
+
+SU_INSTANCER(hashlist)
 {
   hashlist_t *new = NULL;
 
-  SU_TRYCATCH(new = calloc(1, sizeof(hashlist_t)), goto fail);
-
-  SU_TRYCATCH(new->rbtree = rbtree_new(), goto fail);
-
-  rbtree_set_dtor(new->rbtree, hashlist_entry_dtor, new);
+  SU_ALLOCATE_FAIL(new, hashlist_t);
+  SU_CONSTRUCT_FAIL(hashlist, new);
 
   return new;
 
 fail:
-  if (new != NULL)
-    hashlist_destroy(new);
+  free(new);
 
   return NULL;
+}
+
+SU_GETTER(hashlist, hashlist_iterator_t, begin)
+{
+  hashlist_iterator_t it = {NULL, NULL, NULL, NULL};
+  struct rbtree_node *first = rbtree_get_first(self->rbtree);
+  struct rbtree_node *curr = first;
+  struct hashlist_entry *entry;
+
+  while (curr != NULL && curr->data == NULL)
+    curr = rbtree_node_next(curr);
+
+  if (curr != NULL) {
+    entry = curr->data;
+
+    it.node  = curr;
+    it.entry = entry;
+    
+    it.name  = entry->key;
+    it.value = entry->value;
+  }
+  
+  return it;
+}
+
+SU_METHOD(hashlist_iterator, void, advance)
+{
+  hashlist_iterator_t *it = self;
+
+  if (it->node != NULL) {
+    struct rbtree_node *curr     = it->node;
+    struct hashlist_entry *entry = it->entry;
+
+    entry = entry->next;
+
+    if (entry == NULL) {
+      while ((curr = rbtree_node_next(curr)) != NULL && curr->data == NULL);
+
+      if (curr == NULL || curr->data == NULL) {
+        /* End of the road. Sorry. */
+        it->node  = NULL;
+        it->entry = NULL;
+      } else {
+        entry     = curr->data;
+        it->node  = curr;
+        it->entry = entry;
+      }
+    }
+
+    if (entry != NULL) {
+      it->name = entry->key;
+      it->value = entry->value;
+    } else {
+      it->name  = NULL;
+      it->value = NULL;
+    }
+  } 
+}
+
+SU_GETTER(hashlist_iterator, SUBOOL, end)
+{
+  return self->node == NULL;
 }
 
 /* https://stackoverflow.com/questions/40440762/is-it-possible-for-murmurhash3-to-produce-a-64-bit-hash-where-the-upper-32-bits*/
@@ -196,8 +272,12 @@ hashlist_find_entry_list(const hashlist_t *self, uint64_t hash)
   return rbtree_node_data(node);
 }
 
-SUBOOL
-hashlist_set(hashlist_t *self, const char *key, void *val)
+SU_GETTER(hashlist, size_t, size)
+{
+  return self->size;
+}
+
+SU_METHOD(hashlist, SUBOOL, set, const char *key, void *val)
 {
   uint64_t hash = murmur_hash_64(key, strlen(key), HASHLIST_SEED);
   struct hashlist_entry *list = NULL, *entry, *new = NULL;
@@ -206,23 +286,29 @@ hashlist_set(hashlist_t *self, const char *key, void *val)
     if ((entry = hashlist_entry_find(list, key)) != NULL) {
       if (self->dtor != NULL)
         (self->dtor) (key, entry->value, self->userdata);
+      if (val != NULL)
+        ++self->size;
+      if (entry->value != NULL)
+        --self->size;
       entry->value = val;
       return SU_TRUE;
     }
   }
 
   /* Not found. Create object */
-  SU_TRYCATCH(new = hashlist_entry_new(key, val), goto fail);
+  SU_TRY_FAIL(new = hashlist_entry_new(key, val));
 
   if (list != NULL) {
     new->next = list->next;
     list->next = new;
   } else {
-    SU_TRYCATCH(
-        rbtree_insert(self->rbtree, (int64_t) hash, new) != -1,
-        goto fail);
+    SU_TRYC_FAIL(rbtree_insert(self->rbtree, (int64_t) hash, new));
   }
 
+  /* Count only the non-null entries */
+  if (val != NULL)
+    ++self->size;
+  
   return SU_TRUE;
 
 fail:
@@ -232,20 +318,24 @@ fail:
   return SU_FALSE;
 }
 
-void
-hashlist_set_userdata(hashlist_t *self, void *userdata)
+SU_METHOD(hashlist, void,   set_userdata, void *userdata)
 {
   self->userdata = userdata;
 }
 
-void
-hashlist_set_dtor(hashlist_t *self, void (*dtor) (const char *, void *, void *))
+SU_METHOD(hashlist, void, set_dtor, void (*dtor) (const char *, void *, void *))
 {
   self->dtor = dtor;
+  rbtree_set_dtor(self->rbtree, hashlist_entry_dtor, self);
 }
 
-SUBOOL
-hashlist_contains(const hashlist_t *self, const char *key)
+SU_METHOD(hashlist, void, clear)
+{
+  rbtree_clear(self->rbtree);
+  self->size = 0;
+}
+
+SU_GETTER(hashlist, SUBOOL, contains, const char *key)
 {
   uint64_t hash = murmur_hash_64(key, strlen(key), HASHLIST_SEED);
   const struct hashlist_entry *list = hashlist_find_entry_list(self, hash);
@@ -256,8 +346,7 @@ hashlist_contains(const hashlist_t *self, const char *key)
   return hashlist_entry_find(list, key) != NULL;
 }
 
-void *
-hashlist_get(const hashlist_t *self, const char *key)
+SU_GETTER(hashlist, void *, get, const char *key)
 {
   uint64_t hash = murmur_hash_64(key, strlen(key), HASHLIST_SEED);
   const struct hashlist_entry *list = hashlist_find_entry_list(self, hash);
@@ -272,11 +361,17 @@ hashlist_get(const hashlist_t *self, const char *key)
   return entry->value;
 }
 
-void
-hashlist_destroy(hashlist_t *self)
+SU_DESTRUCTOR(hashlist)
 {
-  if (self->rbtree != NULL)
+  if (self->rbtree != NULL) {
     rbtree_destroy(self->rbtree);
+    self->rbtree = NULL;
+  }
+}
 
+SU_COLLECTOR(hashlist)
+{
+  SU_DESTRUCT(hashlist, self);
   free(self);
 }
+
