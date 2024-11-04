@@ -322,8 +322,8 @@ SUBOOL suscan_source_config_register(suscan_source_config_t *config);
 SUBOOL suscan_source_interface_walk(const char *name,
   SUBOOL (*function) (
     const struct suscan_source_interface *iface,
-    void *private),
-  void *private);
+    void *userdata),
+  void *userdata);
 
 int suscan_source_register(const struct suscan_source_interface *iface);
 const struct suscan_source_interface *suscan_source_lookup(
