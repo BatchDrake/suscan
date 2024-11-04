@@ -22,6 +22,7 @@
 #define SU_LOG_DOMAIN "worker"
 
 #include "worker.h"
+#include <string.h>
 
 /*
  * worker.c: It's essentially a consumer of asynchronous callbacks. However,
@@ -113,7 +114,10 @@ suscan_worker_thread(void *data)
           goto done;
 
         default:
-          SU_WARNING("Unexpected worker message type #%d\n", msg->type);
+          SU_WARNING(
+            "[%s] Unexpected worker message type #%d\n",
+            worker->name,
+            msg->type);
           suscan_msg_destroy(msg); /* Destroy message anyways */
       }
 
@@ -193,13 +197,13 @@ suscan_worker_destroy(suscan_worker_t *worker)
   uint32_t type;
 
   if (worker->state == SUSCAN_WORKER_STATE_RUNNING) {
-    SU_ERROR("Cannot destroy worker %p: still running\n", worker);
+    SU_ERROR("[%s] Cannot destroy worker: still running\n", worker->name);
     return SU_FALSE;
   }
 
   if (worker->state == SUSCAN_WORKER_STATE_HALTED)
     if (pthread_join(worker->thread, NULL) == -1) {
-      SU_ERROR("Thread failed to join, memory leak ahead\n");
+      SU_ERROR("[%s] Failed to join worker thread, memory leak ahead\n", worker->name);
       return SU_FALSE;
     }
 
@@ -210,6 +214,9 @@ suscan_worker_destroy(suscan_worker_t *worker)
 
   suscan_mq_finalize(&worker->mq_in);
 
+  if (worker->name != NULL)
+    free(worker->name);
+  
   free(worker);
 
   return SU_TRUE;
@@ -233,10 +240,12 @@ suscan_worker_halt(suscan_worker_t *worker)
     suscan_mq_read_timeout(worker->mq_out, &type, &tv);
 
     if (type == SUSCAN_WORKER_MSG_TYPE_SENTINEL) {
-      SU_ERROR("Timeout while halting worker. Memory leak ahead.\n");
+      SU_ERROR(
+        "[%s] Timeout while halting worker. Memory leak ahead.\n",
+        worker->name);
       return SU_FALSE;
     } else if (type != SUSCAN_WORKER_MSG_TYPE_HALT) {
-      SU_ERROR("Unexpected worker message type\n");
+      SU_ERROR("[%s] Unexpected worker message type\n", worker->name);
       return SU_FALSE;
     }
   }
@@ -255,6 +264,9 @@ suscan_worker_new_ex(
   if ((new = calloc(1, sizeof (suscan_worker_t))) == NULL)
     goto fail;
 
+  if ((new->name = strdup(name)) == NULL)
+    goto fail;
+  
   new->state = SUSCAN_WORKER_STATE_CREATED;
   new->mq_out = mq_out;
   new->privdata = private;

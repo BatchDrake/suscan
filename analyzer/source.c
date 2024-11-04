@@ -32,7 +32,6 @@
 
 #include "source.h"
 #include "compat.h"
-#include "discovery.h"
 
 #include <sigutils/taps.h>
 #include <sigutils/specttuner.h>
@@ -41,6 +40,8 @@
 #include <sigutils/util/compat-time.h>
 #include <sigutils/util/compat-mman.h>
 #include <confdb.h>
+
+#include "device/facade.h"
 
 #ifdef _WIN32
 #  include <winsock2.h>
@@ -1205,7 +1206,6 @@ suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL enabled)
     }
   }
   
-
   if (self->history_replay != enabled) {
     /* When replay is enabled, we need to change the source start */
     if (enabled) {
@@ -1255,7 +1255,7 @@ suscan_source_t *
 suscan_source_new(suscan_source_config_t *config)
 {
   suscan_source_t *new = NULL;
-
+  const char *analyzer;
   SU_TRY_FAIL(suscan_source_config_check(config));
   SU_ALLOCATE_FAIL(new, suscan_source_t);
   
@@ -1269,11 +1269,16 @@ suscan_source_new(suscan_source_config_t *config)
   if (config->average > 1)
     SU_TRY_FAIL(suscan_source_configure_decimation(new, config->average));
 
-  /* Search by index */
-  new->iface = suscan_source_interface_lookup_by_name(config->type);
+  /* Search by name */
+  analyzer = suscan_device_spec_analyzer(
+      suscan_source_config_get_device_spec(config));
+  new->iface = suscan_source_lookup(analyzer, config->type);
 
   if (new->iface == NULL) {
-    SU_ERROR("Unknown source type `%s' passed to config\n", config->type);
+    SU_ERROR(
+      "Unknown source type `%s' (analyzer = `%s') passed to config\n",
+      config->type,
+      analyzer);
     goto fail;
   }
 
@@ -1302,7 +1307,8 @@ fail:
 SUBOOL
 suscan_init_sources(void)
 {
-  const char *mcif;
+  suscan_device_facade_t *facade = NULL;
+  SUBOOL ok = SU_FALSE;
 
 #ifdef _WIN32
   WORD wVersionRequested;
@@ -1323,22 +1329,16 @@ suscan_init_sources(void)
   }
 #endif /* _WIN32 */
 
-  SU_TRYCATCH(suscan_source_init_source_types(), return SU_FALSE);
+  SU_TRY(suscan_source_init_source_types());
+  SU_TRY(facade = suscan_device_facade_instance());
+  SU_TRY(suscan_device_facade_discover_all(facade));
 
   /* TODO: Register analyzer interfaces? */
-  SU_TRYCATCH(suscan_source_device_preinit(), return SU_FALSE);
-  SU_TRYCATCH(suscan_source_register_null_device(), return SU_FALSE);
-  SU_TRYCATCH(suscan_confdb_use("sources"), return SU_FALSE);
-  SU_TRYCATCH(suscan_source_detect_devices(), return SU_FALSE);
-  SU_TRYCATCH(suscan_load_sources(), return SU_FALSE);
+  SU_TRY(suscan_confdb_use("sources"));
+  SU_TRY(suscan_load_sources());
 
-  if ((mcif = getenv("SUSCAN_DISCOVERY_IF")) != NULL && strlen(mcif) > 0) {
-    SU_INFO("Discovery mode started\n");
-    if (!suscan_device_net_discovery_start(mcif)) {
-      SU_ERROR("Failed to initialize remote device discovery.\n");
-      SU_ERROR("SuRPC services will be disabled.\n");
-    }
-  }
+  ok = SU_TRUE;
 
-  return SU_TRUE;
+done:
+  return ok;
 }

@@ -46,6 +46,24 @@ suscan_analyzer_is_local(const suscan_analyzer_t *self)
 }
 #endif /* SUSCAN_THIN_CLIENT */
 
+const struct suscan_analyzer_interface *
+suscan_analyzer_interface_lookup(const char *name)
+{
+  const struct suscan_analyzer_interface *iface = NULL;
+
+  if (strcmp(name, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0) {
+    iface = suscan_remote_analyzer_get_interface();
+  } else if (strcmp(name, "local") == 0) {
+#ifdef SUSCAN_THIN_CLIENT
+    iface = NULL;
+#else
+    iface = suscan_local_analyzer_get_interface();
+#endif // SUSCAN_THIN_CLIENT 
+  }
+
+  return iface;
+}
+
 /* Gain info objects */
 SUSCAN_SERIALIZER_PROTO(suscan_source_gain_info)
 {
@@ -310,20 +328,14 @@ suscan_analyzer_new(
     suscan_source_config_t *config,
     struct suscan_mq *mq)
 {
+  const char *iname;
   const struct suscan_analyzer_interface *iface;
 
-  /* TODO: Replace by a lookup method when the
-   * global interface list is available */
-
-  if (suscan_source_config_is_remote(config)) {
-    iface = suscan_remote_analyzer_get_interface();
-  } else {
-#ifdef SUSCAN_THIN_CLIENT
-    SU_ERROR("Suscan thin client library cannot instantiate local analyzers\n");
+  iname = suscan_source_config_get_interface(config);
+  iface = suscan_analyzer_interface_lookup(iname);
+  if (iface == NULL) {
+    SU_ERROR("Unrecognized analyzer interface `%s'\n", iname);
     return NULL;
-#else
-    iface = suscan_local_analyzer_get_interface();
-#endif // SUSCAN_THIN_CLIENT
   }
 
   return suscan_analyzer_new_from_interface(params, mq, iface, config);

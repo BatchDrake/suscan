@@ -37,6 +37,7 @@ enum suscan_worker_state {
 };
 
 struct suscan_worker {
+  char *name; /* Worker name, mostly for debugging purposes */
   struct suscan_mq mq_in; /* Receive callbacks from here */
   struct suscan_mq *mq_out; /* Send callbacks to here */
   void *privdata; /* Worker private data */

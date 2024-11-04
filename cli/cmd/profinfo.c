@@ -38,14 +38,12 @@ suscli_profinfo_cb(const hashlist_t *params)
   SUBOOL ok = SU_FALSE;
   const char *name;
   suscan_source_config_t *profile = NULL;
-  const suscan_source_device_t *dev = NULL;
 
   SU_TRYCATCH(
       suscli_param_read_profile(params, "profile", &profile),
       goto fail);
 
   name = suscan_source_config_get_label(profile);
-  dev  = suscan_source_config_get_device(profile);
 
   if (name != NULL) {
     printf("Profile:     \"%s\"\n", name);
@@ -70,11 +68,6 @@ suscli_profinfo_cb(const hashlist_t *params)
 
   if (strcmp(suscan_source_config_get_type(profile), "file") != 0) {
     printf("Type:        %s\n", suscan_source_config_get_type(profile));
-    printf(
-        "Device:      %s\n",
-          dev == NULL
-              ? "(none)"
-              : suscan_source_device_get_desc(dev));
     printf(
         "Channel:     %u\n",
         suscan_source_config_get_channel(profile));

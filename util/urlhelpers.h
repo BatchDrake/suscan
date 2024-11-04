@@ -1,6 +1,6 @@
 /*
 
-  Copyright (C) 2022 Gonzalo José Carracedo Carballal
+  Copyright (C) 2024 Gonzalo José Carracedo Carballal
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Lesser General Public License as
@@ -17,12 +17,11 @@
 
 */
 
-#include <sigutils/util/compat-stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <ctype.h>
-#include <libgen.h>
+#ifndef _UTIL_URI_H
+#define _UTIL_URI_H
 
-#define SU_LOG_DOMAIN "device-kludges"
+char *strappend(char *existing, char *fmt, ...);
+char *suscan_urlencode(const char *string);
+char *suscan_urldecode(const char *string);
 
-#include "source.h"
+#endif /* _UTIL_URI_H */

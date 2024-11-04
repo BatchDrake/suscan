@@ -75,14 +75,18 @@ SUSCAN_SERIALIZABLE(suscan_source_gain_info) {
   SUFLOAT value;
 };
 
+struct suscan_device_gain_desc;
+
 /*!
  * Constructor for gain info objects.
- * \param value gain value object describing this gain element
+ * \param desc gain description as provided by the device properties
+ * \param value value of this gain
  * \return a pointer to the created object or NULL on failure
  * \author Gonzalo José Carracedo Carballal
  */
 struct suscan_source_gain_info *suscan_source_gain_info_new(
-    const struct suscan_source_gain_value *value);
+    const struct suscan_device_gain_desc *desc,
+    SUFLOAT value);
 
 /*!
  * Constructor for gain info objects (value only).

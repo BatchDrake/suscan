@@ -224,6 +224,7 @@ suscan_source_tonegen_set_agc(void *userdata, SUBOOL set)
 SUPRIVATE struct suscan_source_interface g_tonegen_source =
 {
   .name            = "tonegen",
+  .analyzer        = "local",
   .desc            = "Tone generator with AWGN",
   .realtime        = SU_TRUE,
   
@@ -253,10 +254,9 @@ SUPRIVATE struct suscan_source_interface g_tonegen_source =
 SUBOOL
 suscan_source_register_tonegen(void)
 {
-  int ndx;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYC(ndx = suscan_source_register(&g_tonegen_source));
+  SU_TRY(suscan_source_register(&g_tonegen_source));
 
   ok = SU_TRUE;
 

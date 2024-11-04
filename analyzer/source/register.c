@@ -22,95 +22,55 @@
 #include <sigutils/types.h>
 #include <sigutils/defs.h>
 
-#include <util/rbtree.h>
-#include <util/hashlist.h>
-
+#include <analyzer/analyzer.h>
 #include <analyzer/source.h>
-
-SUPRIVATE rbtree_t   *g_type_to_source_impl;
-SUPRIVATE hashlist_t *g_name_to_source_impl;
-SUPRIVATE int         g_source_type_ndx;
+#include <analyzer/device/discovery.h>
 
 SUBOOL
 suscan_source_interface_walk(
-    SUBOOL (*function) (
-      const struct suscan_source_interface *iface,
-      void *private),
-    void *private)
+  const char *analyzer,
+  SUBOOL (*function) (
+    const struct suscan_source_interface *iface,
+    void *private),
+  void *private)
 {
-  struct rbtree_node *node;
-  const struct suscan_source_interface *iface;
-  
-  /* The rbtree must be initialized */
-  if (g_type_to_source_impl == NULL)
-    return SU_FALSE;
-  
-  node = rbtree_get_first(g_type_to_source_impl);
-  
-  while (node != NULL) {
-    iface = rbtree_node_data(node);
-    if (!(function)(iface, private))
-      return SU_FALSE;
-  }
-  
-  return SU_TRUE;
+  SUBOOL ok = SU_FALSE;
+  const struct suscan_analyzer_interface *aif = NULL;
+
+  SU_TRY(aif = suscan_analyzer_interface_lookup(analyzer));
+
+  ok = (aif->walk_sources) (function, private);
+
+done:
+  return ok;
 }
 
 SUBOOL
 suscan_source_register(const struct suscan_source_interface *iface)
 {
-  struct rbtree_node *node;
-  const struct suscan_source_interface *existing;
-  int ndx = g_source_type_ndx;
-  int ret = -1;
+  SUBOOL ok = SU_FALSE;
+  const struct suscan_analyzer_interface *aif = NULL;
 
-  node = rbtree_search(g_type_to_source_impl, ndx, RB_EXACT);
-  if (node != NULL) {
-    existing = rbtree_node_data(node);
+  SU_TRY(aif = suscan_analyzer_interface_lookup(iface->analyzer));
 
-    SU_ERROR(
-      "Failed to register source type `%s': index %d already registered by `%s'\n",
-      iface->name,
-      ndx,
-      existing->name);
-
-    goto done;
-  }
-
-  if (hashlist_contains(g_name_to_source_impl, iface->name)) {
-    SU_ERROR(
-      "Failed to register source type `%s': name already exists\n",
-      iface->name);
-
-    goto done;
-  }
-
-  SU_TRYC(rbtree_insert(g_type_to_source_impl, ndx, (void *) iface));
-  SU_TRY(hashlist_set(g_name_to_source_impl, iface->name, (void *) iface));
-
-  ++g_source_type_ndx;
-  ret = ndx;
+  ok = (aif->register_source) (iface);
 
 done:
-  return ret;
+  return ok;
 }
 
 const struct suscan_source_interface *
-suscan_source_interface_lookup_by_index(int ndx)
+suscan_source_lookup(const char *analyzer, const char *name)
 {
-  struct rbtree_node *node;
+  const struct suscan_source_interface *iface = NULL;
+  const struct suscan_analyzer_interface *aif = NULL;
 
-  node = rbtree_search(g_type_to_source_impl, ndx, RB_EXACT);
-  if (node != NULL)
-    return rbtree_node_data(node);
+  SU_TRY(aif = suscan_analyzer_interface_lookup(analyzer));
 
-  return NULL;
-}
+  iface = (aif->lookup_source) (name);
 
-const struct suscan_source_interface *
-suscan_source_interface_lookup_by_name(const char *name)
-{
-  return hashlist_get(g_name_to_source_impl, name);
+done:
+  return iface;
 }
 
 SUBOOL
@@ -118,15 +78,15 @@ suscan_source_init_source_types(void)
 {
   SUBOOL ok = SU_FALSE;
 
-  SU_MAKE(g_type_to_source_impl, rbtree);
-  SU_MAKE(g_name_to_source_impl, hashlist);
-
 #ifndef SUSCAN_THIN_CLIENT
   SU_TRY(suscan_source_register_file());
   SU_TRY(suscan_source_register_soapysdr());
   SU_TRY(suscan_source_register_stdin());
   SU_TRY(suscan_source_register_tonegen());
+  SU_TRY(suscan_discovery_register_soapysdr());
 #endif // SUSCAN_THIN_CLIENT
+
+  SU_TRY(suscan_discovery_register_multicast());
 
   ok = SU_TRUE;
 

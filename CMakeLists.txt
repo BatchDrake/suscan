@@ -191,7 +191,9 @@ set(UTIL_HEADERS
   ${UTILDIR}/cfg.h
   ${UTILDIR}/object.h 
   ${UTILDIR}/rbtree.h
-  ${UTILDIR}/sha256.h)
+  ${UTILDIR}/sha256.h
+  ${UTILDIR}/strmap.h
+  ${UTILDIR}/urlhelpers.h)
   
 set(UTIL_SOURCES
   ${UTILDIR}/bpe.c
@@ -208,7 +210,9 @@ set(UTIL_SOURCES
   ${UTILDIR}/rbtree.c
   ${UTILDIR}/serialize-xml.c
   ${UTILDIR}/serialize-yaml.c
-  ${UTILDIR}/sha256.c)
+  ${UTILDIR}/sha256.c
+  ${UTILDIR}/strmap.c
+  ${UTILDIR}/urlhelpers.c)
 
 set(SGDP4_HEADERS
   ${SGDP4DIR}/sgdp4-types.h
@@ -248,7 +252,6 @@ set(INSPECTOR_LIB_HEADERS
 
 set(SOURCE_LIB_HEADERS
   ${ANALYZERDIR}/source/config.h
-  ${ANALYZERDIR}/source/device.h
   ${ANALYZERDIR}/source/info.h
   ${ANALYZERDIR}/source/impl/file.h
   ${ANALYZERDIR}/source/impl/soapysdr.h
@@ -275,7 +278,10 @@ set(CORRECTOR_HEADERS
 
 set(ANALYZER_LIB_HEADERS
   ${ANALYZERDIR}/corrector.h
-  ${ANALYZERDIR}/discovery.h
+  ${ANALYZERDIR}/device/discovery.h
+  ${ANALYZERDIR}/device/facade.h
+  ${ANALYZERDIR}/device/properties.h
+  ${ANALYZERDIR}/device/spec.h
   ${ANALYZERDIR}/realtime.h
   ${ANALYZERDIR}/msg.h
   ${ANALYZERDIR}/impl/local.h
@@ -333,6 +339,7 @@ set(LOCAL_ANALYZER_SOURCES
   ${ANALYZERDIR}/corrector.c
   ${ANALYZERDIR}/correctors/tle.c
   ${ANALYZERDIR}/impl/local.c
+  ${ANALYZERDIR}/impl/local-source.c
   ${ANALYZERDIR}/inspsched.c
   ${ANALYZERDIR}/insp-server.c
   ${ANALYZERDIR}/kludges.c
@@ -357,7 +364,12 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/analyzer.c
   ${ANALYZERDIR}/bufpool.c
   ${ANALYZERDIR}/client.c
-  ${ANALYZERDIR}/discovery.c
+  ${ANALYZERDIR}/device/discovery.c
+  ${ANALYZERDIR}/device/facade.c
+  ${ANALYZERDIR}/device/properties.c
+  ${ANALYZERDIR}/device/spec.c
+  ${ANALYZERDIR}/device/impl/multicast.c
+  ${ANALYZERDIR}/device/impl/soapysdr.c
   ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/mq.c
   ${ANALYZERDIR}/msg.c
@@ -365,7 +377,6 @@ set(ANALYZER_LIB_SOURCES
   ${ANALYZERDIR}/serialize.c
   ${ANALYZERDIR}/source.c
   ${ANALYZERDIR}/source/config.c
-  ${ANALYZERDIR}/source/device.c
   ${ANALYZERDIR}/source/info.c
   ${ANALYZERDIR}/source/register.c
   ${ANALYZERDIR}/spectsrc.c

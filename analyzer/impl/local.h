@@ -315,6 +315,20 @@ SUBOOL suscan_local_analyzer_readjust_detector(
     suscan_local_analyzer_t *self,
     struct sigutils_channel_detector_params *params);
 
+/* Internal */
+const struct suscan_source_interface *
+suscan_local_source_interface_lookup_by_name(const char *name);
+
+/* Internal */
+SUBOOL suscan_local_source_interface_walk(
+    SUBOOL (*function) (
+      const struct suscan_source_interface *iface,
+      void *private),
+    void *private);
+
+/* Internal */
+SUBOOL suscan_local_source_register(const struct suscan_source_interface *iface);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
