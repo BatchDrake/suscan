@@ -194,7 +194,7 @@ suscli_makeprof_cb(const hashlist_t *params)
       }
     }
 
-    SU_TRY(suscan_config_context_lookup("sources"));
+    SU_TRY(cfgctx = suscan_config_context_lookup("sources"));
 
     for (i = 0; i < ctx.profile_count; ++i) {
       SU_TRY(suscan_source_config_register(ctx.profile_list[i]));
