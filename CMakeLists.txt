@@ -276,12 +276,14 @@ set(INSPECTOR_LIB_SOURCES
 set(CORRECTOR_HEADERS 
   ${CORRECTORDIR}/tle.h)
 
-set(ANALYZER_LIB_HEADERS
-  ${ANALYZERDIR}/corrector.h
+set(DEVICE_LIB_HEADERS
   ${ANALYZERDIR}/device/discovery.h
   ${ANALYZERDIR}/device/facade.h
   ${ANALYZERDIR}/device/properties.h
-  ${ANALYZERDIR}/device/spec.h
+  ${ANALYZERDIR}/device/spec.h)
+
+set(ANALYZER_LIB_HEADERS
+  ${ANALYZERDIR}/corrector.h
   ${ANALYZERDIR}/realtime.h
   ${ANALYZERDIR}/msg.h
   ${ANALYZERDIR}/impl/local.h
@@ -357,19 +359,21 @@ if(JSONC_FOUND)
     ${ANALYZERDIR}/source/impl/guess-sigmf.c)
 endif()
 
-
-set(ANALYZER_LIB_SOURCES
-  ${ESTIMATOR_SOURCES}
-  ${SPECTSRC_SOURCES}
-  ${ANALYZERDIR}/analyzer.c
-  ${ANALYZERDIR}/bufpool.c
-  ${ANALYZERDIR}/client.c
+set(DEVICE_LIB_SOURCES
   ${ANALYZERDIR}/device/discovery.c
   ${ANALYZERDIR}/device/facade.c
   ${ANALYZERDIR}/device/properties.c
   ${ANALYZERDIR}/device/spec.c
   ${ANALYZERDIR}/device/impl/multicast.c
-  ${ANALYZERDIR}/device/impl/soapysdr.c
+  ${ANALYZERDIR}/device/impl/soapysdr.c)
+
+set(ANALYZER_LIB_SOURCES
+  ${ESTIMATOR_SOURCES}
+  ${SPECTSRC_SOURCES}
+  ${DEVICE_LIB_SOURCES}
+  ${ANALYZERDIR}/analyzer.c
+  ${ANALYZERDIR}/bufpool.c
+  ${ANALYZERDIR}/client.c
   ${ANALYZERDIR}/estimator.c
   ${ANALYZERDIR}/mq.c
   ${ANALYZERDIR}/msg.c
@@ -410,6 +414,8 @@ add_library(
   ${SGDP4_HEADERS}
   ${SGDP4_SOURCES}
   ${CLI_LIB_SOURCES}
+  ${DEVICE_LIB_HEADERS}
+  ${DEVICE_LIB_SOURCES}
   ${ANALYZER_LIB_HEADERS}
   ${LOCAL_ANALYZER_SOURCES}
   ${ANALYZER_LIB_SOURCES}
@@ -425,6 +431,8 @@ add_library(
   ${CLI_LIB_SOURCES}
   ${SGDP4_HEADERS}
   ${SGDP4_SOURCES}
+  ${DEVICE_LIB_HEADERS}
+  ${DEVICE_LIB_SOURCES}
   ${ANALYZER_LIB_HEADERS}
   ${ANALYZER_LIB_SOURCES}
   ${VERSION_SOURCES}
@@ -537,6 +545,10 @@ endif()
 install(
   FILES ${ANALYZER_LIB_HEADERS} 
   DESTINATION include/suscan/analyzer)
+
+install(
+  FILES ${DEVICE_LIB_HEADERS} 
+  DESTINATION include/suscan/analyzer/device)
 
 install(
   FILES ${INSPECTOR_LIB_HEADERS} 
