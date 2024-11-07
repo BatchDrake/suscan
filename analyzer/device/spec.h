@@ -24,6 +24,10 @@
 #include <analyzer/serialize.h>
 #include <util/object.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct suscan_device_properties;
 
 SUSCAN_SERIALIZABLE(suscan_device_spec) {
@@ -72,5 +76,9 @@ SU_METHOD(suscan_device_spec, SUBOOL, set_source, const char *);
 SU_METHOD(suscan_device_spec, SUBOOL, set_traits, const strmap_t *);
 SU_METHOD(suscan_device_spec, SUBOOL, set_params, const strmap_t *);
 SU_METHOD(suscan_device_spec, void,   update_uuid);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _DEVICE_SPEC_H */

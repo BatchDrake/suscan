@@ -26,6 +26,10 @@
 #include <sigutils/defs.h>
 #include <analyzer/serialize.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef hashlist_t          strmap_t;
 typedef hashlist_iterator_t strmap_iterator_t;
 
@@ -56,5 +60,9 @@ SU_GETTER(strmap, SUBOOL, equals, const strmap_t *);
 
 SU_DESTRUCTOR(strmap);
 SU_COLLECTOR(strmap);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _UTIL_STRMAP_H */

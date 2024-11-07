@@ -235,6 +235,13 @@ SU_GETTER(suscan_device_properties,
   return hashlist_get(&self->gain_map, name);
 }
 
+SU_GETTER(
+  suscan_device_properties,
+  int, get_all_gains, suscan_device_gain_desc_t *const **gains)
+{
+  *gains = self->gain_desc_list;
+  return self->gain_desc_count;
+}
 
 SU_METHOD(suscan_device_properties, SUBOOL, set_analyzer, const char *analyzer)
 {

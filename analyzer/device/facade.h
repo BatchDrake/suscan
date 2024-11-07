@@ -26,6 +26,10 @@
 #include "discovery.h"
 #include <analyzer/worker.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct suscan_device_spec;
 struct suscan_device_facade;
 struct suscan_device_properties;
@@ -81,5 +85,9 @@ SU_METHOD(suscan_device_facade, SUBOOL, discover_all);
 SU_METHOD(suscan_device_facade, SUBOOL, start_discovery, const char *);
 SU_METHOD(suscan_device_facade, SUBOOL, stop_discovery, const char *);
 SU_GETTER(suscan_device_facade, char *, wait_for_devices, unsigned int);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _DEVICE_FACADE_H */

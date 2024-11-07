@@ -25,6 +25,10 @@
 #include <sigutils/types.h>
 #include <sigutils/defs.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct suscan_device_properties;
 struct suscan_device_discovery;
 
@@ -74,5 +78,9 @@ SU_METHOD(suscan_device_discovery, void,   clear_unsafe);
 
 SUBOOL suscan_discovery_register_soapysdr();
 SUBOOL suscan_discovery_register_multicast();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _DEVICE_DISCOVERY_H */
