@@ -171,8 +171,8 @@ struct suscan_analyzer_interface {
   SUBOOL   (*walk_sources) (
     SUBOOL (*function) (
       const struct suscan_source_interface *iface,
-      void *private),
-    void *private);
+      void *priv),
+    void *priv);
   
   /* Source-related methods */
   SUBOOL   (*set_frequency) (void *, SUFREQ freq, SUFREQ lnb);
