@@ -87,8 +87,10 @@ SU_METHOD(suscan_device_properties, void,   swap, suscan_device_properties_t *);
 SU_GETTER(suscan_device_properties, SUBOOL, match, const struct suscan_device_spec *);
 SU_GETTER(suscan_device_properties, struct suscan_device_spec *, make_spec);
 SU_GETTER(suscan_device_properties, uint64_t, uuid);
+SU_GETTER(suscan_device_properties, char *, uri);
 SU_GETTER(suscan_device_properties, suscan_device_gain_desc_t *, lookup_gain, const char *);
 SU_GETTER(suscan_device_properties, int, get_all_gains, suscan_device_gain_desc_t *const **);
+SU_GETTER(suscan_device_properties, const char *, get, const char *);
 
 SU_METHOD(suscan_device_properties, SUBOOL, set_analyzer, const char *);
 SU_METHOD(suscan_device_properties, SUBOOL, set_source, const char *);

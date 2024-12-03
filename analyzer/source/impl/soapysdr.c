@@ -44,8 +44,8 @@ strmap_to_SoapySDRKwargs(const strmap_t *map)
   it = strmap_begin(map);
   while (!strmap_iterator_end(&it)) {
     if (it.value != NULL) {
-      SU_TRY_FAIL(PTR_LIST_APPEND_CHECK(key, it.name));
-      SU_TRY_FAIL(PTR_LIST_APPEND_CHECK(val, it.value)); 
+      SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(key, it.name));
+      SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(val, it.value)); 
     }
 
     strmap_iterator_advance(&it);

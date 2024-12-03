@@ -910,7 +910,6 @@ suscan_source_config_t *
 suscan_source_config_clone(const suscan_source_config_t *config)
 {
   suscan_source_config_t *new = NULL;
-  suscan_device_spec_t *spec = NULL;
 
   unsigned int i;
 
@@ -920,9 +919,10 @@ suscan_source_config_clone(const suscan_source_config_t *config)
   SU_TRY_FAIL(suscan_source_config_set_path(new, config->path));
   SU_TRY_FAIL(suscan_source_config_set_antenna(new, config->antenna));
   
-  SU_TRY_FAIL(spec = suscan_device_spec_copy(config->device_spec));
-  suscan_device_spec_swap(new->device_spec, spec);
-  SU_DISPOSE(suscan_device_spec, spec);
+  SU_TRY_FAIL(
+    suscan_source_config_set_device_spec(
+      new,
+      suscan_source_config_get_device_spec(config)));
 
   /* Now it is safe to assign gains */
   for (i = 0; i < config->gain_count; ++i)

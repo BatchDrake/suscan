@@ -104,7 +104,8 @@ SU_COPY_INSTANCER(suscan_device_properties)
     new->samp_rate_list,
     self->samp_rate_list,
     self->samp_rate_count * sizeof(double));
-
+  new->samp_rate_count = self->samp_rate_count;
+  
   for (i = 0; i < self->gain_desc_count; ++i) {
     gain = self->gain_desc_list[i];
     SU_TRY_FAIL(
@@ -229,6 +230,15 @@ SU_GETTER(suscan_device_properties, uint64_t, uuid)
   return self->uuid;
 }
 
+
+SU_GETTER(suscan_device_properties, char *, uri)
+{
+  return suscan_device_make_uri(
+    self->analyzer->name,
+    self->source->name,
+    &self->traits);  
+}
+
 SU_GETTER(suscan_device_properties, 
   suscan_device_gain_desc_t *, lookup_gain, const char *name)
 {
@@ -241,6 +251,11 @@ SU_GETTER(
 {
   *gains = self->gain_desc_list;
   return self->gain_desc_count;
+}
+
+SU_GETTER(suscan_device_properties, const char *, get, const char *trait)
+{
+  return strmap_get(&self->traits, trait);
 }
 
 SU_METHOD(suscan_device_properties, SUBOOL, set_analyzer, const char *analyzer)
@@ -413,5 +428,3 @@ SU_METHOD(suscan_device_properties, SUBOOL, update_uuid)
 
   return SU_TRUE;
 }
-
-

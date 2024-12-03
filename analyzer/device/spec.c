@@ -112,7 +112,9 @@ SU_INSTANCER(suscan_device_spec)
   SU_CONSTRUCT_FAIL(strmap, &new->params);
   SU_TRY_FAIL(new->analyzer = strdup("local"));
   SU_TRY_FAIL(new->source = strdup("soapysdr"));
-
+  
+  new->uuid = SUSCAN_DEVICE_UUID_INVALID;
+  
   return new;
 
 fail:
@@ -217,6 +219,11 @@ SU_GETTER(suscan_device_spec, struct suscan_device_properties *, properties)
   if (facade == NULL)
     goto done;
 
+  if (self->uuid == SUSCAN_DEVICE_UUID_INVALID)
+    mutable->uuid = suscan_device_spec_uuid(self);
+
+  SU_INFO("Self UUID: %d\n", self->uuid);
+  
   epoch = suscan_device_facade_get_epoch_for_uuid(facade, self->uuid);
 
   /* Properties are up to date */
@@ -225,14 +232,17 @@ SU_GETTER(suscan_device_spec, struct suscan_device_properties *, properties)
   
   /* Changes found, discard current version */
   if (self->properties != NULL) {
+    SU_INFO("Found properties, discarding...\n");
     SU_DISPOSE(suscan_device_properties, self->properties);
     mutable->properties = NULL;
   }
   
   /* Also, a new version of the properties has been found */
-  if (self->epoch < epoch) {
+  if (self->epoch <= epoch) {
     mutable->properties = suscan_device_facade_get_properties(facade, self);
     mutable->epoch = epoch;
+  } else {
+    SU_INFO("Discarding properties. Self epoch is %d, curr epoch is %d\n", self->epoch, epoch);
   }
   
 done:
@@ -540,6 +550,7 @@ SU_METHOD(suscan_device_spec, SUBOOL, set_analyzer, const char *analyzer)
 
   free(self->analyzer);
   self->analyzer = dup;
+  self->uuid = SUSCAN_DEVICE_UUID_INVALID;
 
   return SU_TRUE;
 }
@@ -552,6 +563,7 @@ SU_METHOD(suscan_device_spec, SUBOOL, set_source, const char *source)
 
   free(self->source);
   self->source = dup;
+  self->uuid = SUSCAN_DEVICE_UUID_INVALID;
 
   return SU_TRUE;
 }
@@ -561,6 +573,8 @@ SU_METHOD(suscan_device_spec, SUBOOL, set_traits, const strmap_t *traits)
   if (!strmap_copy(&self->traits, traits))
     return SU_FALSE;
 
+  self->uuid = SUSCAN_DEVICE_UUID_INVALID;
+  
   return SU_TRUE;
 }
 
