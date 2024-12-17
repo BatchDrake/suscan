@@ -34,26 +34,16 @@ strmap_to_SoapySDRKwargs(const strmap_t *map)
 {
   SoapySDRKwargs *args = NULL;
   strmap_iterator_t it;
-  unsigned int i;
-
-  PTR_LIST_LOCAL(char, key);
-  PTR_LIST_LOCAL(char, val);
 
   SU_ALLOCATE_FAIL(args, SoapySDRKwargs);
-
+  
   it = strmap_begin(map);
   while (!strmap_iterator_end(&it)) {
-    if (it.value != NULL) {
-      SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(key, it.name));
-      SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(val, it.value)); 
-    }
+    if (it.value != NULL)
+      SU_TRYZ_FAIL(SoapySDRKwargs_set(args, it.name, it.value));
 
     strmap_iterator_advance(&it);
   }
-
-  args->keys = key_list;
-  args->vals = val_list;
-  args->size = key_count;
 
   return args;
 
@@ -61,22 +51,6 @@ fail:
   if (args != NULL) {
     SoapySDRKwargs_clear(args);
     free(args);
-  }
-
-  if (key_list != NULL) {
-    for (i = 0; i < key_count; ++i)
-      if (key_list[i] != NULL)
-        free(key_list[i]);
-
-    free(key_list);
-  }
-
-  if (val_list != NULL) {
-    for (i = 0; i < val_count; ++i)
-      if (val_list[i] != NULL)
-        free(val_list[i]);
-
-    free(val_list);
   }
 
   return NULL;
@@ -153,6 +127,8 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
 
   SU_TRY(all_params = suscan_device_spec_get_all(config->device_spec));
   SU_TRY(self->sdr_args = strmap_to_SoapySDRKwargs(all_params));
+
+  printf("%p->soapysdr_init(sdr_args = %p)\n", self, self->sdr_args);
 
   if ((self->sdr = SoapySDRDevice_make(self->sdr_args)) == NULL) {
     SU_ERROR("Failed to open SDR device: %s\n", SoapySDRDevice_lastError());
@@ -260,8 +236,11 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
   self->chan_array[0] = config->channel;
 
   /* Set up stream arguments */
-  self->stream_args = SoapySDRDevice_getStreamArgsInfo(self->sdr, SOAPY_SDR_RX, config->channel,
-      &self->stream_args_count);
+  self->stream_args = SoapySDRDevice_getStreamArgsInfo(
+    self->sdr,
+    SOAPY_SDR_RX,
+    config->channel,
+    &self->stream_args_count);
 
   if (self->stream_args_count != 0 && self->stream_args == NULL) {
     SU_ERROR(
@@ -417,6 +396,7 @@ SUPRIVATE void
 suscan_source_soapysdr_close(void *ptr)
 {
   struct suscan_source_soapysdr *self = (struct suscan_source_soapysdr *) ptr;
+  printf("%p->soapysdr_close(sdr_args = %p)\n", self, self->sdr_args);
 
   if (self->rx_stream != NULL)
     SoapySDRDevice_closeStream(self->sdr, self->rx_stream);
@@ -587,8 +567,8 @@ suscan_source_soapysdr_read(
 {
   struct suscan_source_soapysdr *self = (struct suscan_source_soapysdr *) userdata;
   int result;
-  int flags;
-  long long timeNs;
+  int flags = 0;
+  long long timeNs = 0;
   SUBOOL retry;
 
   do {

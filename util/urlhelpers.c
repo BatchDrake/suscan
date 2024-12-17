@@ -45,6 +45,7 @@ strappend(char *existing, char *fmt, ...)
     SU_ALLOCATE_MANY(new_str, append_len + existing_len + 1, char);
     memcpy(new_str, existing, existing_len);
     memcpy(new_str + existing_len, append, append_len + 1);
+    free(append);
   }
 
 done:
