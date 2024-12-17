@@ -165,6 +165,7 @@ SU_GETTER(suscan_device_discovery, int, devices, struct suscan_device_properties
   for (i = 0; i < dev_count; ++i) {
     SU_TRY(dev_list[i] = suscan_device_properties_dup(self->device_list[i]));
     dev_list[i]->discovery = mut;
+    dev_list[i]->epoch     = self->device_list[i]->epoch;
   }
 
   *properties = dev_list;

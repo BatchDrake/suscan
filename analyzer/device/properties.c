@@ -98,7 +98,7 @@ SU_COPY_INSTANCER(suscan_device_properties)
   new->freq_min = self->freq_min;
   new->freq_max = self->freq_max;
   new->channels = self->channels;
-
+  
   SU_ALLOCATE_MANY_FAIL(new->samp_rate_list, self->samp_rate_count, double);
   memcpy(
     new->samp_rate_list,

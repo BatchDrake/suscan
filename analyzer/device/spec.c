@@ -222,7 +222,7 @@ SU_GETTER(suscan_device_spec, struct suscan_device_properties *, properties)
   if (self->uuid == SUSCAN_DEVICE_UUID_INVALID)
     mutable->uuid = suscan_device_spec_uuid(self);
 
-  SU_INFO("Self UUID: %d\n", self->uuid);
+  SU_INFO("Self UUID: 0x%016llx\n", self->uuid);
   
   epoch = suscan_device_facade_get_epoch_for_uuid(facade, self->uuid);
 

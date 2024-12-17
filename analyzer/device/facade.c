@@ -449,8 +449,9 @@ SU_GETTER(
   for (i = 0; i < dev_count; ++i) {
     /* We only include the devices from the latest discovery */
     dev = self->device_list[i];
-    if (dev->epoch + 1 == dev->discovery->epoch)
+    if (dev->epoch + 1 == dev->discovery->epoch) {
       SU_TRY(dev_list[n++] = suscan_device_properties_dup(self->device_list[i]));
+    }
   }
 
   dev_count = n;
@@ -477,8 +478,12 @@ done:
 SU_METHOD(suscan_device_facade, SUBOOL, discover_all)
 {
   unsigned int i;
+  char *dup = NULL;
   SUBOOL ok = SU_TRUE;
 
+  while ((dup = suscan_device_facade_wait_for_devices(self, 0)) != NULL)
+    free(dup);
+  
   for (i = 0; i < self->thread_count; ++i)
     ok = suscan_device_discovery_thread_discovery(self->thread_list[i]) && ok;
 
