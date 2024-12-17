@@ -392,8 +392,9 @@ suscan_device_spec_from_uri(const char *uri)
     goto done;
   }
   *p_source = '\0';
+  p_source += 3;
 
-  if ((p_device = strchr(p_source + 3, '/')) == NULL) {
+  if ((p_device = strchr(p_source, '/')) == NULL) {
     SU_ERROR("Malformed URI: no device traits separator\n");
     goto done;
   }

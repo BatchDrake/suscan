@@ -128,8 +128,6 @@ suscan_source_soapysdr_init_sdr(struct suscan_source_soapysdr *self)
   SU_TRY(all_params = suscan_device_spec_get_all(config->device_spec));
   SU_TRY(self->sdr_args = strmap_to_SoapySDRKwargs(all_params));
 
-  printf("%p->soapysdr_init(sdr_args = %p)\n", self, self->sdr_args);
-
   if ((self->sdr = SoapySDRDevice_make(self->sdr_args)) == NULL) {
     SU_ERROR("Failed to open SDR device: %s\n", SoapySDRDevice_lastError());
     goto done;
@@ -396,7 +394,6 @@ SUPRIVATE void
 suscan_source_soapysdr_close(void *ptr)
 {
   struct suscan_source_soapysdr *self = (struct suscan_source_soapysdr *) ptr;
-  printf("%p->soapysdr_close(sdr_args = %p)\n", self, self->sdr_args);
 
   if (self->rx_stream != NULL)
     SoapySDRDevice_closeStream(self->sdr, self->rx_stream);
