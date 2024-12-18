@@ -419,32 +419,50 @@ suscan_source_soapysdr_close(void *ptr)
   free(self);
 }
 
-struct soapysdr_gain_ctx {
-  struct suscan_source_info       *info;
-  struct suscan_device_properties *prop;
-};
-
 SUPRIVATE SUBOOL
-suscan_source_soapysdr_source_info_add_gain(
-    void *private,
-    struct suscan_source_gain_value *gain)
+suscan_source_soapysdr_populate_source_info_gains(
+  struct suscan_source_soapysdr *self,
+  struct suscan_source_info *info)
 {
+  char **gain_list = NULL;
+  SoapySDRRange range;
+  size_t i, gain_count = 0;
+  struct suscan_source_gain_info *ginfo = NULL;
+  struct suscan_device_gain_desc desc;
   SUBOOL ok = SU_FALSE;
-  struct suscan_source_gain_info  *ginfo;
-  struct soapysdr_gain_ctx *ctx =  private;
-  const struct suscan_device_gain_desc *gain_desc;
 
-  SU_TRY(gain_desc = suscan_device_properties_lookup_gain(ctx->prop, gain->name));
-  SU_TRY(ginfo = suscan_source_gain_info_new(gain_desc, gain->val));
-  SU_TRYC(PTR_LIST_APPEND_CHECK(ctx->info->gain, ginfo));
+  if ((gain_list = SoapySDRDevice_listGains(
+          self->sdr,
+          SOAPY_SDR_RX,
+          0,
+          &gain_count)) != NULL) {
+    for (i = 0; i < gain_count; ++i) {
+      range = SoapySDRDevice_getGainElementRange(
+        self->sdr,
+        SOAPY_SDR_RX,
+        0,
+        gain_list[i]);
 
-  ginfo = NULL;
+      desc.name = gain_list[i];
+      desc.min  = range.minimum;
+      desc.max  = range.maximum;
+      desc.step = range.step;
+      
+      desc.def = SoapySDRDevice_getGainElement(
+          self->sdr,
+          SOAPY_SDR_RX,
+          0,
+          gain_list[i]);
+      
+      SU_TRY(ginfo = suscan_source_gain_info_new(&desc, desc.def));
+      SU_TRYC(PTR_LIST_APPEND_CHECK(info->gain, ginfo));
+    }
+  }
 
   ok = SU_TRUE;
 
 done:
-  if (ginfo != NULL)
-    suscan_source_gain_info_destroy(ginfo);
+  SoapySDRStrings_clear(&gain_list, gain_count);
 
   return ok;
 }
@@ -455,7 +473,6 @@ suscan_source_soapysdr_populate_source_info(
   struct suscan_source_info *info,
   const suscan_source_config_t *config)
 {
-  struct soapysdr_gain_ctx ctx;
   struct suscan_device_properties *prop;
   unsigned int i;
   char *dup = NULL;
@@ -485,16 +502,7 @@ suscan_source_soapysdr_populate_source_info(
   gettimeofday(&info->source_time, NULL);
   gettimeofday(&info->source_start, NULL);
 
-  /* Initialize gains. This were set earlier in the config object. */
-  ctx.prop = prop;
-  ctx.info = info;
-
-  SU_TRYCATCH(
-      suscan_source_config_walk_gains_ex(
-          config,
-          suscan_source_soapysdr_source_info_add_gain,
-          &ctx),
-      goto done);
+  SU_TRY(suscan_source_soapysdr_populate_source_info_gains(self, info));
 
   /* Initialize antennas */
   for (i = 0; i < prop->antenna_count; ++i) {

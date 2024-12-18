@@ -361,7 +361,7 @@ SU_GETTER(suscan_device_facade, int, get_epoch_for_uuid, uint64_t uuid)
 
 done:
   pthread_mutex_unlock(&mut->list_mutex);
-
+  
   return epoch;
 }
 
