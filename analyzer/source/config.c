@@ -180,6 +180,9 @@ suscan_source_config_destroy(suscan_source_config_t *config)
   if (config->antenna != NULL)
     free(config->antenna);
   
+  if (config->type != NULL)
+    free(config->type);
+  
   if (config->device_spec != NULL)
     SU_DISPOSE(suscan_device_spec, config->device_spec);
 

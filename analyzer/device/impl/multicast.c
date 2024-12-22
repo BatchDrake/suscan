@@ -319,6 +319,9 @@ multicast_discovery_close(void *userdata)
   if (self->property_list != NULL)
     free(self->property_list);
 
+  if (self->alloc_buffer != NULL)
+    free(self->alloc_buffer);
+  
   if (self->uuid2property != NULL)
     SU_DISPOSE(rbtree, self->uuid2property);
   
