@@ -415,11 +415,6 @@ SU_GETTER(
 
   existing = node->data;
 
-  /* We have the device BUT it we didn't see it in the last discovery */
-  /* TODO: Add methods for accessing these */
-  if (existing->epoch + 1 < existing->discovery->epoch)
-    goto done;
-
   SU_TRY(props = suscan_device_properties_dup(existing));
 
 done:

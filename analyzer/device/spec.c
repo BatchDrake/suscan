@@ -221,18 +221,15 @@ SU_GETTER(suscan_device_spec, struct suscan_device_properties *, properties)
 
   if (self->uuid == SUSCAN_DEVICE_UUID_INVALID)
     mutable->uuid = suscan_device_spec_uuid(self);
-
-  SU_INFO("Self UUID: 0x%016llx\n", self->uuid);
   
   epoch = suscan_device_facade_get_epoch_for_uuid(facade, self->uuid);
-
+  
   /* Properties are up to date */
   if (mutable->properties != NULL && self->properties->epoch == epoch)
     goto done;
   
   /* Changes found, discard current version */
   if (self->properties != NULL) {
-    SU_INFO("Found properties, discarding...\n");
     SU_DISPOSE(suscan_device_properties, self->properties);
     mutable->properties = NULL;
   }
@@ -241,8 +238,6 @@ SU_GETTER(suscan_device_spec, struct suscan_device_properties *, properties)
   if (self->epoch <= epoch) {
     mutable->properties = suscan_device_facade_get_properties(facade, self);
     mutable->epoch = epoch;
-  } else {
-    SU_INFO("Discarding properties. Self epoch is %d, curr epoch is %d\n", self->epoch, epoch);
   }
   
 done:
