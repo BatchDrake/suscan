@@ -21,6 +21,7 @@
 #include <analyzer/source.h>
 #include <analyzer/device/spec.h>
 #include <analyzer/device/properties.h>
+#include <analyzer/device/facade.h>
 #include <sys/time.h>
 
 #ifdef _SU_SINGLE_PRECISION
@@ -420,7 +421,7 @@ suscan_source_soapysdr_close(void *ptr)
 }
 
 SUPRIVATE SUBOOL
-suscan_source_soapysdr_populate_source_info_gains(
+suscan_source_soapysdr_populate_device_specific(
   struct suscan_source_soapysdr *self,
   struct suscan_source_info *info)
 {
@@ -429,8 +430,51 @@ suscan_source_soapysdr_populate_source_info_gains(
   size_t i, gain_count = 0;
   struct suscan_source_gain_info *ginfo = NULL;
   struct suscan_device_gain_desc desc;
+  size_t range_count;
+  SUFREQ freq_min = INFINITY;
+  SUFREQ freq_max = -INFINITY;
+  char *dup = NULL;
+  char **antenna_list = NULL;
+  size_t antenna_count = 0;
+  SoapySDRRange *freqRanges = NULL;
   SUBOOL ok = SU_FALSE;
 
+  /* Populate frequency limits */
+  if ((freqRanges = SoapySDRDevice_getFrequencyRange(
+      self->sdr,
+      SOAPY_SDR_RX,
+      0,
+      &range_count)) != NULL) {
+    for (i = 0; i < range_count; ++i) {
+      if (freqRanges[i].minimum < freq_min)
+        freq_min = freqRanges[i].minimum;
+      if (freqRanges[i].maximum > freq_max)
+        freq_max = freqRanges[i].maximum;
+    }
+
+    if (isinf(freq_min) || isinf(freq_max))
+      freq_min = freq_max = info->frequency;
+  } else {
+    freq_min = freq_max = info->frequency;
+  }
+
+  info->freq_max = freq_max;
+  info->freq_min = freq_min;
+
+  /* Populate antenna list */
+  if ((antenna_list = SoapySDRDevice_listAntennas(
+          self->sdr,
+          SOAPY_SDR_RX,
+          0,
+          &antenna_count)) != NULL) {
+    for (i = 0; i < antenna_count; ++i) {
+      SU_TRY(dup = strdup(antenna_list[i]));
+      SU_TRYC(PTR_LIST_APPEND_CHECK(info->antenna, dup));
+      dup = NULL;
+    }
+  }
+
+  /* Populate gains */
   if ((gain_list = SoapySDRDevice_listGains(
           self->sdr,
           SOAPY_SDR_RX,
@@ -463,6 +507,13 @@ suscan_source_soapysdr_populate_source_info_gains(
 
 done:
   SoapySDRStrings_clear(&gain_list, gain_count);
+  SoapySDRStrings_clear(&antenna_list, antenna_count);
+
+  if (freqRanges != NULL)
+    free(freqRanges);
+
+  if (dup != NULL)
+    free(dup);
 
   return ok;
 }
@@ -473,17 +524,10 @@ suscan_source_soapysdr_populate_source_info(
   struct suscan_source_info *info,
   const suscan_source_config_t *config)
 {
-  struct suscan_device_properties *prop;
-  unsigned int i;
-  char *dup = NULL;
   SUBOOL ok = SU_FALSE;
 
-  info->realtime    = SU_TRUE;
+  info->realtime = SU_TRUE;
   
-  SU_TRY(
-    prop = suscan_device_spec_properties(
-      suscan_source_config_get_device_spec(config)));
-
   /* Adjust permissions */
   info->permissions = SUSCAN_ANALYZER_ALL_SDR_PERMISSIONS;
   if (!self->have_dc)
@@ -493,30 +537,16 @@ suscan_source_soapysdr_populate_source_info(
   info->source_samp_rate    = self->samp_rate;
   info->effective_samp_rate = self->samp_rate;
   info->measured_samp_rate  = self->samp_rate;
-  
-  /* Adjust limits */
-  info->freq_min = prop->freq_min;
-  info->freq_max = prop->freq_max;
 
   /* Get current source time */
   gettimeofday(&info->source_time, NULL);
   gettimeofday(&info->source_start, NULL);
 
-  SU_TRY(suscan_source_soapysdr_populate_source_info_gains(self, info));
-
-  /* Initialize antennas */
-  for (i = 0; i < prop->antenna_count; ++i) {
-    SU_TRYCATCH(dup = strdup(prop->antenna_list[i]), goto done);
-    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(info->antenna, dup) != -1, goto done);
-    dup = NULL;
-  }
+  SU_TRY(suscan_source_soapysdr_populate_device_specific(self, info));
 
   ok = SU_TRUE;
 
 done:
-  if (dup != NULL)
-    free(dup);
-
   return ok;
 }
 
@@ -533,10 +563,10 @@ suscan_source_soapysdr_open(
   new->config = config;
 
   SU_TRY_FAIL(suscan_source_soapysdr_init_sdr(new));
-  
+
   /* Initialize source info */
   suscan_source_soapysdr_populate_source_info(new, info, config);
-
+  
   return new;
 
 fail:
