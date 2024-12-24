@@ -105,11 +105,8 @@ suscan_device_discovery_thread_discovery_cb(
 
   self->in_progress = SU_TRUE;
 
-  SU_INFO("Discovery[%s]: starting\n", self->iface->name);
-
   if (suscan_device_discovery_start(self->discovery)) {
     suscan_device_discovery_accept(self->discovery);
-    SU_INFO("Discovery[%s]: success\n", self->iface->name);
     suscan_mq_write(mq_out, SUSCAN_DEVICE_FACADE_DISCOVERY_SUCCEEDED, self);
   } else {
     SU_ERROR("Discovery[%s]: failed\n", self->iface->name);
@@ -134,13 +131,9 @@ SU_METHOD(suscan_device_discovery_thread, SUBOOL, cancel)
 
 SU_METHOD(suscan_device_discovery_thread, SUBOOL, discovery)
 {
-  if (self->in_progress) {
-    SU_INFO(
-      "Discovery[%s]: another discovery is in progress\n",
-      self->iface->name);
+  if (self->in_progress)
     return SU_TRUE;
-  }
-
+  
   return suscan_worker_push(
     self->worker,
     suscan_device_discovery_thread_discovery_cb,

@@ -28,6 +28,8 @@
 #include <unistd.h>
 #include <stddef.h>
 
+#define SUSCLI_DEVICE_DISCOVERY_TIMEOUT_SEC 2
+
 SUPRIVATE char *
 suscli_ellipsis(const char *string, unsigned int size)
 {
@@ -120,14 +122,25 @@ SUBOOL
 suscli_devices_cb(const hashlist_t *params)
 {
   SUBOOL ok = SU_FALSE;
+  char *dup = NULL;
+  unsigned int timeout = SUSCLI_DEVICE_DISCOVERY_TIMEOUT_SEC;
+  suscan_device_facade_t *facade = NULL;
+  
+  SU_TRY(facade = suscan_device_facade_instance());
+  SU_TRY(suscan_device_facade_discover_all(facade));
 
-  if (getenv("SUSCAN_DISCOVERY_IF") != NULL) {
+  if (suscan_device_discovery_lookup("multicast") != NULL) {
     fprintf(
-        stderr,
-        "Leaving 2 seconds grace period to allow remote devices to be discovered\n\n");
-    sleep(2);
+      stderr,
+      "Waiting %u seconds for multicast discovery to complete...\n",
+      timeout);
+    sleep(timeout);
+    timeout = 0;
   }
 
+  if ((dup = suscan_device_facade_wait_for_devices(facade, timeout * 1000)) != NULL)
+    free(dup);
+  
   printf(
       " ndx Device name                              Driver   Interface UUID \n");
   printf(
