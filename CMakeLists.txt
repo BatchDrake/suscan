@@ -741,3 +741,9 @@ if(NOT TARGET uninstall)
   add_custom_target(uninstall
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
 endif()
+
+# Run ldconfig for certain Unix systems
+if(UNIX AND NOT APPLE)
+  install(CODE "exec_program(ldconfig)")
+endif()
+
