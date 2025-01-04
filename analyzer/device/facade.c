@@ -30,8 +30,25 @@
 #include <analyzer/source.h>
 
 SUPRIVATE suscan_device_facade_t *g_dev_facade = NULL;
+SUPRIVATE SUBOOL                  g_exiting = SU_FALSE;
 
 #define SUSCAN_DEVICE_FACADE_DISCOVERY_SUCCEEDED 0xfacade
+
+SUPRIVATE void
+suscan_device_facade_prevent_discoveries(void)
+{
+  g_exiting = SU_TRUE;
+}
+
+void
+suscan_device_facade_cleanup(void)
+{
+  if (g_dev_facade != NULL) {
+    suscan_device_facade_cancel_all(g_dev_facade);
+    SU_DISPOSE(suscan_device_facade, g_dev_facade);
+    g_dev_facade = NULL;
+  }
+}
 
 suscan_device_facade_t *
 suscan_device_facade_instance(void)
@@ -40,6 +57,8 @@ suscan_device_facade_instance(void)
     SU_TRY_FAIL(suscan_discovery_register_soapysdr());
     SU_TRY_FAIL(suscan_discovery_register_multicast());
     SU_MAKE_FAIL(g_dev_facade, suscan_device_facade);
+
+    atexit(suscan_device_facade_prevent_discoveries);
   }
 
   return g_dev_facade;
@@ -103,6 +122,9 @@ suscan_device_discovery_thread_discovery_cb(
 {
   suscan_device_discovery_thread_t *self = wk_private;
 
+  if (g_exiting)
+    return SU_TRUE;
+  
   self->in_progress = SU_TRUE;
 
   if (suscan_device_discovery_start(self->discovery)) {
@@ -111,7 +133,7 @@ suscan_device_discovery_thread_discovery_cb(
   } else {
     SU_ERROR("Discovery[%s]: failed\n", self->iface->name);
   }
-
+  
   self->in_progress = SU_FALSE;
   
   return SU_FALSE;
@@ -131,7 +153,7 @@ SU_METHOD(suscan_device_discovery_thread, SUBOOL, cancel)
 
 SU_METHOD(suscan_device_discovery_thread, SUBOOL, discovery)
 {
-  if (self->in_progress)
+  if (self->in_progress || g_exiting)
     return SU_TRUE;
   
   return suscan_worker_push(
@@ -194,6 +216,12 @@ suscan_device_facade_update_from_discovery(
 
 done:
   pthread_mutex_unlock(&self->list_mutex);
+
+  if (dev_count > 0) {
+    for (i = 0; i < dev_count; ++i)
+      if (dev_list[i] != NULL)
+        SU_DISPOSE(suscan_device_properties, dev_list[i]);
+  }
 
   return ok;
 }
@@ -307,10 +335,18 @@ fail:
 SU_COLLECTOR(suscan_device_facade)
 {
   unsigned int i;
+  uint32_t type;
+  struct timeval timeout;
+
+  self->halting = SU_TRUE;
+
+  timeout.tv_sec = timeout.tv_usec = 0;
+
+  while (suscan_mq_read_timeout(&self->output_mq, &type, &timeout) != NULL);
 
   for (i = 0; i < self->thread_count; ++i)
     SU_DISPOSE(suscan_device_discovery_thread, self->thread_list[i]);
-  
+
   if (self->thread_list != NULL)
     free(self->thread_list);
   
@@ -463,12 +499,26 @@ done:
   return dev_count;
 }
 
+SU_METHOD(suscan_device_facade, SUBOOL, cancel_all)
+{
+  unsigned int i;
+  SUBOOL ok = SU_TRUE;
+
+  for (i = 0; i < self->thread_count; ++i)
+    ok = suscan_device_discovery_thread_cancel(self->thread_list[i]) && ok;
+
+  return ok;
+}
+
 SU_METHOD(suscan_device_facade, SUBOOL, discover_all)
 {
   unsigned int i;
   char *dup = NULL;
   SUBOOL ok = SU_TRUE;
 
+  if (g_exiting)
+    return SU_TRUE;
+  
   while ((dup = suscan_device_facade_wait_for_devices(self, 0)) != NULL)
     free(dup);
   

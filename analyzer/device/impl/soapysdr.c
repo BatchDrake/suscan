@@ -27,6 +27,7 @@
 #include <SoapySDR/Types.h>
 
 #include <SoapySDR/Device.h>
+#include <SoapySDR/Modules.h>
 
 SUPRIVATE const char *g_soapysdr_module_path = NULL;
 

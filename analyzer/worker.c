@@ -236,18 +236,17 @@ suscan_worker_halt(suscan_worker_t *worker)
     suscan_worker_req_halt(worker);
 
     /* This worker should not push messages */
-    type = SUSCAN_WORKER_MSG_TYPE_SENTINEL;
-    suscan_mq_read_timeout(worker->mq_out, &type, &tv);
+    do {
+      type = SUSCAN_WORKER_MSG_TYPE_SENTINEL;
+      suscan_mq_read_timeout(worker->mq_out, &type, &tv);
 
-    if (type == SUSCAN_WORKER_MSG_TYPE_SENTINEL) {
-      SU_ERROR(
-        "[%s] Timeout while halting worker. Memory leak ahead.\n",
-        worker->name);
-      return SU_FALSE;
-    } else if (type != SUSCAN_WORKER_MSG_TYPE_HALT) {
-      SU_ERROR("[%s] Unexpected worker message type\n", worker->name);
-      return SU_FALSE;
-    }
+      if (type == SUSCAN_WORKER_MSG_TYPE_SENTINEL) {
+        SU_ERROR(
+          "[%s] Timeout while halting worker. Memory leak ahead.\n",
+          worker->name);
+        return SU_FALSE;
+      }
+    } while (type != SUSCAN_WORKER_MSG_TYPE_HALT);
   }
 
   return suscan_worker_destroy(worker);

@@ -81,10 +81,13 @@ SU_GETTER(suscan_device_facade, suscan_device_discovery_thread_t *, get_thread, 
 SU_GETTER(suscan_device_facade, int,    get_all_devices, struct suscan_device_properties ***);
 SU_GETTER(suscan_device_facade, int,    get_epoch_for_uuid, uint64_t);
 SU_GETTER(suscan_device_facade, struct suscan_device_properties *, get_device_by_uuid, uint64_t);
+SU_GETTER(suscan_device_facade, char *, wait_for_devices, unsigned int);
+
 SU_METHOD(suscan_device_facade, SUBOOL, discover_all);
+SU_METHOD(suscan_device_facade, SUBOOL, cancel_all);
 SU_METHOD(suscan_device_facade, SUBOOL, start_discovery, const char *);
 SU_METHOD(suscan_device_facade, SUBOOL, stop_discovery, const char *);
-SU_GETTER(suscan_device_facade, char *, wait_for_devices, unsigned int);
+void suscan_device_facade_cleanup();
 
 #ifdef __cplusplus
 }

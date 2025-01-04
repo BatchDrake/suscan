@@ -83,10 +83,13 @@ suscan_source_init_source_types(void)
   SU_TRY(suscan_source_register_soapysdr());
   SU_TRY(suscan_source_register_stdin());
   SU_TRY(suscan_source_register_tonegen());
-#endif // SUSCAN_THIN_CLIENT
 
   ok = SU_TRUE;
 
 done:
+#else
+  ok = SU_TRUE;
+#endif // SUSCAN_THIN_CLIENT
+
   return ok;
 }

@@ -24,6 +24,7 @@
 #include <suscan.h>
 #include <cli/cli.h>
 #include <analyzer/version.h>
+#include <analyzer/device/facade.h>
 #ifdef __unix__
 #  include <signal.h>
 #endif /* __unix__ */
@@ -109,5 +110,7 @@ main(int argc, const char *argv[], char *envp[])
     ret = EXIT_SUCCESS;
 
 done:
+  suscan_device_facade_cleanup();
+  
   exit(ret);
 }
