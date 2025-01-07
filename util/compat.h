@@ -26,8 +26,10 @@
 
 #  ifdef _COMPAT_BARRIERS
 #    ifdef __APPLE__
+#      warning Using custom barriers for MacOS
 #      include "macos-barriers.h"
 #    else
+#      warning Using pthread barriers
 #      include <pthread.h>
 #    endif /* __APPLE__ */
 #  endif /* _COMPAT_BARRIERS */
