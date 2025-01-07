@@ -19,6 +19,7 @@
 
 #define SU_LOG_DOMAIN "multicast-discovery"
 
+#include <compat.h>
 #include <sigutils/util/compat-socket.h>
 #include <sigutils/util/compat-inet.h>
 #include <sigutils/util/compat-in.h>
