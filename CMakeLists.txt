@@ -479,20 +479,24 @@ target_include_directories(
 if(APPLE)
   # Required to retrieve bundle path
   target_link_libraries(suscan "-framework CoreFoundation")
+  target_link_libraries(suscan-thin-client "-framework CoreFoundation")
 endif()
 
 if(WIN32)
   # Windows winsock2
   target_link_libraries(suscan ws2_32)
+  target_link_libraries(suscan-thin-client ws2_32)
 
   # Under MINGW, somehow regex is not included in libc
   if (MINGW)
     target_link_libraries(suscan regex)
+    target_link_libraries(suscan-thin-client regex)
   endif()
 endif()
 
 if(UNIX AND NOT APPLE)
   target_link_libraries(suscan rt)
+  target_link_libraries(suscan-thin-client rt)
 endif()
 
 # Fat client
