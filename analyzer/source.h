@@ -20,12 +20,8 @@
 #ifndef _SOURCE_H
 #define _SOURCE_H
 
-#include <sndfile.h>
 #include <string.h>
 #include <sigutils/sigutils.h>
-#include <SoapySDR/Device.h>
-#include <SoapySDR/Formats.h>
-#include <SoapySDR/Version.h>
 #include <analyzer/serialize.h>
 #include <analyzer/pool.h>
 #include <analyzer/throttle.h>
