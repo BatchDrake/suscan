@@ -520,10 +520,8 @@ target_link_libraries(suscan-thin-client m ${SIGUTILS_LIBRARIES})
 target_include_directories(suscan-thin-client SYSTEM PUBLIC ${XML2_INCLUDE_DIRS})
 target_link_libraries(suscan-thin-client ${XML2_LIBRARIES})
 
-# TODO: THIS DEPENDENCY EXISTS BECAUSE THE DEVICE API IS BROKEN. A DEVICE API
-# REFACTOR IS PENDING. UNTIL THEN, WE HAVE TO STICK WITH THIS CRAP.
-target_include_directories(suscan-thin-client SYSTEM PUBLIC ${SOAPYSDR_INCLUDE_DIRS})
-target_link_libraries(suscan-thin-client ${SOAPYSDR_LIBRARIES})
+target_include_directories(suscan-thin-client SYSTEM PUBLIC ${FFTW3_INCLUDE_DIRS})
+target_link_libraries(suscan-thin-client ${FFTW3_LIBRARIES})
 
 include_directories(${ZLIB_INCLUDE_DIRS})
 target_link_libraries(suscan-thin-client ${ZLIB_LIBRARIES})
@@ -614,7 +612,7 @@ target_include_directories(
 set_target_properties(suscan.status PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 set_target_properties(suscan.status PROPERTIES LINK_FLAGS "${SIGUTILS_SPC_LDFLAGS}")
 
-link_directories(${PROJECT_BINARY_DIR} ${SOAPYSDR_LIBRARY_DIRS})
+link_directories(${PROJECT_BINARY_DIR})
 
 target_link_libraries(suscan.status sigutils)
 target_link_libraries(suscan.status suscan)
@@ -698,7 +696,7 @@ endif()
 set_target_properties(suscli PROPERTIES COMPILE_FLAGS "${SIGUTILS_SPC_CFLAGS}")
 set_target_properties(suscli PROPERTIES LINK_FLAGS "${SIGUTILS_SPC_LDFLAGS}")
 
-link_directories(${PROJECT_BINARY_DIR} ${SOAPYSDR_LIBRARY_DIRS})
+link_directories(${PROJECT_BINARY_DIR})
 
 target_link_libraries(suscli sigutils)
 target_link_libraries(suscli suscan)
