@@ -364,7 +364,9 @@ set(DEVICE_LIB_SOURCES
   ${ANALYZERDIR}/device/facade.c
   ${ANALYZERDIR}/device/properties.c
   ${ANALYZERDIR}/device/spec.c
-  ${ANALYZERDIR}/device/impl/multicast.c
+  ${ANALYZERDIR}/device/impl/multicast.c)
+
+set(LOCAL_DEVICE_LIB_SOURCES
   ${ANALYZERDIR}/device/impl/soapysdr.c)
 
 set(ANALYZER_LIB_SOURCES
@@ -416,6 +418,7 @@ add_library(
   ${CLI_LIB_SOURCES}
   ${DEVICE_LIB_HEADERS}
   ${DEVICE_LIB_SOURCES}
+  ${LOCAL_DEVICE_LIB_SOURCES}
   ${ANALYZER_LIB_HEADERS}
   ${LOCAL_ANALYZER_SOURCES}
   ${ANALYZER_LIB_SOURCES}

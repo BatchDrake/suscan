@@ -54,7 +54,9 @@ suscan_device_facade_t *
 suscan_device_facade_instance(void)
 {
   if (g_dev_facade == NULL) {
+#ifndef SUSCAN_THIN_CLIENT
     SU_TRY_FAIL(suscan_discovery_register_soapysdr());
+#endif /* SUSCAN_THIN_CLIENT */
     SU_TRY_FAIL(suscan_discovery_register_multicast());
     SU_MAKE_FAIL(g_dev_facade, suscan_device_facade);
 
