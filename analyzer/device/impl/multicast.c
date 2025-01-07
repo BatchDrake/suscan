@@ -35,9 +35,6 @@
 #include <analyzer/analyzer.h>
 #include <analyzer/source.h>
 
-#include <SoapySDR/Types.h>
-
-#include <SoapySDR/Device.h>
 #include <sigutils/log.h>
 
 #include "multicast.h"
