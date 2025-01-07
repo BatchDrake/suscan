@@ -37,7 +37,7 @@ suscli_frequency_format(char *obuf, size_t osize, SUFREQ freq, const char *unit)
   if (unit == NULL)
     unit = "Hz";
   
-  for (i = 1; SU_ABS(freq) >= 1e3 && i < 5; ++i) {
+  for (i = 1; fabs(freq) >= 1e3 && i < 5; ++i) {
     freq *= 1e-3;
     pfx = prefixes[i - 1];
   }

@@ -105,9 +105,9 @@ suscli_csv_datasaver_write_cb(
     SU_TRYCATCH(
         fprintf(
             fp,
-            "%ld,%ld,%.9e,%g\n",
+            "%ld,%d,%.9e,%g\n",
             samples[i].timestamp.tv_sec,
-            samples[i].timestamp.tv_usec,
+            (int) samples[i].timestamp.tv_usec,
             samples[i].value,
             SU_POWER_DB_RAW(samples[i].value)) > 0,
         return SU_FALSE);

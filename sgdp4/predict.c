@@ -260,8 +260,8 @@ sgdp4_prediction_find_aos(
     && (window <= 0 || timeval_elapsed(&t, tv) < window)) {
     delta_t = -30 * (
       SU_RAD2DEG(self->pos_azel.elevation) * (self->alt / 8400. + .46) - 2.0);
-    if (SU_ABS(delta_t) > max_delta_t)
-      delta_t = max_delta_t * (delta_t / SU_ABS(delta_t));
+    if (fabs(delta_t) > max_delta_t)
+      delta_t = max_delta_t * (delta_t / fabs(delta_t));
 
     timeval_add_double(&t, delta_t);
     sgdp4_prediction_update(self, &t);
@@ -277,13 +277,13 @@ sgdp4_prediction_find_aos(
         * SU_RAD2DEG(self->pos_azel.elevation) 
         * sqrt(self->alt);
     
-    if (sufeq(self->pos_azel.elevation, 0, 8.7e-5) || SU_ABS(delta_t) < 1) {
+    if (sufeq(self->pos_azel.elevation, 0, 8.7e-5) || fabs(delta_t) < 1) {
       *aos = t;
       return SU_TRUE;
     }
 
-    if (SU_ABS(delta_t) > max_delta_t)
-      delta_t = max_delta_t * (delta_t / SU_ABS(delta_t));
+    if (fabs(delta_t) > max_delta_t)
+      delta_t = max_delta_t * (delta_t / fabs(delta_t));
     
     if (iters > 0) {
       /* Flipping signs? Overshoot detected. */
@@ -336,8 +336,8 @@ sgdp4_prediction_find_los(
     delta_t = 3.456 
         * cos(self->pos_azel.elevation - .017) 
         * sqrt(self->alt);
-    if (SU_ABS(delta_t) > max_delta_t)
-      delta_t = max_delta_t * (delta_t / SU_ABS(delta_t));
+    if (fabs(delta_t) > max_delta_t)
+      delta_t = max_delta_t * (delta_t / fabs(delta_t));
 
     timeval_add_double(&t, delta_t);
     sgdp4_prediction_update(self, &t);
@@ -354,8 +354,8 @@ sgdp4_prediction_find_los(
         * SU_RAD2DEG(self->pos_azel.elevation) 
         * sqrt(self->alt);
     
-    if (SU_ABS(delta_t) > max_delta_t)
-      delta_t = max_delta_t * (delta_t / SU_ABS(delta_t));
+    if (fabs(delta_t) > max_delta_t)
+      delta_t = max_delta_t * (delta_t / fabs(delta_t));
 
     if (iters > 0) {
       /* Flipping signs? Overshoot detected. */
@@ -367,7 +367,7 @@ sgdp4_prediction_find_los(
     sgdp4_prediction_update(self, &t);
 
     /* delta_t below 1 µs cannot be rendered with struct timeval */
-    if (sufeq(self->pos_azel.elevation, 0, 8.7e-5) || SU_ABS(delta_t) < 1) {
+    if (sufeq(self->pos_azel.elevation, 0, 8.7e-5) || fabs(delta_t) < 1) {
       *los = t;
       return SU_TRUE;
     }
