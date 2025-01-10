@@ -214,8 +214,8 @@ SUSCAN_SERIALIZABLE(suscan_analyzer_inspector_msg) {
       SUFLOAT equiv_fs; /* Channel rate */
       SUFLOAT bandwidth;
       SUFLOAT lo;
-      PTR_LIST_CONST(struct suscan_estimator_class, estimator);
-      PTR_LIST_CONST(struct suscan_spectsrc_class, spectsrc);
+      PTR_LIST(char, estimator);
+      PTR_LIST(char, spectsrc);
     };
 
     struct {

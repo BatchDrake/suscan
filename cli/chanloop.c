@@ -37,7 +37,7 @@ suscli_frequency_format(char *obuf, size_t osize, SUFREQ freq, const char *unit)
   if (unit == NULL)
     unit = "Hz";
   
-  for (i = 1; SU_ABS(freq) >= 1e3 && i < 5; ++i) {
+  for (i = 1; fabs(freq) >= 1e3 && i < 5; ++i) {
     freq *= 1e-3;
     pfx = prefixes[i - 1];
   }
@@ -111,6 +111,8 @@ suscli_chanloop_open(
   ch.f_lo = lofreq - .5 * bandwidth;
   ch.f_hi = lofreq + .5 * bandwidth;
 
+  new->chan = ch;
+
   timeout.tv_sec  = SUSCAN_CHANLOOP_MSG_TIMEOUT_MS / 1000;
   timeout.tv_usec = (SUSCAN_CHANLOOP_MSG_TIMEOUT_MS % 1000) * 1000;
 
@@ -170,7 +172,9 @@ suscli_chanloop_open(
 
           new->handle   = msg->handle;
           new->ft       = msg->channel.ft;
+          new->bw       = msg->bandwidth;
           new->equiv_fs = msg->equiv_fs;
+          
           SU_TRYCATCH(new->inspcfg = suscan_config_dup(msg->config), goto fail);
           have_inspector = SU_TRUE;
 
@@ -272,6 +276,16 @@ SUBOOL
 suscli_chanloop_set_frequency(suscli_chanloop_t *self, SUFREQ freq)
 {
   return suscan_analyzer_set_freq(self->analyzer, freq, self->lnb_freq);
+}
+
+SUBOOL
+suscli_chanloop_set_lofreq(suscli_chanloop_t *self, SUFREQ lofreq)
+{
+  return suscan_analyzer_set_inspector_freq_async(
+    self->analyzer,
+    self->handle,
+    lofreq,
+    0);
 }
 
 SUBOOL

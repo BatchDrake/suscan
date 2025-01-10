@@ -20,16 +20,11 @@
 #ifndef _SOURCE_H
 #define _SOURCE_H
 
-#include <sndfile.h>
 #include <string.h>
 #include <sigutils/sigutils.h>
-#include <SoapySDR/Device.h>
-#include <SoapySDR/Formats.h>
-#include <SoapySDR/Version.h>
 #include <analyzer/serialize.h>
 #include <analyzer/pool.h>
 #include <analyzer/throttle.h>
-#include <analyzer/source/device.h>
 #include <analyzer/source/config.h>
 #include <analyzer/source/info.h>
 #include <sigutils/util/compat-time.h>
@@ -68,6 +63,7 @@ struct sigutils_specttuner_channel;
 struct suscan_source;
 struct suscan_source_interface {
   const char *name;
+  const char *analyzer;
   const char *desc;
   SUBOOL      realtime; /* True if no throttling is needed */
 
@@ -113,7 +109,7 @@ struct suscan_source {
   suscan_throttle_t throttle; /* For non-realtime sources */
   SUBOOL throttle_mutex_init;
   pthread_mutex_t throttle_mutex;
-
+  
   /* Source state */
   SUBOOL   capturing;
   void    *src_priv; /* Opaque source object */
@@ -152,6 +148,9 @@ struct suscan_source {
   SUSCOUNT   history_ptr;
   SUSCOUNT   rp; /* Replay pointer */
   SUCOMPLEX *history;
+
+  pthread_mutex_t history_mutex;
+  SUBOOL          history_mutex_init;
 };
 
 typedef struct suscan_source suscan_source_t;
@@ -316,11 +315,16 @@ suscan_source_is_capturing(const suscan_source_t *src)
 /******************************* Source interface *****************************/
 SUBOOL suscan_source_config_register(suscan_source_config_t *config);
 
-int suscan_source_register(const struct suscan_source_interface *iface);
-const struct suscan_source_interface *suscan_source_interface_lookup_by_index(int);
-const struct suscan_source_interface *suscan_source_interface_lookup_by_name(const char *);
+SUBOOL suscan_source_interface_walk(const char *name,
+  SUBOOL (*function) (
+    const struct suscan_source_interface *iface,
+    void *userdata),
+  void *userdata);
 
-SUBOOL suscan_source_detect_devices(void);
+int suscan_source_register(const struct suscan_source_interface *iface);
+const struct suscan_source_interface *suscan_source_lookup(
+  const char *,
+  const char *);
 
 /* Internal */
 SUBOOL suscan_source_register_file(void);

@@ -19,9 +19,15 @@
 
 #include "version.h"
 
+#ifdef SUSCAN_THIN_CLIENT
+# define SUSCAN_LIB_SFX "-thinclient"
+#else
+# define SUSCAN_LIB_SFX ""
+#endif /* SUSCAN_THIN_CLIENT */
+
 #ifndef SUSCAN_PKGVERSION
-#  define SUSCAN_PKGVERSION \
-  "custom build on " __DATE__ " at " __TIME__ " (" __VERSION__ ")"
+#  define SUSCAN_PKGVERSION SUSCAN_VERSION_STRING SUSCAN_LIB_SFX \
+  " custom build on " __DATE__ " at " __TIME__ " (" __VERSION__ ")"
 #endif /* SUSCAN_BUILD_STRING */
 
 unsigned int
@@ -33,7 +39,7 @@ suscan_abi_version(void)
 const char *
 suscan_api_version(void)
 {
-  return SUSCAN_VERSION_STRING;
+  return SUSCAN_VERSION_STRING SUSCAN_LIB_SFX;
 }
 
 const char *

@@ -2699,6 +2699,63 @@ done:
 
 #define SET_CALLBACK(name) iface.name = JOIN(suscan_remote_analyzer_, name)
 
+/* Internal */
+SUPRIVATE pthread_mutex_t g_remote_dummy_mutex = PTHREAD_MUTEX_INITIALIZER;
+SUPRIVATE hashlist_t *g_remote_dummy_list = NULL;
+
+SUPRIVATE const struct suscan_source_interface *
+suscan_remote_source_interface_lookup_by_name(const char *name)
+{
+  struct suscan_source_interface *iface = NULL;
+  SUBOOL ok = SU_FALSE;
+
+  pthread_mutex_lock(&g_remote_dummy_mutex);
+
+  if (g_remote_dummy_list == NULL)
+    SU_MAKE(g_remote_dummy_list, hashlist);
+  
+  if ((iface = hashlist_get(g_remote_dummy_list, name)) == NULL) {
+    SU_ALLOCATE(iface, struct suscan_source_interface);
+    SU_TRY(iface->name = strdup(name));
+    SU_TRY(hashlist_set(g_remote_dummy_list, name, iface));
+  }
+
+  ok = SU_TRUE;
+  
+done:
+  pthread_mutex_unlock(&g_remote_dummy_mutex);
+
+  if (!ok && iface != NULL) {
+    if (iface->name != NULL)
+      free((char *) iface->name);
+    
+    free(iface);
+    iface = NULL;
+  }
+
+  return iface;
+}
+
+/* Internal */
+SUPRIVATE SUBOOL
+suscan_remote_source_interface_walk(
+    SUBOOL (*function) (
+      const struct suscan_source_interface *iface,
+      void *private),
+    void *private)
+{
+  return SU_TRUE;
+}
+
+/* Internal */
+SUPRIVATE SUBOOL
+suscan_remote_source_register(
+  const struct suscan_source_interface *iface)
+{
+  SU_ERROR("Remote source registration is not supported\n");
+  return SU_FALSE;
+}
+
 const struct suscan_analyzer_interface *
 suscan_remote_analyzer_get_interface(void)
 {
@@ -2706,6 +2763,11 @@ suscan_remote_analyzer_get_interface(void)
 
   if (g_remote_analyzer_interface == NULL) {
     iface.name = "remote";
+
+    iface.register_source = suscan_remote_source_register;
+    iface.lookup_source   = suscan_remote_source_interface_lookup_by_name;
+    iface.walk_sources    = suscan_remote_source_interface_walk;
+    
 
     SET_CALLBACK(ctor);
     SET_CALLBACK(dtor);

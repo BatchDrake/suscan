@@ -56,8 +56,7 @@ void
 rbtree_node_clear (struct rbtree_node *node)
 {
   if (node->data != NULL && node->owner != NULL)
-    if (node->owner->node_dtor != NULL)
-    {
+    if (node->owner->node_dtor != NULL) {
       (node->owner->node_dtor) (node->data, node->owner->node_dtor_data);
       node->data = NULL;
     }   
@@ -466,11 +465,9 @@ rbtree_clear (rbtree_t *tree)
 
   this = tree->first;
 
-  while (this != NULL)
-  {
+  while (this != NULL) {
     struct rbtree_node *next = this->next;
     rbtree_node_destroy (this);
-
     this = next;
   }
 

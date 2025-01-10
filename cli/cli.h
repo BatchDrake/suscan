@@ -57,6 +57,12 @@ SUBOOL suscli_param_read_int(
     int *out,
     int dfl);
 
+SUBOOL suscli_param_read_uuid(
+    const hashlist_t *params,
+    const char *key,
+    uint64_t *out,
+    uint64_t dfl);
+
 SUBOOL suscli_param_read_double(
     const hashlist_t *params,
     const char *key,

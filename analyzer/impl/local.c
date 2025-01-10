@@ -1155,6 +1155,10 @@ suscan_local_analyzer_get_interface(void)
   if (g_local_analyzer_interface == NULL) {
     iface.name          = "local";
 
+    iface.register_source = suscan_local_source_register;
+    iface.lookup_source   = suscan_local_source_interface_lookup_by_name;
+    iface.walk_sources    = suscan_local_source_interface_walk;
+    
     SET_CALLBACK(ctor);
     SET_CALLBACK(dtor);
     SET_CALLBACK(set_frequency);

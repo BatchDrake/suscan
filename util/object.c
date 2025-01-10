@@ -275,7 +275,7 @@ suscan_object_clear_fields(suscan_object_t *object)
 const char *
 suscan_object_get_value(const suscan_object_t *object)
 {
-  SU_TRYCATCH(object->type == SUSCAN_OBJECT_TYPE_FIELD, return SU_FALSE);
+  SU_TRYCATCH(object->type == SUSCAN_OBJECT_TYPE_FIELD, return NULL);
 
   return object->value;
 }

@@ -20,9 +20,15 @@
 #define SU_LOG_DOMAIN "cli-devices"
 
 #include <analyzer/source.h>
+#include <analyzer/analyzer.h>
+#include <analyzer/device/properties.h>
+#include <analyzer/device/facade.h>
 #include <cli/cli.h>
 #include <cli/cmds.h>
 #include <unistd.h>
+#include <stddef.h>
+
+#define SUSCLI_DEVICE_DISCOVERY_TIMEOUT_SEC 2
 
 SUPRIVATE char *
 suscli_ellipsis(const char *string, unsigned int size)
@@ -61,51 +67,86 @@ suscli_ellipsis(const char *string, unsigned int size)
 }
 
 SUPRIVATE SUBOOL
-suscli_device_print_cb(
-    const suscan_source_device_t *dev,
-    unsigned int ndx,
-    void *userdata)
+suscli_devices_print_properties(
+  int ndx,
+  const suscan_device_properties_t *prop)
 {
   char *ellipsis = NULL;
-  SUBOOL avail = suscan_source_device_is_available(dev);
-
-  SU_TRYCATCH(
-      ellipsis = suscli_ellipsis(suscan_source_device_get_desc(dev), 40),
-      return SU_FALSE);
+  SUBOOL ok = SU_FALSE;
+  SU_TRY(ellipsis = suscli_ellipsis(prop->label, 40));
 
   printf(
-      "[%2u] %-40s %-8s %-9s %s\n",
+      "[%2u] %-40s %-8s %-9s %016" PRIx64 "\n",
       ndx,
       ellipsis,
-      suscan_source_device_get_driver(dev),
-      suscan_source_device_is_remote(dev) ? "remote" : "local",
-      avail ? "\033[1;32mavailable\033[0m" : "\033[1;31munavailable\033[0m");
+      prop->source->name,
+      prop->analyzer->name,
+      prop->uuid);
 
-  free(ellipsis);
+  ok = SU_TRUE;
 
-  return SU_TRUE;
+done:
+  if (ellipsis != NULL)
+    free(ellipsis);
+  
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscli_devices_print_all()
+{
+  suscan_device_facade_t *facade = NULL;
+  suscan_device_properties_t **prop_list = NULL;
+  int i, count = 0;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRY(facade = suscan_device_facade_instance());
+  SU_TRYC(count = suscan_device_facade_get_all_devices(facade, &prop_list));
+
+  for (i = 0; i < count; ++i)
+    suscli_devices_print_properties(i + 1, prop_list[i]);
+
+  ok = SU_TRUE;
+
+done:
+  for (i = 0; i < count; ++i)
+    if (prop_list[i] != NULL)
+      SU_DISPOSE(suscan_device_properties, prop_list[i]);
+  if (prop_list != NULL)
+    free(prop_list);
+
+  return ok;
 }
 
 SUBOOL
 suscli_devices_cb(const hashlist_t *params)
 {
   SUBOOL ok = SU_FALSE;
+  char *dup = NULL;
+  unsigned int timeout = SUSCLI_DEVICE_DISCOVERY_TIMEOUT_SEC;
+  suscan_device_facade_t *facade = NULL;
+  
+  SU_TRY(facade = suscan_device_facade_instance());
+  SU_TRY(suscan_device_facade_discover_all(facade));
 
-  if (getenv("SUSCAN_DISCOVERY_IF") != NULL) {
+  if (suscan_device_discovery_lookup("multicast") != NULL) {
     fprintf(
-        stderr,
-        "Leaving 2 seconds grace period to allow remote devices to be discovered\n\n");
-    sleep(2);
+      stderr,
+      "Waiting %u seconds for multicast discovery to complete...\n",
+      timeout);
+    sleep(timeout);
+    timeout = 0;
   }
 
+  if ((dup = suscan_device_facade_wait_for_devices(facade, timeout * 1000)) != NULL)
+    free(dup);
+  
   printf(
-      " ndx Device name                              Driver   Interface Availability \n");
+      " ndx Device name                              Driver   Interface UUID \n");
   printf(
-      "------------------------------------------------------------------------------\n");
+      "---------------------------------------------------------------------------------\n");
 
-  SU_TRYCATCH(
-      suscan_source_device_walk(suscli_device_print_cb, NULL),
-      goto done);
+  SU_TRY(suscli_devices_print_all());
 
   ok = SU_TRUE;
 

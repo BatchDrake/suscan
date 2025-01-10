@@ -19,11 +19,15 @@
 
 #define SU_LOG_DOMAIN "cli-makeprof"
 
+#include <analyzer/device/properties.h>
+#include <analyzer/device/facade.h>
+#include <analyzer/device/spec.h>
 #include <analyzer/source.h>
 #include <cli/cli.h>
 #include <cli/cmds.h>
 #include <unistd.h>
 #include <util/confdb.h>
+#include <inttypes.h>
 
 #define SUSCLI_MAKEPROF_DEFAULT_FREQUENCY 433000000.
 
@@ -37,65 +41,38 @@ struct suscli_makeprof_ctx {
 };
 
 SUPRIVATE SUBOOL
-suscli_device_register_cb(
-    const suscan_source_device_t *dev,
-    unsigned int ndx,
-    void *userdata)
+suscli_makeprof_ctx_register_device(
+  struct suscli_makeprof_ctx *self,
+  const suscan_device_properties_t *prop)
 {
-  struct suscli_makeprof_ctx *ctx = (struct suscli_makeprof_ctx *) userdata;
   suscan_source_config_t *prof = NULL;
+  suscan_device_spec_t *spec = NULL;
   char *label = NULL;
-  struct suscan_source_device_info info = suscan_source_device_info_INITIALIZER;
   SUBOOL ok = SU_FALSE;
 
-  if (!ctx->unavailable && !suscan_source_device_is_available(dev)) {
-    if (!ctx->warned) {
-      ctx->warned = SU_TRUE;
-      fprintf(
-          stderr,
-          "Skipping unavailable devices as requested. Pass unavailable=true to override.\n");
-    }
-
-    return SU_TRUE;
-  }
-
-  if (ctx->append_device) {
-    if (ctx->prefix[0] == '\0') {
-      SU_TRYCATCH(
-          label = strdup(suscan_source_device_get_desc(dev)),
-          goto done);
-    } else {
-      SU_TRYCATCH(
-          label = strbuild(
-              "%s - %s",
-              ctx->prefix,
-              suscan_source_device_get_desc(dev)),
-          goto done);
-    }
+  if (self->append_device && self->prefix[0] != '\0') {
+    SU_TRY(label = strbuild("%s - %s", self->prefix, prop->label));
   } else {
-    SU_TRYCATCH(
-        label = strdup(suscan_source_device_get_desc(dev)),
-        goto done);
+    SU_TRY(label = strdup(prop->label));
   }
 
-  (void) suscan_source_device_get_info(dev, 0, &info);
+  SU_TRY(spec = suscan_device_properties_make_spec(prop));
+  SU_TRY(prof = suscan_source_config_new_default());
 
-  SU_TRYCATCH(prof = suscan_source_config_new_default(), goto done);
-  SU_TRYCATCH(suscan_source_config_set_label(prof, label), goto done);
-  SU_TRYCATCH(suscan_source_config_set_device(prof, dev), goto done);
+  SU_TRY(suscan_source_config_set_label(prof, label));
+  SU_TRY(suscan_source_config_set_device_spec(prof, spec));
 
-  suscan_source_config_set_freq(prof, ctx->freq);
+  suscan_source_config_set_freq(prof, self->freq);
   suscan_source_config_set_dc_remove(prof, SU_TRUE);
 
-  if (info.samp_rate_count > 0) {
-    suscan_source_config_set_samp_rate(prof, info.samp_rate_list[0]);
+  if (prop->samp_rate_count > 0) {
+    suscan_source_config_set_samp_rate(prof, prop->samp_rate_list[0]);
     suscan_source_config_set_bandwidth(
         prof,
         suscan_source_config_get_samp_rate(prof));
   }
 
-
-  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(ctx->profile, prof) != -1, goto done);
+  SU_TRYC(PTR_LIST_APPEND_CHECK(self->profile, prof));
   prof = NULL;
 
   ok = SU_TRUE;
@@ -107,7 +84,34 @@ done:
   if (prof != NULL)
     suscan_source_config_destroy(prof);
 
-  suscan_source_device_info_finalize(&info);
+  if (spec != NULL)
+    SU_DISPOSE(suscan_device_spec, spec);
+  
+  return ok;
+}
+
+SUPRIVATE SUBOOL
+suscli_makeprof_ctx_make_all(struct suscli_makeprof_ctx *self)
+{
+  suscan_device_facade_t *facade = NULL;
+  suscan_device_properties_t **prop_list = NULL;
+  int i, count;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRY(facade = suscan_device_facade_instance());
+  SU_TRYC(count = suscan_device_facade_get_all_devices(facade, &prop_list));
+
+  for (i = 0; i < count; ++i)
+    suscli_makeprof_ctx_register_device(self, prop_list[i]);
+
+  ok = SU_TRUE;
+
+done:
+  for (i = 0; i < count; ++i)
+    if (prop_list[i] != NULL)
+      SU_DISPOSE(suscan_device_properties, prop_list[i]);
+  if (prop_list != NULL)
+    free(prop_list);
 
   return ok;
 }
@@ -117,65 +121,47 @@ suscli_makeprof_cb(const hashlist_t *params)
 {
   SUBOOL ok = SU_FALSE;
   struct suscli_makeprof_ctx ctx;
-  const suscan_source_device_t *dev = NULL;
+  suscan_device_properties_t *prop = NULL;
+  suscan_device_properties_t **prop_list = NULL;
+  int count = 0;
   SUBOOL ask;
   int c;
-  int index;
+  uint64_t uuid = SUSCAN_DEVICE_UUID_INVALID;
   unsigned int i;
   suscan_config_context_t *cfgctx = NULL;
+  suscan_device_facade_t *facade = NULL;
+  char *what;
 
   memset(&ctx, 0, sizeof(struct suscli_makeprof_ctx));
 
-  SU_TRYCATCH(
-      suscli_param_read_string(params, "prefix", &ctx.prefix, ""),
-      goto done);
+  SU_TRY(facade = suscan_device_facade_instance());
 
-  SU_TRYCATCH(
-      suscli_param_read_int(params, "device", &index, -1),
-      goto done);
-
-  SU_TRYCATCH(
-      suscli_param_read_bool(params, "ask", &ask, SU_TRUE),
-      goto done);
-
-  SU_TRYCATCH(
-      suscli_param_read_double(
+  SU_TRY(suscli_param_read_string(params, "prefix", &ctx.prefix, ""));
+  SU_TRY(suscli_param_read_uuid(params, "device", &uuid, uuid));
+  SU_TRY(suscli_param_read_bool(params, "ask", &ask, SU_TRUE));
+  SU_TRY(suscli_param_read_double(
           params,
           "freq",
           &ctx.freq,
-          SUSCLI_MAKEPROF_DEFAULT_FREQUENCY),
-      goto done);
+          SUSCLI_MAKEPROF_DEFAULT_FREQUENCY));
 
-  SU_TRYCATCH(
-      suscli_param_read_bool(params, "unavailable", &ctx.unavailable, SU_FALSE),
-      goto done);
+  suscan_device_facade_discover_all(facade);
 
-  ctx.append_device = index == -1;
-
-  if (getenv("SUSCAN_DISCOVERY_IF") != NULL) {
-    fprintf(
-        stderr,
-        "Leaving 2 seconds grace period to allow remote devices to be discovered\n\n");
-    sleep(2);
+  SU_INFO("Waiting for devices (2000 ms)...\n");
+  while ((what = suscan_device_facade_wait_for_devices(facade, 2000)) != NULL) {
+    free(what);
   }
 
-  if (index >= 0) {
-    ctx.unavailable = SU_TRUE;
-
-    dev = suscan_source_device_get_by_index((unsigned int) index);
-    if (dev == NULL) {
-      fprintf(stderr, "error: no device with index=%d\n", index);
+  if (uuid != SUSCAN_DEVICE_UUID_INVALID) {
+    prop = suscan_device_facade_get_device_by_uuid(facade, uuid);
+    if (prop == NULL) {
+      fprintf(stderr, "error: no device with uuid=%016" PRIx64 "\n", uuid);
       goto done;
     }
 
-    SU_TRYCATCH(
-        suscli_device_register_cb(dev, (unsigned int) index, &ctx),
-        goto done);
-
+    suscli_makeprof_ctx_register_device(&ctx, prop);
   } else {
-    SU_TRYCATCH(
-        suscan_source_device_walk(suscli_device_register_cb, &ctx),
-        goto done);
+    SU_TRY(suscli_makeprof_ctx_make_all(&ctx));
   }
 
   if (ctx.profile_count == 0) {
@@ -190,7 +176,10 @@ suscli_makeprof_cb(const hashlist_t *params)
       for (i = 0; i < ctx.profile_count; ++i) {
         fprintf(
             stderr,
-            " - %s\n",
+            " [%6s] %s\n",
+            suscan_device_spec_analyzer(
+              suscan_source_config_get_device_spec(
+                ctx.profile_list[i])),
             suscan_source_config_get_label(ctx.profile_list[i]));
       }
 
@@ -205,18 +194,14 @@ suscli_makeprof_cb(const hashlist_t *params)
       }
     }
 
-    SU_TRYCATCH(
-        cfgctx = suscan_config_context_lookup("sources"),
-        goto done);
+    SU_TRY(cfgctx = suscan_config_context_lookup("sources"));
 
     for (i = 0; i < ctx.profile_count; ++i) {
-      SU_TRYCATCH(
-          suscan_source_config_register(ctx.profile_list[i]),
-          goto done);
+      SU_TRY(suscan_source_config_register(ctx.profile_list[i]));
       ctx.profile_list[i] = NULL;
     }
 
-    SU_TRYCATCH(suscan_confdb_save_all(), goto done);
+    SU_TRY(suscan_confdb_save_all());
 
     fprintf(
         stderr,
@@ -235,6 +220,15 @@ done:
 
   if (ctx.profile_list != NULL)
     free(ctx.profile_list);
+
+  if (prop != NULL)
+    SU_DISPOSE(suscan_device_properties, prop);
+  
+  for (i = 0; i < count; ++i)
+    if (prop_list[i] != NULL)
+      SU_DISPOSE(suscan_device_properties, prop_list[i]);
+  if (prop_list != NULL)
+    free(prop_list);
 
   return ok;
 }

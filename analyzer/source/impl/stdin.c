@@ -349,6 +349,7 @@ suscan_source_stdin_cancel(void *userdata)
 SUPRIVATE struct suscan_source_interface g_stdin_source =
 {
   .name            = "stdin",
+  .analyzer        = "local",
   .desc            = "Standard input",
   .realtime        = SU_FALSE,
 
@@ -410,7 +411,6 @@ done:
 SUBOOL
 suscan_source_register_stdin(void)
 {
-  int ndx;
   SUBOOL ok = SU_FALSE;
 
   SU_MAKE(g_stdin_converters, hashlist);
@@ -424,7 +424,7 @@ suscan_source_register_stdin(void)
   STDIN_REGISTER_CONVERTER(complex_signed16,    4);
   STDIN_REGISTER_CONVERTER(signed16,            2);
 
-  SU_TRYC(ndx = suscan_source_register(&g_stdin_source));
+  SU_TRY(suscan_source_register(&g_stdin_source));
 
   ok = SU_TRUE;
 

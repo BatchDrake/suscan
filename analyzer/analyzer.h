@@ -165,6 +165,15 @@ struct suscan_analyzer_interface {
   void  *(*ctor) (struct suscan_analyzer *, va_list);
   void   (*dtor) (void *);
 
+  /* Global state handling methods */
+  SUBOOL   (*register_source) (const struct suscan_source_interface *);
+  const struct suscan_source_interface * (*lookup_source) (const char *);
+  SUBOOL   (*walk_sources) (
+    SUBOOL (*function) (
+      const struct suscan_source_interface *iface,
+      void *priv),
+    void *priv);
+  
   /* Source-related methods */
   SUBOOL   (*set_frequency) (void *, SUFREQ freq, SUFREQ lnb);
   SUBOOL   (*set_gain) (void *, const char *name, SUFLOAT value);
@@ -1078,6 +1087,10 @@ SUBOOL suscan_analyzer_reset_equalizer_async(
     suscan_analyzer_t *analyzer,
     SUHANDLE handle,
     uint32_t req_id);
+
+/***************************** Interface methods *****************************/
+const struct suscan_analyzer_interface *suscan_analyzer_interface_lookup(
+  const char *name);
 
 /***************************** Internal methods ******************************/
 const struct suscan_analyzer_interface *

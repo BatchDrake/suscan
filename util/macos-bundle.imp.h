@@ -21,7 +21,7 @@
 
 #include <stdlib.h>
 #include <sigutils/log.h>
-#include <SoapySDR/Version.h>
+
 #include "compat.h"
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -58,6 +58,14 @@ done:
   return path;
 }
 
+#ifdef SUSCAN_THIN_CLIENT
+const char *
+suscan_bundle_get_soapysdr_module_path(void)
+{
+  return NULL;
+}
+#else
+#  include <SoapySDR/Version.h>
 
 const char *
 suscan_bundle_get_soapysdr_module_path(void)
@@ -65,6 +73,7 @@ suscan_bundle_get_soapysdr_module_path(void)
   return suscan_bundle_get_resource_path(
             CFSTR("../Frameworks/SoapySDR/modules" SOAPY_SDR_ABI_VERSION));
 }
+#endif /* SUSCAN_THIN_CLIENT */
 
 const char *
 suscan_bundle_get_confdb_path(void)

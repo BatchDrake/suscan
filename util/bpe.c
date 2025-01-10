@@ -89,13 +89,13 @@ SUINLINE SUDOUBLE
 find_flex(SUDOUBLE x0, const SUDOUBLE *c)
 {
   SUDOUBLE xn, reldiff;
-  SUSCOUNT n =0;
+  /* SUSCOUNT n =0; */
 
   do {
     xn = x0 - flex_poly(x0, c) / flex_dpdx(x0, c);
-    reldiff = SU_ABS(xn - x0) / (SU_ABS(x0) + SU_ABS(xn));
+    reldiff = fabs(xn - x0) / (fabs(x0) + fabs(xn));
     x0 = xn;
-    ++n;
+    /* ++n; */
   } while (reldiff > SUCAN_BPE_NEWTON_TOL);
 
   return xn;

@@ -17,8 +17,8 @@
 
 */
 
-#ifndef _COMPAT_H
-#define _COMPAT_H
+#ifndef _SUSCAN_COMPAT_H
+#define _SUSCAN_COMPAT_H
 
 #include <stdint.h>
 #include <sigutils/util/util.h>
@@ -66,5 +66,5 @@ SUBOOL     suscan_vm_circbuf_allowed(SUSCOUNT);
 SUCOMPLEX *suscan_vm_circbuf_new(const char *name, void **state, SUSCOUNT size);
 void       suscan_vm_circbuf_destroy(void *state);
 
-#endif /* _COMPAT_H */
+#endif /* _SUSCAN_COMPAT_H */
 

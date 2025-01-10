@@ -220,6 +220,7 @@ DEF_MSGCB(OPEN)
   SUFREQ ft;
   struct suscan_inspector_sampling_info samp_info;
   suscan_inspector_factory_t *factory = NULL;
+  char *dup = NULL;
   unsigned int i;
   SUHANDLE handle;
   SUBOOL ok = SU_FALSE;
@@ -295,20 +296,18 @@ DEF_MSGCB(OPEN)
   msg->channel.ft = ft;
 
   /* Add applicable estimators */
-  for (i = 0; i < new_insp->estimator_count; ++i)
-    SU_TRYCATCH(
-        PTR_LIST_APPEND_CHECK(
-            msg->estimator,
-            (void *) new_insp->estimator_list[i]->classptr) != -1,
-        goto done);
+  for (i = 0; i < new_insp->estimator_count; ++i) {
+    SU_TRY(dup = strdup(new_insp->estimator_list[i]->classptr->name));
+    SU_TRYC(PTR_LIST_APPEND_CHECK(msg->estimator, dup));
+  }
+
+  dup = NULL;
 
   /* Add applicable spectrum sources */
-  for (i = 0; i < new_insp->spectsrc_count; ++i)
-    SU_TRYCATCH(
-        PTR_LIST_APPEND_CHECK(
-            msg->spectsrc,
-            (void *) new_insp->spectsrc_list[i]->classptr) != -1,
-        goto done);
+  for (i = 0; i < new_insp->spectsrc_count; ++i) {
+    SU_TRY(dup = strdup(new_insp->spectsrc_list[i]->classptr->name));
+    SU_TRYC(PTR_LIST_APPEND_CHECK(msg->spectsrc, dup));
+  }
 
   if (msg->config != NULL)
     suscan_config_destroy(msg->config);

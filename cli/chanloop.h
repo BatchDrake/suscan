@@ -45,10 +45,12 @@ struct suscli_chanloop {
   suscan_analyzer_t *analyzer;
   struct suscan_mq mq;
   suscan_config_t *inspcfg;
+  struct sigutils_channel chan;
   SUHANDLE handle;
   SUFLOAT equiv_fs;
   SUFREQ  lnb_freq;
   SUFREQ  ft;
+  SUFREQ  bw;
 };
 
 typedef struct suscli_chanloop suscli_chanloop_t;
@@ -60,6 +62,8 @@ suscli_chanloop_t *suscli_chanloop_open(
 SUBOOL suscli_chanloop_work(suscli_chanloop_t *self);
 
 SUBOOL suscli_chanloop_cancel(suscli_chanloop_t *self);
+
+SUBOOL suscli_chanloop_set_lofreq(suscli_chanloop_t *self, SUFREQ);
 
 SUBOOL suscli_chanloop_set_rate(suscli_chanloop_t *self, SUFLOAT);
 
@@ -73,6 +77,12 @@ SUINLINE SUFREQ
 suscli_chanloop_get_freq(const suscli_chanloop_t *self)
 {
   return self->ft;
+}
+
+SUINLINE SUFREQ
+suscli_chanloop_get_bandwidth(const suscli_chanloop_t *self)
+{
+  return self->bw;
 }
 
 SUINLINE SUFREQ

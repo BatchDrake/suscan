@@ -20,6 +20,7 @@
 #define SU_LOG_DOMAIN "source-config"
 
 #include <analyzer/source.h>
+#include <analyzer/device/properties.h>
 #include <confdb.h>
 #include <libgen.h>
 
@@ -81,28 +82,24 @@ suscan_source_config_unregister(suscan_source_config_t *config)
 SUPRIVATE void
 suscan_source_gain_value_destroy(struct suscan_source_gain_value *kv)
 {
+  if (kv->name != NULL)
+    free(kv->name);
+  
   free(kv);
 }
 
 SUPRIVATE struct suscan_source_gain_value *
 suscan_source_gain_value_new(
-    const struct suscan_source_gain_desc *desc,
+    const char *name,
     SUFLOAT val)
 {
   struct suscan_source_gain_value *new = NULL;
 
-  SU_TRYCATCH(
-      new = malloc(sizeof(struct suscan_source_gain_value)),
-      goto fail);
+  SU_ALLOCATE_FAIL(new, struct suscan_source_gain_value);
 
-  new->desc = desc;
+  SU_TRY_FAIL(new->name = strdup(name));
 
-  if (val < desc->min)
-    val = desc->min;
-  if (val > desc->max)
-    val = desc->max;
-
-  new->val = val;
+  new->val       = val;
 
   return new;
 
@@ -139,6 +136,38 @@ suscan_source_config_clear_gains(suscan_source_config_t *self)
   self->hidden_gain_list = NULL;
 }
 
+SUBOOL
+suscan_source_config_walk_params(
+  const suscan_source_config_t *self,
+  SUBOOL (*callback) (
+    const suscan_source_config_t *self,
+    const char *key,
+    const char *value,
+    void *userdata),
+  void *userdata)
+{
+  strmap_t *params = NULL;
+  strmap_iterator_t it;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRY(params = suscan_device_spec_get_all(self->device_spec));
+  
+  it = strmap_begin(params);
+  while (!strmap_iterator_end(&it)) {
+    if (!(callback) (self, it.name, it.value, userdata))
+      goto done;
+    strmap_iterator_advance(&it);
+  }
+
+  ok = SU_TRUE;
+
+done:
+  if (params != NULL)
+    SU_DISPOSE(strmap, params);
+  
+  return ok;
+}
+
 void
 suscan_source_config_destroy(suscan_source_config_t *config)
 {
@@ -148,13 +177,14 @@ suscan_source_config_destroy(suscan_source_config_t *config)
   if (config->path != NULL)
     free(config->path);
 
-  if (config->soapy_args != NULL) {
-    SoapySDRKwargs_clear(config->soapy_args);
-    free(config->soapy_args);
-  }
-
   if (config->antenna != NULL)
     free(config->antenna);
+  
+  if (config->type != NULL)
+    free(config->type);
+  
+  if (config->device_spec != NULL)
+    SU_DISPOSE(suscan_device_spec, config->device_spec);
 
   suscan_source_config_clear_gains(config);
 
@@ -391,7 +421,7 @@ suscan_source_config_get_channel(const suscan_source_config_t *config)
 const char *
 suscan_source_config_get_interface(const suscan_source_config_t *self)
 {
-  return self->interface;
+  return suscan_device_spec_analyzer(self->device_spec);
 }
 
 void
@@ -410,11 +440,11 @@ suscan_source_config_lookup_gain(
   unsigned int i;
 
   for (i = 0; i < config->gain_count; ++i)
-    if (strcmp(config->gain_list[i]->desc->name, name) == 0)
+    if (strcmp(config->gain_list[i]->name, name) == 0)
       return config->gain_list[i];
 
   for (i = 0; i < config->hidden_gain_count; ++i)
-    if (strcmp(config->hidden_gain_list[i]->desc->name, name) == 0)
+    if (strcmp(config->hidden_gain_list[i]->name, name) == 0)
       return config->hidden_gain_list[i];
 
   return NULL;
@@ -431,14 +461,14 @@ suscan_source_config_walk_gains(
   for (i = 0; i < config->gain_count; ++i)
     if (!(gain_cb) (
         private,
-        config->gain_list[i]->desc->name,
+        config->gain_list[i]->name,
         config->gain_list[i]->val))
       return SU_FALSE;
 
   for (i = 0; i < config->hidden_gain_count; ++i)
     if (!(gain_cb) (
         private,
-        config->hidden_gain_list[i]->desc->name,
+        config->hidden_gain_list[i]->name,
         config->hidden_gain_list[i]->val))
       return SU_FALSE;
 
@@ -465,45 +495,31 @@ suscan_source_config_walk_gains_ex(
 }
 
 struct suscan_source_gain_value *
-suscan_source_config_assert_gain(
+suscan_source_config_upsert_gain(
     suscan_source_config_t *config,
     const char *name,
     SUFLOAT value)
 {
+  suscan_device_properties_t *prop;
   struct suscan_source_gain_value *gain;
-  const struct suscan_source_gain_desc *desc;
-  SUBOOL hidden = SU_FALSE;
+  const suscan_device_gain_desc_t *desc = NULL;
 
   if ((gain = suscan_source_config_lookup_gain(config, name)) != NULL)
     return gain;
 
-  SU_TRYCATCH(config->device != NULL, goto fail);
+  /* We are no longer going to keep gain descriptions in the gain value.
+     We already have a device specificaiton that keeps that information
+     for us. We will retrieve that information once is needed. */
+  
+  SU_TRY_FAIL(gain = suscan_source_gain_value_new(name, value));
+  prop = suscan_device_spec_properties(config->device_spec);
+  if (prop != NULL)
+    desc = suscan_device_properties_lookup_gain(prop, name);
 
-  if ((desc = suscan_source_device_lookup_gain_desc(
-      config->device,
-      name)) == NULL) {
-    /*
-     * Gain is not present in this device. However, it has been explicitly
-     * asserted. We register it as a hidden gain, just to keep it when
-     * configuration is serialized.
-     */
-    SU_TRYCATCH(
-        desc = suscan_source_gain_desc_new_hidden(name, value),
-        goto fail);
-
-    hidden = SU_TRUE;
-  }
-
-  SU_TRYCATCH(gain = suscan_source_gain_value_new(desc, value), goto fail);
-
-  if (hidden) {
-    SU_TRYCATCH(
-        PTR_LIST_APPEND_CHECK(config->hidden_gain, gain) != -1,
-        goto fail);
+  if (desc != NULL) {
+    SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(config->gain, gain));
   } else {
-    SU_TRYCATCH(
-        PTR_LIST_APPEND_CHECK(config->gain, gain) != -1,
-        goto fail);
+    SU_TRYC_FAIL(PTR_LIST_APPEND_CHECK(config->hidden_gain, gain));
   }
 
   return gain;
@@ -536,7 +552,7 @@ suscan_source_config_set_gain(
 {
   struct suscan_source_gain_value *gain;
 
-  if ((gain = suscan_source_config_assert_gain(config, name, value)) == NULL)
+  if ((gain = suscan_source_config_upsert_gain(config, name, value)) == NULL)
     return SU_FALSE;
 
   gain->val = value;
@@ -560,8 +576,9 @@ SUBOOL
 suscan_source_config_is_real_time(const suscan_source_config_t *self)
 {
   const struct suscan_source_interface *iface;
-
-  iface = suscan_source_interface_lookup_by_name(self->type);
+  const char *analyzer = suscan_device_spec_analyzer(
+      suscan_source_config_get_device_spec(self));
+  iface = suscan_source_lookup(analyzer, self->type);
   if (iface == NULL)
     return SU_FALSE;
   
@@ -575,8 +592,10 @@ SUBOOL
 suscan_source_config_is_seekable(const suscan_source_config_t *self)
 {
   const struct suscan_source_interface *iface;
+  const char *analyzer = suscan_device_spec_analyzer(
+      suscan_source_config_get_device_spec(self));
 
-  iface = suscan_source_interface_lookup_by_name(self->type);
+  iface = suscan_source_lookup(analyzer, self->type);
   if (iface == NULL)
     return SU_FALSE;
   
@@ -589,8 +608,10 @@ suscan_source_config_guess_metadata(
   struct suscan_source_metadata *metadata)
 {
   const struct suscan_source_interface *iface;
+  const char *analyzer = suscan_device_spec_analyzer(
+      suscan_source_config_get_device_spec(self));
 
-  iface = suscan_source_interface_lookup_by_name(self->type);
+  iface = suscan_source_lookup(analyzer, self->type);
   if (iface == NULL || iface->guess_metadata == NULL)
     return SU_FALSE;
   
@@ -607,8 +628,10 @@ suscan_source_config_get_end_time(
   struct timeval start, elapsed = {0, 0};
   SUSDIFF max_size;
   const struct suscan_source_interface *iface;
+  const char *analyzer = suscan_device_spec_analyzer(
+      suscan_source_config_get_device_spec(self));
 
-  iface = suscan_source_interface_lookup_by_name(self->type);
+  iface = suscan_source_lookup(analyzer, self->type);
   if (iface == NULL)
     goto done;
   
@@ -644,9 +667,11 @@ suscan_source_config_get_freq_limits(
     SUFREQ *max)
 {
   const struct suscan_source_interface *iface;
+  const char *analyzer = suscan_device_spec_analyzer(
+      suscan_source_config_get_device_spec(self));
   SUBOOL ok = SU_FALSE;
 
-  iface = suscan_source_interface_lookup_by_name(self->type);
+  iface = suscan_source_lookup(analyzer, self->type);
   if (iface == NULL)
     goto done;
   
@@ -675,112 +700,24 @@ suscan_source_config_set_start_time(
   config->start_time = tv;
 }
 
-SUPRIVATE SUBOOL
-suscan_source_config_set_gains_from_device(
-    suscan_source_config_t *config,
-    const suscan_source_device_t *dev)
+SUBOOL
+suscan_source_config_set_device_spec(
+    suscan_source_config_t *self,
+    const suscan_device_spec_t *spec)
 {
-  unsigned int i;
-  struct suscan_source_gain_value *gain = NULL;
-  float value;
-  PTR_LIST_LOCAL(struct suscan_source_gain_value, gain);
+  suscan_device_spec_t *copy = NULL;
   SUBOOL ok = SU_FALSE;
 
-  for (i = 0; i < dev->gain_desc_count; ++i) {
-    /* Attempt to reuse existing gains */
-    if ((gain = suscan_source_config_lookup_gain(
-      config,
-      dev->gain_desc_list[i]->name)) != NULL)
-      value = gain->val;
-    else
-      value = dev->gain_desc_list[i]->def;
+  SU_TRY(copy = suscan_device_spec_copy(spec));
+  if (self->device_spec != NULL)
+    SU_DISPOSE(suscan_device_spec, self->device_spec);
 
-    SU_TRYCATCH(
-        gain = suscan_source_gain_value_new(dev->gain_desc_list[i], value),
-        goto done);
-
-    SU_TRYCATCH(
-        PTR_LIST_APPEND_CHECK(gain, gain) != -1,
-        goto done);
-
-    gain = NULL;
-  }
-
-  /* TODO: How about a little swap here */
-  suscan_source_config_clear_gains(config);
-
-  config->gain_list  = gain_list;
-  config->gain_count = gain_count;
-
-  gain_list  = NULL;
-  gain_count = 0;
+  self->device_spec = copy;
 
   ok = SU_TRUE;
 
 done:
-  if (gain != NULL)
-    suscan_source_gain_value_destroy(gain);
-
-  if (gain_list != NULL) {
-    for (i = 0; i < gain_count; ++i)
-      suscan_source_gain_value_destroy(gain_list[i]);
-
-    free(gain_list);
-  }
-
   return ok;
-}
-
-SUBOOL
-suscan_source_config_set_device(
-    suscan_source_config_t *config,
-    const suscan_source_device_t *dev)
-{
-  unsigned int i;
-
-  if (config->device == dev && config->interface == dev->interface)
-    return SU_TRUE; /* nothing to do */
-
-  /*
-   * TODO: Once this API is fixed, allocate new soapy_args and replace
-   * the old ones.
-   */
-  SoapySDRKwargs_clear(config->soapy_args);
-
-  for (i = 0; i < dev->args->size; ++i) {
-    /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
-    SoapySDRKwargs_set(
-        config->soapy_args,
-        dev->args->keys[i],
-        dev->args->vals[i]);
-    /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
-  }
-
-  SU_TRYCATCH(
-      suscan_source_config_set_gains_from_device(config, dev),
-      return SU_FALSE);
-
-  config->interface = dev->interface;
-  config->device = dev;
-
-  return SU_TRUE;
-}
-
-SUBOOL
-suscan_source_config_set_interface(
-    suscan_source_config_t *self,
-    const char *interface)
-{
-  if (strcmp(interface, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0) {
-    self->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
-  } else if (strcmp(interface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0) {
-    self->interface = SUSCAN_SOURCE_REMOTE_INTERFACE;
-  } else {
-    SU_ERROR("Unsupported interface `%s'\n", interface);
-    return SU_FALSE;
-  }
-
-  return SU_TRUE;
 }
 
 SUSCAN_SERIALIZER_PROTO(suscan_source_config)
@@ -789,12 +726,8 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
   struct suscan_source_gain_value *gain;
   unsigned int i;
   char *dup = NULL;
-  const char *host;
-  const char *port_str;
-  uint16_t port;
 
   SUSCAN_PACK(str, self->label);
-  SUSCAN_PACK(str, self->interface);
   SUSCAN_PACK(str, self->type);
 
   /* We don't set source format, or anything related to the sender system */
@@ -820,38 +753,14 @@ SUSCAN_SERIALIZER_PROTO(suscan_source_config)
     SUSCAN_PACK(str,  basename(dup));
   }
 
-  if (self->device == NULL) {
-    SUSCAN_PACK(str, "");
-    SUSCAN_PACK(str, "");
-    SUSCAN_PACK(str, "");
-    SUSCAN_PACK(uint, 0);
-  } else {
-    if ((host = SoapySDRKwargs_get(self->soapy_args, "host")) == NULL)
-      host = "";
+  SU_TRY_FAIL(suscan_device_spec_serialize(self->device_spec, buffer));
 
-    if ((port_str = SoapySDRKwargs_get(self->soapy_args, "port")) == NULL)
-      port_str = "";
+  SUSCAN_PACK(uint, self->gain_count);
+  for (i = 0; i < self->gain_count; ++i) {
+    gain = self->gain_list[i];
 
-    if (sscanf(port_str, "%hu", &port) != 1)
-      port = 0;
-
-    SUSCAN_PACK(str,  suscan_source_device_get_desc(self->device));
-    SUSCAN_PACK(str,  suscan_source_device_get_driver(self->device));
-    SUSCAN_PACK(str,  host);
-    SUSCAN_PACK(uint, port);
-
-    SUSCAN_PACK(uint, self->gain_count);
-
-    for (i = 0; i < self->gain_count; ++i) {
-      gain = self->gain_list[i];
-
-      SUSCAN_PACK(str,   gain->desc->name);
-      SUSCAN_PACK(float, gain->desc->min);
-      SUSCAN_PACK(float, gain->desc->max);
-      SUSCAN_PACK(float, gain->desc->step);
-      SUSCAN_PACK(float, gain->desc->def);
-      SUSCAN_PACK(float, gain->val);
-    }
+    SUSCAN_PACK(str,   gain->name);
+    SUSCAN_PACK(float, gain->val);
   }
 
   SUSCAN_PACK_BOILERPLATE_FINALLY;
@@ -869,41 +778,15 @@ suscan_source_config_deserialize_ex(
     const char *force_host)
 {
   SUSCAN_UNPACK_BOILERPLATE_START;
-  struct suscan_source_gain_desc gain_desc, *new_desc = NULL;
-  struct suscan_source_gain_value *gain = NULL;
-  suscan_source_device_t *device = NULL;
-  SoapySDRKwargs args;
+  char *gain_name = NULL;
+  SUFLOAT gain_value;
   uint64_t sec = 0;
   uint32_t usec = 0;
-  char *type = NULL;
-  char *iface = NULL;
-
-  char *driver = NULL;
-  char *desc = NULL;
-
-  char *host = NULL;
-  uint16_t port = 0;
-  char port_str[8];
   unsigned int gain_count = 0, i;
 
-  memset(&args, 0, sizeof (SoapySDRKwargs));
-  memset(&gain_desc, 0, sizeof (struct suscan_source_gain_desc));
-
-  SUSCAN_UNPACK(str, self->label);
-  SUSCAN_UNPACK(str, iface);
-
-  if (strcmp(iface, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0) {
-    SU_ERROR(
-        "Deserialization of local device profiles is disabled for security reasons\n");
-    goto fail;
-    /* self->interface = SUSCAN_SOURCE_LOCAL_INTERFACE; */
-  } else if (strcmp(iface, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0) {
-    self->interface = SUSCAN_SOURCE_REMOTE_INTERFACE;
-  } else {
-    SU_ERROR("Unsupported analyzer interface `%s'\n", iface);
-    goto fail;
-  }
-
+  suscan_source_config_clear_gains(self);
+  
+  SUSCAN_UNPACK(str,    self->label);
   SUSCAN_UNPACK(str,    self->type);
   SUSCAN_UNPACK(freq,   self->freq);
   SUSCAN_UNPACK(freq,   self->lnb_freq);
@@ -926,98 +809,30 @@ suscan_source_config_deserialize_ex(
   SUSCAN_UNPACK(uint32, self->channel);
 
   SUSCAN_UNPACK(str,    self->path);
-  SUSCAN_UNPACK(str,    desc);
-  SUSCAN_UNPACK(str,    driver);
-  SUSCAN_UNPACK(str,    host);
-  SUSCAN_UNPACK(uint16, port);
+  
+  SU_TRY_FAIL(suscan_device_spec_deserialize(self->device_spec, buffer));
 
-  snprintf(port_str, sizeof(port_str), "%hu", port);
+  SUSCAN_UNPACK(uint32, gain_count);
 
-  if (strlen(driver) > 0) {
-    SoapySDRKwargs_set(&args, "label",  desc);
-    SoapySDRKwargs_set(&args, "driver", driver);
+  for (i = 0; i < gain_count; ++i) {
+    SUSCAN_UNPACK(str,   gain_name);
+    SUSCAN_UNPACK(float, gain_value);
 
-    if (force_host != NULL)
-      SoapySDRKwargs_set(&args, "host",   force_host);
-    else
-      SoapySDRKwargs_set(&args, "host",   host);
+    SU_TRY_FAIL(suscan_source_config_upsert_gain(self, gain_name, gain_value));
 
-    SoapySDRKwargs_set(&args, "port",   port_str);
-
-    /* FIXME: Add a remote device deserializer? */
-    SU_TRYCATCH(
-        device = suscan_source_device_assert(
-            self->interface,
-            &args),
-        goto fail);
-
-    /* FIXME: Acquire g_device_list_mutex!!! */
-    device->available = SU_FALSE;
-    suscan_source_config_set_device(self, device);
-
-    SUSCAN_UNPACK(uint32, gain_count);
-
-    for (i = 0; i < gain_count; ++i) {
-      SUSCAN_UNPACK(str,   gain_desc.name);
-      SUSCAN_UNPACK(float, gain_desc.min);
-      SUSCAN_UNPACK(float, gain_desc.max);
-      SUSCAN_UNPACK(float, gain_desc.step);
-      SUSCAN_UNPACK(float, gain_desc.def);
-
-      SU_TRYCATCH(
-          new_desc = suscan_source_device_assert_gain_unsafe(
-              device,
-              gain_desc.name,
-              gain_desc.min,
-              gain_desc.max,
-              gain_desc.step),
-          goto fail);
-
-      if (gain_desc.name != NULL)
-        free(gain_desc.name);
-
-      memset(&gain_desc, 0, sizeof (struct suscan_source_gain_desc));
-
-      SU_TRYCATCH(gain = suscan_source_gain_value_new(new_desc, 0), goto fail);
-
-      SUSCAN_UNPACK(float, gain->val);
-
-      SU_TRYCATCH(PTR_LIST_APPEND_CHECK(self->gain, gain) != -1, goto fail);
-
-      gain = NULL;
+    if (gain_name != NULL) {
+      free(gain_name);
+      gain_name = NULL;
     }
-
-    /* FIXME: Return g_device_list_mutex!!! */
-    device->available = SU_TRUE;
-  } else {
-    self->device = suscan_source_get_null_device();
   }
 
+  if (force_host != NULL)
+    SU_TRY_FAIL(suscan_source_config_set_param(self, "host", force_host));
+  
   SUSCAN_UNPACK_BOILERPLATE_FINALLY;
 
-  SoapySDRKwargs_clear(&args);
-
-  if (gain_desc.name != NULL)
-    free(gain_desc.name);
-
-  if (type != NULL)
-    free(type);
-
-  if (iface != NULL)
-    free(iface);
-
-  if (driver != NULL)
-    free(driver);
-
-  if (desc != NULL)
-    free(desc);
-
-  if (host != NULL)
-    free(host);
-
-  /* Not a destructor */
-  if (gain != NULL)
-    free(gain);
+  if (gain_name != NULL)
+    free(gain_name);
 
   SUSCAN_UNPACK_BOILERPLATE_RETURN;
 }
@@ -1034,27 +849,18 @@ suscan_source_config_new(
 {
   suscan_source_config_t *new = NULL;
 
-  SU_TRYCATCH(new = calloc(1, sizeof(suscan_source_config_t)), goto fail);
+  SU_ALLOCATE_FAIL(new, suscan_source_config_t);
 
   SU_TRY_FAIL(new->type = strdup(type));
 
-  new->format = format;
-  new->average = 1;
+  new->format    = format;
+  new->average   = 1;
   new->dc_remove = SU_TRUE;
-  new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
-  new->loop = SU_TRUE;
+  new->loop      = SU_TRUE;
   
   gettimeofday(&new->start_time, NULL);
 
-  SU_TRYCATCH(new->soapy_args = calloc(1, sizeof(SoapySDRKwargs)), goto fail);
-
-  SU_TRYCATCH(suscan_source_get_null_device() != NULL, goto fail);
-
-  SU_TRYCATCH(
-      suscan_source_config_set_device(
-          new,
-          suscan_source_get_null_device()),
-      goto fail);
+  SU_MAKE_FAIL(new->device_spec, suscan_device_spec);
 
   return new;
 
@@ -1079,17 +885,8 @@ suscan_source_config_new_default(void)
       goto fail);
 
   suscan_source_config_set_freq(new, SUSCAN_SOURCE_DEFAULT_FREQ);
-
   suscan_source_config_set_samp_rate(new, SUSCAN_SOURCE_DEFAULT_SAMP_RATE);
-
   suscan_source_config_set_bandwidth(new, SUSCAN_SOURCE_DEFAULT_BANDWIDTH);
-
-  SU_TRYCATCH(
-      suscan_source_config_set_device(
-          new,
-          suscan_source_device_find_first_sdr()),
-      goto fail);
-
   suscan_source_config_set_dc_remove(new, SU_TRUE);
 
   return new;
@@ -1116,59 +913,46 @@ suscan_source_config_t *
 suscan_source_config_clone(const suscan_source_config_t *config)
 {
   suscan_source_config_t *new = NULL;
+
   unsigned int i;
 
-  SU_TRYCATCH(
-      new = suscan_source_config_new(config->type, config->format),
-      goto fail);
+  SU_MAKE_FAIL(new, suscan_source_config, config->type, config->format);
 
-  SU_TRYCATCH(suscan_source_config_set_label(new, config->label), goto fail);
-  SU_TRYCATCH(suscan_source_config_set_path(new, config->path), goto fail);
-  SU_TRYCATCH(
-        suscan_source_config_set_antenna(new, config->antenna),
-        goto fail);
+  SU_TRY_FAIL(suscan_source_config_set_label(new, config->label));
+  SU_TRY_FAIL(suscan_source_config_set_path(new, config->path));
+  SU_TRY_FAIL(suscan_source_config_set_antenna(new, config->antenna));
+  
+  SU_TRY_FAIL(
+    suscan_source_config_set_device_spec(
+      new,
+      suscan_source_config_get_device_spec(config)));
 
-  new->device = config->device;
-  new->interface = config->interface;
-
-  for (i = 0; i < config->gain_count; ++i) {
-    SU_TRYCATCH(
+  /* Now it is safe to assign gains */
+  for (i = 0; i < config->gain_count; ++i)
+    SU_TRY_FAIL(
         suscan_source_config_set_gain(
             new,
-            config->gain_list[i]->desc->name,
-            config->gain_list[i]->val),
-        goto fail);
-  }
+            config->gain_list[i]->name,
+            config->gain_list[i]->val));
 
   /* Copy hidden gains too */
   for (i = 0; i < config->hidden_gain_count; ++i)
-    SU_TRYCATCH(
+    SU_TRY_FAIL(
         suscan_source_config_set_gain(
             new,
-            config->hidden_gain_list[i]->desc->name,
-            config->hidden_gain_list[i]->val),
-        goto fail);
+            config->hidden_gain_list[i]->name,
+            config->hidden_gain_list[i]->val));
 
-  for (i = 0; i < config->soapy_args->size; ++i) {
-    /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
-    SoapySDRKwargs_set(
-        new->soapy_args,
-        config->soapy_args->keys[i],
-        config->soapy_args->vals[i]);
-    /* ----8<----------------- DANGER DANGER DANGER ----8<----------------- */
-  }
-
-  new->freq = config->freq;
-  new->lnb_freq = config->lnb_freq;
-  new->bandwidth = config->bandwidth;
+  new->freq       = config->freq;
+  new->lnb_freq   = config->lnb_freq;
+  new->bandwidth  = config->bandwidth;
   new->iq_balance = config->iq_balance;
-  new->dc_remove = config->dc_remove;
-  new->samp_rate = config->samp_rate;
-  new->average = config->average;
-  new->ppm     = config->ppm;
-  new->channel = config->channel;
-  new->loop = config->loop;
-  new->device = config->device;
+  new->dc_remove  = config->dc_remove;
+  new->samp_rate  = config->samp_rate;
+  new->average    = config->average;
+  new->ppm        = config->ppm;
+  new->channel    = config->channel;
+  new->loop       = config->loop;
   new->start_time = config->start_time;
 
   return new;
@@ -1268,9 +1052,6 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   if (cfg->antenna != NULL)
     SU_CFGSAVE(value, antenna);
 
-  if (cfg->interface != NULL)
-    SU_CFGSAVE(value, interface);
-
   /* XXX: This is terrible. Either change this or define SUFREQ as uint64_t */
   SU_CFGSAVE(double, freq);
   SU_CFGSAVE(double, lnb_freq);
@@ -1284,18 +1065,9 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
   SU_CFGSAVE(uint,   average);
   SU_CFGSAVE(uint,   channel);
 
-  /* Save SoapySDR kwargs */
-  SU_TRYCATCH(obj = suscan_object_new(SUSCAN_OBJECT_TYPE_OBJECT), goto fail);
-
-  for (i = 0; i < cfg->soapy_args->size; ++i)
-    SU_TRYCATCH(
-        suscan_object_set_field_value(
-            obj,
-            cfg->soapy_args->keys[i],
-            cfg->soapy_args->vals[i]),
-        goto fail);
-
-  SU_TRYCATCH(suscan_object_set_field(new, "sdr_args", obj), goto fail);
+  /* Save device params */
+  SU_TRY_FAIL(obj = suscan_device_spec_to_object(cfg->device_spec));
+  SU_TRYCATCH(suscan_object_set_field(new, "device", obj), goto fail);
   obj = NULL;
 
   /* Save gains */
@@ -1303,23 +1075,21 @@ suscan_source_config_to_object(const suscan_source_config_t *cfg)
 
   /* Save visible gains */
   for (i = 0; i < cfg->gain_count; ++i)
-    SU_TRYCATCH(
+    SU_TRY_FAIL(
         suscan_object_set_field_float(
             obj,
-            cfg->gain_list[i]->desc->name,
-            cfg->gain_list[i]->val),
-        goto fail);
+            cfg->gain_list[i]->name,
+            cfg->gain_list[i]->val));
 
   /* Save hidden gains */
   for (i = 0; i < cfg->hidden_gain_count; ++i)
-    SU_TRYCATCH(
+    SU_TRY_FAIL(
         suscan_object_set_field_float(
             obj,
-            cfg->hidden_gain_list[i]->desc->name,
-            cfg->hidden_gain_list[i]->val),
-        goto fail);
+            cfg->hidden_gain_list[i]->name,
+            cfg->hidden_gain_list[i]->val));
 
-  SU_TRYCATCH(suscan_object_set_field(new, "gains", obj), goto fail);
+  SU_TRY_FAIL(suscan_object_set_field(new, "gains", obj));
   obj = NULL;
 
   return new;
@@ -1338,7 +1108,7 @@ suscan_source_config_t *
 suscan_source_config_from_object(const suscan_object_t *object)
 {
   suscan_source_config_t *new = NULL;
-  suscan_source_device_t *device = NULL;
+  suscan_device_spec_t *spec = NULL;
   suscan_object_t *obj, *entry = NULL;
   const char *type = NULL;
   struct timeval default_time;
@@ -1366,12 +1136,12 @@ suscan_source_config_from_object(const suscan_object_t *object)
   else if (strcmp(type, "SDR") == 0)
     type = "soapysdr";
   
-  SU_TRYCATCH(
-      new = suscan_source_config_new(
-          type,
-          suscan_source_type_config_helper_str_to_format(
-              suscan_object_get_field_value(object, "format"))),
-      goto fail);
+  SU_MAKE_FAIL(
+      new,
+      suscan_source_config,
+      type,
+      suscan_source_type_config_helper_str_to_format(
+        suscan_object_get_field_value(object, "format")));
 
   if ((tmp = suscan_object_get_field_value(object, "label")) != NULL)
     SU_TRYCATCH(suscan_source_config_set_label(new, tmp), goto fail);
@@ -1381,17 +1151,6 @@ suscan_source_config_from_object(const suscan_object_t *object)
 
   if ((tmp = suscan_object_get_field_value(object, "antenna")) != NULL)
     SU_TRYCATCH(suscan_source_config_set_antenna(new, tmp), goto fail);
-
-  if ((tmp = suscan_object_get_field_value(object, "interface")) != NULL) {
-    if (strcmp(tmp, SUSCAN_SOURCE_LOCAL_INTERFACE) == 0) {
-      new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
-    } else if (strcmp(tmp, SUSCAN_SOURCE_REMOTE_INTERFACE) == 0) {
-      new->interface = SUSCAN_SOURCE_REMOTE_INTERFACE;
-    } else {
-      SU_WARNING("Invalid interface `%s'. Defaulting to local\n", tmp);
-      new->interface = SUSCAN_SOURCE_LOCAL_INTERFACE;
-    }
-  }
 
   SU_CFGLOAD(double, freq, 0);
   SU_CFGLOAD(double, lnb_freq, 0);
@@ -1404,40 +1163,19 @@ suscan_source_config_from_object(const suscan_object_t *object)
   SU_CFGLOAD(uint,   samp_rate, 1.8e6);
   SU_CFGLOAD(uint,   channel, 0);
 
-  SU_TRYCATCH(SU_CFGLOAD(uint, average, 1), goto fail);
+  SU_TRY_FAIL(SU_CFGLOAD(uint, average, 1));
 
-  if ((obj = suscan_object_get_field(object, "sdr_args")) != NULL) {
-    if (suscan_object_get_type(obj) == SUSCAN_OBJECT_TYPE_OBJECT) {
-      count = suscan_object_field_count(obj);
-      for (i = 0; i < count; ++i) {
-        if ((entry = suscan_object_get_field_by_index(obj, i)) != NULL
-            && suscan_object_get_type(entry) == SUSCAN_OBJECT_TYPE_FIELD) {
-          /* ------------------- DANGER DANGER DANGER ------------------- */
-          SoapySDRKwargs_set(
-              new->soapy_args,
-              suscan_object_get_name(entry),
-              suscan_object_get_value(entry));
-          /* ----------- HOW DO I EVEN KNOW IF THIS WORKED? ------------- */
-        }
-      }
-
-      /* New device added. Assert it. */
-      SU_TRYCATCH(
-          new->device = device = suscan_source_device_assert(
-              new->interface,
-              new->soapy_args),
-          goto fail);
-
-      /* This step is not critical, but we must try it anyways */
-      if (!suscan_source_device_is_populated(device))
-        (void) suscan_source_device_populate_info(device);
-    }
+  /* Deserialize device */
+  if ((obj = suscan_object_get_field(object, "device")) != NULL) {
+    SU_TRY_FAIL(spec = suscan_device_spec_from_object(obj));
+    suscan_device_spec_swap(spec, new->device_spec);
+    SU_DISPOSE(suscan_device_spec, spec);
   }
 
   /* Retrieve gains */
   if ((obj = suscan_object_get_field(object, "gains")) != NULL) {
     if (suscan_object_get_type(obj) == SUSCAN_OBJECT_TYPE_OBJECT) {
-      count = suscan_object_field_count(obj);
+    count = suscan_object_field_count(obj);
       for (i = 0; i < count; ++i) {
         if ((entry = suscan_object_get_field_by_index(obj, i)) != NULL
             && suscan_object_get_type(entry) == SUSCAN_OBJECT_TYPE_FIELD) {
@@ -1452,17 +1190,6 @@ suscan_source_config_from_object(const suscan_object_t *object)
                     suscan_object_get_name(entry)));
         }
       }
-
-      /* New device added. Assert it. */
-      SU_TRYCATCH(
-          new->device = device = suscan_source_device_assert(
-              new->interface,
-              new->soapy_args),
-          goto fail);
-
-      /* This step is not critical, but we must try it anyways */
-      if (!suscan_source_device_is_populated(device))
-        (void) suscan_source_device_populate_info(device);
     }
   }
 

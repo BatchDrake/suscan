@@ -27,8 +27,8 @@
 #include <util/confdb.h>
 #include <sigutils/log.h>
 #include <analyzer/analyzer.h>
-#include <analyzer/discovery.h>
 #include <analyzer/version.h>
+#include <analyzer/device/impl/multicast.h>
 #include <string.h>
 #include <pthread.h>
 
@@ -290,50 +290,35 @@ suscli_devserv_announce_thread(void *ptr)
 {
   unsigned int i;
   struct suscli_devserv_ctx *ctx = (struct suscli_devserv_ctx *) ptr;
+  suscan_device_spec_t *spec = NULL;
   grow_buf_t *pdu = NULL;
   PTR_LIST_LOCAL(grow_buf_t, pdu);
+  strmap_t *traits = NULL;
   suscan_source_config_t *cfg = NULL;
-  suscan_source_device_t *dev = NULL;
-  char strport[8];
-  SoapySDRKwargs args;
-
-  memset(&args, 0, sizeof(SoapySDRKwargs));
+ 
+  SU_MAKE(spec, suscan_device_spec);
+  SU_TRY(suscan_device_spec_set_analyzer(spec, "remote"));
+  
+  SU_MAKE(traits, strmap);
+  SU_TRY(strmap_set(traits, "host", inet_ntoa(ctx->mc_addr.sin_addr)));
+  SU_TRY(strmap_set(traits, "transport", "tcp"));
 
   /* Compose announcement PDUs */
   for (i = 0; i < ctx->server_count; ++i) {
-    SU_TRYCATCH(pdu = calloc(1, sizeof(grow_buf_t)), goto done);
+    SU_ALLOCATE(pdu, grow_buf_t);
+    SU_TRY(cfg = suscan_source_config_clone(ctx->server_list[i]->config));
+    
+    SU_TRY(strmap_set_uint(traits, "port", ctx->server_list[i]->listen_port));
+    
+    SU_TRY(suscan_device_spec_set_traits(spec, traits));
+    SU_TRY(suscan_source_config_set_device_spec(cfg, spec));
 
-    SU_TRYCATCH(
-        cfg = suscan_source_config_clone(ctx->server_list[i]->config),
-        goto done);
+    SU_TRY(suscan_source_config_serialize(cfg, pdu));
 
-    snprintf(strport, sizeof(strport), "%hu", ctx->server_list[i]->listen_port);
-    SoapySDRKwargs_set(&args, "driver", "tcp");
-    SoapySDRKwargs_set(
-        &args,
-        "label",
-        suscan_source_device_get_desc(suscan_source_config_get_device(cfg)));
-
-    SoapySDRKwargs_set(&args, "host", "localhost");
-    SoapySDRKwargs_set(&args, "port", strport);
-
-
-    SU_TRYCATCH(
-        dev = suscan_source_device_new(SUSCAN_SOURCE_REMOTE_INTERFACE, &args),
-        goto done);
-
-    SU_TRYCATCH(suscan_source_config_set_device(cfg, dev), goto done);
-
-    SU_TRYCATCH(
-        suscan_source_config_serialize(cfg, pdu),
-        goto done);
-
-    SU_TRYCATCH(PTR_LIST_APPEND_CHECK(pdu, pdu) != -1, goto done);
+    SU_TRYC(PTR_LIST_APPEND_CHECK(pdu, pdu));
 
     suscan_source_config_destroy(cfg);
     cfg = NULL;
-    suscan_source_device_destroy(dev);
-    dev = NULL;
   }
 
   SU_INFO("Announce server start: %d profiles\n", pdu_count);
@@ -371,6 +356,12 @@ done:
   if (pdu_list != NULL)
     free(pdu_list);
 
+  if (spec != NULL)
+    SU_DISPOSE(suscan_device_spec, spec);
+
+  if (traits != NULL)
+    SU_DISPOSE(strmap, traits);
+  
   return NULL;
 }
 

@@ -279,7 +279,8 @@ SUPRIVATE SUBOOL
 suscan_source_config_file_check(const suscan_source_config_t *config)
 {
   if (config->samp_rate < 1
-      && !(config->type == SUSCAN_SOURCE_TYPE_FILE
+      && !(config->type != NULL
+          && strcmp(config->type, "file") == 0
           && config->format == SUSCAN_SOURCE_FORMAT_WAV)) {
     SU_ERROR("Sample rate cannot be zero!\n");
     return SU_FALSE;
@@ -676,6 +677,7 @@ done:
 SUPRIVATE struct suscan_source_interface g_file_source =
 {
   .name            = "file",
+  .analyzer        = "local",
   .desc            = NULL,
   .realtime        = SU_FALSE,
 
@@ -705,7 +707,6 @@ SUPRIVATE struct suscan_source_interface g_file_source =
 SUBOOL
 suscan_source_register_file(void)
 {
-  int ndx;
   SUBOOL ok = SU_FALSE;
   static char *desc;
 
@@ -713,8 +714,7 @@ suscan_source_register_file(void)
 
   g_file_source.desc = desc;
   
-  SU_TRYC(ndx = suscan_source_register(&g_file_source));
-  SU_TRYC(ndx == SUSCAN_SOURCE_TYPE_FILE);
+  SU_TRY(suscan_source_register(&g_file_source));
 
   ok = SU_TRUE;
 

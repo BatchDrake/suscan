@@ -32,7 +32,6 @@
 
 #include "source.h"
 #include "compat.h"
-#include "discovery.h"
 
 #include <sigutils/taps.h>
 #include <sigutils/specttuner.h>
@@ -41,6 +40,8 @@
 #include <sigutils/util/compat-time.h>
 #include <sigutils/util/compat-mman.h>
 #include <confdb.h>
+
+#include "device/facade.h"
 
 #ifdef _WIN32
 #  include <winsock2.h>
@@ -72,6 +73,9 @@ suscan_source_destroy(suscan_source_t *self)
 
   if (self->throttle_mutex_init)
     pthread_mutex_destroy(&self->throttle_mutex);
+
+  if (self->history_mutex_init)
+    pthread_mutex_destroy(&self->history_mutex);
 
   free(self);
 }
@@ -311,6 +315,8 @@ suscan_source_history_write(
   const SUCOMPLEX *buffer,
   SUSCOUNT len)
 {
+  (void) pthread_mutex_lock(&self->history_mutex);
+
   SUSCOUNT ptr = self->history_ptr;
 
   if (len > self->history_alloc) {
@@ -345,6 +351,8 @@ suscan_source_history_write(
   }
   
   self->history_ptr = ptr;
+
+  (void) pthread_mutex_unlock(&self->history_mutex);
 }
 
 SUINLINE SUSDIFF
@@ -356,9 +364,15 @@ suscan_source_history_read(
   SUSCOUNT avail;
   SUBOOL   ptrside_before = self->rp <= self->history_ptr;
   SUBOOL   ptrside_after;
+  SUBOOL   mutex_acquired = SU_FALSE;
+  
+  SU_TRYZ(pthread_mutex_lock(&self->history_mutex));
+  mutex_acquired = SU_TRUE;
 
-  if (self->history_size == 0)
-    return 0;
+  if (self->history_size == 0) {
+    len = 0;
+    goto done;
+  }
   
   avail = self->history_size - self->rp;
 
@@ -376,7 +390,11 @@ suscan_source_history_read(
 
   if (ptrside_before != ptrside_after)
     suscan_source_mark_looped(self);
-  
+
+done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&self->history_mutex);
+
   return len;
 }
 
@@ -1072,9 +1090,14 @@ suscan_source_set_history_alloc(suscan_source_t *self, size_t bytes)
 SUBOOL
 suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
 {
-  size_t new_alloc = length * sizeof(SUCOMPLEX);
-  size_t old_alloc = self->history_alloc * sizeof(SUCOMPLEX);
+  size_t new_alloc = length;
+  size_t old_alloc = self->history_alloc;
+  SUBOOL mutex_acquired = SU_TRUE;
   SUCOMPLEX *new_bytes;
+  SUBOOL ok = SU_FALSE;
+
+  SU_TRYZ(pthread_mutex_lock(&self->history_mutex));
+  mutex_acquired = SU_TRUE;
 
   if (new_alloc == 0) {
     /* Clear previous history */
@@ -1085,20 +1108,22 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
     self->history_replay      = SU_FALSE;
     self->info.history_length = 0;
     self->info.replay         = SU_FALSE;
-    return SU_TRUE;
+
+    ok = SU_TRUE;
+    goto done;
   }
-  
+
   new_bytes = mmap(
     NULL,
-    new_alloc,
+    new_alloc * sizeof(SUCOMPLEX),
     PROT_READ | PROT_WRITE,
     MAP_PRIVATE | MAP_ANONYMOUS,
     0, 0);
 
   if (new_bytes == (SUCOMPLEX *) -1) {
     SU_ERROR(
-      "Cannot mmap %lld bytes of memory for history: %s\n", new_alloc, strerror(errno));
-    return SU_FALSE;
+      "Cannot mmap %lld bytes of memory for history: %s\n", new_alloc * sizeof(SUCOMPLEX), strerror(errno));
+    goto done;
   }
 
   /* 
@@ -1111,10 +1136,12 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
     /* Partially full buffer, guess where to start */
     copy_size = self->history_size;
     p = copy_size < old_alloc ? 0 : self->history_ptr;
-    
-    /* Adjust start according to new alloc */
-    if (copy_size > new_alloc) {
+
+    /* If the new alloc is smaller than the existing data, 
+       we will need to advance the pointer */
+    if (new_alloc < copy_size) {
       p += copy_size - new_alloc;
+      p %= old_alloc;
       copy_size = new_alloc;
     }
 
@@ -1122,7 +1149,6 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
     if (p + copy_size > old_alloc) {
       SUSCOUNT size1 = old_alloc - p;
       SUSCOUNT size2 = copy_size - size1;
-
       memcpy(new_bytes, self->history + p,     size1 * sizeof(SUCOMPLEX));
       memcpy(new_bytes + size1, self->history, size2 * sizeof(SUCOMPLEX));
     } else {
@@ -1144,7 +1170,13 @@ suscan_source_set_history_length(suscan_source_t *self, SUSCOUNT length)
   
   self->info.history_length = self->history_alloc;
 
-  return SU_TRUE;
+  ok = SU_TRUE;
+
+done:
+  if (mutex_acquired)
+    pthread_mutex_unlock(&self->history_mutex);
+
+  return ok;
 }
 
 SUSCOUNT
@@ -1174,7 +1206,6 @@ suscan_source_set_replay_enabled(suscan_source_t *self, SUBOOL enabled)
     }
   }
   
-
   if (self->history_replay != enabled) {
     /* When replay is enabled, we need to change the source start */
     if (enabled) {
@@ -1214,7 +1245,7 @@ void
 suscan_source_clear_history(suscan_source_t *self)
 {
   if (self->history_alloc > 0) {
-    munmap(self->history, self->history_alloc);
+    munmap(self->history, self->history_alloc * sizeof(SUCOMPLEX));
     self->history_alloc = 0;
     self->history = NULL;
   }
@@ -1224,10 +1255,13 @@ suscan_source_t *
 suscan_source_new(suscan_source_config_t *config)
 {
   suscan_source_t *new = NULL;
-
+  const char *analyzer;
   SU_TRY_FAIL(suscan_source_config_check(config));
   SU_ALLOCATE_FAIL(new, suscan_source_t);
   
+  SU_TRYZ_FAIL(pthread_mutex_init(&new->history_mutex, NULL));
+  new->history_mutex_init = SU_TRUE;
+
   SU_TRY_FAIL(new->config = suscan_source_config_clone(config));
 
   new->decim = 1;
@@ -1235,11 +1269,16 @@ suscan_source_new(suscan_source_config_t *config)
   if (config->average > 1)
     SU_TRY_FAIL(suscan_source_configure_decimation(new, config->average));
 
-  /* Search by index */
-  new->iface = suscan_source_interface_lookup_by_name(config->type);
+  /* Search by name */
+  analyzer = suscan_device_spec_analyzer(
+      suscan_source_config_get_device_spec(config));
+  new->iface = suscan_source_lookup(analyzer, config->type);
 
   if (new->iface == NULL) {
-    SU_ERROR("Unknown source type `%s' passed to config\n", config->type);
+    SU_ERROR(
+      "Unknown source type `%s' (analyzer = `%s') passed to config\n",
+      config->type,
+      analyzer);
     goto fail;
   }
 
@@ -1268,7 +1307,8 @@ fail:
 SUBOOL
 suscan_init_sources(void)
 {
-  const char *mcif;
+  suscan_device_facade_t *facade = NULL;
+  SUBOOL ok = SU_FALSE;
 
 #ifdef _WIN32
   WORD wVersionRequested;
@@ -1289,22 +1329,16 @@ suscan_init_sources(void)
   }
 #endif /* _WIN32 */
 
-  SU_TRYCATCH(suscan_source_init_source_types(), return SU_FALSE);
+  SU_TRY(suscan_source_init_source_types());
+  SU_TRY(facade = suscan_device_facade_instance());
+  SU_TRY(suscan_device_facade_discover_all(facade));
 
   /* TODO: Register analyzer interfaces? */
-  SU_TRYCATCH(suscan_source_device_preinit(), return SU_FALSE);
-  SU_TRYCATCH(suscan_source_register_null_device(), return SU_FALSE);
-  SU_TRYCATCH(suscan_confdb_use("sources"), return SU_FALSE);
-  SU_TRYCATCH(suscan_source_detect_devices(), return SU_FALSE);
-  SU_TRYCATCH(suscan_load_sources(), return SU_FALSE);
+  SU_TRY(suscan_confdb_use("sources"));
+  SU_TRY(suscan_load_sources());
 
-  if ((mcif = getenv("SUSCAN_DISCOVERY_IF")) != NULL && strlen(mcif) > 0) {
-    SU_INFO("Discovery mode started\n");
-    if (!suscan_device_net_discovery_start(mcif)) {
-      SU_ERROR("Failed to initialize remote device discovery.\n");
-      SU_ERROR("SuRPC services will be disabled.\n");
-    }
-  }
+  ok = SU_TRUE;
 
-  return SU_TRUE;
+done:
+  return ok;
 }
