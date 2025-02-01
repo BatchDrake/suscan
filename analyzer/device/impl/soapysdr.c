@@ -20,6 +20,7 @@
 #define SU_LOG_DOMAIN "soapysdr-discovery"
 
 #include <sigutils/log.h>
+#include <sigutils/util/compat-stdlib.h>
 #include <analyzer/device/spec.h>
 #include <analyzer/device/properties.h>
 #include <analyzer/device/discovery.h>
