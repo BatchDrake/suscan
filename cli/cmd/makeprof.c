@@ -95,7 +95,7 @@ suscli_makeprof_ctx_make_all(struct suscli_makeprof_ctx *self)
 {
   suscan_device_facade_t *facade = NULL;
   suscan_device_properties_t **prop_list = NULL;
-  int i, count;
+  int i, count = 0;
   SUBOOL ok = SU_FALSE;
 
   SU_TRY(facade = suscan_device_facade_instance());
