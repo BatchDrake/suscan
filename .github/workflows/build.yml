@@ -14,7 +14,7 @@ jobs:
       run: sudo apt-get install libsndfile1-dev libjson-c-dev libvolk2-dev libfftw3-dev soapysdr-module-all libsoapysdr-dev libxml2-dev portaudio19-dev
 
     - name: Checkout (sigutils)
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         repository: BatchDrake/sigutils
         ref: master
@@ -35,7 +35,7 @@ jobs:
       run: sudo cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         path: suscan
         submodules: recursive
@@ -79,7 +79,7 @@ jobs:
       run: brew install libsndfile volk fftw soapysdr json-c portaudio
 
     - name: Checkout (sigutils)
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         repository: BatchDrake/sigutils
         ref: master
@@ -99,7 +99,7 @@ jobs:
       run: sudo cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
 
     - name: Checkout (suscan)
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         path: suscan
         submodules: recursive
@@ -125,7 +125,7 @@ jobs:
           install: git mingw-w64-ucrt-x86_64-cc mingw-w64-ucrt-x86_64-make mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-libsndfile mingw-w64-ucrt-x86_64-fftw mingw-w64-ucrt-x86_64-volk mingw-w64-ucrt-x86_64-libxml2 mingw-w64-ucrt-x86_64-libusb mingw-w64-ucrt-x86_64-soapysdr mingw-w64-ucrt-x86_64-rtl-sdr mingw-w64-ucrt-x86_64-soapyrtlsdr mingw-w64-ucrt-x86_64-json-c
           
       - name: Checkout (sigutils)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: BatchDrake/sigutils
           ref: master
@@ -144,7 +144,7 @@ jobs:
 
       # suscan
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
           fetch-depth: 0
