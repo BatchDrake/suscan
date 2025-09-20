@@ -105,8 +105,45 @@ struct suscan_plugin_service_desc {
   const char *name;
 
   void * (*ctor) (suscan_plugin_t *);
+  SUBOOL (*post_load) (void *);
   void * (*dtor) (void *);
 };
+
+SUINLINE
+SU_GETTER(suscan_plugin, uint32_t, get_version)
+{
+  return self->version;
+}
+
+SUINLINE
+SU_GETTER(suscan_plugin, uint32_t, get_api_version)
+{
+  return self->api_version;
+}
+
+SUINLINE
+SU_GETTER(suscan_plugin, const char *, get_description)
+{
+  return self->desc;
+}
+
+SUINLINE
+SU_GETTER(suscan_plugin, const char *, get_name)
+{
+  return self->name;
+}
+
+SUINLINE
+SU_GETTER(suscan_plugin, const char *, get_hash)
+{
+  return self->hash;
+}
+
+SUINLINE
+SU_GETTER(suscan_plugin, const char *, get_path)
+{
+  return self->path;
+}
 
 SUBOOL suscan_plugin_register_service(const struct suscan_plugin_service_desc *);
 suscan_plugin_t *suscan_plugin_lookup(const char *);
@@ -114,9 +151,6 @@ suscan_plugin_t *suscan_plugin_lookup(const char *);
 SU_METHOD(suscan_plugin, void,         set_hash, char *);
 SU_METHOD(suscan_plugin, SUBOOL,       run);
 SU_GETTER(suscan_plugin, void *,       get_service, const char *);
-SU_GETTER(suscan_plugin, const char *, get_path);
-SU_GETTER(suscan_plugin, const char *, get_name);
-SU_GETTER(suscan_plugin, const char *, get_hash);
 
 SUBOOL suscan_plugin_add_search_path(const char *);
 SUBOOL suscan_plugin_load(const char *);

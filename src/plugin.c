@@ -121,8 +121,8 @@ suscan_plugin_register_service(const struct suscan_plugin_service_desc *desc)
 
   SU_TRYC(desc != NULL && desc->name != NULL && desc->ctor != NULL);
 
-  if (suscan_plugin_service_desc_lookup(desc->name) == NULL) {
-    SU_ERROR("Plugin service `%s' already registered.\n");
+  if (suscan_plugin_service_desc_lookup(desc->name) != NULL) {
+    SU_ERROR("Plugin service `%s' already registered.\n", desc->name);
     goto done;
   }
 
@@ -197,8 +197,8 @@ SU_INSTANCER(suscan_plugin, const char *path)
 
   if ((new->entry_fn = dlsym(
     new->handle,
-    STRINGIFY(SUSCAN_PLUGIN_ENTRY))) == NULL) {
-    SU_WARNING("%s: not a valid plugin (API version missing)\n", path);
+    STRINGIFY(plugin_entry))) == NULL) {
+    SU_WARNING("%s: not a valid plugin (entry point missing))\n", path);
     goto fail;
   }
 
@@ -216,8 +216,6 @@ fail:
 SUPRIVATE
 SU_COLLECTOR(suscan_plugin)
 {
-  hashlist_iterator_t it;
-
   if (self->hash != NULL)
     free(self->hash);
 
@@ -225,6 +223,7 @@ SU_COLLECTOR(suscan_plugin)
     free(self->path);
 
   if (self->services != NULL) {
+    hashlist_iterator_t it;
     for (
       it = hashlist_begin(self->services);
       !hashlist_iterator_end(&it);
@@ -253,24 +252,26 @@ SU_GETTER(suscan_plugin, void *, get_service, const char *name)
   return hashlist_get(self->services, name);
 }
 
-SU_GETTER(suscan_plugin, const char *, get_path)
-{
-  return self->path;
-}
-
-SU_GETTER(suscan_plugin, const char *, get_hash)
-{
-  return self->path;
-}
-
-SU_GETTER(suscan_plugin, const char *, get_name)
-{
-  return self->name;
-}
-
 SU_METHOD(suscan_plugin, SUBOOL, run)
 {
-  return (self->entry_fn) (self);
+  if ((self->entry_fn) (self)) {
+    hashlist_iterator_t it;
+    for (
+      it = hashlist_begin(self->services);
+      !hashlist_iterator_end(&it);
+      hashlist_iterator_advance(&it)) {
+      const struct suscan_plugin_service_desc *desc;
+
+      if ((desc = suscan_plugin_service_desc_lookup(it.name)) != NULL) {
+        if (desc->post_load != NULL)
+          (desc->post_load) (it.value);
+      }
+    }
+
+    return SU_TRUE;
+  }
+
+  return SU_FALSE;
 }
 
 SUBOOL
