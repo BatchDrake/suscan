@@ -117,6 +117,11 @@ main(int argc, char *argv[], char *envp[])
     goto done;
   }
 
+  if (!suscan_plugin_load_all()) {
+    fprintf(stderr, "%s: failed to load all modules\n", argv[0]);
+    goto done;
+  }
+  
   fprintf(stderr, "%s: suscan library loaded successfully.\n", argv[0]);
   exit_code = 0;
   

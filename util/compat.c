@@ -29,13 +29,15 @@
 #include <sigutils/util/compat-inet.h>
 #include "compat.h"
 
-/* Bundle implementations */
+/* Compatibility API implementations */
 #if defined(__APPLE__)
 #  include "macos-barriers.imp.h"
 #  include "macos-bundle.imp.h"
 #elif defined(_WIN32)
 #  include "win32-bundle.imp.h"
+#  include "win32-dlfcn.imp.h"
 #else
+
 const char *
 suscan_bundle_get_confdb_path(void)
 {

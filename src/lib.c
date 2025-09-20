@@ -263,6 +263,7 @@ suscan_sigutils_init(enum suscan_mode mode)
   struct sigutils_log_config *config_p = NULL;
   const char *userpath = NULL;
   char *wisdom_file = NULL;
+  char *plugin_path = NULL;
   SUBOOL ok = SU_FALSE;
 
   SIGUTILS_ABI_CHECK();
@@ -292,10 +293,11 @@ suscan_sigutils_init(enum suscan_mode mode)
       goto done;
   }
   
-
-
-  SU_TRY(userpath = suscan_confdb_get_user_path());
+  SU_TRY(userpath    = suscan_confdb_get_user_path());
   SU_TRY(wisdom_file = strbuild("%s/" SUSCAN_WISDOM_FILE_NAME, userpath));
+  SU_TRY(plugin_path = strbuild("%s/" SUSCAN_PLUGIN_DIR, userpath));
+
+  SU_TRY(suscan_plugin_add_search_path(plugin_path));
 
   SU_TRY(su_lib_set_wisdom_file(wisdom_file));
   SU_TRY(su_lib_set_wisdom_enabled(SU_TRUE));
@@ -309,6 +311,9 @@ done:
   if (wisdom_file != NULL)
     free(wisdom_file);
 
+  if (plugin_path != NULL)
+    free(plugin_path);
+  
   return ok;
 }
 
