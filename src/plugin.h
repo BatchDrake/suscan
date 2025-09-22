@@ -37,33 +37,45 @@ extern "C" {
 #define SUSCAN_SYM_NAME(name)                  \
   STRINGIFY(SUSCAN_SYM(name))
 
-#define SUSCAN_DECLARE_SYM(type, name, val)    \
+#define SUSCAN_DEFINE_SYM(type, name, val)     \
   extern "C" {                                 \
     extern type SUSCAN_SYM(name);              \
     type SUSCAN_SYM(name) = val;               \
   }
 
+#define SUSCAN_DEFINE_SYMARR(type, name, ...)  \
+  extern "C" {                                 \
+    extern type SUSCAN_SYM(name)[];            \
+    type SUSCAN_SYM(name)[] = {__VA_ARGS__, NULL}; \
+  }
+
 #define SUSCAN_PLUGIN(name, desc)              \
-  SUSCAN_DECLARE_SYM(                          \
+  SUSCAN_DEFINE_SYM(                           \
     const char *,                              \
     plugin_name,                               \
     name)                                      \
-  SUSCAN_DECLARE_SYM(                          \
+  SUSCAN_DEFINE_SYM(                           \
     const char *,                              \
     plugin_desc,                               \
     desc)
 
 #define SUSCAN_PLUGIN_VERSION(x, y, z)         \
-  SUSCAN_DECLARE_SYM(                          \
+  SUSCAN_DEFINE_SYM(                           \
     uint32_t,                                  \
     plugin_ver,                                \
     SU_VER(x, y, z));
 
 #define SUSCAN_PLUGIN_API_VERSION(x, y, z)     \
-  SUSCAN_DECLARE_SYM(                          \
+  SUSCAN_DEFINE_SYM(                           \
     uint32_t,                                  \
     api_ver,                                   \
     SU_VER(x, y, z));
+
+#define SUSCAN_PLUGIN_DEPENDS(...)             \
+  SUSCAN_DEFINE_SYMARR(                        \
+    const char *,                              \
+    depends,                                   \
+    __VA_ARGS__);
 
 #define _SUSCAN_PLUGIN_ENTRY_SYM plugin_entry
 
@@ -84,17 +96,17 @@ extern "C" {
 #define SUSCAN_INVALID_PLUGIN_HANDLE NULL
 
 struct suscan_plugin {
-  char        *hash;
-  char        *path;
+  char            *hash;
+  char            *path;
 
-  const char  *name; /* Storage inside plugin */
-  const char  *desc; /* Storage inside plugin */
-  uint32_t     version;
-  uint32_t     api_version;
+  const char      *name; /* Storage inside plugin */
+  const char      *desc; /* Storage inside plugin */
+  uint32_t         version;
+  uint32_t         api_version;
 
-  hashlist_t  *services;
-
-  void        *handle;
+  hashlist_t      *services;
+  struct strlist  *depends;
+  void            *handle;
 
   SUBOOL (*entry_fn) (struct suscan_plugin *);
 };

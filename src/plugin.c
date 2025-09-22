@@ -147,7 +147,8 @@ SU_INSTANCER(suscan_plugin, const char *path)
 {
   suscan_plugin_t *new = NULL;
   const uint32_t *p_plugin_ver, *p_api_ver;
-  
+  const char **depends = NULL;
+
   int errno_saved = errno;
   
   SU_TRY_FAIL(suscan_plugin_ensure_init());
@@ -155,6 +156,8 @@ SU_INSTANCER(suscan_plugin, const char *path)
   SU_ALLOCATE_FAIL(new, suscan_plugin_t);
 
   SU_MAKE_FAIL(new->services, hashlist);
+
+  SU_MAKE_FAIL(new->depends, strlist);
 
   SU_TRY_FAIL(new->path = strdup(path));
 
@@ -194,6 +197,12 @@ SU_INSTANCER(suscan_plugin, const char *path)
     goto fail;
   }
   new->api_version = *p_api_ver;
+
+  if ((depends = dlsym(new->handle, SUSCAN_SYM_NAME(depends))) != NULL) {
+    while (*depends != NULL) {
+      SU_TRYC_FAIL(strlist_append_string(new->depends, *depends));
+      ++depends;
+    }
 
   if ((new->entry_fn = dlsym(
     new->handle,
@@ -240,6 +249,9 @@ SU_COLLECTOR(suscan_plugin)
 
     SU_DISPOSE(hashlist, self->services);
   }
+
+  if (self->depends != NULL)
+    strlist_destroy(self->depends);
 
   if (self->handle != NULL)
     dlclose(self->handle);
