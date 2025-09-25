@@ -203,7 +203,8 @@ SU_INSTANCER(suscan_plugin, const char *path)
       SU_TRYC_FAIL(strlist_append_string(new->depends, *depends));
       ++depends;
     }
-
+  }
+  
   if ((new->entry_fn = dlsym(
     new->handle,
     STRINGIFY(plugin_entry))) == NULL) {
