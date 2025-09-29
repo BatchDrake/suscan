@@ -28,12 +28,17 @@
 #include <string.h>
 #include <dirent.h>
 
+/*
+ * No function in this module is thread-safe. Plugin loading occurs
+ * at library initialization, and must run in a single thread.
+ */
 PTR_LIST_PRIVATE(char,                                    g_search_path);
 PTR_LIST_PRIVATE(suscan_plugin_t,                         g_plugin);
 PTR_LIST_PRIVATE_CONST(struct suscan_plugin_service_desc, g_service_desc);
 
 SUPRIVATE hashlist_t *g_hash_to_plugin = NULL;
 SUPRIVATE hashlist_t *g_name_to_plugin = NULL;
+SUPRIVATE hashlist_t *g_path_to_hash   = NULL;
 
 /* Suscan plugin lifecycle is private to this module. */
 SUPRIVATE SU_INSTANCER(suscan_plugin, const char *);
@@ -50,45 +55,60 @@ suscan_plugin_ensure_init(void)
   if (g_name_to_plugin == NULL)
     SU_MAKE(g_name_to_plugin, hashlist);
   
+  if (g_path_to_hash == NULL)
+    SU_MAKE(g_path_to_hash, hashlist);
+  
   ok = SU_TRUE;
 
 done:
   return ok;
 }
 
-SUPRIVATE char *
+SUPRIVATE const char *
 suscan_plugin_hash_file(const char *path)
 {
+  const char *hash = NULL;
   char *buffer = NULL;
-  FILE *fp;
-  uint8_t block[SHA256_BLOCK_SIZE];
-  SHA256_CTX ctx;
-  int32_t got;
-  unsigned int i;
+  FILE *fp = NULL;
   
-  if ((fp = fopen(path, "rb")) == NULL)
-    goto done;
+  if ((hash = hashlist_get(g_path_to_hash, path)) == NULL) {
+    uint8_t block[SHA256_BLOCK_SIZE];
+    SHA256_CTX ctx;
+    int32_t got;
+    unsigned int i;
+    
+    if ((fp = fopen(path, "rb")) == NULL)
+      goto done;
 
-  suscan_sha256_init(&ctx);
+    suscan_sha256_init(&ctx);
 
-  while ((got = fread(block, 1, SHA256_BLOCK_SIZE, fp)) > 0)
-    suscan_sha256_update(&ctx, block, got);
-  
-  if (got < 0)
-    SU_ERROR("sha256: cannot read `%s': %s\n", path, strerror(errno));
+    while ((got = fread(block, 1, SHA256_BLOCK_SIZE, fp)) > 0)
+      suscan_sha256_update(&ctx, block, got);
+    
+    if (got < 0)
+      SU_ERROR("sha256: cannot read `%s': %s\n", path, strerror(errno));
 
-  suscan_sha256_final(&ctx, block);
+    suscan_sha256_final(&ctx, block);
 
-  SU_ALLOCATE_MANY(buffer, 2 * SHA256_BLOCK_SIZE + 1, char);
+    SU_ALLOCATE_MANY(buffer, 2 * SHA256_BLOCK_SIZE + 1, char);
 
-  for (i = 0; i < SHA256_BLOCK_SIZE; ++i)
-    snprintf(buffer + 2 * i, 3, "%02x", block[i]);
-  
+    for (i = 0; i < SHA256_BLOCK_SIZE; ++i)
+      snprintf(buffer + 2 * i, 3, "%02x", block[i]);
+    
+    SU_TRY(hashlist_set(g_path_to_hash, path, buffer));
+
+    hash = buffer;
+    buffer = NULL;
+  }
+
 done:
   if (fp != NULL)
     fclose(fp);
 
-  return buffer;
+  if (buffer != NULL)
+    free(buffer);
+
+  return hash;
 }
 
 SUPRIVATE const struct suscan_plugin_service_desc *
@@ -134,11 +154,8 @@ done:
   return ok;
 }
 
-SU_METHOD(suscan_plugin, void, set_hash, char *hash)
+SU_METHOD(suscan_plugin, void, set_hash, const char *hash)
 {
-  if (self->hash != NULL)
-    free(self->hash);
-
   self->hash = hash;
 }
 
@@ -226,9 +243,6 @@ fail:
 SUPRIVATE
 SU_COLLECTOR(suscan_plugin)
 {
-  if (self->hash != NULL)
-    free(self->hash);
-
   if (self->path != NULL)
     free(self->path);
 
@@ -265,8 +279,30 @@ SU_GETTER(suscan_plugin, void *, get_service, const char *name)
   return hashlist_get(self->services, name);
 }
 
+SU_METHOD(suscan_plugin, SUPRIVATE SUBOOL, check_deps)
+{
+  unsigned int i;
+
+  for (i = 0; i < self->depends->strings_count; ++i) {
+    if (hashlist_get(
+      g_name_to_plugin,
+      self->depends->strings_list[i]) == NULL) {
+      SU_WARNING(
+        "Plugin %s: refusing to load (missing dependency `%s')\n",
+        self->name,
+        self->depends->strings_list[i]);
+      return SU_FALSE;
+    }
+  }
+
+  return SU_TRUE;
+}
+
 SU_METHOD(suscan_plugin, SUBOOL, run)
 {
+  if (!suscan_plugin_check_deps(self))
+    return SU_FALSE;
+
   if ((self->entry_fn) (self)) {
     hashlist_iterator_t it;
     for (
@@ -282,6 +318,8 @@ SU_METHOD(suscan_plugin, SUBOOL, run)
     }
 
     return SU_TRUE;
+  } else {
+    SU_WARNING("Plugin `%s' failed to initialize.\n", self->name);
   }
 
   return SU_FALSE;
@@ -348,16 +386,16 @@ SU_METHOD(suscan_plugin, SUBOOL, register_globally)
 SUBOOL
 suscan_plugin_load(const char *path)
 {
-  char *hash = NULL;
+  const char *hash = NULL;
   SUBOOL ok = SU_FALSE;
   suscan_plugin_t *plugin = NULL;
   
   SU_TRY(suscan_plugin_ensure_init());
 
-  /* Check if plugin file has already been loaded */
   if ((hash = suscan_plugin_hash_file(path)) == NULL)
     goto done;
-  
+
+  /* Check if plugin file has already been loaded */  
   if ((plugin = hashlist_get(g_hash_to_plugin, hash)) == NULL) {
     /* Construct plugin */
     if ((plugin = suscan_plugin_new(path)) == NULL)
@@ -387,8 +425,6 @@ suscan_plugin_load(const char *path)
   ok = SU_TRUE;
 
 done:
-  if (hash != NULL)
-    free(hash);
   
   return ok;
 }
@@ -397,19 +433,19 @@ SUBOOL
 suscan_plugin_load_from_dir(const char *path)
 {
   DIR *dir = NULL;
-  unsigned int plugins = 0, total = 0;
+  unsigned int plugins = 0;
   char *full_path = NULL;
   struct dirent *entry;
   SUBOOL ok = SU_FALSE;
 
-  if ((dir = opendir(path)) == NULL)
+  if ((dir = opendir(path)) == NULL) {
+    ok = SU_TRUE;
     goto done;
+  }
 
   while ((entry = readdir(dir)) != NULL) {
     if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
       continue;
-    
-    ++total;
 
     SU_TRY(full_path = strbuild("%s/%s", path, entry->d_name));
 
@@ -420,9 +456,6 @@ suscan_plugin_load_from_dir(const char *path)
     full_path = NULL;
   }
 
-  if (plugins > 0)
-    SU_INFO("%s: %d/%d plugins loaded\n", path, plugins, total);
-  
   ok = SU_TRUE;
 
 done:
@@ -431,18 +464,48 @@ done:
 
   if (full_path != NULL)
     free(full_path);
-  
-  return ok;
+
+  return ok ? plugins : -1;
 }
 
-SUBOOL
-suscan_plugin_load_all(void)
+SUPRIVATE int
+suscan_plugin_load_all_iteration(void)
 {
   unsigned int i;
+  int total_plugins = 0;
+  int ret;
+  SUBOOL ok = SU_FALSE;
 
-  for (i = 0; i < g_search_path_count; ++i)
-    suscan_plugin_load_from_dir(g_search_path_list[i]);
+  for (i = 0; i < g_search_path_count; ++i) {
+    SU_TRYC(ret = suscan_plugin_load_from_dir(g_search_path_list[i]));
+    total_plugins += ret;
+  }
 
-  return SU_TRUE;
+  ok = SU_TRUE;
+  
+done:
+  return ok ? total_plugins : -1;
+}
+
+int
+suscan_plugin_load_all(void)
+{
+  int prev_plugins = 0;
+  int total_plugins = 0;
+  int iters = 0;
+  SUBOOL ok = SU_FALSE;
+
+  do {
+    prev_plugins  = total_plugins;
+    SU_TRYC(total_plugins = suscan_plugin_load_all_iteration());
+    ++iters;
+  } while (total_plugins > prev_plugins);
+  
+  SU_INFO("%d plugins loaded (%d iterations)\n", total_plugins, iters);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
 }
 

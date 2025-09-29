@@ -37,25 +37,37 @@ extern "C" {
 #define SUSCAN_SYM_NAME(name)                  \
   STRINGIFY(SUSCAN_SYM(name))
 
+#if defined(__cplusplus)
+#  define SUSCAN_CPP_GUARDS_BEGIN extern "C" {
+#  define SUSCAN_CPP_GUARDS_END   }
+#else
+#  define SUSCAN_CPP_GUARDS_BEGIN
+#  define SUSCAN_CPP_GUARDS_END
+#endif
+
 #define SUSCAN_DEFINE_SYM(type, name, val)     \
-  extern "C" {                                 \
+  SUSCAN_CPP_GUARDS_BEGIN                      \
     extern type SUSCAN_SYM(name);              \
     type SUSCAN_SYM(name) = val;               \
-  }
+  SUSCAN_CPP_GUARDS_END
 
 #define SUSCAN_DEFINE_SYMARR(type, name, ...)  \
-  extern "C" {                                 \
+  SUSCAN_CPP_GUARDS_BEGIN                      \
     extern type SUSCAN_SYM(name)[];            \
     type SUSCAN_SYM(name)[] = {__VA_ARGS__, NULL}; \
-  }
+  SUSCAN_CPP_GUARDS_END
+
+#define SUSCAN_DEFINE_SYMSTR(name, val)        \
+  SUSCAN_CPP_GUARDS_BEGIN                      \
+    extern char SUSCAN_SYM(name)[];            \
+    char SUSCAN_SYM(name)[] = val;             \
+  SUSCAN_CPP_GUARDS_END
 
 #define SUSCAN_PLUGIN(name, desc)              \
-  SUSCAN_DEFINE_SYM(                           \
-    const char *,                              \
+  SUSCAN_DEFINE_SYMSTR(                        \
     plugin_name,                               \
     name)                                      \
-  SUSCAN_DEFINE_SYM(                           \
-    const char *,                              \
+  SUSCAN_DEFINE_SYMSTR(                        \
     plugin_desc,                               \
     desc)
 
@@ -79,15 +91,10 @@ extern "C" {
 
 #define _SUSCAN_PLUGIN_ENTRY_SYM plugin_entry
 
-#if defined(__cplusplus)
-#  define SUSCAN_PLUGIN_ENTRY_PROTO                      \
-   extern "C" {                                          \
+#define SUSCAN_PLUGIN_ENTRY_PROTO                        \
+   SUSCAN_CPP_GUARDS_BEGIN                               \
     SUBOOL _SUSCAN_PLUGIN_ENTRY_SYM(suscan_plugin_t *);  \
-   }
-#else
-#  define SUSCAN_PLUGIN_ENTRY_PROTO                      \
-    SUBOOL _SUSCAN_PLUGIN_ENTRY_SYM(suscan_plugin_t *);
-#endif
+   SUSCAN_CPP_GUARDS_END
 
 #define SUSCAN_PLUGIN_ENTRY(plugin)                      \
   SUSCAN_PLUGIN_ENTRY_PROTO                              \
@@ -96,7 +103,7 @@ extern "C" {
 #define SUSCAN_INVALID_PLUGIN_HANDLE NULL
 
 struct suscan_plugin {
-  char            *hash;
+  const char      *hash;
   char            *path;
 
   const char      *name; /* Storage inside plugin */
@@ -160,14 +167,14 @@ SU_GETTER(suscan_plugin, const char *, get_path)
 SUBOOL suscan_plugin_register_service(const struct suscan_plugin_service_desc *);
 suscan_plugin_t *suscan_plugin_lookup(const char *);
 
-SU_METHOD(suscan_plugin, void,         set_hash, char *);
+SU_METHOD(suscan_plugin, void,         set_hash, const char *);
 SU_METHOD(suscan_plugin, SUBOOL,       run);
 SU_GETTER(suscan_plugin, void *,       get_service, const char *);
 
 SUBOOL suscan_plugin_add_search_path(const char *);
 SUBOOL suscan_plugin_load(const char *);
-SUBOOL suscan_plugin_load_from_dir(const char *);
-SUBOOL suscan_plugin_load_all(void);
+int    suscan_plugin_load_from_dir(const char *);
+int    suscan_plugin_load_all(void);
 
 #if defined(__cplusplus)
 }
