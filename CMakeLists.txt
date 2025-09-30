@@ -116,7 +116,7 @@ set(SUSCAN_PKGDIR "${CMAKE_INSTALL_PREFIX}" CACHE STRING
 string(REPLACE ";" " " SIGUTILS_SPC_CFLAGS "${SIGUTILS_CFLAGS}")
 string(REPLACE ";" " " SIGUTILS_SPC_LDFLAGS "${SIGUTILS_LDFLAGS}")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall ${SIGUTILS_CONFIG_CFLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall ${SIGUTILS_CONFIG_CFLAGS} -Wl,-zlazy")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPKGDATADIR='\"${SUSCAN_PKGDIR}/share/suscan\"'")
 
 #
@@ -423,7 +423,9 @@ add_library(
   ${LOCAL_ANALYZER_SOURCES}
   ${ANALYZER_LIB_SOURCES}
   ${VERSION_SOURCES}
-  ${SRCDIR}/lib.c)
+  ${SRCDIR}/lib.c
+  ${SRCDIR}/plugin.h
+  ${SRCDIR}/plugin.c)
 
 add_library(
   suscan-thin-client SHARED
@@ -439,7 +441,9 @@ add_library(
   ${ANALYZER_LIB_HEADERS}
   ${ANALYZER_LIB_SOURCES}
   ${VERSION_SOURCES}
-  ${SRCDIR}/lib.c)
+  ${SRCDIR}/lib.c
+  ${SRCDIR}/plugin.h
+  ${SRCDIR}/plugin.c)
       
 target_add_relative_file_macro(suscan)
 
@@ -594,17 +598,17 @@ install(
   DESTINATION share/suscan/config)
    
 install(
-  FILES src/suscan.h
+  FILES src/suscan.h src/plugin.h
   DESTINATION include/suscan)
 
 install(TARGETS suscan suscan-thin-client DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 ########################### Suscan test executable ############################
-set(SUSCAN_HEADERS ${SRCDIR}/suscan.h)
+set(SUSCAN_HEADERS
+  ${SRCDIR}/plugin.h
+  ${SRCDIR}/suscan.h)
     
-set(SUSCAN_SOURCES 
-  ${SRCDIR}/common.c 
-  ${SRCDIR}/fingerprint.c
+set(SUSCAN_SOURCES
   ${SRCDIR}/main.c)
   
 add_executable(

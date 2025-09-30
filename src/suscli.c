@@ -40,6 +40,11 @@ suscan_init(const char *a0)
     goto done;
   }
 
+  if (!suscan_plugin_load_all()) {
+    fprintf(stderr, "%s: failed to load all plugins\n", a0);
+    goto done;
+  }
+
   su_log_set_mask(0);
 
   ok = SU_TRUE;

@@ -32,6 +32,14 @@
 #    endif /* __APPLE__ */
 #  endif /* _COMPAT_BARRIERS */
 
+#  ifdef _COMPAT_DLFCN
+#    if defined(_WIN32)
+#      include "win32-dlfcn.h"
+#    else
+#      include <dlfcn.h>
+#    endif
+#  endif /* _COMPAT_DLFCN */
+
 const char *suscan_bundle_get_confdb_path(void);
 const char *suscan_bundle_get_soapysdr_module_path(void);
 
