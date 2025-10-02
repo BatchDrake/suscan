@@ -30,7 +30,6 @@ extern "C" {
 
 /* Helper functions */
 const char *suscan_confdb_get_system_path(void);
-const char *suscan_confdb_get_user_path(void);
 const char *suscan_confdb_get_local_path(void);
 const char *suscan_confdb_get_local_tle_path(void);
 

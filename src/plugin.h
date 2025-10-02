@@ -176,6 +176,10 @@ SUBOOL suscan_plugin_load(const char *);
 int    suscan_plugin_load_from_dir(const char *);
 int    suscan_plugin_load_all(void);
 
+const char *suscan_plugin_get_system_path(void);
+const char *suscan_plugin_get_local_path(void);
+SUBOOL      suscan_plugin_add_default_search_paths(void);
+
 #if defined(__cplusplus)
 }
 #endif

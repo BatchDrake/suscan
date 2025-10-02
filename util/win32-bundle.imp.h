@@ -78,3 +78,12 @@ suscan_bundle_get_confdb_path(void)
   
   return g_configpath;
 }
+
+const char *
+suscan_bundle_get_plugin_path(void)
+{
+  if (g_configpath == NULL)
+    g_configpath = get_bundle_path("plugins");
+  
+  return g_configpath;
+}

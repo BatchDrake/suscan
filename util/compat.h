@@ -40,7 +40,9 @@
 #    endif
 #  endif /* _COMPAT_DLFCN */
 
+const char *suscan_get_user_path(void);
 const char *suscan_bundle_get_confdb_path(void);
+const char *suscan_bundle_get_plugin_path(void);
 const char *suscan_bundle_get_soapysdr_module_path(void);
 
 struct suscan_nic {

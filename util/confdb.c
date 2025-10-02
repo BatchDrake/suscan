@@ -33,8 +33,6 @@
 
 PTR_LIST(SUPRIVATE suscan_config_context_t, context);
 
-SUPRIVATE const char *confdb_user_path;
-
 SUPRIVATE const char *confdb_system_path;
 SUPRIVATE const char *confdb_local_path;
 SUPRIVATE const char *confdb_tle_path;
@@ -68,49 +66,13 @@ suscan_confdb_get_system_path(void)
 }
 
 const char *
-suscan_confdb_get_user_path(void)
-{
-  struct passwd *pwd;
-  const char *homedir = NULL;
-  char *tmp = NULL;
-
-  if (confdb_user_path == NULL) {
-    if ((pwd = getpwuid(getuid())) != NULL)
-      homedir = pwd->pw_dir;
-    else
-      homedir = getenv("HOME");
-
-    if (homedir == NULL) {
-      SU_WARNING("No homedir information found!\n");
-      return NULL;
-    }
-
-    SU_TRYCATCH(tmp = strbuild("%s/.suscan", homedir), goto fail);
-
-    if (access(tmp, F_OK) == -1)
-      SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
-
-    confdb_user_path = tmp;
-  }
-
-  return confdb_user_path;
-  
-fail:
-  if (tmp != NULL)
-    free(tmp);
-
-  return NULL;
-}
-
-
-const char *
 suscan_confdb_get_local_path(void)
 {
   const char *user_path;
   char *tmp = NULL;
 
   if (confdb_local_path == NULL) {
-    SU_TRYCATCH(user_path = suscan_confdb_get_user_path(), goto fail);
+    SU_TRYCATCH(user_path = suscan_get_user_path(), goto fail);
     SU_TRYCATCH(tmp = strbuild("%s/config", user_path), goto fail);
 
     if (access(tmp, F_OK) == -1)
@@ -135,7 +97,7 @@ suscan_confdb_get_local_tle_path(void)
   char *tmp = NULL;
 
   if (confdb_tle_path == NULL) {
-    SU_TRYCATCH(user_path = suscan_confdb_get_user_path(), goto fail);
+    SU_TRYCATCH(user_path = suscan_get_user_path(), goto fail);
     SU_TRYCATCH(tmp = strbuild("%s/tle", user_path), goto fail);
 
     if (access(tmp, F_OK) == -1)

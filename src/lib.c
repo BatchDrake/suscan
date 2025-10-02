@@ -23,7 +23,9 @@
 #include <confdb.h>
 
 #include <sigutils/util/util.h>
+#include <util/compat.h>
 #include "suscan.h"
+#include "plugin.h"
 
 #define SUSCAN_MAX_MESSAGES 1024
 #define SUSCAN_WISDOM_FILE_NAME "wisdom.dat"
@@ -262,7 +264,6 @@ suscan_sigutils_init(enum suscan_mode mode)
   struct sigutils_log_config config = sigutils_log_config_INITIALIZER;
   struct sigutils_log_config *config_p = NULL;
   const char *userpath = NULL;
-  const char *syspath = NULL;
   char *wisdom_file = NULL;
   char *plugin_path = NULL;
   SUBOOL ok = SU_FALSE;
@@ -294,16 +295,10 @@ suscan_sigutils_init(enum suscan_mode mode)
       goto done;
   }
   
-  SU_TRY(userpath    = suscan_confdb_get_user_path());
-  SU_TRY(syspath     = suscan_confdb_get_system_path());
+  SU_TRY(userpath    = suscan_get_user_path());
   SU_TRY(wisdom_file = strbuild("%s/" SUSCAN_WISDOM_FILE_NAME, userpath));
-  SU_TRY(plugin_path = strbuild("%s/" SUSCAN_PLUGIN_DIR, userpath));
-  SU_TRY(suscan_plugin_add_search_path(plugin_path));
-  free(plugin_path);
-  plugin_path = NULL;
 
-  SU_TRY(plugin_path = strbuild("%s/" SUSCAN_PLUGIN_DIR, syspath));
-  SU_TRY(suscan_plugin_add_search_path(plugin_path));
+  SU_TRY(suscan_plugin_add_default_search_paths());
 
   SU_TRY(su_lib_set_wisdom_file(wisdom_file));
   SU_TRY(su_lib_set_wisdom_enabled(SU_TRUE));

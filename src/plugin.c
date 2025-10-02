@@ -25,6 +25,8 @@
 #include <sigutils/log.h>
 #include <util/sha256.h>
 #include <util/compat.h>
+#include <util/confdb.h>
+#include <sigutils/util/compat-stat.h>
 #include <string.h>
 #include <dirent.h>
 
@@ -36,9 +38,13 @@ PTR_LIST_PRIVATE(char,                                    g_search_path);
 PTR_LIST_PRIVATE(suscan_plugin_t,                         g_plugin);
 PTR_LIST_PRIVATE_CONST(struct suscan_plugin_service_desc, g_service_desc);
 
-SUPRIVATE hashlist_t *g_hash_to_plugin = NULL;
-SUPRIVATE hashlist_t *g_name_to_plugin = NULL;
-SUPRIVATE hashlist_t *g_path_to_hash   = NULL;
+SUPRIVATE const char *g_plugin_system_path = NULL;
+SUPRIVATE const char *g_plugin_local_path  = NULL;
+SUPRIVATE SUBOOL      g_custom_plugin_path = SU_FALSE;
+
+SUPRIVATE hashlist_t *g_hash_to_plugin     = NULL;
+SUPRIVATE hashlist_t *g_name_to_plugin     = NULL;
+SUPRIVATE hashlist_t *g_path_to_hash       = NULL;
 
 /* Suscan plugin lifecycle is private to this module. */
 SUPRIVATE SU_INSTANCER(suscan_plugin, const char *);
@@ -502,6 +508,79 @@ suscan_plugin_load_all(void)
   } while (total_plugins > prev_plugins);
   
   SU_INFO("%d plugins loaded (%d iterations)\n", total_plugins, iters);
+
+  ok = SU_TRUE;
+
+done:
+  return ok;
+}
+
+const char *
+suscan_plugin_get_system_path(void)
+{
+  const char *path = NULL;
+  
+  if (g_plugin_system_path == NULL) {
+    if ((path = getenv("SUSCAN_PLUGIN_PATH")) != NULL) {
+      g_custom_plugin_path = SU_TRUE;
+      g_plugin_system_path = path;
+    } else {
+      /*
+       * In some distributions, config plugins are retrieved from an
+       * application bundle (like MacOS).
+       */
+      path = suscan_bundle_get_plugin_path();
+      if (path != NULL)
+        g_plugin_system_path = path;
+      else
+        g_plugin_system_path = PKGDATADIR "/plugins";
+    }
+  }
+
+  return g_plugin_system_path;
+}
+
+const char *
+suscan_plugin_get_local_path(void)
+{
+  const char *user_path;
+  char *tmp = NULL;
+
+  if (g_plugin_local_path == NULL) {
+    SU_TRYCATCH(user_path = suscan_get_user_path(), goto fail);
+    SU_TRYCATCH(tmp = strbuild("%s/config", user_path), goto fail);
+
+    if (access(tmp, F_OK) == -1)
+      SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
+
+    g_plugin_local_path = tmp;
+  }
+
+  return g_plugin_local_path;
+
+fail:
+  if (tmp != NULL)
+    free(tmp);
+
+  return NULL;
+}
+
+SUBOOL
+suscan_plugin_add_default_search_paths(void)
+{
+  SUBOOL ok = SU_FALSE;
+
+  const char *syspath;
+
+  SU_TRY(syspath  = suscan_plugin_get_system_path());
+
+  if (!g_custom_plugin_path) {
+    const char *userpath;
+    SU_TRY(userpath = suscan_plugin_get_local_path());
+    SU_TRY(suscan_plugin_add_search_path(userpath));
+  }
+
+  SU_TRY(suscan_plugin_add_search_path(syspath));
 
   ok = SU_TRUE;
 

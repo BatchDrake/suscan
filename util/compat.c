@@ -26,6 +26,8 @@
 
 #include <sigutils/util/compat-socket.h>
 #include <sigutils/util/compat-in.h>
+#include <sigutils/util/compat-pwd.h>
+#include <sigutils/util/compat-stat.h>
 #include <sigutils/util/compat-inet.h>
 #include "compat.h"
 
@@ -37,6 +39,12 @@
 #  include "win32-bundle.imp.h"
 #  include "win32-dlfcn.imp.h"
 #else
+
+const char *
+suscan_bundle_get_plugin_path(void)
+{
+  return NULL; /* No bundle path in the default OS */
+}
 
 const char *
 suscan_bundle_get_confdb_path(void)
@@ -71,6 +79,43 @@ suscan_get_nic_addr(const char *name)
 #endif /* __linux __ */
 
 /*************************** Common methods *******************************/
+SUPRIVATE const char *g_user_path;
+
+const char *
+suscan_get_user_path(void)
+{
+  struct passwd *pwd;
+  const char *homedir = NULL;
+  char *tmp = NULL;
+
+  if (g_user_path == NULL) {
+    if ((pwd = getpwuid(getuid())) != NULL)
+      homedir = pwd->pw_dir;
+    else
+      homedir = getenv("HOME");
+
+    if (homedir == NULL) {
+      SU_WARNING("No homedir information found!\n");
+      return NULL;
+    }
+
+    SU_TRYCATCH(tmp = strbuild("%s/.suscan", homedir), goto fail);
+
+    if (access(tmp, F_OK) == -1)
+      SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
+
+    g_user_path = tmp;
+  }
+
+  return g_user_path;
+  
+fail:
+  if (tmp != NULL)
+    free(tmp);
+
+  return NULL;
+}
+
 struct suscan_nic *
 suscan_nic_new(const char *name, uint32_t saddr)
 {

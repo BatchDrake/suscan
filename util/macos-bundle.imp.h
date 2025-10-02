@@ -80,3 +80,10 @@ suscan_bundle_get_confdb_path(void)
 {
   return suscan_bundle_get_resource_path(CFSTR("suscan/config"));
 }
+
+const char *
+suscan_bundle_get_plugin_path(void)
+{
+  return suscan_bundle_get_resource_path(CFSTR("suscan/plugins"));
+}
+
