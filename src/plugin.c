@@ -548,7 +548,7 @@ suscan_plugin_get_local_path(void)
 
   if (g_plugin_local_path == NULL) {
     SU_TRYCATCH(user_path = suscan_get_user_path(), goto fail);
-    SU_TRYCATCH(tmp = strbuild("%s/config", user_path), goto fail);
+    SU_TRYCATCH(tmp = strbuild("%s/plugins", user_path), goto fail);
 
     if (access(tmp, F_OK) == -1)
       SU_TRYCATCH(mkdir(tmp, 0700) != -1, goto fail);
