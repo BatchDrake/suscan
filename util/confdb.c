@@ -19,7 +19,7 @@
 
 #include <string.h>
 #include <unistd.h>
-#include <sigutils/util/compat-pwd.h>
+
 #include <sys/types.h>
 #include <sigutils/util/compat-mman.h>
 #include <sigutils/util/compat-stat.h>
