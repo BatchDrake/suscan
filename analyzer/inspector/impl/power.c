@@ -552,7 +552,7 @@ suscan_power_inspector_close(void *private)
 
 SUPRIVATE struct suscan_inspector_interface iface = {
     .name = "power",
-    .desc = "Power channel inspector",
+    .desc = "Channel power",
     .frequency_domain = SU_TRUE,
     .open = suscan_power_inspector_open,
     .get_config = suscan_power_inspector_get_config,

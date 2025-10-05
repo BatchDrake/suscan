@@ -385,7 +385,7 @@ suscan_fsk_inspector_close(void *private)
 
 SUPRIVATE struct suscan_inspector_interface iface = {
     .name = "fsk",
-    .desc = "FSK inspector",
+    .desc = "Frequency (FSK)",
     .sc_factory_class = "sc-inspector",
     .open = suscan_fsk_inspector_open,
     .get_config = suscan_fsk_inspector_get_config,

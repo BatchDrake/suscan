@@ -77,7 +77,7 @@ suscan_raw_inspector_close(void *private)
 
 SUPRIVATE struct suscan_inspector_interface iface = {
     .name = "raw",
-    .desc = "Raw channel inspector",
+    .desc = "Pass-through",
     .open = suscan_raw_inspector_open,
     .get_config = suscan_raw_inspector_get_config,
     .parse_config = suscan_raw_inspector_parse_config,

@@ -523,7 +523,7 @@ suscan_audio_inspector_close(void *private)
 
 SUPRIVATE struct suscan_inspector_interface iface = {
     .name = "audio",
-    .desc = "Audio inspector",
+    .desc = "Analog audio",
     .open = suscan_audio_inspector_open,
     .get_config = suscan_audio_inspector_get_config,
     .parse_config = suscan_audio_inspector_parse_config,

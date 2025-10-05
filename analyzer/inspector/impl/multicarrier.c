@@ -135,14 +135,14 @@ suscan_multicarrier_inspector_close(void *private)
 
 SUPRIVATE struct suscan_inspector_interface iface = {
     .name = "multicarrier",
-    .desc = "Multicarrier channel inspector",
+    .desc = "Multicarrier",
     .sc_factory_class = "sc-inspector",
-    .open = suscan_multicarrier_inspector_open,
-    .get_config = suscan_multicarrier_inspector_get_config,
-    .parse_config = suscan_multicarrier_inspector_parse_config,
+    .open          = suscan_multicarrier_inspector_open,
+    .get_config    = suscan_multicarrier_inspector_get_config,
+    .parse_config  = suscan_multicarrier_inspector_parse_config,
     .commit_config = suscan_multicarrier_inspector_commit_config,
-    .feed = suscan_multicarrier_inspector_feed,
-    .close = suscan_multicarrier_inspector_close
+    .feed          = suscan_multicarrier_inspector_feed,
+    .close         = suscan_multicarrier_inspector_close
 };
 
 SUBOOL

@@ -406,15 +406,15 @@ suscan_drift_inspector_close(void *private)
 }
 
 SUPRIVATE struct suscan_inspector_interface iface = {
-    .name = "drift",
-    .desc = "Frequency drift inspector",
-    .open = suscan_drift_inspector_open,
-    .get_config = suscan_drift_inspector_get_config,
-    .parse_config = suscan_drift_inspector_parse_config,
+    .name          = "drift",
+    .desc          = "Frequency drift",
+    .open          = suscan_drift_inspector_open,
+    .get_config    = suscan_drift_inspector_get_config,
+    .parse_config  = suscan_drift_inspector_parse_config,
     .commit_config = suscan_drift_inspector_commit_config,
-    .feed = suscan_drift_inspector_feed,
-    .freq_changed = suscan_drift_inspector_new_freq,
-    .close = suscan_drift_inspector_close
+    .feed          = suscan_drift_inspector_feed,
+    .freq_changed  = suscan_drift_inspector_new_freq,
+    .close         = suscan_drift_inspector_close
 };
 
 SUBOOL

@@ -468,7 +468,7 @@ suscan_psk_inspector_close(void *private)
 
 SUPRIVATE struct suscan_inspector_interface iface = {
     .name = "psk",
-    .desc = "PSK inspector",
+    .desc = "Phase (PSK)",
     .sc_factory_class = "sc-inspector",
     .open = suscan_psk_inspector_open,
     .get_config = suscan_psk_inspector_get_config,

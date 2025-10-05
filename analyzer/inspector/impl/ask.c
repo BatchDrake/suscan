@@ -416,7 +416,7 @@ suscan_ask_inspector_close(void *private)
 
 SUPRIVATE struct suscan_inspector_interface iface = {
     .name = "ask",
-    .desc = "ASK inspector",
+    .desc = "Amplitude (ASK)",
     .sc_factory_class = "sc-inspector",
     .open = suscan_ask_inspector_open,
     .get_config = suscan_ask_inspector_get_config,

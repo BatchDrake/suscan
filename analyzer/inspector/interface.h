@@ -27,6 +27,10 @@
 #include "../estimator.h"
 #include "../spectsrc.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 struct suscan_inspector;
 
 struct suscan_inspector_sampling_info {
@@ -101,5 +105,9 @@ SUBOOL suscan_inspector_interface_add_spectsrc(
 SUBOOL suscan_inspector_interface_add_estimator(
     struct suscan_inspector_interface *iface,
     const char *name);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _INSPECTOR_INTERFACE_H */
