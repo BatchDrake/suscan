@@ -7,6 +7,7 @@
 #define _SUSCAN_SUSCAN_H
 
 #include <sys/time.h>
+#include <sigutils/version.h>
 #include "sgdp4/sgdp4-types.h"
 #include "plugin.h"
 
