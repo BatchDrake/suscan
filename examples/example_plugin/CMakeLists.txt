@@ -76,7 +76,7 @@ install(
 #
 target_include_directories(
   example_plugin 
-  INTERFACE
+  PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   SYSTEM PUBLIC
   ${SNDFILE_INCLUDE_DIRS}
