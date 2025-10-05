@@ -52,3 +52,6 @@ If everything went fine, you should see the message:
 ```
 suscan.status: suscan library loaded successfully.
 ```
+
+## Using the library
+Please check the [examples](examples/README.md).
