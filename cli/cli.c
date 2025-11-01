@@ -511,7 +511,7 @@ fail:
 }
 
 SUPRIVATE SUBOOL
-suscli_init_cb(const hashlist_t *params)
+suscli_list_cb(const hashlist_t *params)
 {
   int i;
 
@@ -542,7 +542,7 @@ suscli_init(void)
           "list",
           "List all available commands",
           0,
-          suscli_init_cb) != -1,
+          suscli_list_cb) != -1,
       goto fail);
 
 
