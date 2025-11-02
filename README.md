@@ -40,6 +40,7 @@ If the previous commands were successful, you are ready to install Suscan in you
 
 ```
 # make install
+# ldconfig
 ```
 
 You can verify your installation by running:
