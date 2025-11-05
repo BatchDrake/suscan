@@ -686,6 +686,9 @@ add_executable(
   ${SUSCLI_HEADERS} 
   ${SUSCLI_SOURCES})
 
+set_property(TARGET suscli PROPERTY ENABLE_EXPORTS 1)
+
+
 # Private header directories
 target_include_directories(
   suscli

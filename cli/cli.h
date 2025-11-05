@@ -39,6 +39,60 @@ struct suscli_command {
   SUBOOL (*callback) (const hashlist_t *);
 };
 
+struct suscli_service_methods {
+  SUBOOL (*register_command) (
+    const char *,
+    const char *,
+    uint32_t flags,
+    SUBOOL (*callback) (const hashlist_t *));
+
+  SUBOOL (*param_read_int) (
+    const hashlist_t *params,
+    const char *key,
+    int *out,
+    int dfl);
+
+  SUBOOL (*param_read_uuid) (
+    const hashlist_t *params,
+    const char *key,
+    uint64_t *out,
+    uint64_t dfl);
+
+  SUBOOL (*param_read_double) (
+    const hashlist_t *params,
+    const char *key,
+    SUDOUBLE *out,
+    SUDOUBLE dfl);
+
+  SUBOOL (*param_read_float) (
+    const hashlist_t *params,
+    const char *key,
+    SUFLOAT *out,
+    SUFLOAT dfl);
+
+  SUBOOL (*param_read_string) (
+    const hashlist_t *params,
+    const char *key,
+    const char **out,
+    const char *dfl);
+
+  SUBOOL (*param_read_bool) (
+    const hashlist_t *params,
+    const char *key,
+    SUBOOL *out,
+    SUBOOL dfl);
+
+  SUBOOL (*param_read_profile) (
+    const hashlist_t *p,
+    const char *key,
+    suscan_source_config_t **out);
+
+  suscan_source_config_t *(*lookup_profile) (const char *name);
+  suscan_source_config_t *(*resolve_profile) (const char *spec);
+};
+
+typedef struct suscli_service_methods suscli_service_methods_t;
+
 suscan_source_config_t *suscli_get_source(unsigned int id);
 
 unsigned int suscli_get_source_count(void);

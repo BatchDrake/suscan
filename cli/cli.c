@@ -24,6 +24,7 @@
 #include <util/confdb.h>
 #include <util/compat.h>
 #include <string.h>
+#include <suscan/suscan.h>
 
 #include <cli/cli.h>
 #include <cli/cmds.h>
@@ -33,6 +34,31 @@ suscan_source_config_t *ui_config;
 PTR_LIST_PRIVATE(suscan_source_config_t, cli_config);
 
 SUPRIVATE uint32_t init_mask = 0;
+
+SUINLINE void *
+suscli_service_ctor(suscan_plugin_t *plugin)
+{
+  static suscli_service_methods_t methods = {
+    .register_command   = suscli_command_register,
+    .param_read_int     = suscli_param_read_int,
+    .param_read_uuid    = suscli_param_read_uuid,
+    .param_read_float   = suscli_param_read_float,
+    .param_read_double  = suscli_param_read_double,
+    .param_read_string  = suscli_param_read_string,
+    .param_read_bool    = suscli_param_read_bool,
+    .param_read_profile = suscli_param_read_profile,
+    .lookup_profile     = suscli_lookup_profile
+  };
+
+  return &methods;
+}
+
+SUPRIVATE struct suscan_plugin_service_desc g_suscli_service_desc = {
+  .name = "suscli",
+  .ctor = suscli_service_ctor,
+  .dtor = NULL,
+  .post_load = NULL
+};
 
 suscan_source_config_t *
 suscli_get_source(unsigned int id)
@@ -511,7 +537,7 @@ fail:
 }
 
 SUPRIVATE SUBOOL
-suscli_init_cb(const hashlist_t *params)
+suscli_list_cb(const hashlist_t *params)
 {
   int i;
 
@@ -537,90 +563,84 @@ suscli_init(void)
 
   suscli_log_init();
   
-  SU_TRYCATCH(
+  SU_TRY(
       suscli_command_register(
           "list",
           "List all available commands",
           0,
-          suscli_init_cb) != -1,
-      goto fail);
+          suscli_list_cb) != -1);
 
 
-  SU_TRYCATCH(
+  SU_TRY(
       suscli_command_register(
           "profiles",
           "List profiles",
           SUSCLI_COMMAND_REQ_SOURCES,
-          suscli_profiles_cb) != -1,
-      goto fail);
+          suscli_profiles_cb) != -1);
 
-  SU_TRYCATCH(
+  SU_TRY(
       suscli_command_register(
           "rms",
           "Perform different kinds of power measurements",
           SUSCLI_COMMAND_REQ_SOURCES | SUSCLI_COMMAND_REQ_INSPECTORS,
-          suscli_rms_cb) != -1,
-      goto fail);
+          suscli_rms_cb) != -1);
 
-  SU_TRYCATCH(
+  SU_TRY(
       suscli_command_register(
           "radio",
           "Listen to analog radio",
           SUSCLI_COMMAND_REQ_SOURCES | SUSCLI_COMMAND_REQ_INSPECTORS,
-          suscli_radio_cb) != -1,
-      goto fail);
+          suscli_radio_cb) != -1);
 
-  SU_TRYCATCH(
+  SU_TRY(
       suscli_command_register(
           "profinfo",
           "Display profile information",
           SUSCLI_COMMAND_REQ_SOURCES,
-          suscli_profinfo_cb) != -1,
-      goto fail);
+          suscli_profinfo_cb) != -1);
 
-  SU_TRYCATCH(
+  SU_TRY(
       suscli_command_register(
           "devices",
           "Display detected devices",
           SUSCLI_COMMAND_REQ_SOURCES,
-          suscli_devices_cb) != -1,
-      goto fail);
+          suscli_devices_cb) != -1);
 
-  SU_TRYCATCH(
+  SU_TRY(
       suscli_command_register(
           "makeprof",
           "Generate profiles from detected devices",
           SUSCLI_COMMAND_REQ_SOURCES,
-          suscli_makeprof_cb) != -1,
-      goto fail);
+          suscli_makeprof_cb) != -1);
 
-  SU_TRYCATCH(
+  SU_TRY(
       suscli_command_register(
           "devserv",
           "Start the SuRPC remove device server",
           SUSCLI_COMMAND_REQ_ALL,
-          suscli_devserv_cb) != -1,
-      goto fail);
+          suscli_devserv_cb) != -1);
 
-  SU_TRYCATCH(
+  SU_TRY(
       suscli_command_register(
           "tleinfo",
           "Display information about a TLE file",
           0,
-          suscli_tleinfo_cb) != -1,
-      goto fail);
+          suscli_tleinfo_cb) != -1);
 
-  SU_TRYCATCH(
+  SU_TRY(
       suscli_command_register(
           "snoop",
           "Debug analyzer messages as JSON strings",
           SUSCLI_COMMAND_REQ_ALL,
-          suscli_snoop_cb) != -1,
-      goto fail);
+          suscli_snoop_cb) != -1);
+
+  suscan_plugin_register_service(&g_suscli_service_desc);
+
+  SU_TRY(suscan_plugin_load_all());
 
   ok = SU_TRUE;
 
-fail:
+done:
   return ok;
 }
 

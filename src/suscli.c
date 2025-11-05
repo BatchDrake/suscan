@@ -29,7 +29,6 @@
 #  include <signal.h>
 #endif /* __unix__ */
 
-
 SUPRIVATE SUBOOL
 suscan_init(const char *a0)
 {
@@ -37,11 +36,6 @@ suscan_init(const char *a0)
 
   if (!suscan_sigutils_init(SUSCAN_MODE_IMMEDIATE)) {
     fprintf(stderr, "%s: failed to initialize sigutils library\n", a0);
-    goto done;
-  }
-
-  if (!suscan_plugin_load_all()) {
-    fprintf(stderr, "%s: failed to load all plugins\n", a0);
     goto done;
   }
 
