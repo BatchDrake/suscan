@@ -46,6 +46,15 @@ suscli_frequency_format(char *obuf, size_t osize, SUFREQ freq, const char *unit)
   snprintf(obuf, osize - 1, "%6.3lf %c%s", freq, pfx, unit);
 }
 
+
+SUPRIVATE SUBOOL
+suscli_chanloop_set_gain(void *privdata, const char *name, SUFLOAT value)
+{
+  suscan_analyzer_t *analyzer = privdata;
+
+  return suscan_analyzer_set_gain(analyzer, name, value);
+}
+
 suscli_chanloop_t *
 suscli_chanloop_open(
     const struct suscli_chanloop_params *params,
@@ -67,19 +76,19 @@ suscli_chanloop_open(
   struct suscan_analyzer_params analyzer_params =
       suscan_analyzer_params_INITIALIZER;
 
-  SU_TRYCATCH(params->on_data != NULL, goto fail);
+  SU_TRY_FAIL(params->on_data != NULL);
 
-  SU_TRYCATCH(params->relbw > 0,  goto fail);
-  SU_TRYCATCH(params->relbw <= 1, goto fail);
+  SU_TRY_FAIL(params->relbw > 0);
+  SU_TRY_FAIL(params->relbw <= 1);
 
-  SU_TRYCATCH(params->rello - .5 * params->relbw > -.5,  goto fail);
-  SU_TRYCATCH(params->rello + .5 * params->relbw < +.5, goto fail);
+  SU_TRY_FAIL(params->rello - .5 * params->relbw > -.5);
+  SU_TRY_FAIL(params->rello + .5 * params->relbw < +.5);
 
   /* Neither PSD nor channel detector */
   analyzer_params.channel_update_int = 0;
   analyzer_params.psd_update_int     = 0;
 
-  SU_TRYCATCH(new = calloc(1, sizeof(suscli_chanloop_t)), goto fail);
+  SU_ALLOCATE_FAIL(new, suscli_chanloop_t);
 
   new->params = *params;
   new->lnb_freq = suscan_source_config_get_lnb_freq(cfg);
@@ -88,16 +97,18 @@ suscli_chanloop_open(
     new->params.type = "raw";
 
   /* First step: open analyzer, get true sample rate */
-  SU_TRYCATCH(suscan_mq_init(&new->mq), goto fail);
-  SU_TRYCATCH(
-      new->analyzer = suscan_analyzer_new(
-          &analyzer_params,
-          cfg,
-          &new->mq),
-      goto fail);
+  SU_CONSTRUCT_FAIL(suscan_mq, &new->mq);
+
+  SU_MAKE_FAIL(new->analyzer, suscan_analyzer, &analyzer_params, cfg, &new->mq);
 
   /* Wait for analyzer to be initialized */
   SU_TRY_FAIL(suscan_analyzer_wait_until_ready(new->analyzer, NULL));
+
+  SU_TRY_FAIL(
+    suscan_source_config_walk_gains(
+      cfg,
+      suscli_chanloop_set_gain,
+      new->analyzer));
 
   true_samp_rate = suscan_analyzer_get_samp_rate(new->analyzer);
 
@@ -137,45 +148,45 @@ suscli_chanloop_open(
       case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
         msg = rawmsg;
         if (msg->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_OPEN) {
-          fprintf(stderr, "Inspector opened!\n");
-          fprintf(stderr, "  Inspector ID: 0x%08x\n", msg->inspector_id);
-          fprintf(stderr, "  Request ID:   0x%08x\n", msg->req_id);
-          fprintf(stderr, "  Handle:       0x%08x\n", msg->handle);
+          SU_INFO("Inspector opened!\n");
+          SU_INFO("  Inspector ID: 0x%08x\n", msg->inspector_id);
+          SU_INFO("  Request ID:   0x%08x\n", msg->req_id);
+          SU_INFO("  Handle:       0x%08x\n", msg->handle);
 
           suscli_frequency_format(
             freqline,
             sizeof(freqline),
             msg->equiv_fs,
             "sps");
-          fprintf(stderr, "  EquivFS:      %s\n", freqline);
+          SU_INFO("  EquivFS:      %s\n", freqline);
 
           suscli_frequency_format(
             freqline,
             sizeof(freqline),
             msg->channel.ft,
             "Hz");
-          fprintf(stderr, "  Ft:           %s\n", freqline);
+          SU_INFO("  Ft:           %s\n", freqline);
 
           suscli_frequency_format(
             freqline,
             sizeof(freqline),
             msg->bandwidth,
             "Hz");
-          fprintf(stderr, "  BW:           %s\n", freqline);
+          SU_INFO("  BW:           %s\n", freqline);
 
           suscli_frequency_format(
             freqline,
             sizeof(freqline),
             msg->lo,
             "Hz");
-          fprintf(stderr, "  LO:           %s\n", freqline);
+          SU_INFO("  LO:           %s\n", freqline);
 
           new->handle   = msg->handle;
           new->ft       = msg->channel.ft;
           new->bw       = msg->bandwidth;
           new->equiv_fs = msg->equiv_fs;
           
-          SU_TRYCATCH(new->inspcfg = suscan_config_dup(msg->config), goto fail);
+          SU_TRY_FAIL(new->inspcfg = suscan_config_dup(msg->config));
           have_inspector = SU_TRUE;
 
           /* Set parameters */
@@ -184,13 +195,12 @@ suscli_chanloop_open(
                 new->analyzer,
                 new->inspcfg,
                 new->params.userdata)) {
-              SU_TRYCATCH(
+              SU_TRY_FAIL(
                   suscan_analyzer_set_inspector_config_async(
                       new->analyzer,
                       msg->handle,
                       new->inspcfg,
-                      0),
-                  goto fail);
+                      0));
             }
           }
         }
@@ -212,7 +222,7 @@ suscli_chanloop_open(
 
 fail:
   if (new != NULL)
-    suscli_chanloop_destroy(new);
+    SU_DISPOSE(suscli_chanloop, new);
 
   return NULL;
 }

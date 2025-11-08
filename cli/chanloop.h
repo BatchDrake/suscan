@@ -97,5 +97,11 @@ suscli_chanloop_get_config(const suscli_chanloop_t *self)
   return self->inspcfg;
 }
 
+SUINLINE suscan_analyzer_t *
+suscli_chanloop_get_analyzer(const suscli_chanloop_t *self)
+{
+  return self->analyzer;
+}
+
 #endif /* _CLI_CHANLOOP_H */
 
