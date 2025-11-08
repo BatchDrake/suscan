@@ -185,7 +185,11 @@ SU_INSTANCER(suscan_plugin, const char *path)
   SU_TRY_FAIL(new->path = strdup(path));
 
   if ((new->handle = dlopen(path, RTLD_GLOBAL | RTLD_LAZY)) == NULL) {
-    SU_ERROR("Cannot open %s: %s\n", path, dlerror());
+    const char *error = dlerror();
+    if (
+      (strstr(error, "SigDigger") == NULL && strstr(error, "Suscan") == NULL)
+      || suscan_plugin_service_desc_lookup("SigDigger") != NULL)
+      SU_ERROR("Cannot open %s: %s\n", path, error);
     goto fail;
   }
 

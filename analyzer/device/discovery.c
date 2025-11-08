@@ -269,11 +269,13 @@ SU_METHOD(suscan_device_discovery, void,  accept)
 
   ++self->epoch;
 
+#if 0
   SU_INFO(
     "[%s] Enter epoch %d: %d new devices\n", 
     self->iface->name,
     self->epoch,
     self->next_device_count);
+#endif
 
   suscan_device_discovery_clear_unsafe(self);
 

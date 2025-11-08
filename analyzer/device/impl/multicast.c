@@ -135,7 +135,7 @@ multicast_discovery_thread(void *data)
 
   struct multicast_discovery_ctx *ctx = data;
 
-  SU_INFO("Multicast discovery: starting thread, alloc size: %d\n", ctx->alloc_size);
+  /* SU_INFO("Multicast discovery: starting thread, alloc size: %d\n", ctx->alloc_size); */
 
   while (!ctx->closed && (sz = recvfrom(
       ctx->fd,
@@ -163,7 +163,8 @@ multicast_discovery_thread(void *data)
     cfg = NULL;
   }
 
-  SU_WARNING("Discovery: socket vanished, stopping thread.\n");
+  if (!ctx->closed)
+    SU_WARNING("Discovery: socket vanished, stopping thread.\n");
 
 done:
   if (cfg != NULL)
@@ -305,11 +306,14 @@ multicast_discovery_close(void *userdata)
   struct multicast_discovery_ctx *self = userdata;
   unsigned int i;
 
+  if (self->fd != -1)
+    shutdown(self->fd, 2);
+
   self->closed = SU_TRUE;
 
   if (self->thread_running)
     pthread_join(self->thread, NULL);
-
+  
   if (self->mutex_alloc)
     pthread_mutex_destroy(&self->mutex);
   

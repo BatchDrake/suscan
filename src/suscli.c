@@ -110,6 +110,6 @@ main(int argc, const char *argv[], char *envp[])
 
 done:
   suscan_device_facade_cleanup();
-  
+
   exit(ret);
 }

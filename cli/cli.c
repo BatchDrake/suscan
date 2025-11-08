@@ -380,24 +380,35 @@ suscli_params_dtor(const char *key, void *data, void *userdata)
 SUPRIVATE hashlist_t *
 suscli_parse_params(const char **argv)
 {
-  hashlist_t *new = NULL;
+  hashlist_t *new    = NULL;
   hashlist_t *result = NULL;
+  SUBOOL warned      = SU_FALSE;
   char *copy = NULL;
-  char *val = NULL;
-  char *eq = NULL;
+  char *val  = NULL;
+  char *eq   = NULL;
 
-  SU_TRYCATCH(new = hashlist_new(), goto fail);
+  SU_MAKE_FAIL(new, hashlist);
+
   hashlist_set_dtor(new, suscli_params_dtor);
 
   while (*argv != NULL) {
-    SU_TRYCATCH(copy = strdup(*argv++), goto fail);
+    const char *curr_arg = *argv++;
+    
+    if (strncmp(curr_arg, "--", 2) == 0) {
+      curr_arg += 2;
+    } else if (!warned) {
+      SU_INFO("Note: passing parameters without double-hyphen prefix will be deprecated\n");
+      warned = SU_TRUE;
+    }
+
+    SU_TRY_FAIL(copy = strdup(curr_arg));
 
     if ((eq = strchr(copy, '=')) != NULL)
       *eq++ = '\0';
 
-    SU_TRYCATCH(val = strdup(eq != NULL ? eq : "1"), goto fail);
+    SU_TRY_FAIL(val = strdup(eq != NULL ? eq : "1"));
 
-    SU_TRYCATCH(hashlist_set(new, copy, val), goto fail);
+    SU_TRY_FAIL(hashlist_set(new, copy, val));
 
     val = NULL;
     free(copy);
@@ -416,7 +427,7 @@ fail:
     free(val);
 
   if (new != NULL)
-    hashlist_destroy(new);
+    SU_DISPOSE(hashlist, new);
 
   return result;
 }
