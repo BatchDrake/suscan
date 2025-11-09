@@ -513,6 +513,15 @@ suscan_local_inspector_factory_set_freq_correction(
   return SU_TRUE;
 }
 
+SUPRIVATE SUBOOL
+suscan_local_inspector_factory_set_tuner_freq(void *userdata, SUFREQ freq)
+{
+  suscan_local_analyzer_t *self = (suscan_local_analyzer_t *) userdata;
+  SUFREQ lnb = self->source_info.lnb;
+
+  return suscan_local_analyzer_slow_set_freq(self, freq, lnb);
+}
+
 SUPRIVATE void
 suscan_local_inspector_factory_dtor(void *self)
 {
@@ -533,6 +542,7 @@ static struct suscan_inspector_factory_class g_local_factory = {
   .set_domain          = suscan_local_inspector_factory_set_domain,
   .get_abs_freq        = suscan_local_inspector_factory_get_abs_freq,
   .set_freq_correction = suscan_local_inspector_factory_set_freq_correction,
+  .set_tuner_freq      = suscan_local_inspector_factory_set_tuner_freq,
   .dtor                = suscan_local_inspector_factory_dtor
 };
 

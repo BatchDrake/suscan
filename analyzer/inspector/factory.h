@@ -21,8 +21,8 @@
 #define _INSPECTOR_FACTORY_H
 
 #include "inspector.h"
-#include "inspsched.h"
-#include "mq.h"
+#include "../inspsched.h"
+#include "../mq.h"
 
 #include <stdarg.h>
 
@@ -67,9 +67,15 @@ struct suscan_inspector_factory_class {
   /* Set domain */
   SUBOOL (*set_domain) (void *, void *, SUBOOL);
 
+  /* Get absolute frequency */
   SUFREQ (*get_abs_freq) (void *, void *);
+
+  /* Set frequency correction */
   SUBOOL (*set_freq_correction) (void *, void *, SUFLOAT);
   
+  /* Set underlying tuner frequency (optional) */
+  SUBOOL (*set_tuner_freq) (void *, SUFREQ);
+
   void (*dtor)(void *);
 };
 
@@ -140,6 +146,17 @@ suscan_inspector_factory_set_inspector_freq(
     self->userdata,
     insp->factory_userdata,
     freq);
+}
+
+SUINLINE SUBOOL
+suscan_inspector_factory_set_tuner_freq(
+  suscan_inspector_factory_t *self,
+  SUFREQ freq)
+{
+  if (self->iface->set_tuner_freq == NULL)
+    return SU_FALSE;
+
+  return (self->iface->set_tuner_freq) (self->userdata, freq);
 }
 
 SUINLINE SUBOOL

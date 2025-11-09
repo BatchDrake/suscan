@@ -1121,19 +1121,19 @@ suscan_inspector_new(
     goto fail;
   }
 
-  SU_TRYCATCH(new = calloc(1, sizeof (suscan_inspector_t)), goto fail);
+  SU_ALLOCATE_FAIL(new, suscan_inspector_t);
   new->state            = SUSCAN_ASYNC_STATE_CREATED;
   new->samp_info        = *samp_info;
   new->frequency_domain = iface->frequency_domain;
 
   /* Initialize reference counting */
-  SU_TRYCATCH(SUSCAN_INIT_REFCOUNT(suscan_inspector, new), goto fail);
+  SU_TRY_FAIL(SUSCAN_INIT_REFCOUNT(suscan_inspector, new));
 
   /* Initialize mutexes */
-  SU_TRYCATCH(pthread_mutex_init(&new->mutex, NULL) == 0, goto fail);
+  SU_TRYZ_FAIL(pthread_mutex_init(&new->mutex, NULL));
   new->mutex_init = SU_TRUE;
 
-  SU_TRYCATCH(pthread_mutex_init(&new->corrector_mutex, NULL) == 0, goto fail);
+  SU_TRYZ_FAIL(pthread_mutex_init(&new->corrector_mutex, NULL));
   new->corrector_init = SU_TRUE;
 
   /* Factory specific fields */
@@ -1155,7 +1155,7 @@ suscan_inspector_new(
 
   /* All set to call specific inspector */
   new->iface = iface;
-  SU_TRYCATCH(new->privdata = (iface->open) (&new->samp_info), goto fail);
+  SU_TRY_FAIL(new->privdata = (iface->open) (&new->samp_info));
 
   /* 
    * If the interface reports the ability to perform subcarrier inspection,
@@ -1163,47 +1163,40 @@ suscan_inspector_new(
    */
   if (iface->sc_factory_class != NULL) {
     if (!factory_registered) {
-      SU_TRYCATCH(suscan_inspector_register_factory(), goto fail);
+      SU_TRY_FAIL(suscan_inspector_register_factory());
       factory_registered = SU_TRUE;
     }
 
     sparams.window_size = SUSCAN_INSPECTOR_TUNER_BUF_SIZE;
     sparams.early_windowing = SU_TRUE;
 
-    SU_TRYCATCH(
-      new->sc_stuner = su_specttuner_new(&sparams),
-      goto fail);
+    SU_MAKE_FAIL(new->sc_stuner, su_specttuner, &sparams);
 
     pthread_mutexattr_init(&attr);
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-    SU_TRYCATCH(
-      pthread_mutex_init(&new->sc_stuner_mutex, &attr) == 0,
-      goto fail);
+    SU_TRYZ_FAIL(pthread_mutex_init(&new->sc_stuner_mutex, &attr));
 
     new->sc_stuner_init = SU_TRUE;
-    SU_TRYCATCH(
-      new->sc_factory = suscan_inspector_factory_new(
+    SU_MAKE_FAIL(new->sc_factory, suscan_inspector_factory,
         iface->sc_factory_class,
-        new),
-      goto fail);
+        new);
   }
   
   /* Creation successful! Add all estimators and spectrum sources */
   for (i = 0; i < iface->spectsrc_count; ++i)
-    SU_TRYCATCH(
-        suscan_inspector_add_spectsrc(new, iface->spectsrc_list[i]),
-        goto fail);
+    SU_TRY_FAIL(suscan_inspector_add_spectsrc(new, iface->spectsrc_list[i]));
 
   for (i = 0; i < iface->estimator_count; ++i)
-    SU_TRYCATCH(
-        suscan_inspector_add_estimator(new, iface->estimator_list[i]),
-        goto fail);
+    SU_TRY_FAIL(suscan_inspector_add_estimator(new, iface->estimator_list[i]));
+
+  if (iface->bind != NULL)
+    SU_TRY_FAIL((iface->bind) (new->privdata, new));
 
   return new;
 
 fail:
   if (new != NULL)
-    suscan_inspector_destroy(new);
+    SU_DISPOSE(suscan_inspector, new);
 
   return NULL;
 }

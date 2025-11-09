@@ -34,10 +34,10 @@ extern "C" {
 struct suscan_inspector;
 
 struct suscan_inspector_sampling_info {
-  SUFLOAT equiv_fs;         /* Equivalent sample rate */
-  SUFLOAT bw;               /* Bandwidth */
-  SUFLOAT bw_bd;            /* Bandwidth before decimation */
-  SUFLOAT f0;               /* Center frequency */
+  SUFLOAT  equiv_fs;        /* Equivalent sample rate */
+  SUFLOAT  bw;              /* Bandwidth */
+  SUFLOAT  bw_bd;           /* Bandwidth before decimation */
+  SUFLOAT  f0;              /* Center frequency */
   SUSCOUNT fft_size;        /* Size of the FFT window. */
   SUSCOUNT fft_bins;        /* Number of non-zero bins in the FFT window */
   SUBOOL   early_windowing; /* Early windowing is being applied */
@@ -57,6 +57,9 @@ struct suscan_inspector_interface {
   PTR_LIST_CONST(struct suscan_estimator_class, estimator);
 
   void *(*open) (const struct suscan_inspector_sampling_info *sinfo);
+
+  /* Parent inspector has been initialised */
+  SUBOOL (*bind) (void *priv, struct suscan_inspector *insp);
 
   /* Get current configuration */
   SUBOOL (*get_config) (void *priv, suscan_config_t *config);

@@ -118,10 +118,8 @@ suscan_inspector_factory_new(const char *name, ...)
     goto done;
   }
 
-  SU_TRYCATCH(
-    new = calloc(1, sizeof(suscan_inspector_factory_t)), 
-    goto done);
-
+  SU_ALLOCATE(new, suscan_inspector_factory_t);
+  
   new->iface = class;
 
   if ((new->userdata = (new->iface->ctor(new, ap))) == NULL)
@@ -139,14 +137,12 @@ suscan_inspector_factory_new(const char *name, ...)
 
   pthread_mutexattr_init(&attr);
   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-  SU_TRYCATCH(
-    pthread_mutex_init(&new->inspector_list_mutex, &attr) == 0, 
-    goto done);
+  
+  SU_TRYZ(pthread_mutex_init(&new->inspector_list_mutex, &attr));
+
   new->inspector_list_init = SU_TRUE;
 
-  SU_TRYCATCH(
-    new->sched = suscan_inspsched_new(new->mq_ctl),
-    goto done);
+  SU_MAKE(new->sched, suscan_inspsched, new->mq_ctl);
 
   ok = SU_TRUE;
 
@@ -155,7 +151,7 @@ done:
 
   if (!ok) {
     if (new != NULL)
-      suscan_inspector_factory_destroy(new);
+      SU_DISPOSE(suscan_inspector_factory, new);
     new = NULL;
   }
 
@@ -197,7 +193,7 @@ suscan_inspector_factory_feed(
   struct suscan_inspector_task_info *info = NULL;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(insp->state != SUSCAN_ASYNC_STATE_HALTED, goto done);
+  SU_TRY(insp->state != SUSCAN_ASYNC_STATE_HALTED);
 
   /* Make sure the inspector is not in HALTING state. */
   if (insp->state == SUSCAN_ASYNC_STATE_HALTING) {
@@ -214,16 +210,14 @@ suscan_inspector_factory_feed(
   suscan_inspector_factory_update_frequency_corrections(self, insp);
 
   /* Step 2: allocate task info and queue task */
-  SU_TRYCATCH(
-    info = suscan_inspsched_acquire_task_info(self->sched, insp), 
-    goto done);
+  SU_TRY(info = suscan_inspsched_acquire_task_info(self->sched, insp));
 
   info->type         = SUSCAN_INSPECTOR_TASK_INFO_TYPE_SAMPLES;
   info->samples.data = data;
   info->samples.size = size;
   info->inspector    = insp;
 
-  SU_TRYCATCH(suscan_inspsched_queue_task(self->sched, info), goto done);
+  SU_TRY(suscan_inspsched_queue_task(self->sched, info));
   info = NULL;
 
   ok = SU_TRUE;
@@ -255,16 +249,14 @@ suscan_inspector_factory_notify_freq(
   suscan_inspector_factory_update_frequency_corrections(self, insp);
 
   /* Step 2: allocate task info and queue task */
-  SU_TRYCATCH(
-    info = suscan_inspsched_acquire_task_info(self->sched, insp), 
-    goto done);
+  SU_TRY(info = suscan_inspsched_acquire_task_info(self->sched, insp));
 
   info->type            = SUSCAN_INSPECTOR_TASK_INFO_TYPE_NEW_FREQ;
   info->new_freq.old_f0 = prev_freq;
   info->new_freq.new_f0 = next_freq;
   info->inspector       = insp;
 
-  SU_TRYCATCH(suscan_inspsched_queue_task(self->sched, info), goto done);
+  SU_TRY(suscan_inspsched_queue_task(self->sched, info));
   info = NULL;
 
   ok = SU_TRUE;
@@ -296,7 +288,7 @@ suscan_inspector_factory_halt_inspector(
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(pthread_mutex_lock(&self->inspector_list_mutex) == 0, goto done);
+  SU_TRYZ(pthread_mutex_lock(&self->inspector_list_mutex));
   mutex_acquired = SU_TRUE;
 
   if (insp->state == SUSCAN_ASYNC_STATE_RUNNING)
@@ -326,21 +318,18 @@ suscan_inspector_factory_walk_inspectors(
   SUBOOL mutex_acquired = SU_FALSE;
   SUBOOL ok = SU_FALSE;
 
-  SU_TRYCATCH(pthread_mutex_lock(&self->inspector_list_mutex) == 0, goto done);
+  SU_TRYZ(pthread_mutex_lock(&self->inspector_list_mutex));
   mutex_acquired = SU_TRUE;
 
   for (i = 0; i < self->inspector_count; ++i) {
     if (self->inspector_list[i] != NULL) {
-      SU_TRYCATCH(
+      SU_TRY(
         suscan_inspector_walk_inspectors(
           self->inspector_list[i],
           callback,
-          userdata),
-      goto done);
+          userdata));
 
-      SU_TRYCATCH(
-        (callback) (userdata, self->inspector_list[i]),
-        goto done);
+      SU_TRY((callback) (userdata, self->inspector_list[i]));
     }
   }
 
@@ -381,26 +370,23 @@ suscan_inspector_factory_open(suscan_inspector_factory_t *self, ...)
    * create and register the inspector.
    */
 
-  SU_TRYCATCH(
-      new = suscan_inspector_new(
+  SU_MAKE(new, suscan_inspector,
         self,         /* This factory */
         class,        /* Inspector class */
         &samp_info,   /* Sampling info, as determined by open */
         self->mq_out, /* Output message queue */
         self->mq_ctl, /* Control message queue */
-        userdata),    /* Per-inspector factory data */
-      goto done);
+        userdata);    /* Per-inspector factory data */
 
 
-  SU_TRYCATCH(pthread_mutex_lock(&self->inspector_list_mutex) == 0, goto done);
+  SU_TRYZ(pthread_mutex_lock(&self->inspector_list_mutex));
   mutex_acquired = SU_TRUE;
 
   /* vvvvvvvvvvvvvvvvvvvvvvvv inspector_list lock vvvvvvvvvvvvvvvvvvvvvvvvvv */
   suscan_inspector_factory_cleanup_unsafe(self);
 
-  SU_TRYCATCH(
-    (index = PTR_LIST_APPEND_CHECK(self->inspector, new)) != -1,
-    goto done);
+  SU_TRYC(index = PTR_LIST_APPEND_CHECK(self->inspector, new));
+
   SU_REF(new, factory);
 
   new->handle = -1;

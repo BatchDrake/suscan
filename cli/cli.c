@@ -29,9 +29,9 @@
 #include <cli/cli.h>
 #include <cli/cmds.h>
 
-PTR_LIST_PRIVATE(struct suscli_command, command);
-suscan_source_config_t *ui_config;
-PTR_LIST_PRIVATE(suscan_source_config_t, cli_config);
+PTR_LIST_PRIVATE(struct suscli_command, g_command);
+suscan_source_config_t *g_ui_config;
+PTR_LIST_PRIVATE(suscan_source_config_t, g_cli_config);
 
 SUPRIVATE uint32_t init_mask = 0;
 
@@ -63,22 +63,22 @@ SUPRIVATE struct suscan_plugin_service_desc g_suscli_service_desc = {
 suscan_source_config_t *
 suscli_get_source(unsigned int id)
 {
-  if (id <= 0 || id > cli_config_count)
+  if (id <= 0 || id > g_cli_config_count)
     return NULL;
 
-  return cli_config_list[id - 1];
+  return g_cli_config_list[id - 1];
 }
 
 unsigned int
 suscli_get_source_count(void)
 {
-  return cli_config_count;
+  return g_cli_config_count;
 }
 
 SUPRIVATE SUBOOL
 suscli_walk_all_sources(suscan_source_config_t *config, void *privdata)
 {
-  return PTR_LIST_APPEND_CHECK(cli_config, config) != -1;
+  return PTR_LIST_APPEND_CHECK(g_cli_config, config) != -1;
 }
 
 suscan_source_config_t *
@@ -87,14 +87,14 @@ suscli_lookup_profile(const char *name)
   int i;
 
   if (name == NULL)
-    return ui_config;
+    return g_ui_config;
 
-  for (i = 0; i < cli_config_count; ++i)
-    if (suscan_source_config_get_label(cli_config_list[i]) != NULL
+  for (i = 0; i < g_cli_config_count; ++i)
+    if (suscan_source_config_get_label(g_cli_config_list[i]) != NULL
         && strcasecmp(
-            suscan_source_config_get_label(cli_config_list[i]),
+            suscan_source_config_get_label(g_cli_config_list[i]),
             name) == 0)
-      return cli_config_list[i];
+      return g_cli_config_list[i];
 
   return NULL;
 }
@@ -177,9 +177,9 @@ suscli_param_read_profile(
 
   if (have_profile_id) {
     if (profile_id == 0) {
-      profile = ui_config;
-    } else if (profile_id > 0 && profile_id <= cli_config_count) {
-      profile = cli_config_list[profile_id - 1];
+      profile = g_ui_config;
+    } else if (profile_id > 0 && profile_id <= g_cli_config_count) {
+      profile = g_cli_config_list[profile_id - 1];
     } else {
       SU_ERROR("Profile index `%d' out ouf bounds.\n", profile_id);
       return SU_FALSE;
@@ -348,7 +348,7 @@ suscli_command_register(
       new = suscli_command_new(name, description, flags, callback),
       goto fail);
 
-  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(command, new) != -1, goto fail);
+  SU_TRYCATCH(PTR_LIST_APPEND_CHECK(g_command, new) != -1, goto fail);
 
   ok = SU_TRUE;
 
@@ -364,9 +364,9 @@ suscli_command_lookup(const char *name)
 {
   int i;
 
-  for (i = 0; i < command_count; ++i)
-    if (strcmp(command_list[i]->name, name) == 0)
-      return command_list[i];
+  for (i = 0; i < g_command_count; ++i)
+    if (strcmp(g_command_list[i]->name, name) == 0)
+      return g_command_list[i];
 
   return NULL;
 }
@@ -491,7 +491,7 @@ suscli_init_ui_source(void)
   if (cfg == NULL)
     SU_TRYCATCH(cfg = suscan_source_config_new_default(), goto fail);
 
-  ui_config = cfg;
+  g_ui_config = cfg;
 
   ok = SU_TRUE;
 
@@ -556,12 +556,12 @@ suscli_list_cb(const hashlist_t *params)
       stderr,
       "Command list:\n");
 
-  for (i = 0; i < command_count; ++i) {
+  for (i = 0; i < g_command_count; ++i) {
     fprintf(
         stderr,
         "  %-10s%s\n",
-        command_list[i]->name,
-        command_list[i]->description);
+        g_command_list[i]->name,
+        g_command_list[i]->description);
   }
 
   return SU_TRUE;
