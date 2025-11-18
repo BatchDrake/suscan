@@ -181,14 +181,15 @@ set(RSRC_CONFIG_FILES
 set(UTIL_HEADERS
   ${UTILDIR}/bpe.h
   ${UTILDIR}/cbor.h
+  ${UTILDIR}/cfg.h
   ${UTILDIR}/com.h
   ${UTILDIR}/compat.h
+  ${UTILDIR}/confdb.h
   ${UTILDIR}/hashlist.h
   ${UTILDIR}/list.h
   ${UTILDIR}/macos-barriers.h
   ${UTILDIR}/macos-barriers.imp.h
-  ${UTILDIR}/confdb.h
-  ${UTILDIR}/cfg.h
+  ${UTILDIR}/npy.h
   ${UTILDIR}/object.h 
   ${UTILDIR}/rbtree.h
   ${UTILDIR}/sha256.h
@@ -206,6 +207,7 @@ set(UTIL_SOURCES
   ${UTILDIR}/deserialize-yaml.c
   ${UTILDIR}/hashlist.c
   ${UTILDIR}/list.c
+  ${UTILDIR}/npy.c
   ${UTILDIR}/object.c
   ${UTILDIR}/rbtree.c
   ${UTILDIR}/serialize-xml.c
@@ -672,6 +674,7 @@ set(SUSCLI_SOURCES
   ${CLIDIR}/cmd/rms.c
   ${CLIDIR}/cmd/profinfo.c
   ${CLIDIR}/cmd/snoop.c
+  ${CLIDIR}/cmd/spectrum.c
   ${CLIDIR}/cmd/tleinfo.c
   ${CLIDIR}/devserv/client.c
   ${CLIDIR}/devserv/mc_manager.c

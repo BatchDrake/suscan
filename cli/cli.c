@@ -645,6 +645,13 @@ suscli_init(void)
           SUSCLI_COMMAND_REQ_ALL,
           suscli_snoop_cb) != -1);
 
+  SU_TRY(
+      suscli_command_register(
+          "spectrum",
+          "Store spectrum data to a data saver object",
+          SUSCLI_COMMAND_REQ_SOURCES,
+          suscli_spectrum_cb) != -1);
+
   suscan_plugin_register_service(&g_suscli_service_desc);
 
   SU_TRY(suscan_plugin_load_all());
