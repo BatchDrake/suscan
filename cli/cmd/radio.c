@@ -37,6 +37,8 @@
 #include <sigutils/util/compat-termios.h>
 #include <signal.h>
 
+#include <util/units.h>
+
 #define SUSCLI_RADIO_PARAMS_DEFAULT_DEMODULATOR  SUSCAN_INSPECTOR_AUDIO_DEMOD_FM
 #define SUSCLI_RADIO_PARAMS_DEFAULT_VOLUME_DB    0
 #define SUSCLI_RADIO_PARAMS_DEFAULT_SAMPLE_RATE  44100
@@ -94,23 +96,6 @@ SUPRIVATE SUSCOUNT suscli_radio_state_get_buffering_time(
     const struct suscli_radio_state *self);
 
 SUPRIVATE struct suscli_radio_state *g_state;
-
-SUPRIVATE const char *
-suscli_radio_helper_format_frequency(SUFREQ freq, char *buf, size_t size)
-{
-  if (freq < 1e3)
-    snprintf(buf, size, "%.0lf Hz", freq);
-  else if (freq < 1e6)
-    snprintf(buf, size, "%.3lf kHz", freq * 1e-3);
-  else if (freq < 1e9)
-    snprintf(buf, size, "%.6lf MHz", freq * 1e-6);
-  else if (freq < 1e12)
-    snprintf(buf, size, "%.9lf GHz", freq * 1e-9);
-  else
-    snprintf(buf, size, "%.12lf THz", freq * 1e-12);
-
-  return buf;
-}
 
 /***************************** Audio callbacks ********************************/
 SUPRIVATE SUBOOL
@@ -259,7 +244,7 @@ suscli_radio_params_debug(const struct suscli_radio_params *self)
       "  Profile:       %s\n",
       suscan_source_config_get_label(self->profile));
 
-  suscli_radio_helper_format_frequency(
+  suscan_units_format_frequency(
       self->frequency,
       freqbuffer,
       sizeof(freqbuffer));
@@ -268,7 +253,7 @@ suscli_radio_params_debug(const struct suscli_radio_params *self)
       "  Frequency:     %s\n",
       freqbuffer);
 
-  suscli_radio_helper_format_frequency(
+  suscan_units_format_frequency(
       self->lo,
       freqbuffer,
       sizeof(freqbuffer));
@@ -281,7 +266,7 @@ suscli_radio_params_debug(const struct suscli_radio_params *self)
       "  Demodulator:   %s\n",
       suscli_radio_demod_to_string(self->demod));
 
-  suscli_radio_helper_format_frequency(
+  suscan_units_format_frequency(
       self->cutoff,
       freqbuffer,
       sizeof(freqbuffer));
@@ -563,7 +548,7 @@ suscli_radio_state_parse_stdin_commands(struct suscli_radio_state *self)
           suscli_chanloop_set_frequency(
             self->chanloop, 
             self->frequency - self->params.lo);
-          suscli_radio_helper_format_frequency(
+          suscan_units_format_frequency(
               self->frequency,
               freqbuffer,
               sizeof(freqbuffer));
@@ -576,7 +561,7 @@ suscli_radio_state_parse_stdin_commands(struct suscli_radio_state *self)
           suscli_chanloop_set_frequency(
             self->chanloop, 
             self->frequency - self->params.lo);
-          suscli_radio_helper_format_frequency(
+          suscan_units_format_frequency(
               self->frequency,
               freqbuffer,
               sizeof(freqbuffer));
@@ -586,7 +571,7 @@ suscli_radio_state_parse_stdin_commands(struct suscli_radio_state *self)
 
         case 'w':
           self->freq_step *= 10;
-          suscli_radio_helper_format_frequency(
+          suscan_units_format_frequency(
               self->freq_step,
               freqbuffer,
               sizeof(freqbuffer));
@@ -596,7 +581,7 @@ suscli_radio_state_parse_stdin_commands(struct suscli_radio_state *self)
 
         case 's':
           self->freq_step /= 10;
-          suscli_radio_helper_format_frequency(
+          suscan_units_format_frequency(
               self->freq_step,
               freqbuffer,
               sizeof(freqbuffer));
