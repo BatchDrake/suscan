@@ -26,6 +26,10 @@
 #define NPY_MAX_DIMS            10
 #define NPY_FLUSH_HEADER_STEP 1024
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum npy_dtype {
   NPY_DTYPE_INT32,
   NPY_DTYPE_FLOAT32,
@@ -82,5 +86,9 @@ DEFINE_NPY_WRITER(float64, double)
 DECLARE_NPY_STORE_FUNC(int32,   int32_t);
 DECLARE_NPY_STORE_FUNC(float32, float);
 DECLARE_NPY_STORE_FUNC(float64, double);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _UTIL_NPY_H */
