@@ -40,8 +40,14 @@ strmap_to_SoapySDRKwargs(const strmap_t *map)
   
   it = strmap_begin(map);
   while (!strmap_iterator_end(&it)) {
-    if (it.value != NULL)
-      SU_TRYZ_FAIL(SoapySDRKwargs_set(args, it.name, it.value));
+    if (it.value != NULL) {
+      /* Okay, this was embarrassing */
+      if (strcmp(it.name, "device") == 0) {
+        SU_TRYZ_FAIL(SoapySDRKwargs_set(args, "driver", it.value));
+      } else {
+        SU_TRYZ_FAIL(SoapySDRKwargs_set(args, it.name, it.value));
+      }
+    }
 
     strmap_iterator_advance(&it);
   }

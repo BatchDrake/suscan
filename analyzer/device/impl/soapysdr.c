@@ -286,6 +286,8 @@ soapysdr_discovery_populate(suscan_device_properties_t *prop, const SoapySDRKwar
       SU_TRY(suscan_device_properties_set_trait(prop, "device", val));
     } else if (strcmp(key, "serial") == 0) {
       SU_TRY(suscan_device_properties_set_trait(prop, "serial", val));
+    } else if (strcmp(key, "device_id") == 0) {
+      SU_TRY(suscan_device_properties_set_trait(prop, "device_id", val));
     } else if (strcmp(key, "label") == 0) {
       SU_TRY(suscan_device_properties_set_label(prop, val));
     }
