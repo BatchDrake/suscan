@@ -28,7 +28,8 @@ struct suscli_chanloop_params {
   const char *type;
   void *userdata;
   SUBOOL (*on_data) (suscan_analyzer_t *, const SUCOMPLEX *, size_t, void *);
-  SUBOOL (*on_open) (suscan_analyzer_t *, suscan_config_t *, void *);
+  SUBOOL (*on_open) (suscan_analyzer_t *, suscan_config_t *, SUHANDLE, void *);
+  SUBOOL (*on_signal) (suscan_analyzer_t *, const char *, SUFLOAT, void *);
 };
 
 #define suscli_chanloop_params_INITIALIZER      \
@@ -38,19 +39,22 @@ struct suscli_chanloop_params {
   NULL, /* type */                              \
   NULL, /* userdata */                          \
   NULL, /* on_data */                           \
+  NULL, /* on_open */                           \
+  NULL, /* on_signal */                         \
 }
 
 struct suscli_chanloop {
   struct suscli_chanloop_params params;
-  suscan_analyzer_t *analyzer;
-  struct suscan_mq mq;
-  suscan_config_t *inspcfg;
-  struct sigutils_channel chan;
-  SUHANDLE handle;
-  SUFLOAT equiv_fs;
-  SUFREQ  lnb_freq;
-  SUFREQ  ft;
-  SUFREQ  bw;
+  suscan_analyzer_t            *analyzer;
+  struct suscan_mq              mq;
+  suscan_config_t              *inspcfg;
+  struct sigutils_channel       chan;
+
+  SUHANDLE                      handle;
+  SUFLOAT                       equiv_fs;
+  SUFREQ                        lnb_freq;
+  SUFREQ                        ft;
+  SUFREQ                        bw;
 };
 
 typedef struct suscli_chanloop suscli_chanloop_t;

@@ -612,6 +612,7 @@ SUPRIVATE SUBOOL
 suscli_radio_on_open_cb(
     suscan_analyzer_t *self,
     suscan_config_t *config,
+    SUHANDLE,
     void *userdata)
 {
   struct suscli_radio_state *state = (struct suscli_radio_state *) userdata;

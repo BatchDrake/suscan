@@ -189,11 +189,19 @@ suscli_chanloop_open(
           SU_TRY_FAIL(new->inspcfg = suscan_config_dup(msg->config));
           have_inspector = SU_TRUE;
 
+          SU_TRY_FAIL(
+            suscan_analyzer_set_inspector_id_async(
+              new->analyzer,
+              new->handle,
+              new->handle,
+              0));
+
           /* Set parameters */
           if (new->params.on_open != NULL) {
             if ((new->params.on_open) (
                 new->analyzer,
                 new->inspcfg,
+                new->handle,
                 new->params.userdata)) {
               SU_TRY_FAIL(
                   suscan_analyzer_set_inspector_config_async(
@@ -231,6 +239,7 @@ SUBOOL
 suscli_chanloop_work(suscli_chanloop_t *self)
 {
   struct suscan_analyzer_sample_batch_msg *msg;
+  struct suscan_analyzer_inspector_msg    *inspdata;
   void *rawmsg;
   uint32_t type;
   struct timeval timeout;
@@ -252,6 +261,24 @@ suscli_chanloop_work(suscli_chanloop_t *self)
         case SUSCAN_ANALYZER_MESSAGE_TYPE_READ_ERROR:
           suscan_analyzer_dispose_message(type, rawmsg);
           goto fail;
+
+        case SUSCAN_ANALYZER_MESSAGE_TYPE_INSPECTOR:
+          inspdata = rawmsg;
+          if (inspdata->inspector_id == self->handle
+            && inspdata->kind == SUSCAN_ANALYZER_INSPECTOR_MSGKIND_SIGNAL) {
+            if (self->params.on_signal != NULL) {
+              if (!(self->params.on_signal) (
+                self->analyzer,
+                inspdata->signal_name,
+                inspdata->signal_value,
+                self->params.userdata)) {
+                suscan_analyzer_dispose_message(type, rawmsg);
+                ok = SU_TRUE;
+                goto fail;
+              }
+            }
+          }
+          break;
 
         case SUSCAN_ANALYZER_MESSAGE_TYPE_SAMPLES:
           msg = rawmsg;
