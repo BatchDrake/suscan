@@ -19,6 +19,10 @@
 
 #define SU_LOG_DOMAIN "cli-spectrum"
 
+#include <signal.h>
+#include <time.h>
+#include <sys/stat.h>
+
 #include <sigutils/log.h>
 #include <sigutils/sampling.h>
 #include <sigutils/detect.h>
@@ -27,9 +31,6 @@
 #include <analyzer/analyzer.h>
 #include <analyzer/source.h>
 #include <analyzer/msg.h>
-#include <signal.h>
-#include <time.h>
-#include <sys/stat.h>
 
 #include <cli/cli.h>
 #include <cli/cmds.h>
