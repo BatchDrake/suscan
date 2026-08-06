@@ -485,9 +485,6 @@ SU_INSTANCER(
   const struct suscli_spectrum_params *params)
 {
   suscli_spectrum_t *new = NULL;
-  struct timeval tv;
-  struct tm tm;
-
   SU_ALLOCATE_FAIL(new, suscli_spectrum_t);
 
   new->params   = *params;
@@ -497,8 +494,10 @@ SU_INSTANCER(
   new->dataset  = params->start - 1;
 
   if (params->prefix == NULL) {
-    gettimeofday(&tv, NULL);
-    gmtime_r(&tv.tv_sec, &tm);
+    struct tm tm;
+    time_t now;
+    time(&now);
+    gmtime_r(&now, &tm);
 
     SU_TRY_FAIL(new->prefix =
       strbuild(
