@@ -24,7 +24,7 @@
 #include <errno.h>
 #include <windows.h>
 
-SUPRIVATE dlfcn_error_state g_dlfcn_state;
+SUPRIVATE struct dlfcn_error_state g_dlfcn_state;
 
 SUPRIVATE void
 dl_set_last_error(const char *fmt, ...)
@@ -55,7 +55,7 @@ dlclose(void *handle)
 {
   int ret = 0;
 
-  if (!FreeLibrary(SCAST(HINSTANCE, handle))) {
+  if (!FreeLibrary(SUCAST(HINSTANCE, handle))) {
     dl_set_last_error("FreeLibrary: %s", GetLastError());
     ret = -1;
   }
@@ -69,8 +69,8 @@ dlsym(void *handle, const char *name)
   FARPROC proc;
   void *asPtr;
 
-  proc  = GetProcAddress(SCAST(HINSTANCE, handle), name);
-  asPtr = reinterpret_cast<void *>(proc);
+  proc  = GetProcAddress(SUCAST(HINSTANCE, handle), name);
+  asPtr = (void *)proc;
 
   if (asPtr == nullptr)
     dl_set_last_error("GetProcAddress: %s", GetLastError());
@@ -78,7 +78,7 @@ dlsym(void *handle, const char *name)
   return asPtr;
 }
 
-char *
+const char *
 dlerror()
 {
   const char *error = g_dlfcn_state.last_error;
