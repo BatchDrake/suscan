@@ -40,7 +40,7 @@
 #include <util/units.h>
 
 #if defined(_WIN32)
-#  define mkdir(path, mode) _mkdir(path)
+#  define mkdir(path, mode) mkdir(path)
 #endif /* defined(_WIN32) */
 
 /***************************** Spectrum integrator ****************************/
