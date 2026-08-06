@@ -39,6 +39,10 @@
 #include <util/npy.h>
 #include <util/units.h>
 
+#if defined(_WIN32)
+#  define mkdir(path, mode) _mkdir(path)
+#endif /* defined(_WIN32) */
+
 /***************************** Spectrum integrator ****************************/
 enum suscli_vector_integrator_type {
   SUSCLI_VECTOR_INTEGRATOR_LINEAR,
