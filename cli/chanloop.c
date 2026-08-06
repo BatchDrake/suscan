@@ -51,7 +51,7 @@ SUPRIVATE SUBOOL
 suscli_chanloop_set_gain(void *privdata, const char *name, SUFLOAT value)
 {
   suscan_analyzer_t *analyzer = privdata;
-
+  
   return suscan_analyzer_set_gain(analyzer, name, value);
 }
 
