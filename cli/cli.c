@@ -24,6 +24,7 @@
 #include <util/confdb.h>
 #include <util/compat.h>
 #include <string.h>
+#include <inttypes.h>
 #include <suscan.h>
 
 #include <cli/cli.h>

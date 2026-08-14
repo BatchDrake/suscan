@@ -27,6 +27,7 @@
 #include <cli/cmds.h>
 #include <unistd.h>
 #include <stddef.h>
+#include <inttypes.h>
 
 #define SUSCLI_DEVICE_DISCOVERY_TIMEOUT_SEC 2
 
